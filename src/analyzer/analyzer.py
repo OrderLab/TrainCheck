@@ -13,6 +13,16 @@ class Event:
     def __repr__(self) -> str:
         return self.event
 
+    def __hash__(self):
+        self_dict = json.loads(self.event)
+        self_dict.pop("process_id", None)
+        self_dict.pop("thread_id", None)
+        self_dict.pop("uuid", None)
+        return hash(json.dumps(self_dict, sort_keys=True))
+    
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+    
     def get_event(self):
         return self.event
 
@@ -49,6 +59,19 @@ class Trace:
         for pid in unique_processes:
             for tid in unique_threads:
                 result = self.analyze_local(tid, pid)
+                # dump this result for debugging
+                def default(o):
+                    if isinstance(o, set):
+                        return list(o)
+                    if isinstance(o, Event):
+                        return o.get_event()
+                    return o
+
+                # dump the invariants
+                with open(f"invariants_{pid}_{tid}.json", "w") as f:
+                    json.dump(result, f, indent=4, default=default)
+
+
                 for k, v in result.items():
                     if k in invariant_events_during_function_calls:
                         invariant_events_during_function_calls[k] = (
@@ -110,7 +133,7 @@ class Trace:
                 _, _, i_pre = stack_current_function_calls.pop()
 
                 # collect events between the function call pre and post events
-                events = self.events[i_pre : i + 1]
+                events = self.events[i_pre + 1 : i]
 
                 if event_dict["function"] in invariant_events_during_function_calls:
                     invariant_events_during_function_calls[event_dict["function"]] = (
@@ -162,3 +185,12 @@ if __name__ == "__main__":
     # create a trace object
     trace = Trace(trace_lines)
     trace.analyze()
+
+    # event1 = Event(
+    #     '{"process_id": 1, "thread_id": 1, "uuid": 1, "type": "function_call (pre)", "function": "foo"}'
+    # )
+    # event2 = Event(
+    #     '{"process_id": 1, "thread_id": 1, "uuid": 2, "type": "function_call (pre)", "function": "foo"}'
+    # )
+
+    # print(set([event1]).intersection(set([event2])))
