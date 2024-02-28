@@ -22,6 +22,15 @@ def global_wrapper(original_function, *args, **kwargs):
     # Get the thread ID
     thread_id = current_thread.ident
     process_id = os.getpid()
+    
+    func_name = original_function.__name__
+    if hasattr(original_function, "__module__"):
+        module_name = original_function.__module__
+    else:
+        module_name = "unknown"
+    
+    func_name = f"{module_name}.{func_name}"
+
 
     # logger_trace.info({'type': 'function_call (pre)', 'function': original_function.__name__, 'args': args, 'kwargs': kwargs})
     logger_trace.info(
@@ -31,7 +40,7 @@ def global_wrapper(original_function, *args, **kwargs):
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "type": "function_call (pre)",
-                "function": original_function.__name__,
+                "function": func_name,
             }
         )
     )
@@ -45,7 +54,7 @@ def global_wrapper(original_function, *args, **kwargs):
                     "thread_id": thread_id,
                     "process_id": process_id,
                     "type": "function_call (post) (exception)",
-                    "function": original_function.__name__,
+                    "function": func_name,
                     "exception": str(e),
                 }
             )
@@ -59,7 +68,7 @@ def global_wrapper(original_function, *args, **kwargs):
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "type": "function_call (post)",
-                "function": original_function.__name__,
+                "function": func_name,
             }
         )
     )

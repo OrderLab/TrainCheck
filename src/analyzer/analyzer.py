@@ -1,4 +1,5 @@
 import json
+import tqdm
 
 
 class Event:
@@ -56,6 +57,7 @@ class Trace:
         print(f"Num of threads: {len(unique_threads)}, Thread Ids: {unique_threads}")
 
         invariant_events_during_function_calls = {}
+        pbar = tqdm.tqdm(total=len(unique_processes) * len(unique_threads))
         for pid in unique_processes:
             for tid in unique_threads:
                 result = self.analyze_local(tid, pid)
@@ -79,6 +81,8 @@ class Trace:
                         )
                     else:
                         invariant_events_during_function_calls[k] = v
+                pbar.update(1)
+        pbar.close()
 
         return invariant_events_during_function_calls
 
@@ -94,6 +98,8 @@ class Trace:
 
         invariant_events_during_function_calls = {}
         stack_current_function_calls = []
+
+        pbar = tqdm.tqdm(total=len(self.events))
         for i, event in enumerate(self.events):
             # each event is a json string
             event_dict = json.loads(event.get_event())
@@ -150,6 +156,9 @@ class Trace:
                 state_variable_changes += 1
             elif event_dict["type"] == "exception":
                 exception_events += 1
+            
+            pbar.update(1)
+        pbar.close()
 
         print(
             f"function_call_pres: {function_call_pres}, function_call_posts: {function_call_posts}, state_variable_changes: {state_variable_changes}, exception_events: {exception_events}"
@@ -173,9 +182,21 @@ class TraceAnalyzer:
 
 
 if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Invariant Finder for ML Pipelines in Python"
+    )
+    parser.add_argument(
+        "--path",
+        type=str,
+        required=True,
+        help="Path to the trace file to be analyzed",
+    )
+    args = parser.parse_args()
+
     # read the trace from a file
     trace_lines = []
-    with open("log.txt", "r") as f:
+    with open(args.path, "r") as f:
         trace_lines = [
             Event(l.split(":trace:")[-1].strip())
             for l in f.readlines()
@@ -184,7 +205,18 @@ if __name__ == "__main__":
 
     # create a trace object
     trace = Trace(trace_lines)
-    trace.analyze()
+    result = trace.analyze()
+    
+    def default(o):
+        if isinstance(o, set):
+            return list(o)
+        if isinstance(o, Event):
+            return o.get_event()
+        return o
+
+    # dump the invariants
+    with open("invariants.json", "w") as f:
+        json.dump(result, f, indent=4, default=default)
 
     # event1 = Event(
     #     '{"process_id": 1, "thread_id": 1, "uuid": 1, "type": "function_call (pre)", "function": "foo"}'
