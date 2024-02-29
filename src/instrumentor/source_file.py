@@ -6,6 +6,33 @@ Methods for reading and instrumenting source files.
 """
 
 
+class InsertTracerVisitor(ast.NodeTransformer):
+    def get_instrument_node(self, module_name):
+        return ast.parse(
+            f"from src.instrumentor import tracer; tracer.instrumentor({module_name}).instrument()"
+        ).body
+
+    def visit_Import(self, node):
+        instrument_nodes = []
+        for n in node.names:
+            if n.asname:
+                instrument_nodes.append(self.get_instrument_node(n.asname))
+            else:
+                instrument_nodes.append(self.get_instrument_node(n.name))
+        # let's see if there are aliases, if yes, use them
+        # if not, let's use the module name directly
+        return [node] + instrument_nodes
+
+    def visit_ImportFrom(self, node):
+        instrument_nodes = []
+        for n in node.names:
+            if n.asname:
+                instrument_nodes.append(self.get_instrument_node(n.asname))
+            else:
+                instrument_nodes.append(self.get_instrument_node(node.module))
+        return [node] + instrument_nodes
+
+
 def instrument_source(source: str) -> str:
     """
     Instruments the given source code and returns the instrumented source code.
@@ -19,23 +46,10 @@ def instrument_source(source: str) -> str:
     # TODO: for each import statement, add `tracer.instrument(module_name)` after the import statement
     # if the module_name belongs to the list of modules to be instrumented as defined in the configuration file (user)
 
-    # let's first parse the source code
-    tree = ast.parse(source)
-
-    # walk the source code and find the import nodes
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            module = []
-        elif isinstance(node, ast.ImportFrom):
-            module = node.module.split(".")
-        else:
-            continue
-
-        for n in node.names:
-            # add the instrumentation code after the import statement
-            pass
-
-    # find model, dataloader and optimizer classes and instrument their methods
+    root = ast.parse(source)
+    visitor = InsertTracerVisitor()
+    root = visitor.visit(root)
+    source = ast.unparse(root)
 
     return source
 
