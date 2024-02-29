@@ -20,10 +20,10 @@ class Event:
         self_dict.pop("thread_id", None)
         self_dict.pop("uuid", None)
         return hash(json.dumps(self_dict, sort_keys=True))
-    
+
     def __eq__(self, other):
         return hash(self) == hash(other)
-    
+
     def get_event(self):
         return self.event
 
@@ -61,6 +61,7 @@ class Trace:
         for pid in unique_processes:
             for tid in unique_threads:
                 result = self.analyze_local(tid, pid)
+
                 # dump this result for debugging
                 def default(o):
                     if isinstance(o, set):
@@ -72,7 +73,6 @@ class Trace:
                 # dump the invariants
                 with open(f"invariants_{pid}_{tid}.json", "w") as f:
                     json.dump(result, f, indent=4, default=default)
-
 
                 for k, v in result.items():
                     if k in invariant_events_during_function_calls:
@@ -156,7 +156,7 @@ class Trace:
                 state_variable_changes += 1
             elif event_dict["type"] == "exception":
                 exception_events += 1
-            
+
             pbar.update(1)
         pbar.close()
 
@@ -183,6 +183,7 @@ class TraceAnalyzer:
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(
         description="Invariant Finder for ML Pipelines in Python"
     )
@@ -206,7 +207,7 @@ if __name__ == "__main__":
     # create a trace object
     trace = Trace(trace_lines)
     result = trace.analyze()
-    
+
     def default(o):
         if isinstance(o, set):
             return list(o)
