@@ -76,9 +76,9 @@ class Trace:
 
                 for k, v in result.items():
                     if k in invariant_events_during_function_calls:
-                        invariant_events_during_function_calls[k] = (
-                            invariant_events_during_function_calls[k].intersection(v)
-                        )
+                        invariant_events_during_function_calls[
+                            k
+                        ] = invariant_events_during_function_calls[k].intersection(v)
                     else:
                         invariant_events_during_function_calls[k] = v
                 pbar.update(1)
@@ -142,15 +142,17 @@ class Trace:
                 events = self.events[i_pre + 1 : i]
 
                 if event_dict["function"] in invariant_events_during_function_calls:
-                    invariant_events_during_function_calls[event_dict["function"]] = (
-                        invariant_events_during_function_calls[
-                            event_dict["function"]
-                        ].intersection(set(events))
-                    )
-                else:
-                    invariant_events_during_function_calls[event_dict["function"]] = (
+                    invariant_events_during_function_calls[
+                        event_dict["function"]
+                    ] = invariant_events_during_function_calls[
+                        event_dict["function"]
+                    ].intersection(
                         set(events)
                     )
+                else:
+                    invariant_events_during_function_calls[
+                        event_dict["function"]
+                    ] = set(events)
 
             elif event_dict["type"] == "state_variable_change":
                 state_variable_changes += 1

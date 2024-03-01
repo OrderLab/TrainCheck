@@ -28,13 +28,21 @@ if __name__ == "__main__":
         action="store_true",
         help="print the log related to instrumentation",
     )
+    parser.add_argument(
+        "-t",
+        "--modules_to_instrument",
+        nargs="*",
+        help="Modules to be instrumented",
+        default=instrumentor.MODULES_TO_INSTRUMENT,
+    )
+
     args = parser.parse_args()
 
     # set up logging
     logging.basicConfig(level=logging.INFO)
 
     # call into the instrumentor
-    source_code = instrumentor.instrument_file(args.path)
+    source_code = instrumentor.instrument_file(args.path, args.modules_to_instrument, args.print_instr)
 
     if args.only_instrument:
         print(source_code)

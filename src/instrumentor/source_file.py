@@ -1,5 +1,9 @@
 import ast
 from collections import namedtuple
+from CONSTANTS import MODULES_TO_INSTRUMENT
+import logging
+
+logger = logging.getLogger(__name__)
 
 """
 Methods for reading and instrumenting source files.
@@ -7,6 +11,16 @@ Methods for reading and instrumenting source files.
 
 
 class InsertTracerVisitor(ast.NodeTransformer):
+    def __init__(self, modules_to_instrument: list[str]):
+        super().__init__()
+        if not modules_to_instrument:
+            logger.warning(
+                "modules_to_instrument is empty, not instrumenting any module."
+            )
+            self.modules_to_instrument = []
+        else:
+            self.modules_to_instrument = modules_to_instrument
+
     def get_instrument_node(self, module_name):
         return ast.parse(
             f"from src.instrumentor import tracer; tracer.instrumentor({module_name}).instrument()"
@@ -15,6 +29,14 @@ class InsertTracerVisitor(ast.NodeTransformer):
     def visit_Import(self, node):
         instrument_nodes = []
         for n in node.names:
+            if not (
+                n.name in self.modules_to_instrument
+                or n.name.split(".")[0] in self.modules_to_instrument
+            ):
+                logger.debug(
+                    f"Skipping module {n.name} as it is not in the list of modules to instrument: {self.modules_to_instrument}."
+                )
+                continue
             if n.asname:
                 instrument_nodes.append(self.get_instrument_node(n.asname))
             else:
@@ -26,6 +48,15 @@ class InsertTracerVisitor(ast.NodeTransformer):
     def visit_ImportFrom(self, node):
         instrument_nodes = []
         for n in node.names:
+            if not (
+                node.module in self.modules_to_instrument
+                or node.module.split(".")[0] in self.modules_to_instrument
+            ):
+                logger.debug(
+                    f"Skipping module {node.module} as it is not in the list of modules to instrument: {self.modules_to_instrument}."
+                )
+                continue
+
             if n.asname:
                 instrument_nodes.append(self.get_instrument_node(n.asname))
             else:
@@ -33,28 +64,29 @@ class InsertTracerVisitor(ast.NodeTransformer):
         return [node] + instrument_nodes
 
 
-def instrument_source(source: str) -> str:
+def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
     """
     Instruments the given source code and returns the instrumented source code.
+
+    **Note**: if a submodule is to be instrumented, the parent module will also be instrumented.
+
     """
-    # XXX: This is a dummy implementation. Replace this with the actual implementation.
-    # TODO: please look into this https://github.com/harshitandro/Python-Instrumentation for possible implementation
-
-    # find the lines where torch related modules are imported
-    # TODO: add logging config code to the beginning of the file
-    # TODO: add `from src.instrumentor import tracer` to the beginning of the file
-    # TODO: for each import statement, add `tracer.instrument(module_name)` after the import statement
-    # if the module_name belongs to the list of modules to be instrumented as defined in the configuration file (user)
-
     root = ast.parse(source)
-    visitor = InsertTracerVisitor()
+
+    if modules_to_instrument is None:
+        logger.warning(
+            f"modules_to_instrument not provided. Using default value CONSTANTS.MODULES_TO_INSTRUMENT: {modules_to_instrument}."
+        )
+        modules_to_instrument = MODULES_TO_INSTRUMENT
+
+    visitor = InsertTracerVisitor(modules_to_instrument)
     root = visitor.visit(root)
     source = ast.unparse(root)
 
     return source
 
 
-def instrument_file(path: str) -> str:
+def instrument_file(path: str, modules_to_instrument: list[str]) -> str:
     """
     Instruments the given file and returns the instrumented source code.
     """
@@ -62,7 +94,7 @@ def instrument_file(path: str) -> str:
     with open(path, "r") as file:
         source = file.read()
     # instrument the source code
-    instrumented_source = instrument_source(source)
+    instrumented_source = instrument_source(source, modules_to_instrument)
     return instrumented_source
 
 
@@ -70,21 +102,36 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Instrumentor for ML Pipelines in Python"
+        description="Source File Instrumentor for ML Pipelines in Python"
     )
     parser.add_argument(
+        "-p",
         "--path",
         type=str,
         required=True,
         help="Path to the source file to be instrumented",
     )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        help="Print debug logs",
+    )
+    parser.add_argument(
+        "-t",
+        "--modules_to_instrument",
+        nargs="*",
+        help="Modules to be instrumented",
+        default=MODULES_TO_INSTRUMENT,
+    )
+
     args = parser.parse_args()
 
-    # instrument the source file
-    instrumented_source = instrument_file(args.path)
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
-    # write the instrumented source code to a new file
-    with open(args.path, "w") as file:
-        file.write(instrumented_source)
-    print(f"Instrumented source code written to {args.path}")
-    pass
+    # instrument the source file
+    instrumented_source = instrument_file(args.path, args.modules_to_instrument)
+    print(instrumented_source)
