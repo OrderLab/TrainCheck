@@ -42,7 +42,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # call into the instrumentor
-    source_code = instrumentor.instrument_file(args.path, args.modules_to_instrument, args.print_instr)
+    source_code, log_file = instrumentor.instrument_file(args.path, args.modules_to_instrument)
 
     if args.only_instrument:
         print(source_code)
@@ -50,18 +50,20 @@ if __name__ == "__main__":
 
     # call into the program runner
     program_runner = runner.ProgramRunner(source_code)
-    log = program_runner.run()
+    program_output = program_runner.run()
 
     # dump the log
-    with open("log.txt", "w") as f:
-        f.write(log)
+    with open("program_output.txt", "w") as f:
+        f.write(program_output)
 
-    # ad-hoc preprocessing step to convert trace into a list of events
-    trace_lines = [
-        analyzer.Event(l.split(":trace:")[-1].strip())
-        for l in log.split("\n")
-        if l.startswith("INFO:trace:") or l.startswith("ERROR:trace:")
-    ]
+    with open(log_file, "r") as f:
+        log = f.read()
+        # ad-hoc preprocessing step to convert trace into a list of events
+        trace_lines = [
+            analyzer.Event(l.split(":trace:")[-1].strip())
+            for l in log.split("\n")
+            if l.startswith("INFO:trace:") or l.startswith("ERROR:trace:")
+        ]
 
     # call into the trace analyzer
     trace = analyzer.Trace(trace_lines)

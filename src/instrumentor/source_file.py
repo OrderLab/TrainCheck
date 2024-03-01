@@ -1,6 +1,12 @@
 import ast
+import os
+
 from collections import namedtuple
-from CONSTANTS import MODULES_TO_INSTRUMENT
+
+if __name__ == "__main__":
+    from CONSTANTS import MODULES_TO_INSTRUMENT
+else:
+    from .CONSTANTS import MODULES_TO_INSTRUMENT
 import logging
 
 logger = logging.getLogger(__name__)
@@ -86,7 +92,7 @@ def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
     return source
 
 
-def instrument_file(path: str, modules_to_instrument: list[str]) -> str:
+def instrument_file(path: str, modules_to_instrument: list[str]) -> tuple[str, str]:
     """
     Instruments the given file and returns the instrumented source code.
     """
@@ -95,7 +101,21 @@ def instrument_file(path: str, modules_to_instrument: list[str]) -> str:
         source = file.read()
     # instrument the source code
     instrumented_source = instrument_source(source, modules_to_instrument)
-    return instrumented_source
+
+    logging_file = os.path.basename(path).split(".")[0] + "_ml_daikon.log"
+    # attaching logging configs to the instrumented source TODO: need to replace the original logging config / figure out how to avoid interference
+    logging_code = f"""
+
+import logging
+logging.basicConfig(level=logging.INFO,
+    handlers=[logging.FileHandler(\"{logging_file}\")]
+)
+
+"""
+    # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
+    instrumented_source = instrumented_source.split('\n')[0] + logging_code + "\n".join(instrumented_source.split('\n')[1:])
+
+    return instrumented_source, logging_file
 
 
 if __name__ == "__main__":

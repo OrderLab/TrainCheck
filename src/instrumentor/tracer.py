@@ -8,15 +8,10 @@ import sys
 import json
 import uuid
 import threading
+import datetime
 
-
-logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-logger = logging.getLogger(__name__)
+logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
-
-# TODO: dump these logs to a file instead of stdout
-# TODO: implement test to ensure that the instrumentor does not affect the correctness of the code
-
 
 def global_wrapper(original_function, *args, **kwargs):
     func_id = str(uuid.uuid4())
@@ -113,17 +108,17 @@ class instrumentor:
 
     def _instrument(self, pymodule: types.ModuleType, depth=0):
         if pymodule in instrumented_modules or pymodule in skipped_modules:
-            logger.info(f"Depth: {depth}, Skipping module: {pymodule.__name__}")
+            logger_instrumentation.info(f"Depth: {depth}, Skipping module: {pymodule.__name__}")
             return 0
 
-        logger.info(f"Depth: {depth}, Instrumenting module: {pymodule.__name__}")
+        logger_instrumentation.info(f"Depth: {depth}, Instrumenting module: {pymodule.__name__}")
         instrumented_modules.add(pymodule)
 
         count_wrapped = 0
         for attr_name in dir(pymodule):
             if not hasattr(pymodule, attr_name):
                 # handle __abstractmethods__ attribute
-                logger.info(
+                logger_instrumentation.info(
                     f"Depth: {depth}, Skipping attribute as it does not exist: {attr_name}"
                 )
                 continue
@@ -133,7 +128,7 @@ class instrumentor:
             )  # getattr(pymodule, attr_name)
 
             if attr is None:
-                logger.info(
+                logger_instrumentation.info(
                     f"Depth: {depth}, Skipping attribute as it is None: {attr_name}"
                 )
                 """
@@ -145,7 +140,7 @@ class instrumentor:
 
             # skip private attributes
             if attr_name.startswith("__"):
-                logger.info(f"Depth: {depth}, Skipping magic functions: {attr_name}")
+                logger_instrumentation.info(f"Depth: {depth}, Skipping magic functions: {attr_name}")
                 if isinstance(attr, types.FunctionType):
                     skipped_functions.add(attr)
                 elif isinstance(attr, types.ModuleType):
@@ -203,52 +198,52 @@ class instrumentor:
                 attr, types.BuiltinFunctionType
             ):
                 if attr in skipped_functions:
-                    logger.info(f"Depth: {depth}, Skipping function: {attr_name}")
+                    logger_instrumentation.info(f"Depth: {depth}, Skipping function: {attr_name}")
                     continue
 
-                logger.info(f"Instrumenting function: {attr_name}")
+                logger_instrumentation.info(f"Instrumenting function: {attr_name}")
                 wrapped = wrapper(attr)
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
                     # handling immutable types and attrs that have no setters
-                    logger.info(
+                    logger_instrumentation.info(
                         f"Depth: {depth}, Skipping function {attr_name} due to error: {e}"
                     )
                     continue
                 count_wrapped += 1
             elif isinstance(attr, types.ModuleType):
                 if attr.__name__ in modules_to_skip:
-                    logger.info(
+                    logger_instrumentation.info(
                         f"Depth: {depth}, Skipping module due to modules_to_skip: {attr_name}"
                     )
                     continue
 
                 if attr in skipped_modules:
-                    logger.info(f"Depth: {depth}, Skipping module: {attr_name}")
+                    logger_instrumentation.info(f"Depth: {depth}, Skipping module: {attr_name}")
                     continue
                 if not attr.__name__.startswith(
                     self.root_module
                 ):  # TODO: refine the logic of how to rule out irrelevant modules
-                    logger.info(
+                    logger_instrumentation.info(
                         f"Depth: {depth}, Skipping module due to irrelevant name:{attr_name}"
                     )
                     skipped_modules.add(attr)
                     continue
 
-                logger.info(f"Depth: {depth}, Recursing into module: {attr_name}")
+                logger_instrumentation.info(f"Depth: {depth}, Recursing into module: {attr_name}")
                 count_wrapped += self._instrument(attr, depth + 1)
 
             elif inspect.isclass(attr):
-                logger.info(f"Depth: {depth}, Recursing into class: {attr_name}")
+                logger_instrumentation.info(f"Depth: {depth}, Recursing into class: {attr_name}")
                 if not attr.__module__.startswith(self.root_module):
-                    logger.info(
+                    logger_instrumentation.info(
                         f"Depth: {depth}, Skipping class {attr_name} due to irrelevant module: {attr.__module__}"
                     )
                     continue
                 count_wrapped += self._instrument(attr, depth + 1)
 
-        logger.info(
+        logger_instrumentation.info(
             f"Depth: {depth}, Wrapped {count_wrapped} functions in module {pymodule.__name__}"
         )
         return count_wrapped
