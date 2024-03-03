@@ -2,9 +2,10 @@ import subprocess
 
 
 class ProgramRunner(object):
-    def __init__(self, source_code: str):
+    def __init__(self, source_code: str, parent_folder_path: str):
         self.source_code = source_code
         self._tmp_file_name = "_temp.py"  # TODO: generate a random file name
+        self.parent_folder_path = parent_folder_path
 
     def run(self) -> str:
         """
@@ -19,6 +20,7 @@ class ProgramRunner(object):
             ["python3", self._tmp_file_name],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env={"PYTHONPATH": self.parent_folder_path},
         )
         out, err = process.communicate()
 

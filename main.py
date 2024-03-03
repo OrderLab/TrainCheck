@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import os
 
 
 import src.instrumentor as instrumentor
@@ -42,14 +43,18 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # call into the instrumentor
-    source_code, log_file = instrumentor.instrument_file(args.path, args.modules_to_instrument)
+    source_code, log_file = instrumentor.instrument_file(
+        args.path, args.modules_to_instrument
+    )
 
     if args.only_instrument:
         print(source_code)
         exit()
 
     # call into the program runner
-    program_runner = runner.ProgramRunner(source_code)
+    program_runner = runner.ProgramRunner(
+        source_code, os.path.abspath(os.path.dirname(args.path))
+    )
     program_output = program_runner.run()
 
     # dump the log
