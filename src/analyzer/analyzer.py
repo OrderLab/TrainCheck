@@ -1,4 +1,5 @@
 import json
+
 import tqdm
 
 
@@ -76,9 +77,9 @@ class Trace:
 
                 for k, v in result.items():
                     if k in invariant_events_during_function_calls:
-                        invariant_events_during_function_calls[
-                            k
-                        ] = invariant_events_during_function_calls[k].intersection(v)
+                        invariant_events_during_function_calls[k] = (
+                            invariant_events_during_function_calls[k].intersection(v)
+                        )
                     else:
                         invariant_events_during_function_calls[k] = v
                 pbar.update(1)
@@ -142,17 +143,15 @@ class Trace:
                 events = self.events[i_pre + 1 : i]
 
                 if event_dict["function"] in invariant_events_during_function_calls:
-                    invariant_events_during_function_calls[
-                        event_dict["function"]
-                    ] = invariant_events_during_function_calls[
-                        event_dict["function"]
-                    ].intersection(
-                        set(events)
+                    invariant_events_during_function_calls[event_dict["function"]] = (
+                        invariant_events_during_function_calls[
+                            event_dict["function"]
+                        ].intersection(set(events))
                     )
                 else:
-                    invariant_events_during_function_calls[
-                        event_dict["function"]
-                    ] = set(events)
+                    invariant_events_during_function_calls[event_dict["function"]] = (
+                        set(events)
+                    )
 
             elif event_dict["type"] == "state_variable_change":
                 state_variable_changes += 1
@@ -201,9 +200,9 @@ if __name__ == "__main__":
     trace_lines = []
     with open(args.path, "r") as f:
         trace_lines = [
-            Event(l.split(":trace:")[-1].strip())
-            for l in f.readlines()
-            if l.startswith("INFO:trace:") or l.startswith("ERROR:trace:")
+            Event(line.split(":trace:")[-1].strip())
+            for line in f.readlines()
+            if line.startswith("INFO:trace:") or line.startswith("ERROR:trace:")
         ]
 
     # create a trace object

@@ -1,1 +1,1 @@
-from .analyzer import *
+from .analyzer import *  # noqa: F403
