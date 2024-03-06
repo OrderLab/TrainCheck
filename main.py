@@ -3,11 +3,9 @@ import json
 import logging
 import os
 
-
+import src.analyzer as analyzer
 import src.instrumentor as instrumentor
 import src.runner as runner
-import src.analyzer as analyzer
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -65,9 +63,9 @@ if __name__ == "__main__":
         log = f.read()
         # ad-hoc preprocessing step to convert trace into a list of events
         trace_lines = [
-            analyzer.Event(l.split(":trace:")[-1].strip())
-            for l in log.split("\n")
-            if l.startswith("INFO:trace:") or l.startswith("ERROR:trace:")
+            analyzer.Event(line.split(":trace:")[-1].strip())
+            for line in log.split("\n")
+            if line.startswith("INFO:trace:") or line.startswith("ERROR:trace:")
         ]
 
     # call into the trace analyzer

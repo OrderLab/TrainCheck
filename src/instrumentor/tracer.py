@@ -1,17 +1,17 @@
-import types
-import inspect
 import functools
-import torch
+import inspect
+import json
 import logging
 import os
-import sys
-import json
-import uuid
 import threading
-import datetime
+import types
+import uuid
+
+import torch
 
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
+
 
 def global_wrapper(original_function, *args, **kwargs):
     func_id = str(uuid.uuid4())
@@ -89,7 +89,7 @@ modules_to_skip = ["torch.fx"]
 
 
 class instrumentor:
-    def __init__(self, target):
+    def __init__(self, target: types.ModuleType | type | types.FunctionType):
         if isinstance(target, types.ModuleType):
             self.root_module = target.__name__.split(".")[0]
         elif inspect.isclass(target):
@@ -105,13 +105,18 @@ class instrumentor:
 
     def instrument(self):
         instrumented_count = self._instrument(self.target)
+        return instrumented_count
 
-    def _instrument(self, pymodule: types.ModuleType, depth=0):
+    def _instrument(self, pymodule: types.ModuleType | type, depth=0):
         if pymodule in instrumented_modules or pymodule in skipped_modules:
-            logger_instrumentation.info(f"Depth: {depth}, Skipping module: {pymodule.__name__}")
+            logger_instrumentation.info(
+                f"Depth: {depth}, Skipping module: {pymodule.__name__}"
+            )
             return 0
 
-        logger_instrumentation.info(f"Depth: {depth}, Instrumenting module: {pymodule.__name__}")
+        logger_instrumentation.info(
+            f"Depth: {depth}, Instrumenting module: {pymodule.__name__}"
+        )
         instrumented_modules.add(pymodule)
 
         count_wrapped = 0
@@ -140,7 +145,9 @@ class instrumentor:
 
             # skip private attributes
             if attr_name.startswith("__"):
-                logger_instrumentation.info(f"Depth: {depth}, Skipping magic functions: {attr_name}")
+                logger_instrumentation.info(
+                    f"Depth: {depth}, Skipping magic functions: {attr_name}"
+                )
                 if isinstance(attr, types.FunctionType):
                     skipped_functions.add(attr)
                 elif isinstance(attr, types.ModuleType):
@@ -198,7 +205,9 @@ class instrumentor:
                 attr, types.BuiltinFunctionType
             ):
                 if attr in skipped_functions:
-                    logger_instrumentation.info(f"Depth: {depth}, Skipping function: {attr_name}")
+                    logger_instrumentation.info(
+                        f"Depth: {depth}, Skipping function: {attr_name}"
+                    )
                     continue
 
                 logger_instrumentation.info(f"Instrumenting function: {attr_name}")
@@ -220,7 +229,9 @@ class instrumentor:
                     continue
 
                 if attr in skipped_modules:
-                    logger_instrumentation.info(f"Depth: {depth}, Skipping module: {attr_name}")
+                    logger_instrumentation.info(
+                        f"Depth: {depth}, Skipping module: {attr_name}"
+                    )
                     continue
                 if not attr.__name__.startswith(
                     self.root_module
@@ -231,11 +242,15 @@ class instrumentor:
                     skipped_modules.add(attr)
                     continue
 
-                logger_instrumentation.info(f"Depth: {depth}, Recursing into module: {attr_name}")
+                logger_instrumentation.info(
+                    f"Depth: {depth}, Recursing into module: {attr_name}"
+                )
                 count_wrapped += self._instrument(attr, depth + 1)
 
             elif inspect.isclass(attr):
-                logger_instrumentation.info(f"Depth: {depth}, Recursing into class: {attr_name}")
+                logger_instrumentation.info(
+                    f"Depth: {depth}, Recursing into class: {attr_name}"
+                )
                 if not attr.__module__.startswith(self.root_module):
                     logger_instrumentation.info(
                         f"Depth: {depth}, Skipping class {attr_name} due to irrelevant module: {attr.__module__}"

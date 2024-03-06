@@ -1,8 +1,6 @@
 import ast
 import os
 
-from collections import namedtuple
-
 if __name__ == "__main__":
     from CONSTANTS import MODULES_TO_INSTRUMENT
 else:
@@ -113,7 +111,11 @@ logging.basicConfig(level=logging.INFO,
 
 """
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
-    instrumented_source = instrumented_source.split('\n')[0] + logging_code + "\n".join(instrumented_source.split('\n')[1:])
+    instrumented_source = (
+        instrumented_source.split("\n")[0]
+        + logging_code
+        + "\n".join(instrumented_source.split("\n")[1:])
+    )
 
     return instrumented_source, logging_file
 
