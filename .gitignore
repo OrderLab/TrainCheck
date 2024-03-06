@@ -1,2 +1,7 @@
 __pycache__
 .vscode
+data
+log*
+*tfevents*
+.*cache*
+*temp*
