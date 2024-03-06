@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 
 class ProgramRunner(object):
@@ -6,6 +7,7 @@ class ProgramRunner(object):
         self.source_code = source_code
         self._tmp_file_name = "_temp.py"  # TODO: generate a random file name
         self.parent_folder_path = parent_folder_path
+        self.python = sys.executable
 
     def run(self) -> str:
         """
@@ -20,11 +22,13 @@ class ProgramRunner(object):
             ["python3", self._tmp_file_name],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            env={"PYTHONPATH": self.parent_folder_path},
+            # env={"PYTHONPATH": self.parent_folder_path},
         )
         out, err = process.communicate()
 
         if process.returncode != 0:
+            # dump the output to the console
+            print(out.decode("utf-8"))
             raise Exception(err.decode("utf-8"))
         # print(out, err)
 
