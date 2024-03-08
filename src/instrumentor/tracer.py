@@ -80,6 +80,25 @@ def wrapper(original_function):
     return wrapped
 
 
+def init_wrapper(original_init):
+    @functools.wraps(original_init)
+    def wrapped_init(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        if not hasattr(self, '_post_init_hook_ran'):
+            logging.info(
+                json.dumps(
+                    {
+                        "type": "post_init_hook",
+                        "class": self.__class__.__name__,
+                        "args": args,
+                        "kwargs": kwargs,
+                    }
+                )
+            )
+            setattr(self, '_post_init_hook_ran', True)
+    return wrapped_init
+
+
 instrumented_modules = set()
 skipped_modules = set()
 skipped_functions = set()
@@ -210,7 +229,8 @@ class instrumentor:
                     )
                     continue
 
-                logger_instrumentation.info(f"Instrumenting function: {attr_name}")
+                logger_instrumentation.info(
+                    f"Instrumenting function: {attr_name}")
                 wrapped = wrapper(attr)
                 try:
                     setattr(pymodule, attr_name, wrapped)
@@ -257,7 +277,7 @@ class instrumentor:
                     )
                     continue
                 count_wrapped += self._instrument(attr, depth + 1)
-
+                
         logger_instrumentation.info(
             f"Depth: {depth}, Wrapped {count_wrapped} functions in module {pymodule.__name__}"
         )
