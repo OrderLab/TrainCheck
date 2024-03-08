@@ -276,6 +276,10 @@ class instrumentor:
                         f"Depth: {depth}, Skipping class {attr_name} due to irrelevant module: {attr.__module__}"
                     )
                     continue
+                if hasattr(attr, '__init__'):
+                    original_init = attr.__init__
+                    wrapped_init = init_wrapper(original_init)
+                    setattr(attr, '__init__', wrapped_init)
                 count_wrapped += self._instrument(attr, depth + 1)
                 
         logger_instrumentation.info(
