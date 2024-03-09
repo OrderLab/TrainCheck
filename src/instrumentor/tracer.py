@@ -80,22 +80,39 @@ def wrapper(original_function):
     return wrapped
 
 
+EXCLUDED_CLASSES = (torch.utils.data._utils.worker.WorkerInfo,)
+
+import json
+import types
+
 def init_wrapper(original_init):
     @functools.wraps(original_init)
     def wrapped_init(self, *args, **kwargs):
-        original_init(self, *args, **kwargs)
-        if not hasattr(self, '_post_init_hook_ran'):
-            logging.info(
-                json.dumps(
-                    {
-                        "type": "post_init_hook",
+        if isinstance(self, EXCLUDED_CLASSES):
+            original_init(self, *args, **kwargs)
+            return
+        
+        if original_init is object.__init__:
+            original_init(self) 
+        else:
+            original_init(self, *args, **kwargs)
+        
+        try:
+            if not hasattr(self, '_post_init_hook_ran'):
+                logger_trace.info(
+                    json.dumps({
+                        "thread_id": threading.current_thread().ident,
+                        "process_id": os.getpid(),
+                        "type": "class_init",
                         "class": self.__class__.__name__,
-                        "args": args,
-                        "kwargs": kwargs,
-                    }
+                        "init_params": "TODO"
+                    })
                 )
-            )
-            setattr(self, '_post_init_hook_ran', True)
+                logger_instrumentation.info("Running post_init_hook")
+                setattr(self, '_post_init_hook_ran', True)
+        except AttributeError:
+            pass
+
     return wrapped_init
 
 
