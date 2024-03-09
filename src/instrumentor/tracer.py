@@ -279,7 +279,13 @@ class instrumentor:
                 if hasattr(attr, '__init__'):
                     original_init = attr.__init__
                     wrapped_init = init_wrapper(original_init)
-                    setattr(attr, '__init__', wrapped_init)
+                    try:
+                        setattr(attr, '__init__', wrapped_init)
+                    except Exception as e:
+                        logger_instrumentation.info(
+                            f"Depth: {depth}, Skipping class {attr_name} due to error: {e}"
+                        )
+                        continue
                 count_wrapped += self._instrument(attr, depth + 1)
                 
         logger_instrumentation.info(
