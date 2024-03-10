@@ -79,39 +79,52 @@ def wrapper(original_function):
 
     return wrapped
 
-
 EXCLUDED_CLASSES = (torch.utils.data._utils.worker.WorkerInfo,)
 
-import json
-import types
+def safe_serialize(obj):
+    """Include custom serialization logic to handle parameters that cannot be serialized by json.dumps"""
+    try:
+        if isinstance(obj, torch.Tensor):
+            return f"Tensor(shape={obj.size()}, dtype={obj.dtype})"
+        return json.dumps(obj) 
+    except TypeError:
+        return str(type(obj))
 
 def init_wrapper(original_init):
     @functools.wraps(original_init)
     def wrapped_init(self, *args, **kwargs):
-        if isinstance(self, EXCLUDED_CLASSES):
-            original_init(self, *args, **kwargs)
-            return
-        
-        if original_init is object.__init__:
-            original_init(self) 
+
+        if isinstance(self, torch._ops._OpNamespace):
+            # Directly call the original __init__ for _OpNamespace with expected arguments
+            # This is a hard-coded case for _OpNamespace, which expects a 'name' positional argument :(
+            if args:
+                result = original_init(self, *args)
+            else:
+                logging.error(f"Missing 'name' argument for _OpNamespace initialization")
+                return None
         else:
-            original_init(self, *args, **kwargs)
-        
-        try:
-            if not hasattr(self, '_post_init_hook_ran'):
-                logger_trace.info(
-                    json.dumps({
-                        "thread_id": threading.current_thread().ident,
-                        "process_id": os.getpid(),
-                        "type": "class_init",
-                        "class": self.__class__.__name__,
-                        "init_params": "TODO"
-                    })
-                )
-                logger_instrumentation.info("Running post_init_hook")
-                setattr(self, '_post_init_hook_ran', True)
-        except AttributeError:
-            pass
+            # General case for other classes
+            try:
+                result = original_init(self, *args, **kwargs)
+            except Exception as e:
+                logging.error(f"Error in __init__ of {self.__class__.__name__}: {e}")
+                logging.error(f"Args: {args}")
+                logging.error(f"Kwargs: {kwargs}")
+                return None
+            
+        if not isinstance(self, torch._ops._OpNamespace):
+            serialized_args = [safe_serialize(arg) for arg in args]
+            serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
+            logger_trace.info(json.dumps({
+                "thread_id": threading.current_thread().ident,
+                "process_id": os.getpid(),
+                "type": "class_init",
+                "class": self.__class__.__name__,
+                "args": serialized_args,
+                "kwargs": serialized_kwargs
+            }))
+
+        return result
 
     return wrapped_init
 
@@ -122,7 +135,6 @@ skipped_functions = set()
 
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
 modules_to_skip = ["torch.fx"]
-
 
 class instrumentor:
     def __init__(self, target: types.ModuleType | type | types.FunctionType):
@@ -245,7 +257,7 @@ class instrumentor:
                         f"Depth: {depth}, Skipping function: {attr_name}"
                     )
                     continue
-
+                
                 logger_instrumentation.info(
                     f"Instrumenting function: {attr_name}")
                 wrapped = wrapper(attr)
@@ -332,7 +344,7 @@ class StateVarObserver:
         # Check if there is any change in the model parameters
         for name in self.current_state:
             if not torch.equal(self.current_state[name], self.model.state_dict()[name]):
-                # logger_trace.info(f"State variable {name} has changed")
+                logger_trace.info(f"State variable {name} has changed")
                 logger_trace.info(
                     json.dumps(
                         {
