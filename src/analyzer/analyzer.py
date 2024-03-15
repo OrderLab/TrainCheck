@@ -51,7 +51,7 @@ class Trace:
     A trace is a sequence of events that occurred during the execution of a program.
     """
 
-    def __init__(self, events: list[Event]) -> None:
+    def __init__(self, events: 'list[Event]') -> None:
         self.events = events
         self.event_per_pt: dict[process_and_thread, list[Event]] = {}  # pt: pid, tid
         for event in events:
@@ -187,7 +187,7 @@ class Trace:
 
 
 class TraceAnalyzer:
-    def __init__(self, traces: list[Trace]) -> None:
+    def __init__(self, traces: 'list[Trace]') -> None:
         self.traces = traces
         pass
 

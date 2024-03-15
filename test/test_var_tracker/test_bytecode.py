@@ -20,6 +20,8 @@ def test():
     global tensor_dict
     
     tensor_dict = torch.__dict__
+    torch.new_attribute = "new value" # track tensor_dict
+    torch.new_attribute = "new value2" # track tensor_dict
     
     # track tensor
     global tensor
@@ -33,3 +35,5 @@ def test():
 instr_monitor_var(test, 'tensor_dict')
 instr_monitor_var(test, 'tensor')
 test()
+
+statevarobserver observedfunc 

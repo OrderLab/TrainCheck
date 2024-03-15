@@ -38,9 +38,9 @@ class Proxy:
         del self._obj[key]
 
 
-# Replace the module's __dict__ attribute with the Proxy class
-# torch.__dict__ = Proxy(torch.__dict__)
-json.__dict__ = Proxy(json.__dict__)
+# # Replace the module's __dict__ attribute with the Proxy class
+# # torch.__dict__ = Proxy(torch.__dict__)
+# json.__dict__ = Proxy(json.__dict__)
 
 # Example usage
 # Accessing attributes through the proxy
