@@ -14,6 +14,7 @@ logger_trace = logging.getLogger("trace")
 
 meta_vars: dict[str, object] = {}
 
+
 def global_wrapper(original_function, *args, **kwargs):
     func_id = str(uuid.uuid4())
     # Get the current thread object
