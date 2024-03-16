@@ -89,33 +89,51 @@ modules_to_skip = ["torch.fx"]
 
 
 class instrumentor:
-    def __init__(self, target: types.ModuleType | type | types.FunctionType):
+    def __init__(
+        self,
+        target: (
+            types.ModuleType
+            | type
+            | types.FunctionType
+            | types.BuiltinFunctionType
+            | types.BuiltinMethodType
+        ),
+    ):
         if isinstance(target, types.ModuleType):
             self.root_module = target.__name__.split(".")[0]
         elif inspect.isclass(target):
             self.root_module = target.__module__.split(".")[0]
-        elif isinstance(target, types.FunctionType):
-            self.root_module = target.__module__.split(".")[0]
+        elif callable(target):
+            raise ValueError(
+                """Unsupported target type. This instrumentor does not support function, 
+                due to inability to swap the original function with the wrapper function 
+                in the namespace. However, you can use the wrapper function directly by 
+                setting 
+                    `func = wrapper(func)`
+                """
+            )
         else:
             raise ValueError(
-                "Unsupported target type. This instrumentor only supports module, class, and function."
+                "Unsupported target type. This instrumentor only supports module, class."
             )
         self.instrumented_count = 0
         self.target = target
 
     def instrument(self):
-        instrumented_count = self._instrument(self.target)
-        return instrumented_count
+        self.instrumented_count = self._instrument_module(self.target)
+        return self.instrumented_count
 
-    def _instrument(self, pymodule: types.ModuleType | type, depth=0):
+    def _instrument_module(self, pymodule: types.ModuleType | type, depth=0):
+        target_name = pymodule.__name__
+
         if pymodule in instrumented_modules or pymodule in skipped_modules:
             logger_instrumentation.info(
-                f"Depth: {depth}, Skipping module: {pymodule.__name__}"
+                f"Depth: {depth}, Skipping module: {target_name}"
             )
             return 0
 
         logger_instrumentation.info(
-            f"Depth: {depth}, Instrumenting module: {pymodule.__name__}"
+            f"Depth: {depth}, Instrumenting module: {target_name}"
         )
         instrumented_modules.add(pymodule)
 
@@ -148,7 +166,7 @@ class instrumentor:
                 logger_instrumentation.info(
                     f"Depth: {depth}, Skipping magic functions: {attr_name}"
                 )
-                if isinstance(attr, types.FunctionType):
+                if callable(attr):
                     skipped_functions.add(attr)
                 elif isinstance(attr, types.ModuleType):
                     skipped_modules.add(attr)
@@ -201,9 +219,7 @@ class instrumentor:
                 So for now, we will skip the magic functions.
             """
 
-            if isinstance(attr, types.FunctionType) or isinstance(
-                attr, types.BuiltinFunctionType
-            ):
+            if callable(attr):
                 if attr in skipped_functions:
                     logger_instrumentation.info(
                         f"Depth: {depth}, Skipping function: {attr_name}"
@@ -245,7 +261,7 @@ class instrumentor:
                 logger_instrumentation.info(
                     f"Depth: {depth}, Recursing into module: {attr_name}"
                 )
-                count_wrapped += self._instrument(attr, depth + 1)
+                count_wrapped += self._instrument_module(attr, depth + 1)
 
             elif inspect.isclass(attr):
                 logger_instrumentation.info(
@@ -256,10 +272,10 @@ class instrumentor:
                         f"Depth: {depth}, Skipping class {attr_name} due to irrelevant module: {attr.__module__}"
                     )
                     continue
-                count_wrapped += self._instrument(attr, depth + 1)
+                count_wrapped += self._instrument_module(attr, depth + 1)
 
         logger_instrumentation.info(
-            f"Depth: {depth}, Wrapped {count_wrapped} functions in module {pymodule.__name__}"
+            f"Depth: {depth}, Wrapped {count_wrapped} functions in module {target_name}"
         )
         return count_wrapped
 
