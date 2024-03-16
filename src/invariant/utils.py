@@ -8,4 +8,4 @@ def diffStates(state1, state2):
         for prop in diff[types]:
             prop = prop.split("['")[-1].split("']")[0]
             diff_properties.append(prop)
-    return diff_properties
+    return set(diff_properties)

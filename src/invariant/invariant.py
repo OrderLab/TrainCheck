@@ -27,13 +27,15 @@ class SingleInvariantConstant(Invariant):
         """Check all values, attrs, etc. of variable_instance across all its states"""
         ## 1. find all properties that are always the same
 
-        states = self.variable_instance.values
+        states = self.variable_instance.get_values()
         state_diffs = []
         for i in range(1, len(states)):
             state_diffs.append(diffStates(states[i - 1], states[i]))
 
         # find properties that are always the same
-        properties = list(states[0]["properties"].keys())
+        properties = list(
+            states[0].keys()
+        )  # FIXME: this is not reliable if we change the state structure, need to add a get_properties method to VariableInstance
         for prop in properties:
             same = True
             for diff in state_diffs:
@@ -41,7 +43,7 @@ class SingleInvariantConstant(Invariant):
                     same = False
                     break
             if same:
-                self.invariant_properties["same"][prop] = states[0]["properties"][prop]
+                self.invariant_properties["same"][prop] = states[0][prop]
         self.has_analyzed = True
 
     def get_invariant_properties(self):
@@ -67,7 +69,7 @@ class MultiInvariantConsistency(Invariant):
         """Check consistency of all values, attrs, etc. of variable_instances across all their states"""
         ## 1. find all properties that are always the same
 
-        var_states = [var.values for var in self.variable_instances]
+        var_states = [var.get_values() for var in self.variable_instances]
         num_states = [len(states) for states in var_states]
         if len(set(num_states)) != 1:
             # TODO: perhaps we can return no invariants instead of raising an error
@@ -82,7 +84,7 @@ class MultiInvariantConsistency(Invariant):
             # we need to take intersection of all properties of all variable_instances
             _consistent_properties = set()
             for var_state in var_states:
-                properties = list(var_state[i]["properties"].items())
+                properties = list(var_state[i].items())
                 # handle unhashable values by repr
                 properties = set([(pv[0], repr(pv[1])) for pv in properties])
                 _consistent_properties = (
