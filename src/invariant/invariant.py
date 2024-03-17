@@ -11,7 +11,7 @@ class Invariant(ABC):
         pass
 
     @abstractmethod
-    def check(self, variable_instance):
+    def analyze(self, variable_instance):
         pass
 
 
@@ -23,8 +23,8 @@ class SingleInvariantConstant(Invariant):
             "same": {}
         }  # properties that are always the same
 
-    def check(self):
-        """Check all values, attrs, etc. of variable_instance across all its states"""
+    def analyze(self):
+        """analyze all values, attrs, etc. of variable_instance across all its states"""
         ## 1. find all properties that are always the same
 
         states = self.variable_instance.get_values()
@@ -48,7 +48,7 @@ class SingleInvariantConstant(Invariant):
 
     def get_invariant_properties(self):
         if not self.has_analyzed:
-            self.check()
+            self.analyze()
         return self.invariant_properties
 
 
@@ -57,6 +57,7 @@ class MultiInvariantConsistency(Invariant):
         self.variable_instances = list_variable_instances
         self.has_analyzed = False
         self.invariant_properties: dict[str, list[str]] = {"consistent": []}
+        self.pre_conditions: dict[str, list[str]] = {"consistent": []}
 
         # assert: all variable_instances have the same type
         self.variable_type = self.variable_instances[0].type
@@ -65,8 +66,47 @@ class MultiInvariantConsistency(Invariant):
                 var.type == self.variable_type
             ), f"All variable_instances must have the same type, encountering 0: {self.variable_type}, {i}: {var.type}."
 
-    def check(self):
-        """Check consistency of all values, attrs, etc. of variable_instances across all their states"""
+    def find_preconditions(self):
+        """Preconditions are based on the meta_vars of the variable_instances,
+        and are used to filter out the states that are not relevant for the invariant check
+        during runtime.
+
+        A few types of preconditions:
+        - consistent: find the meta_vars that are always the same across all states & all variable_instances.
+        - contiguous (?) TODO
+        """
+        # find all properties that are always the same
+        meta_vars = [var.meta_vars for var in self.variable_instances]
+
+        # for each state, find the consistent properties
+        consistent_meta_var_names = None
+        for i in range(len(meta_vars[0])):
+            # we need to take intersection of all properties of all variable_instances
+            _consistent_meta_vars = set()
+            for var_meta_vars in meta_vars:
+                properties = list(var_meta_vars[i].items())
+                # handle unhashable values by repr
+                properties = set([(pv[0], repr(pv[1])) for pv in properties])
+                _consistent_meta_vars = (
+                    _consistent_meta_vars.intersection(properties)
+                    if len(_consistent_meta_vars) > 0
+                    else properties
+                )
+
+            _consistent_meta_var_names = set([pv[0] for pv in _consistent_meta_vars])
+            if consistent_meta_var_names is None:
+                consistent_meta_var_names = _consistent_meta_var_names
+            else:
+                consistent_meta_var_names = consistent_meta_var_names.intersection(
+                    _consistent_meta_var_names
+                )
+
+        self.pre_conditions["consistent"] = list(consistent_meta_var_names)
+
+        return self.pre_conditions
+
+    def analyze(self):
+        """analyze consistency of all values, attrs, etc. of variable_instances across all their states"""
         ## 1. find all properties that are always the same
 
         var_states = [var.get_values() for var in self.variable_instances]
@@ -106,5 +146,5 @@ class MultiInvariantConsistency(Invariant):
 
     def get_invariant_properties(self):
         if not self.has_analyzed:
-            self.check()
+            self.analyze()
         return self.invariant_properties

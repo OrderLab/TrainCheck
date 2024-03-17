@@ -10,11 +10,14 @@ def flattenStateDict(d, parent_key="", sep="_"):
 
 
 class VariableInstance:
-    def __init__(self, name: str, type: type, values: list[dict]):
+    def __init__(
+        self, name: str, type: type, values: list[dict], meta_vars: list[dict]
+    ):
         self.name = name
         self.type = type
         self.values = values
         self.flatten_values = [flattenStateDict(v) for v in values]
+        self.meta_vars = meta_vars  # assumed to be a list of flattened dicts, each dict is associated with a state
 
     def get_values(self, flatten: bool = True):
         """Get all values of the variable_instance across all its states, by default flattened.
