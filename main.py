@@ -28,6 +28,12 @@ if __name__ == "__main__":
         help="print the log related to instrumentation",
     )
     parser.add_argument(
+        "--skip-api", action="store_true", help="Skip API invariant analysis"
+    )
+    parser.add_argument(
+        "--skip-variable", action="store_true", help="Skip variable invariant analysis"
+    )
+    parser.add_argument(
         "-t",
         "--modules_to_instrument",
         nargs="*",
@@ -70,7 +76,10 @@ if __name__ == "__main__":
 
     # call into the trace analyzer
     trace = analyzer.Trace(trace_lines)
-    invariants = trace.analyze()
+    invariants = trace.analyze(
+        analyze_api_invariants=not args.skip_api,
+        analyze_variable_invariants=not args.skip_variable,
+    )
 
     def default(o):
         if isinstance(o, set):

@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+import tqdm
+
 from src.instrumentor.variable import VariableInstance
 
 from .utils import diffStates
@@ -29,14 +31,14 @@ class UnaryVariableInvariantConstant(VariableInvariant):
 
         states = self.variable_instance.get_values()
         state_diffs = []
-        for i in range(1, len(states)):
+        for i in tqdm.tqdm(range(1, len(states)), desc="calculating state diffs"):
             state_diffs.append(diffStates(states[i - 1], states[i]))
 
         # find properties that are always the same
         properties = list(
             states[0].keys()
         )  # FIXME: this is not reliable if we change the state structure, need to add a get_properties method to VariableInstance
-        for prop in properties:
+        for prop in tqdm.tqdm(properties, desc="finding invariant properties"):
             same = True
             for diff in state_diffs:
                 if prop in diff:
@@ -45,6 +47,7 @@ class UnaryVariableInvariantConstant(VariableInvariant):
             if same:
                 self.invariant_properties["same"][prop] = states[0][prop]
         self.has_analyzed = True
+        return self.invariant_properties
 
     def get_invariant_properties(self):
         if not self.has_analyzed:
@@ -143,8 +146,13 @@ class NaryVariableInvariantConsistency(VariableInvariant):
 
         self.invariant_properties["consistent"] = list(consistent_property_names)
         self.has_analyzed = True
+        return self.invariant_properties
 
-    def get_invariant_properties(self):
+    def get_invariant_properties_with_precond(self):
         if not self.has_analyzed:
             self.analyze()
+        self.find_preconditions()
+        self.invariant_properties["pre_conditions"] = (
+            self.pre_conditions
+        )  # FIXME: this is too ad-hoc
         return self.invariant_properties
