@@ -302,6 +302,8 @@ class StateVarObserver:
         logger_trace.info(
             json.dumps(
                 {
+                    "process_id": os.getpid(),
+                    "thread_id": threading.current_thread().ident,
                     "meta_vars": meta_vars,
                     "type": "state_dump",
                     "var": self.var.__class__.__name__,
@@ -369,6 +371,8 @@ class StateVarObserver:
         for old_param, new_param in zip(self.current_state, state_copy):
             # three types of changes: value, properties, and both
             msg_dict = {
+                "process_id": os.getpid(),
+                "thread_id": threading.current_thread().ident,
                 "meta_vars": meta_vars,
                 "type": "state_change",
                 "var": self.var.__class__.__name__,

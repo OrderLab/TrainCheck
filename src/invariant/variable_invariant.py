@@ -5,17 +5,17 @@ from src.instrumentor.variable import VariableInstance
 from .utils import diffStates
 
 
-class Invariant(ABC):
+class VariableInvariant(ABC):
     @abstractmethod
     def __init__(self):
         pass
 
     @abstractmethod
-    def analyze(self, variable_instance):
+    def analyze(self):
         pass
 
 
-class SingleInvariantConstant(Invariant):
+class UnaryVariableInvariantConstant(VariableInvariant):
     def __init__(self, variable_instance: VariableInstance):
         self.variable_instance = variable_instance
         self.has_analyzed = False
@@ -52,7 +52,7 @@ class SingleInvariantConstant(Invariant):
         return self.invariant_properties
 
 
-class MultiInvariantConsistency(Invariant):
+class NaryVariableInvariantConsistency(VariableInvariant):
     def __init__(self, list_variable_instances: list):
         self.variable_instances = list_variable_instances
         self.has_analyzed = False

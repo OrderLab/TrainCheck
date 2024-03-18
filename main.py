@@ -3,8 +3,8 @@ import json
 import logging
 import os
 
-import src.analyzer as analyzer
 import src.instrumentor as instrumentor
+import src.invariant.analyzer as analyzer
 import src.runner as runner
 
 if __name__ == "__main__":
