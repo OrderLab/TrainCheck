@@ -104,18 +104,42 @@ class Trace:
                     self.event_per_pt[pt]
                 ).get_invariant_properties()
 
-            api_invariants["merged"] = {}
+            # HACK: change the key from tuple to string
+            api_invariants = {f"{k.pid}_{k.tid}": v for k, v in api_invariants.items()}
+
+            api_invariants["merged"] = {"constant_events_during_api_calls": {}}
             # merge the results from all the pts
             for pt in api_invariants:
-                for k, v in api_invariants[pt].items():
-                    if k in api_invariants["merged"]:
-                        api_invariants["merged"][k] = api_invariants["merged"][
+                for k, v in api_invariants[pt][
+                    "constant_events_during_api_calls"
+                ].items():  # HACK: change the 'constant_events_during_api_calls' to generic key
+                    if (
+                        k
+                        in api_invariants["merged"]["constant_events_during_api_calls"]
+                    ):
+                        api_invariants["merged"]["constant_events_during_api_calls"][
                             k
-                        ].intersection(
-                            v
-                        )  # BUG: AttributeError: 'dict' object has no attribute 'intersection'
+                        ] = list(
+                            set(
+                                api_invariants["merged"][
+                                    "constant_events_during_api_calls"
+                                ][k]
+                            ).intersection(set(v))
+                        )
                     else:
-                        api_invariants["merged"][k] = v
+                        api_invariants["merged"]["constant_events_during_api_calls"][
+                            k
+                        ] = v
+
+            # order the merged invariants by length of v
+            api_invariants["merged"]["constant_events_during_api_calls"] = dict(
+                sorted(
+                    api_invariants["merged"].items(),
+                    key=lambda item: len(item[1]),
+                    reverse=True,
+                )
+            )
+
             self.has_api_analyzed = True
 
         if self.has_var_inv_analyzed:
@@ -297,13 +321,21 @@ if __name__ == "__main__":
     if args.path.endswith(".log"):
         logger.info(f"Reading trace from {args.path}")
         trace_lines = []
+        # with open(args.path, "r") as f:
+        #     trace_lines = [
+        #         Event(
+        #             line
+        #         )  # FIXME: the prefix can sometimes be logger dependent, need to fix this
+        #         for line in tqdm.tqdm(f.readlines())
+        #         if line.startswith("{")
+        #     ]
         with open(args.path, "r") as f:
+            log = f.read()
+            # ad-hoc preprocessing step to convert trace into a list of events
             trace_lines = [
-                Event(
-                    line
-                )  # FIXME: the prefix can sometimes be logger dependent, need to fix this
-                for line in tqdm.tqdm(f.readlines())
-                if line.startswith("{")
+                Event(line.split(":trace:")[-1].strip())
+                for line in log.split("\n")
+                if line.startswith("INFO:trace:") or line.startswith("ERROR:trace:")
             ]
     else:
         trace_paths = [
