@@ -100,14 +100,27 @@ def instrument_file(path: str, modules_to_instrument: list[str]) -> tuple[str, s
     # instrument the source code
     instrumented_source = instrument_source(source, modules_to_instrument)
 
-    logging_file = os.path.basename(path).split(".")[0] + "_ml_daikon.log"
+    file_name = os.path.basename(path).split(".")[0]
+    trace_file = file_name + "_ml_daikon_trace.log"
+    instrumentation_file = file_name + "_ml_daikon_instrumentation.log"
+
     # attaching logging configs to the instrumented source TODO: need to replace the original logging config / figure out how to avoid interference
     logging_code = f"""
 
 import logging
-logging.basicConfig(level=logging.INFO,
-    handlers=[logging.FileHandler(\"{logging_file}\")]
-)
+
+from src.instrumentor import logger_trace, logger_instrumentation
+
+logger_trace.setLevel(logging.INFO)
+logger_instrumentation.setLevel(logging.INFO)
+
+trace_file_handler = logging.FileHandler(\"{trace_file}\")
+trace_file_handler.setFormatter(logging.Formatter('%(message)s'))
+logger_trace.addHandler(trace_file_handler)
+
+instrumentation_file_handler = logging.FileHandler(\"{instrumentation_file}\")
+instrumentation_file_handler.setFormatter(logging.Formatter('%(message)s'))
+logger_instrumentation.addHandler(instrumentation_file_handler)
 
 """
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
@@ -117,7 +130,7 @@ logging.basicConfig(level=logging.INFO,
         + "\n".join(instrumented_source.split("\n")[1:])
     )
 
-    return instrumented_source, logging_file
+    return instrumented_source, trace_file
 
 
 if __name__ == "__main__":

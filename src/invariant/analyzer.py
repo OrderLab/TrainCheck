@@ -158,6 +158,13 @@ class Trace:
             return self.invariant_properties
 
         else:
+            """The implementation of this part is specifically for DS-1801 where we need to track state updates of model weights
+            across different workers. The below code assumes there will be a state_dump event in each separate trace file, which
+            actually is not the case. We need to change the code to handle the case where there are multiple state_dump events in a trace file.
+            Also, when child processes are spawned, the state_dump event is not captured in the trace file. We need to fix this as well.
+            Perhaps by capturing parent child relationship among processes and threads, we can fix this issue.
+            """
+
             ## #2. Variable Invariant Analysis
             logger.info("Analyzing the trace for variable invariants")
             # Pre-processing: Create VariableInstances from the events for all variables observed
@@ -355,7 +362,7 @@ if __name__ == "__main__":
                         continue
                     try:
                         # HACK: force each trace line from the same file to have the same pid and tid. Each python process seems to generate new process during training
-                        # FIXME: This won't work for API invariants, pls fix it!
+                        # FIXME: This won't work for API invariants, pls fix it! THIS IS KINDA URGENT
                         trace_dict = json.loads(trace)
                         trace_dict["process_id"] = pid
                         trace_dict["thread_id"] = tid

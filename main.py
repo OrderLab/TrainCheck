@@ -23,9 +23,10 @@ if __name__ == "__main__":
         help="Only instrument and dump the modified file",
     )
     parser.add_argument(
-        "--print_instr",
+        "-r",
+        "--run-without-analysis",
         action="store_true",
-        help="print the log related to instrumentation",
+        help="Run the program without analysis",
     )
     parser.add_argument(
         "--skip-api", action="store_true", help="Skip API invariant analysis"
@@ -65,13 +66,14 @@ if __name__ == "__main__":
     with open("program_output.txt", "w") as f:
         f.write(program_output)
 
+    if args.run_without_analysis:
+        logging.info(f"Skipping analysis, trace file is at {log_file}")
+        exit()
+
     with open(log_file, "r") as f:
-        log = f.read()
         # ad-hoc preprocessing step to convert trace into a list of events
         trace_lines = [
-            analyzer.Event(line.split(":trace:")[-1].strip())
-            for line in log.split("\n")
-            if line.startswith("INFO:trace:") or line.startswith("ERROR:trace:")
+            analyzer.Event(line) for line in f.readlines() if line.startswith("{")
         ]
 
     # call into the trace analyzer
