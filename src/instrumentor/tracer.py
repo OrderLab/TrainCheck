@@ -12,6 +12,8 @@ import torch
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
 
+meta_vars: dict[str, object] = {}
+
 
 def global_wrapper(original_function, *args, **kwargs):
     func_id = str(uuid.uuid4())
@@ -36,6 +38,7 @@ def global_wrapper(original_function, *args, **kwargs):
                 "uuid": func_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
+                "meta_vars": meta_vars,
                 "type": "function_call (pre)",
                 "function": func_name,
             }
@@ -50,8 +53,11 @@ def global_wrapper(original_function, *args, **kwargs):
                     "uuid": func_id,
                     "thread_id": thread_id,
                     "process_id": process_id,
+                    "meta_vars": meta_vars,
                     "type": "function_call (post) (exception)",
                     "function": func_name,
+                    "args": [f"{arg}" for arg in args],
+                    "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
                     "exception": str(e),
                 }
             )
@@ -64,6 +70,7 @@ def global_wrapper(original_function, *args, **kwargs):
                 "uuid": func_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
+                "meta_vars": meta_vars,
                 "type": "function_call (post)",
                 "function": func_name,
             }
@@ -81,7 +88,7 @@ def wrapper(original_function):
 
 
 instrumented_modules = set()
-skipped_modules = set()
+skipped_modules: set[types.ModuleType | type | types.FunctionType] = set()
 skipped_functions = set()
 
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
@@ -118,6 +125,10 @@ class instrumentor:
             )
         self.instrumented_count = 0
         self.target = target
+
+        # remove the target from the skipped_modules set
+        if target in skipped_modules:
+            skipped_modules.remove(target)
 
     def instrument(self):
         self.instrumented_count = self._instrument_module(self.target)
@@ -159,6 +170,13 @@ class instrumentor:
                 , such as tensor.add_.
                 We should support these operations as well. Reason is in PyTorch-FORUM84911.
                 """
+                continue
+
+            # TODO: fix the bug "TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method"
+            if "getfile" in attr_name:
+                logger_instrumentation.info(
+                    f"Depth: {depth}, Skipping attribute as it is getfile: {attr_name}"
+                )
                 continue
 
             # skip private attributes
@@ -283,36 +301,115 @@ class instrumentor:
 class StateVarObserver:
     """
     Currently only suports torch models
+    TODO: Generalize this to general python objects
     """
 
-    def __init__(self, model):
+    def __init__(self, var):
         # Get the current thread object
-        self.model = model
+        if isinstance(var, list):
+            assert (
+                len(var) == 1
+            ), "Currently only supports single variable, please use multiple observers for multiple variables."
+            var = var[0]
+        assert isinstance(var, torch.nn.Module), "Currently only supports torch models."
+        self.var = var
         self.current_state = self._get_state_copy()
+        # dump the initial state
+        logger_trace.info(
+            json.dumps(
+                {
+                    "process_id": os.getpid(),
+                    "thread_id": threading.current_thread().ident,
+                    "meta_vars": meta_vars,
+                    "type": "state_dump",
+                    "var": self.var.__class__.__name__,
+                    "var_type": "torch.nn.Module",  # FIXME: hardcoding the type for now
+                    "state": self.current_state,
+                }
+            )
+        )
 
     def _get_state_copy(self):
-        # Return a copy of the current state of the model
-        return {
-            name: param.clone().detach()
-            for name, param in self.model.named_parameters()
-        }
-
-    def has_changed(self):
-        # Check if there is any change in the model parameters
-        for name in self.current_state:
-            if not torch.equal(self.current_state[name], self.model.state_dict()[name]):
-                # logger_trace.info(f"State variable {name} has changed")
-                logger_trace.info(
-                    json.dumps(
-                        {
-                            "thread_id": threading.current_thread().ident,
-                            "process_id": os.getpid(),
-                            "type": "state_variable_change",
-                            "variable": name,
-                        }
-                    )
-                )
-                self.current_state = self._get_state_copy()
+        def is_safe_getattr(obj, attr):
+            try:
+                getattr(obj, attr)
                 return True
-        self.current_state = self._get_state_copy()
-        return False
+            except Exception as e:
+                logger_trace.warn(
+                    f"Failed to get attribute {attr} of parameter {name}, skipping it. Error: {e}"
+                )
+                return False
+
+        state_copy = []
+        for name, param in self.var.named_parameters():
+            state_copy.append(
+                {
+                    "name": name,
+                    "param": param.clone().detach().tolist(),
+                    "properties": {},
+                }
+            )
+            # only get the attributes that are actual values
+            for attr_name in dir(param):
+                if attr_name.startswith("__") or not is_safe_getattr(param, attr_name):
+                    continue
+                attr = getattr(param, attr_name)
+
+                if callable(attr):
+                    continue
+
+                if isinstance(attr, torch.Tensor):
+                    # skipping the tensor values as we should have already captured them
+                    continue
+                # try to serialize the attribute, if it fails, then skip it
+                try:
+                    json.dumps(attr)
+                except Exception as e:
+                    logger_instrumentation.warn(
+                        f"Failed to serialize attribute {attr_name} of parameter {name}, skipping it. Error: {e}"
+                    )
+                    continue
+
+                state_copy[-1]["properties"][attr_name] = attr
+
+        return state_copy
+
+    def observe(self):
+        """The function is called to observe the state of the model. Each call to this function will
+        1. Get the current state of the model
+        2. Compare it with the previous state
+        3. Log the differences
+            The differences are computed by comparing the below values:
+                - The value of the tensor.
+                - The properties of the tensor, such as requires_grad, device, tensor_model_parallel, etc.
+        """
+        state_copy = self._get_state_copy()
+        for old_param, new_param in zip(self.current_state, state_copy):
+            # three types of changes: value, properties, and both
+            msg_dict = {
+                "process_id": os.getpid(),
+                "thread_id": threading.current_thread().ident,
+                "meta_vars": meta_vars,
+                "type": "state_change",
+                "var": self.var.__class__.__name__,
+                "var_type": "torch.nn.Module",  # FIXME: hardcoding the type for now
+                "name": old_param["name"],
+            }
+            if old_param["param"] != new_param["param"]:
+                if "change" not in msg_dict:
+                    msg_dict["change"] = {}
+                msg_dict["change"]["value"] = {
+                    "old": old_param["param"],
+                    "new": new_param["param"],
+                }
+            if old_param["properties"] != new_param["properties"]:
+                if "change" not in msg_dict:
+                    msg_dict["change"] = {}
+                msg_dict["change"]["properties"] = {
+                    "old": old_param["properties"],
+                    "new": new_param["properties"],
+                }
+            if "change" in msg_dict:
+                logger_trace.info(json.dumps(msg_dict))
+
+        self.current_state = state_copy
