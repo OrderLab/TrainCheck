@@ -171,6 +171,7 @@ class Trace:
             logger.info(
                 "Pre-processing: Create VariableInstances from the events for all variables observed"
             )
+
             var_state_changes = {p: {} for p in self.event_per_p}
             for p in tqdm.tqdm(self.event_per_p):
                 traces_df = pd.DataFrame(
@@ -178,6 +179,14 @@ class Trace:
                 )  # iterate using per-process because variables are shared across threads
                 traces_state_change = traces_df[(traces_df["type"] == "state_change")]
                 init_state = traces_df[(traces_df["type"] == "state_dump")]
+
+                # HACK: for mnist, if there are no state_dump and state_change events, skip the process
+                if len(init_state) == 0 and len(traces_state_change) == 0:
+                    logger.info(
+                        f"Skipping process {p} as there are no state_dump and state_change events"
+                    )
+                    continue
+
                 assert (
                     len(init_state) == 1
                 ), "There should be only one state_dump event"  # FIXME: one trace has multiple, (reproduce with events_per_pt on the 8 traces)
