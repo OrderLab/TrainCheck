@@ -24,6 +24,11 @@ class Event:
         # self_dict.pop("thread_id", None)
 
         self_dict.pop("uuid", None)
+        self_dict.pop("process_id", None)
+        self_dict.pop("thread_id", None)
+        self_dict.pop(
+            "meta_vars", None
+        )  # TODO: for future analysis we should consider meta_vars as we are splitting traces based on meta_vars
 
         return hash(json.dumps(self_dict, sort_keys=True))
 
