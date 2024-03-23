@@ -184,7 +184,8 @@ class instrumentor:
                 logger_instrumentation.info(
                     f"Depth: {depth}, Skipping magic functions: {attr_name}"
                 )
-                if callable(attr):
+                # if callable(attr): # TODO: understand why callable leads to issues
+                if isinstance(attr, types.FunctionType):
                     skipped_functions.add(attr)
                 elif isinstance(attr, types.ModuleType):
                     skipped_modules.add(attr)
@@ -237,13 +238,29 @@ class instrumentor:
                 So for now, we will skip the magic functions.
             """
 
-            if callable(attr):
+            # if callable(attr):
+            """
+              File "/home/yuxuan/gitrepos/ml-daikon/src/instrumentor/tracer.py", line 243, in _instrument_module
                 if attr in skipped_functions:
-                    logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping function: {attr_name}"
+            TypeError: unhashable type: 'instancemethod'
+              File "/home/yuxuan/miniconda3/envs/PyTorch-FORUM84911/lib/python3.10/site-packages/torch/library.py", line 109, in impl
+                elif isinstance(op_name, OpOverload):
+            TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
+            """
+
+            if isinstance(attr, types.FunctionType):
+                # if isinstance(attr
+                try:
+                    if attr in skipped_functions:
+                        logger_instrumentation.info(
+                            f"Depth: {depth}, Skipping function: {attr_name}"
+                        )
+                        continue
+                except Exception as e:
+                    logger_instrumentation.fatal(
+                        f"Depth: {depth}, Error while checking if function {attr_name} is in skipped_functions: {e}"
                     )
                     continue
-
                 logger_instrumentation.info(f"Instrumenting function: {attr_name}")
                 wrapped = wrapper(attr)
                 try:
@@ -413,3 +430,7 @@ class StateVarObserver:
                 logger_trace.info(json.dumps(msg_dict))
 
         self.current_state = state_copy
+
+
+if __name__ == "__main__":
+    instrumentor(torch).instrument()
