@@ -248,7 +248,9 @@ class instrumentor:
             TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
             """
 
-            if isinstance(attr, types.FunctionType):
+            if isinstance(attr, types.FunctionType) or isinstance(
+                attr, types.BuiltinFunctionType
+            ):
                 # if isinstance(attr
                 try:
                     if attr in skipped_functions:
