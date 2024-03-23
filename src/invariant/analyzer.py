@@ -25,22 +25,13 @@ class Trace:
 
     def __init__(self, events: list[Event]) -> None:
         self.events = events
-        self.event_per_pt: dict[process_and_thread, list[Event]] = {}  # pt: pid, tid
-        self.event_per_p: dict[int, list[Event]] = {}  # p: pid
+        self.event_per_pt: dict[str, list[Event]] = {}  # pt: pid, tid
         for event in events:
-            pt = process_and_thread(
-                event.event_dict["process_id"], event.event_dict["thread_id"]
-            )  # TODO: refactor trace to dump 'pid' and 'tid' instead of 'pid' and 'tid'
+            pt = f"{event.event_dict['process_id']}_{event.event_dict['thread_id']}"
             if pt in self.event_per_pt:
                 self.event_per_pt[pt].append(event)
             else:
                 self.event_per_pt[pt] = [event]
-
-            pid = int(event.event_dict["process_id"])
-            if pid in self.event_per_p:
-                self.event_per_p[pid].append(event)
-            else:
-                self.event_per_p[pid] = [event]
 
         self.invariant_properties = None
         self.has_api_analyzed = False
@@ -58,36 +49,7 @@ class Trace:
         - This is specifically implemented for PyTorch-FORUM84911. The analysis tries to find events that always occur during function calls.
         """
         logger = logging.getLogger(__name__)
-        # invariant_events_during_function_calls = {}
-        # pbar = tqdm.tqdm(total=len(self.event_per_pt))
-        # for pt in self.event_per_pt:
-        #     result = self.analyze_local(pt.pid, pt.tid)
 
-        #     # dump this result for debugging
-        #     def default(o):
-        #         if isinstance(o, set):
-        #             return list(o)
-        #         if isinstance(o, Event):
-        #             return o.get_event()
-        #         return o
-
-        #     # dump the invariants
-        #     with open(f"invariants_{pt.pid}_{pt.tid}.json", "w") as f:
-        #         json.dump(result, f, indent=4, default=default)
-
-        #     for k, v in result.items():
-        #         if k in invariant_events_during_function_calls:
-        #             invariant_events_during_function_calls[k] = (
-        #                 invariant_events_during_function_calls[k].intersection(v)
-        #             )
-        #         else:
-        #             invariant_events_during_function_calls[k] = v
-        #     pbar.update(1)
-        # pbar.close()
-
-        # return invariant_events_during_function_calls
-
-        # Two types of analysis TBD
         if self.has_api_analyzed:
             logger.info("API Invariant Analysis has already been done")
             api_invariants = self.invariant_properties["api_invariants"]
@@ -103,9 +65,6 @@ class Trace:
                 api_invariants[pt] = APIInvariantConstantEvents(
                     self.event_per_pt[pt]
                 ).get_invariant_properties()
-
-            # HACK: change the key from tuple to string
-            api_invariants = {f"{k.pid}_{k.tid}": v for k, v in api_invariants.items()}
 
             api_invariants["merged"] = {"constant_events_during_api_calls": {}}
             # merge the results from all the pts
@@ -172,10 +131,10 @@ class Trace:
                 "Pre-processing: Create VariableInstances from the events for all variables observed"
             )
 
-            var_state_changes = {p: {} for p in self.event_per_p}
-            for p in tqdm.tqdm(self.event_per_p):
+            var_state_changes = {pt: {} for pt in self.event_per_pt}
+            for pt in tqdm.tqdm(self.event_per_pt):
                 traces_df = pd.DataFrame(
-                    [event.get_event_dict() for event in self.event_per_p[p]]
+                    [event.get_event_dict() for event in self.event_per_pt[pt]]
                 )  # iterate using per-process because variables are shared across threads
                 traces_state_change = traces_df[(traces_df["type"] == "state_change")]
                 init_state = traces_df[(traces_df["type"] == "state_dump")]
@@ -183,16 +142,22 @@ class Trace:
                 # HACK: for mnist, if there are no state_dump and state_change events, skip the process
                 if len(init_state) == 0 and len(traces_state_change) == 0:
                     logger.info(
-                        f"Skipping process {p} as there are no state_dump and state_change events"
+                        f"Skipping process {pt} as there are no state_dump and state_change events"
                     )
                     continue
-
+                elif len(init_state) != 1:
+                    logger.error(
+                        f"Multiple ({len(init_state)}, {len(traces_state_change)}) state_dump events found for process {pt}, aborting"
+                    )
+                    logger.error(f"State dump events: {init_state}")
+                    logger.error(f"State change events: {traces_state_change}")
+                    continue
                 assert (
                     len(init_state) == 1
                 ), "There should be only one state_dump event"  # FIXME: one trace has multiple, (reproduce with events_per_pt on the 8 traces)
                 for var in tqdm.tqdm(
                     traces_state_change["name"].unique(),
-                    desc=f"Collecting raw traces for process {p}",
+                    desc=f"Collecting raw traces for process {pt}",
                 ):  # TODO: this is tracer specific naming, need to change it soon as our design is kinda flying around
                     # find the initial state
                     for param in init_state.iloc[
@@ -201,7 +166,7 @@ class Trace:
                         if param["name"] == var:
                             initial_state = param
                             break
-                    var_state_changes[p][var] = {
+                    var_state_changes[pt][var] = {
                         "initial_state": initial_state,
                         "changes": traces_state_change[
                             traces_state_change["name"]
@@ -225,22 +190,23 @@ class Trace:
                     states.append(state)
                 return states
 
-            var_instances = {p: {} for p in self.event_per_p}
-            for p in tqdm.tqdm(var_state_changes):
+            var_instances = {pt: {} for pt in self.event_per_pt}
+            for pt in tqdm.tqdm(var_state_changes):
                 for var in tqdm.tqdm(
-                    var_state_changes[p], desc=f"Constructing states for process {p}"
+                    var_state_changes[pt],
+                    desc=f"Constructing states for process and thread {pt}",
                 ):
                     states = construct_states(
-                        var_state_changes[p][var]["initial_state"],
-                        var_state_changes[p][var]["changes"],
+                        var_state_changes[pt][var]["initial_state"],
+                        var_state_changes[pt][var]["changes"],
                     )
-                    var_instances[p][var] = VariableInstance(
+                    var_instances[pt][var] = VariableInstance(
                         var,
                         torch.nn.Parameter,  # TODO: hardcoded for variable type, need to remove it by encoding var type in trace
                         states,
                         len(states)
                         * [
-                            var_state_changes[p][var]["changes"].meta_vars.iloc[0]
+                            var_state_changes[pt][var]["changes"].meta_vars.iloc[0]
                         ],  # TODO: change this to the actual meta_vars after we support tracking variable changes
                     )
             logger.info(
@@ -249,14 +215,14 @@ class Trace:
             ## #2.1 Unary Analysis
             logger.info("Analyzing the trace for unary invariants")
             unary_invariants = {}
-            for p in tqdm.tqdm(var_instances):
-                unary_invariants[p] = {
+            for pt in tqdm.tqdm(var_instances):
+                unary_invariants[pt] = {
                     var: UnaryVariableInvariantConstant(
-                        var_instances[p][var]
+                        var_instances[pt][var]
                     ).get_invariant_properties()
                     for var in tqdm.tqdm(
-                        var_instances[p],
-                        desc=f"Analyzing unary invariants for process {p}",
+                        var_instances[pt],
+                        desc=f"Analyzing unary invariants for process and thread {pt}",
                     )
                 }
 
@@ -269,12 +235,12 @@ class Trace:
                 nary_invariants_with_precond[var_name] = (
                     NaryVariableInvariantConsistency(
                         [
-                            var_instances[p][var_name]
-                            for p in tqdm.tqdm(
+                            var_instances[pt][var_name]
+                            for pt in tqdm.tqdm(
                                 var_instances,
                                 desc=f"Analyzing n-ary invariants for variable {var_name}",
                             )
-                            if var_name in var_instances[p]
+                            if var_name in var_instances[pt]
                         ]
                     ).get_invariant_properties_with_precond()
                 )
@@ -370,13 +336,6 @@ if __name__ == "__main__":
                     if not trace.startswith("{"):
                         continue
                     try:
-                        # HACK: force each trace line from the same file to have the same pid and tid. Each python process seems to generate new process during training
-                        # FIXME: This won't work for API invariants, pls fix it! THIS IS KINDA URGENT
-                        trace_dict = json.loads(trace)
-                        trace_dict["process_id"] = pid
-                        trace_dict["thread_id"] = tid
-                        trace = json.dumps(trace_dict)
-
                         trace_lines.append(
                             Event(trace)
                         )  # Event will parse the trace using json
