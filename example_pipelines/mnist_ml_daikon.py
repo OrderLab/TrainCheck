@@ -9,6 +9,9 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
+## ML-DAIKON Instrumentation
+from src.instrumentor import meta_vars
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -38,16 +41,16 @@ class Net(nn.Module):
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
+
+    steps = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
-        # print("YUXUAN: updating parameters")
-        # tracer.inspect_model(model)
         optimizer.step()
-
+        steps += 1
         if batch_idx % args.log_interval == 0:
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
@@ -60,6 +63,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
             )
             if args.dry_run:
                 break
+        if steps == 20:
+            # ML-DAIKON Instrumentation
+            break
 
 
 def test(model, device, test_loader):
@@ -110,7 +116,7 @@ def main():
     parser.add_argument(
         "--epochs",
         type=int,
-        default=14,
+        default=1,
         metavar="N",
         help="number of epochs to train (default: 14)",
     )
@@ -159,6 +165,9 @@ def main():
         default=False,
         help="For Saving the current Model",
     )
+
+    meta_vars["stage"] = "parsing_args"
+
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
@@ -178,48 +187,53 @@ def main():
         cuda_kwargs = {"num_workers": 1, "pin_memory": True, "shuffle": True}
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
-    print("Using device: ", device)
 
-    print("Defining transforms...")
+    meta_vars["stage"] = "data_preparation"
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
-
-    print("Defining datasets...")
     dataset1 = datasets.MNIST("../data", train=True, download=True, transform=transform)
     dataset2 = datasets.MNIST("../data", train=False, transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
-    print("Defining model...")
+    meta_vars["stage"] = "defining_model_optimizer"
     model = Net().to(device)
-
-    # tracer.trace_state_variables(model)
-
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
-    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
-    print("Starting training...")
-    # let's profile the training loop
-    # from torch.profiler import profile, record_function, ProfilerActivity
-    # with profile(
-    #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-    #     with_stack=True,
-    # ) as prof:
-    #     for epoch in range(1, args.epochs + 1):
-    #         with record_function("train"):
-    #             train(args, model, device, train_loader, optimizer, epoch)
-    #         print("Starting testing...")
-    #         with record_function("test"):
-    #             test(model, device, test_loader)
-    #         scheduler.step()
-    #     # save to file and open in Chrome browser
-    # prof.export_chrome_trace("trace_instrumented.json")
+    ## ML-DAIKON Instrumentation
+    from src.instrumentor import tracer
 
+    observer = tracer.StateVarObserver(model)
+
+    def update_meta_vars():
+        import os
+        import threading
+
+        meta_vars["process_id"] = os.getpid()
+        meta_vars["thread_id"] = threading.get_ident()
+
+    update_meta_vars()
+    optimizer.register_step_post_hook(
+        lambda optimizer, *args, **kwargs: update_meta_vars()
+    )
+    optimizer.register_step_post_hook(
+        lambda optimizer, *args, **kwargs: observer.observe()
+    )
+
+    scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
+        meta_vars["stage"] = "training"
+        meta_vars["epoch"] = epoch
         train(args, model, device, train_loader, optimizer, epoch)
+        meta_vars["stage"] = "testing"
         test(model, device, test_loader)
+        meta_vars["stage"] = "updating_scheduler"
         scheduler.step()
+
+    update_meta_vars()
+    meta_vars["stage"] = "saving_model"
+    del meta_vars["epoch"]
 
     if args.save_model:
         torch.save(model.state_dict(), "mnist_cnn.pt")
@@ -227,4 +241,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print("Done!")
