@@ -55,6 +55,51 @@ class UnaryVariableInvariantConstant(VariableInvariant):
         return self.invariant_properties
 
 
+class UnaryVariableInvariantAlwaysDifferent(VariableInvariant):
+    """TODO: support passing in multiple instances of the same variable type"""
+
+    def __init__(self, variable_instance: VariableInstance):
+        self.invariant_name = "always_different"
+        self.variable_instance = variable_instance
+        self.has_analyzed = False
+        self.invariant_properties: dict[str, list[str]] = {
+            self.invariant_name: []
+        }  # properties that are always different
+
+    def analyze(self):
+        """analyze all values, attrs, etc. of variable_instance across all its states"""
+        ## 1. find all properties that are always the same
+
+        states = self.variable_instance.get_values()
+        state_diffs = []
+        for i in tqdm.tqdm(range(1, len(states)), desc="calculating state diffs"):
+            state_diffs.append(diffStates(states[i - 1], states[i]))
+
+        # find properties that are always different
+        properties = list(states[0].keys())
+        for prop in tqdm.tqdm(
+            properties, desc=f"finding invariants for {self.invariant_name}"
+        ):
+            different = True
+            for diff in state_diffs:
+                if prop not in diff:
+                    different = False
+                    break
+            if different:
+                self.invariant_properties[self.invariant_name].append(prop)
+
+        self.has_analyzed = True
+        return self.invariant_properties
+
+    def find_preconditions(self):
+        pass
+
+    def get_invariant_properties(self):
+        if not self.has_analyzed:
+            self.analyze()
+        return self.invariant_properties
+
+
 class NaryVariableInvariantConsistency(VariableInvariant):
     def __init__(self, list_variable_instances: list):
         self.variable_instances = list_variable_instances

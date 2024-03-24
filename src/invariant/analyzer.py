@@ -11,6 +11,7 @@ from .api_invariant import APIInvariantConstantEvents
 from .event import Event
 from .variable_invariant import (
     NaryVariableInvariantConsistency,
+    UnaryVariableInvariantAlwaysDifferent,
     UnaryVariableInvariantConstant,
     VariableInstance,
 )
@@ -218,6 +219,9 @@ class Trace:
             for pt in tqdm.tqdm(var_instances):
                 unary_invariants[pt] = {
                     var: UnaryVariableInvariantConstant(
+                        var_instances[pt][var]
+                    ).get_invariant_properties()
+                    | UnaryVariableInvariantAlwaysDifferent(
                         var_instances[pt][var]
                     ).get_invariant_properties()
                     for var in tqdm.tqdm(
