@@ -226,8 +226,8 @@ class NaryVariableInvariantConsistency(VariableInvariant):
         var_states = self.variable_instances[0].get_values()
         num_states = len(var_states)
         assert (
-            num_states > 1
-        ), "There must be at least 2 states to calculate confidence."
+            num_states > 0
+        ), "There must be at least 1 states to calculate confidence."
 
         property_value_changes = {}
         for prop in consistent_properties:
@@ -240,7 +240,7 @@ class NaryVariableInvariantConsistency(VariableInvariant):
         # calculate confidence
         confidences = {}
         for prop, value_changes in property_value_changes.items():
-            confidences[prop] = value_changes / (
-                num_states - 1
-            )  # TODO: this is a naive confidence calculation, we can improve this by considering the size of value space for each property. This would require a more sophisticated way of representing the value space of a property.
+            confidences[prop] = (
+                value_changes + 1
+            ) / num_states  # TODO: this is a naive confidence calculation, we can improve this by considering the size of value space for each property. This would require a more sophisticated way of representing the value space of a property.
         return confidences
