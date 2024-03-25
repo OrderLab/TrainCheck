@@ -4,7 +4,6 @@ import os
 from collections import namedtuple
 
 import pandas as pd
-import torch  # TODO: hardcoded for variable type, need to remove it by encoding var type in trace
 import tqdm
 
 from .api_invariant import APIInvariantConstantEvents
@@ -157,7 +156,7 @@ class Trace:
                     len(init_state) == 1
                 ), "There should be only one state_dump event"  # FIXME: one trace has multiple, (reproduce with events_per_pt on the 8 traces)
                 for var in tqdm.tqdm(
-                    traces_state_change["name"].unique(),
+                    traces_state_change["var_name"].unique(),
                     desc=f"Collecting raw traces for process {pt}",
                 ):  # TODO: this is tracer specific naming, need to change it soon as our design is kinda flying around
                     # find the initial state
@@ -170,7 +169,7 @@ class Trace:
                     var_state_changes[pt][var] = {
                         "initial_state": initial_state,
                         "changes": traces_state_change[
-                            traces_state_change["name"]
+                            traces_state_change["var_name"]
                             == var  # TODO: this is tracer specific naming, need to change it soon as our design is kinda flying around
                         ],
                     }
@@ -198,14 +197,14 @@ class Trace:
                     desc=f"Constructing states for process and thread {pt}",
                 ):
                     states = construct_states(
-                        var_state_changes[pt][var]["initial_state"],
-                        var_state_changes[pt][var]["changes"],
+                        initial_state=var_state_changes[pt][var]["initial_state"],
+                        changes=var_state_changes[pt][var]["changes"],
                     )
                     var_instances[pt][var] = VariableInstance(
-                        var,
-                        torch.nn.Parameter,  # TODO: hardcoded for variable type, need to remove it by encoding var type in trace
-                        states,
-                        len(states)
+                        name=var,
+                        type=var_state_changes[pt][var]["initial_state"]["type"],
+                        values=states,
+                        meta_vars=len(states)
                         * [
                             var_state_changes[pt][var]["changes"].meta_vars.iloc[0]
                         ],  # TODO: change this to the actual meta_vars after we support tracking variable changes
@@ -307,22 +306,15 @@ if __name__ == "__main__":
     if args.path.endswith(".log"):
         logger.info(f"Reading trace from {args.path}")
         trace_lines = []
-        # with open(args.path, "r") as f:
-        #     trace_lines = [
-        #         Event(
-        #             line
-        #         )  # FIXME: the prefix can sometimes be logger dependent, need to fix this
-        #         for line in tqdm.tqdm(f.readlines())
-        #         if line.startswith("{")
-        #     ]
         with open(args.path, "r") as f:
-            log = f.read()
-            # ad-hoc preprocessing step to convert trace into a list of events
             trace_lines = [
-                Event(line.split(":trace:")[-1].strip())
-                for line in log.split("\n")
-                if line.startswith("INFO:trace:") or line.startswith("ERROR:trace:")
+                Event(
+                    line
+                )  # FIXME: the prefix can sometimes be logger dependent, need to fix this
+                for line in tqdm.tqdm(f.readlines())
+                if line.startswith("{")
             ]
+
     else:
         trace_paths = [
             os.path.join(args.path, f)

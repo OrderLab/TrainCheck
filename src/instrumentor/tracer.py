@@ -15,6 +15,27 @@ logger_trace = logging.getLogger("trace")
 meta_vars: dict[str, object] = {}
 
 
+def typename(o):
+    if isinstance(o, torch.Tensor):
+        return o.type()
+    module = ""
+    class_name = ""
+    if (
+        hasattr(o, "__module__")
+        and o.__module__ != "builtins"
+        and o.__module__ != "__builtin__"
+        and o.__module__ is not None
+    ):
+        module = o.__module__ + "."
+    if hasattr(o, "__qualname__"):
+        class_name = o.__qualname__
+    elif hasattr(o, "__name__"):
+        class_name = o.__name__
+    else:
+        class_name = o.__class__.__name__
+    return module + class_name
+
+
 def global_wrapper(original_function, *args, **kwargs):
     func_id = str(uuid.uuid4())
     # Get the current thread object
@@ -342,7 +363,7 @@ class StateVarObserver:
                     "meta_vars": meta_vars,
                     "type": "state_dump",
                     "var": self.var.__class__.__name__,
-                    "var_type": "torch.nn.Module",  # FIXME: hardcoding the type for now
+                    "var_type": typename(self.var),
                     "state": self.current_state,
                 }
             )
@@ -364,6 +385,7 @@ class StateVarObserver:
             state_copy.append(
                 {
                     "name": name,
+                    "type": typename(param),
                     "param": param.clone().detach().tolist(),
                     "properties": {},
                 }
@@ -410,9 +432,9 @@ class StateVarObserver:
                 "thread_id": threading.current_thread().ident,
                 "meta_vars": meta_vars,
                 "type": "state_change",
-                "var": self.var.__class__.__name__,
-                "var_type": "torch.nn.Module",  # FIXME: hardcoding the type for now
-                "name": old_param["name"],
+                # "var": self.var.__class__.__name__,
+                "var_type": old_param["type"],  # FIXME: hardcoding the type for now
+                "var_name": old_param["name"],
             }
             if old_param["param"] != new_param["param"]:
                 if "change" not in msg_dict:
