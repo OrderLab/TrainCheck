@@ -189,7 +189,22 @@ class NaryVariableInvariantConsistency(VariableInvariant):
                     _consistent_property_names
                 )
 
-        self.invariant_properties["consistent"] = list(consistent_property_names)
+        self.invariant_properties["consistent"] = []
+
+        confidence = self._calc_confidences(consistent_property_names)
+        print(confidence)
+        for prop in consistent_property_names:
+            self.invariant_properties["consistent"].append(
+                {"name": prop, "confidence": confidence[prop]}
+            )
+
+        # let's sort the properties by confidence
+        self.invariant_properties["consistent"] = sorted(
+            self.invariant_properties["consistent"],
+            key=lambda x: x["confidence"],
+            reverse=True,
+        )
+
         self.has_analyzed = True
         return self.invariant_properties
 
@@ -201,3 +216,31 @@ class NaryVariableInvariantConsistency(VariableInvariant):
             self.pre_conditions
         )  # FIXME: this is too ad-hoc
         return self.invariant_properties
+
+    def _calc_confidences(self, consistent_properties: list[str] | set[str]):
+        """Should be invoked by analyze(), to analyze the confidence of the invariant properties
+        based on the number of value changes seen for each property.
+        """
+
+        # for each property, find the number of value changes; this check can be done for just one variable_instance as in the end we are looking for the value changes across consistent properties
+        var_states = self.variable_instances[0].get_values()
+        num_states = len(var_states)
+        assert (
+            num_states > 1
+        ), "There must be at least 2 states to calculate confidence."
+
+        property_value_changes = {}
+        for prop in consistent_properties:
+            value_changes = 0
+            for i in range(1, num_states):
+                if var_states[i][prop] != var_states[i - 1][prop]:
+                    value_changes += 1
+            property_value_changes[prop] = value_changes
+
+        # calculate confidence
+        confidences = {}
+        for prop, value_changes in property_value_changes.items():
+            confidences[prop] = value_changes / (
+                num_states - 1
+            )  # TODO: this is a naive confidence calculation, we can improve this by considering the size of value space for each property. This would require a more sophisticated way of representing the value space of a property.
+        return confidences
