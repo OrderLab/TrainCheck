@@ -93,40 +93,29 @@ def safe_serialize(obj):
 def init_wrapper(original_init):
     @functools.wraps(original_init)
     def wrapped_init(self, *args, **kwargs):
-
         if isinstance(self, torch._ops._OpNamespace):
-            # Directly call the original __init__ for _OpNamespace with expected arguments
-            # This is a hard-coded case for _OpNamespace, which expects a 'name' positional argument :(
-            if args:
-                result = original_init(self, *args)
-            else:
-                logging.error(f"Missing 'name' argument for _OpNamespace initialization")
-                return None
+            result = original_init(self, *args) if args else None
         else:
-            # General case for other classes
             try:
                 result = original_init(self, *args, **kwargs)
             except Exception as e:
                 logging.error(f"Error in __init__ of {self.__class__.__name__}: {e}")
-                logging.error(f"Args: {args}")
-                logging.error(f"Kwargs: {kwargs}")
                 return None
-            
-        if not isinstance(self, torch._ops._OpNamespace):
-            serialized_args = [safe_serialize(arg) for arg in args]
-            serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
-            logger_trace.info(json.dumps({
-                "thread_id": threading.current_thread().ident,
-                "process_id": os.getpid(),
-                "type": "class_init",
-                "class": self.__class__.__name__,
-                "args": serialized_args,
-                "kwargs": serialized_kwargs
-            }))
 
+        serialized_args = [safe_serialize(arg) for arg in args]
+        serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
+        print(f"WE ARE DUMPING INIT LGTM")
+        logger_trace.info(json.dumps({
+            "thread_id": threading.current_thread().ident,
+            "process_id": os.getpid(),
+            "type": "class_init",
+            "class": self.__class__.__name__,
+            "args": serialized_args,
+            "kwargs": serialized_kwargs
+        }))
         return result
-
     return wrapped_init
+
 
 
 instrumented_modules = set()
