@@ -8,6 +8,7 @@ import types
 import uuid
 
 import torch
+import compactdump 
 
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
@@ -54,7 +55,8 @@ def global_wrapper(original_function, *args, **kwargs):
 
     # logger_trace.info({'type': 'function_call (pre)', 'function': original_function.__name__, 'args': args, 'kwargs': kwargs})
     logger_trace.info(
-        json.dumps(
+        compactdump.dump_json(
+        # json.dumps(
             {
                 "uuid": func_id,
                 "thread_id": thread_id,
@@ -69,7 +71,7 @@ def global_wrapper(original_function, *args, **kwargs):
         result = original_function(*args, **kwargs)
     except Exception as e:
         logger_trace.error(
-            json.dumps(
+            json.dumps( # keep the error logs as json
                 {
                     "uuid": func_id,
                     "thread_id": thread_id,
@@ -86,7 +88,8 @@ def global_wrapper(original_function, *args, **kwargs):
         raise e
     # logger_trace.info({'type': 'function_call (post)', 'function': original_function.__name__, 'result': result})
     logger_trace.info(
-        json.dumps(
+        compactdump.dump_json(
+        # json.dumps(
             {
                 "uuid": func_id,
                 "thread_id": thread_id,
@@ -356,6 +359,7 @@ class StateVarObserver:
         self.current_state = self._get_state_copy()
         # dump the initial state
         logger_trace.info(
+            # also not compressing here (we want to maintain tensor information)
             json.dumps(
                 {
                     "process_id": os.getpid(),
@@ -404,7 +408,7 @@ class StateVarObserver:
                     continue
                 # try to serialize the attribute, if it fails, then skip it
                 try:
-                    json.dumps(attr)
+                    json.dumps(attr) # skipping compression 
                 except Exception as e:
                     logger_instrumentation.warn(
                         f"Failed to serialize attribute {attr_name} of parameter {name}, skipping it. Error: {e}"
