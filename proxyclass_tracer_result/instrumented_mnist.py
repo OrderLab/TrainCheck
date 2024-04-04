@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import StepLR
 import datetime
 import inspect
 import logging
-import src.proxy as Proxy
+import src.proxy_wrapper.proxy as Proxy
 
 class Net(nn.Module):
     def __init__(self):
