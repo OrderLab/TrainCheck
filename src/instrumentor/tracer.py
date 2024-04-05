@@ -113,6 +113,10 @@ def init_wrapper(original_init):
             "args": serialized_args,
             "kwargs": serialized_kwargs
         }))
+        
+        state_observer = StateVarObserver(self)
+        state_observer.has_changed()
+
         return result
     return wrapped_init
 
