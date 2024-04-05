@@ -104,7 +104,7 @@ def init_wrapper(original_init):
 
         serialized_args = [safe_serialize(arg) for arg in args]
         serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
-        print(f"WE ARE DUMPING INIT LGTM")
+
         logger_trace.info(json.dumps({
             "thread_id": threading.current_thread().ident,
             "process_id": os.getpid(),
