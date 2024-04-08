@@ -6,9 +6,13 @@ import os
 import threading
 import types
 import uuid
+from typing import Union
+
 import torch
 import torch.utils
 import src.proxy_wrapper as ProxyWrapper
+import traceback
+
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
 
@@ -20,7 +24,7 @@ def global_wrapper(original_function, *args, **kwargs):
     # Get the thread ID
     thread_id = current_thread.ident
     process_id = os.getpid()
-
+    
     func_name = original_function.__name__
     if hasattr(original_function, "__module__"):
         module_name = original_function.__module__
@@ -53,12 +57,14 @@ def global_wrapper(original_function, *args, **kwargs):
                     "type": "function_call (post) (exception)",
                     "function": func_name,
                     "exception": str(e),
+                    "traceback": traceback.format_exc(),
                 }
             )
         )
         raise e
     # logger_trace.info({'type': 'function_call (post)', 'function': original_function.__name__, 'result': result})
     logger_trace.info(
+        
         json.dumps(
             {
                 "uuid": func_id,
@@ -138,7 +144,7 @@ skipped_functions = set()
 modules_to_skip = ["torch.fx"]
 
 class instrumentor:
-    def __init__(self, target: types.ModuleType | type | types.FunctionType):
+    def __init__(self, target: Union[types.ModuleType, type, types.FunctionType]):
         if isinstance(target, types.ModuleType):
             self.root_module = target.__name__.split(".")[0]
         elif inspect.isclass(target):
@@ -156,7 +162,7 @@ class instrumentor:
         instrumented_count = self._instrument(self.target)
         return instrumented_count
 
-    def _instrument(self, pymodule: types.ModuleType | type, depth=0):
+    def _instrument(self, pymodule: Union[types.ModuleType, type], depth=0):
         if pymodule in instrumented_modules or pymodule in skipped_modules:
             logger_instrumentation.info(
                 f"Depth: {depth}, Skipping module: {pymodule.__name__}"
