@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
-
+from src.instrumentor.tracer import init_wrapper, get_all_subclasses
 
 class Net(nn.Module):
     def __init__(self):
@@ -96,6 +96,7 @@ def main():
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
     args = parser.parse_args()
+
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
     print(torch.__version__)
@@ -127,11 +128,15 @@ def main():
                        transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+    
+
 
     model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    print("All subclasses of torch.nn.Module:")
+
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
@@ -142,4 +147,7 @@ def main():
 
 
 if __name__ == '__main__':
+    for cls in get_all_subclasses(torch.nn.Module):
+        print(f"init: {cls.__name__}")
+        cls.__init__ = init_wrapper(cls.__init__)
     main()

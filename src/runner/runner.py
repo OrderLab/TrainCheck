@@ -16,7 +16,7 @@ class ProgramRunner(object):
 
         # run the program
         process = subprocess.Popen(
-            ["python3", self._tmp_file_name],
+            ["python", self._tmp_file_name],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )

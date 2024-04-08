@@ -6,9 +6,9 @@ import os
 import threading
 import types
 import uuid
-
 import torch
-
+import torch.utils
+import src.proxy_wrapper as ProxyWrapper
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
 
@@ -89,10 +89,20 @@ def safe_serialize(obj):
         return json.dumps(obj) 
     except TypeError:
         return str(type(obj))
+    
+def get_all_subclasses(cls):
+    all_subclasses = []
+
+    for subclass in cls.__subclasses__():
+        all_subclasses.append(subclass)
+        all_subclasses.extend(get_all_subclasses(subclass))
+
+    return all_subclasses
 
 def init_wrapper(original_init):
     @functools.wraps(original_init)
     def wrapped_init(self, *args, **kwargs):
+        print(f"wrapped_init for {self.__class__.__name__}")
         if isinstance(self, torch._ops._OpNamespace):
             result = original_init(self, *args) if args else None
         else:
@@ -100,11 +110,12 @@ def init_wrapper(original_init):
                 result = original_init(self, *args, **kwargs)
             except Exception as e:
                 logging.error(f"Error in __init__ of {self.__class__.__name__}: {e}")
+                print(f"Error in __init__ of {self.__class__.__name__}: {e}")
                 return None
 
         serialized_args = [safe_serialize(arg) for arg in args]
         serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
-
+        print(f"Initialized {self.__class__.__name__} with args: {serialized_args} and kwargs: {serialized_kwargs}")
         logger_trace.info(json.dumps({
             "thread_id": threading.current_thread().ident,
             "process_id": os.getpid(),
@@ -113,9 +124,6 @@ def init_wrapper(original_init):
             "args": serialized_args,
             "kwargs": serialized_kwargs
         }))
-        
-        state_observer = StateVarObserver(self)
-        state_observer.has_changed()
 
         return result
     return wrapped_init
