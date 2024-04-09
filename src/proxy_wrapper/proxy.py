@@ -161,6 +161,26 @@ class Proxy():
         other = other._obj if isinstance(other, Proxy) else other
         return self._obj + other
     
+    def __or__(self, other):
+        if isinstance(other, bool):
+            # If the other operand is a boolean, convert the Proxy object to a boolean and do the bitwise OR
+            return bool(self._obj) | other
+        else:
+            # Otherwise, do the bitwise OR on the wrapped object
+            return self._obj | other
+        
+    def __ior__(self, other):
+        if isinstance(other, bool):
+            self._obj = bool(self._obj) | other
+        else:
+            self._obj |= other
+        return self
+    
+    def __ror__(self, other):
+        if isinstance(other, bool):
+            return other | bool(self._obj)
+        else:
+            return other | self._obj
     
     def __radd__(self, other):
         # Unwrap other if it's a Proxy
