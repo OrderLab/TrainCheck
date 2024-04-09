@@ -10,7 +10,7 @@ from typing import Union
 
 import torch
 import torch.utils
-import src.proxy_wrapper as ProxyWrapper
+import src.proxy_wrapper.proxy as ProxyWrapper
 import traceback
 
 logger_instrumentation = logging.getLogger("instrumentation")
@@ -130,6 +130,28 @@ def init_wrapper(original_init):
             "args": serialized_args,
             "kwargs": serialized_kwargs
         }))
+        
+        self = ProxyWrapper.Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
+
+        return result
+    return wrapped_init
+
+def new_wrapper(original_new_func):
+    @functools.wraps(original_new_func)
+    def wrapped_init(cls, *args, **kwargs):
+        print(f"wrapped_init for {cls.__name__}")
+        if isinstance(cls, torch._ops._OpNamespace):
+            result = original_new_func(cls, *args) if args else None
+        else:
+            try:
+                result = original_new_func(cls, *args, **kwargs)
+            except Exception as e:
+                logging.error(f"Error in __new__ of {cls.__name__}: {e}")
+                # print(f"Error in __init__ of {self.__class__.__name__}: {e}")
+                return None
+
+        
+        result = ProxyWrapper.Proxy(result, log_level=logging.INFO, logdir="proxy_logs.log")
 
         return result
     return wrapped_init
