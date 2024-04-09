@@ -4,14 +4,15 @@ import json
 import logging
 import os
 import threading
+import traceback
 import types
 import uuid
 from typing import Union
 
 import torch
 import torch.utils
+
 import src.proxy_wrapper.proxy as ProxyWrapper
-import traceback
 
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
@@ -24,7 +25,7 @@ def global_wrapper(original_function, *args, **kwargs):
     # Get the thread ID
     thread_id = current_thread.ident
     process_id = os.getpid()
-    
+
     func_name = original_function.__name__
     if hasattr(original_function, "__module__"):
         module_name = original_function.__module__
@@ -64,7 +65,6 @@ def global_wrapper(original_function, *args, **kwargs):
         raise e
     # logger_trace.info({'type': 'function_call (post)', 'function': original_function.__name__, 'result': result})
     logger_trace.info(
-        
         json.dumps(
             {
                 "uuid": func_id,
@@ -85,25 +85,32 @@ def wrapper(original_function):
 
     return wrapped
 
+
 EXCLUDED_CLASSES = (torch.utils.data._utils.worker.WorkerInfo,)
+
 
 def safe_serialize(obj):
     """Include custom serialization logic to handle parameters that cannot be serialized by json.dumps"""
     try:
         if isinstance(obj, torch.Tensor):
             return f"Tensor(shape={obj.size()}, dtype={obj.dtype})"
-        return json.dumps(obj) 
+        return json.dumps(obj)
     except TypeError:
         return str(type(obj))
-    
+
+
+# https://stackoverflow.com/a/63851681/9201239
 def get_all_subclasses(cls):
-    all_subclasses = []
+    subclass_list = []
 
-    for subclass in cls.__subclasses__():
-        all_subclasses.append(subclass)
-        all_subclasses.extend(get_all_subclasses(subclass))
+    def recurse(cl):
+        for subclass in cl.__subclasses__():
+            subclass_list.append(subclass)
+            recurse(subclass)
 
-    return all_subclasses
+    recurse(cls)
+    return set(subclass_list)
+
 
 def init_wrapper(original_init):
     @functools.wraps(original_init)
@@ -121,43 +128,75 @@ def init_wrapper(original_init):
 
         serialized_args = [safe_serialize(arg) for arg in args]
         serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
-        print(f"Initialized {self.__class__.__name__} with args: {serialized_args} and kwargs: {serialized_kwargs}")
-        logger_trace.info(json.dumps({
-            "thread_id": threading.current_thread().ident,
-            "process_id": os.getpid(),
-            "type": "class_init",
-            "class": self.__class__.__name__,
-            "args": serialized_args,
-            "kwargs": serialized_kwargs
-        }))
-        
+        print(
+            f"Initialized {self.__class__.__name__} with args: {serialized_args} and kwargs: {serialized_kwargs}"
+        )
+        logger_trace.info(
+            json.dumps(
+                {
+                    "thread_id": threading.current_thread().ident,
+                    "process_id": os.getpid(),
+                    "type": "class_init",
+                    "class": self.__class__.__name__,
+                    "args": serialized_args,
+                    "kwargs": serialized_kwargs,
+                }
+            )
+        )
+
         self = ProxyWrapper.Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
 
         return result
+
     return wrapped_init
 
+
 def new_wrapper(original_new_func):
+    if getattr(original_new_func, "_is_wrapped", False):
+        logging.warning(f"__new__ of {original_new_func.__name__} is already wrapped")
+        print(f"__new__ of {original_new_func.__name__} is already wrapped")
+        return original_new_func
+
     @functools.wraps(original_new_func)
     def wrapped_new(cls, *args, **kwargs):
-        print(f"wrapped_new for {cls.__name__}")
+        import random
+
+        # generate a random id for the function call
+        func_id = str(random.randint(0, 10))
+
+        print(f"idx: {func_id} wrapped_new for {cls.__name__}")
         if isinstance(cls, torch._ops._OpNamespace):
+            print(f"idx: {func_id} CALLing original_new_func")
             result = original_new_func(cls)
+            print(f"idx: {func_id} EXITing original_new_func")
         else:
             try:
+                print(f"idx: {func_id} CALLing original_new_func")
                 result = original_new_func(cls)
+                # print(f"Wrapped_new for {cls.__name__}, source: {inspect.getsource(original_new_func)}")
+                print(f"idx: {func_id} EXITing original_new_func")
             except Exception as e:
-                print(f"Error in __new__ of {cls.__name__}: {e}")
-                logging.error(f"Error in __new__ of {cls.__name__}: {e}")
+                print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
+                logging.error(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
                 return None
         try:
+            print(
+                f"idx: {func_id} Initalizing {cls.__name__} with Args: {args}, Kwargs: {kwargs}"
+            )
             result.__init__(*args, **kwargs)
         except Exception as e:
-                print(f"Error in __init__ of {cls.__name__}: {e}")
-                logging.error(f"Error in __init__ of {cls.__name__}: {e}")
-                return None 
-        result = ProxyWrapper.Proxy(result, log_level=logging.INFO, logdir="proxy_logs.log")
+            print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
+            logging.error(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
+            return None
+        result = ProxyWrapper.Proxy(
+            result, log_level=logging.INFO, logdir="proxy_logs.log"
+        )
 
         return result
+
+    # Mark this function as wrapped
+    wrapped_new._is_wrapped = True
+
     return wrapped_new
 
 
@@ -167,6 +206,7 @@ skipped_functions = set()
 
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
 modules_to_skip = ["torch.fx"]
+
 
 class instrumentor:
     def __init__(self, target: Union[types.ModuleType, type, types.FunctionType]):
@@ -289,9 +329,8 @@ class instrumentor:
                         f"Depth: {depth}, Skipping function: {attr_name}"
                     )
                     continue
-                
-                logger_instrumentation.info(
-                    f"Instrumenting function: {attr_name}")
+
+                logger_instrumentation.info(f"Instrumenting function: {attr_name}")
                 wrapped = wrapper(attr)
                 try:
                     setattr(pymodule, attr_name, wrapped)
@@ -338,7 +377,7 @@ class instrumentor:
                     )
                     continue
                 count_wrapped += self._instrument(attr, depth + 1)
-                
+
         logger_instrumentation.info(
             f"Depth: {depth}, Wrapped {count_wrapped} functions in module {pymodule.__name__}"
         )
