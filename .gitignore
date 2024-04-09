@@ -5,3 +5,4 @@ log*
 *tfevents*
 .*cache*
 *temp*
+!_temp.py
