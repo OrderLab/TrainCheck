@@ -115,7 +115,9 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
     model = Net()
+    model = ProxyWrapper.Proxy(model, log_level=logging.INFO,logdir='mnist_log')
     assert isinstance(model, ProxyWrapper.Proxy), f"model is not an instance of ProxyWrapper.Proxy, but {type(model)}"
+    
     model = model.to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
@@ -130,5 +132,6 @@ if __name__ == '__main__':
     for cls in get_all_subclasses(torch.nn.Module):
         print(f'init: {cls.__name__}')
         cls.__new__ =  new_wrapper(cls.__new__)
+
 
     main()

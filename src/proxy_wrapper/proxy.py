@@ -69,20 +69,19 @@ class Proxy():
         return self._obj.__array__()
     
         
-    # def __torch_function__(self, func, types, args=(), kwargs=None):
-    #     self.logger_proxy.info(f"Go to __torch_function__ for function '{func.__name__}'")
-    #     if kwargs is None:
-    #         kwargs = {}
+    def __torch_function__(self, func, types, args=(), kwargs=None):
+        self.logger_proxy.info(f"Go to __torch_function__ for function '{func.__name__}'")
+        if kwargs is None:
+            kwargs = {}
 
-    #     # Unwrap Proxy objects in args and kwargs
-    #     args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)
-    #     kwargs = {k: v._obj if (type(v) is Proxy) else v for k, v in kwargs.items()}
-    #     result = func(*args, **kwargs)
+        # Unwrap Proxy objects in args and kwargs
+        args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)
+        kwargs = {k: v._obj if (type(v) is Proxy) else v for k, v in kwargs.items()}
+        result = func(*args, **kwargs)
         
-    #     # Call the original function with the unwrapped args and kwargs
-    #     # return Proxy(result, logdir=self.logdir, log_level = self.log_level)
-    #     return result
-        
+        # Call the original function with the unwrapped args and kwargs
+        return Proxy(result, logdir=self.logdir, log_level = self.log_level)
+
     def __call__(self, *args, **kwargs):
         self.logger_proxy.info(f"Go to __call__ for object '{self.__class__.__name__}'")
         args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)

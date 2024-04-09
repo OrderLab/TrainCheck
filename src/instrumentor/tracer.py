@@ -62,6 +62,7 @@ def global_wrapper(original_function, *args, **kwargs):
                 }
             )
         )
+        print(f"Error in {func_name}: {e}")
         raise e
     # logger_trace.info({'type': 'function_call (post)', 'function': original_function.__name__, 'result': result})
     logger_trace.info(
@@ -188,9 +189,11 @@ def new_wrapper(original_new_func):
             print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
             logging.error(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
             return None
-        result = ProxyWrapper.Proxy(
-            result, log_level=logging.INFO, logdir="proxy_logs.log"
-        )
+        # if cls.__name__ in ['Net']:
+        #     print(f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class")
+        #     result = ProxyWrapper.Proxy(
+        #         result, log_level=logging.INFO, logdir="proxy_logs.log"
+        #     )
 
         return result
 
