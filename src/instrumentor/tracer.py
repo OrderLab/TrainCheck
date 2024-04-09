@@ -138,24 +138,27 @@ def init_wrapper(original_init):
 
 def new_wrapper(original_new_func):
     @functools.wraps(original_new_func)
-    def wrapped_init(cls, *args, **kwargs):
-        print(f"wrapped_init for {cls.__name__}")
+    def wrapped_new(cls, *args, **kwargs):
+        print(f"wrapped_new for {cls.__name__}")
         if isinstance(cls, torch._ops._OpNamespace):
-            result = original_new_func(cls, *args) if args else None
+            result = original_new_func(cls)
         else:
             try:
-                result = original_new_func(cls, *args, **kwargs)
+                result = original_new_func(cls)
             except Exception as e:
+                print(f"Error in __new__ of {cls.__name__}: {e}")
                 logging.error(f"Error in __new__ of {cls.__name__}: {e}")
-                # print(f"Error in __init__ of {self.__class__.__name__}: {e}")
                 return None
-
-        
+        try:
+            result.__init__(*args, **kwargs)
+        except Exception as e:
+                print(f"Error in __init__ of {cls.__name__}: {e}")
+                logging.error(f"Error in __init__ of {cls.__name__}: {e}")
+                return None 
         result = ProxyWrapper.Proxy(result, log_level=logging.INFO, logdir="proxy_logs.log")
 
         return result
-    return wrapped_init
-
+    return wrapped_new
 
 
 instrumented_modules = set()

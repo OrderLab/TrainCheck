@@ -45,7 +45,7 @@ class Proxy():
             
                 self.logger_proxy.info(f"Creating proxy for object '{obj.__class__.__name__}'")
     
-                self._obj = obj
+                self.__dict__['_obj'] = obj
                 # Proxy.proxy_dict[id(self._obj)] = self
                 Proxy.frame_dict[tuple(frame_array)] = self
             else:
