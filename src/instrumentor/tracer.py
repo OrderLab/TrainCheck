@@ -189,11 +189,12 @@ def new_wrapper(original_new_func):
             print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
             logging.error(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
             return None
-        # if cls.__name__ in ['Net']:
-        #     print(f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class")
-        #     result = ProxyWrapper.Proxy(
-        #         result, log_level=logging.INFO, logdir="proxy_logs.log"
-        #     )
+        INCLUDED_WRAP_LIST = ['Net','Conv2d', 'Linear']
+        if cls.__name__ in INCLUDED_WRAP_LIST:
+            print(f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class")
+            result = ProxyWrapper.Proxy(
+                result, log_level=logging.INFO, logdir="proxy_logs.log"
+            )
 
         return result
 

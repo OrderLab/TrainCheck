@@ -115,7 +115,6 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
     model = Net()
-    model = ProxyWrapper.Proxy(model, log_level=logging.INFO,logdir='mnist_log')
     assert isinstance(model, ProxyWrapper.Proxy), f"model is not an instance of ProxyWrapper.Proxy, but {type(model)}"
     
     model = model.to(device)
