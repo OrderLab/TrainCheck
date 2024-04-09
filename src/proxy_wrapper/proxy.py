@@ -7,6 +7,11 @@ class Proxy():
     proxy_dict = {}
     frame_dict = {}
     logger_proxy = logging.getLogger('proxy')
+    logdir = "proxy_logs.log"
+    loglevel= logging.INFO
+    handler = logging.FileHandler(logdir)
+    handler.setLevel(loglevel)
+    logger_proxy.addHandler(handler)
     
     def print_tensor(self, value):
         self.logger_proxy.info(f"Setting attribute '_obj' to an updated tensor with shape'{value.shape}'")
@@ -21,9 +26,9 @@ class Proxy():
         
         self.__dict__['logdir'] = logdir
         self.__dict__['log_level'] = log_level
-        handler = logging.FileHandler(logdir)
-        handler.setLevel(log_level)
-        self.logger_proxy.addHandler(handler)
+        # handler = logging.FileHandler(logdir)
+        # handler.setLevel(log_level)
+        # self.logger_proxy.addHandler(handler)
         
         if not type(obj) in [int, float, str, bool]  and obj is not None: 
             self.logger_proxy.debug(f"Go to __init__ for object '{obj.__class__.__name__}'")
@@ -64,18 +69,19 @@ class Proxy():
         return self._obj.__array__()
     
         
-    def __torch_function__(self, func, types, args=(), kwargs=None):
-        self.logger_proxy.info(f"Go to __torch_function__ for function '{func.__name__}'")
-        if kwargs is None:
-            kwargs = {}
+    # def __torch_function__(self, func, types, args=(), kwargs=None):
+    #     self.logger_proxy.info(f"Go to __torch_function__ for function '{func.__name__}'")
+    #     if kwargs is None:
+    #         kwargs = {}
 
-        # Unwrap Proxy objects in args and kwargs
-        args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)
-        kwargs = {k: v._obj if (type(v) is Proxy) else v for k, v in kwargs.items()}
-        result = func(*args, **kwargs)
+    #     # Unwrap Proxy objects in args and kwargs
+    #     args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)
+    #     kwargs = {k: v._obj if (type(v) is Proxy) else v for k, v in kwargs.items()}
+    #     result = func(*args, **kwargs)
         
-        # Call the original function with the unwrapped args and kwargs
-        return Proxy(result, logdir=self.logdir, log_level = self.log_level)
+    #     # Call the original function with the unwrapped args and kwargs
+    #     # return Proxy(result, logdir=self.logdir, log_level = self.log_level)
+    #     return result
         
     def __call__(self, *args, **kwargs):
         self.logger_proxy.info(f"Go to __call__ for object '{self.__class__.__name__}'")
@@ -105,7 +111,7 @@ class Proxy():
         self.logger_proxy.debug(f"Accessing attribute '{name}'")
         if name == 'logdir':
             return self.__dict__.get('logdir', None) # in order to pass down the dir
-        self.logger_proxy.info(f"Accessing attribute '{name}'")
+        # self.logger_proxy.info(f"Accessing attribute '{name}'")
         attr = getattr(self._obj, name)
 
         return Proxy(attr, logdir=self.logdir, log_level= self.log_level)
