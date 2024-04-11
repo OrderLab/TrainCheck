@@ -12,6 +12,7 @@ from typing import Union
 import torch
 import torch.utils
 
+from src.config.config import INCLUDED_WRAP_LIST, proxy_log_dir
 import src.proxy_wrapper.proxy as ProxyWrapper
 
 logger_instrumentation = logging.getLogger("instrumentation")
@@ -174,7 +175,6 @@ def new_wrapper(original_new_func):
             try:
                 print(f"idx: {func_id} CALLing original_new_func")
                 result = original_new_func(cls)
-                # print(f"Wrapped_new for {cls.__name__}, source: {inspect.getsource(original_new_func)}")
                 print(f"idx: {func_id} EXITing original_new_func")
             except Exception as e:
                 print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
@@ -189,11 +189,11 @@ def new_wrapper(original_new_func):
             print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
             logging.error(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
             return None
-        INCLUDED_WRAP_LIST = ['Net','Conv2d', 'Linear']
+        
         if cls.__name__ in INCLUDED_WRAP_LIST:
             print(f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class")
             result = ProxyWrapper.Proxy(
-                result, log_level=logging.INFO, logdir="proxy_logs.log"
+                result, log_level=logging.INFO, logdir=proxy_log_dir
             )
 
         return result

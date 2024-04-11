@@ -1,29 +1,20 @@
 from __future__ import print_function
 
+from src.instrumentor.tracer import new_wrapper, get_all_subclasses
 import logging
 logging.basicConfig(level=logging.INFO,
     handlers=[logging.FileHandler("mnist_ml_daikon.log")]
 )
 
+
 import argparse
 import torch
-from src.instrumentor import tracer
-tracer.instrumentor(torch).instrument()
 import torch.nn as nn
-from src.instrumentor import tracer
-tracer.instrumentor(nn).instrument()
 import torch.nn.functional as F
-from src.instrumentor import tracer
-tracer.instrumentor(F).instrument()
 import torch.optim as optim
-from src.instrumentor import tracer
-tracer.instrumentor(optim).instrument()
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
-from src.instrumentor import tracer
-tracer.instrumentor(torch.optim.lr_scheduler).instrument()
-from src.instrumentor.tracer import init_wrapper, new_wrapper, get_all_subclasses
-import src.proxy_wrapper.proxy as ProxyWrapper
+from src.instrumentor.tracer import new_wrapper, get_all_subclasses
 
 class Net(nn.Module):
 
@@ -53,13 +44,17 @@ class Net(nn.Module):
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
-    for batch_idx, (data, target) in enumerate(train_loader):
-        data, target = (data.to(device), target.to(device))
+    i = 0
+    for (batch_idx, (data, target)) in enumerate(train_loader):
+        (data, target) = (data.to(device), target.to(device))
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
+        i = i + 1
+        if i > 100:
+            break
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(epoch, batch_idx * len(data), len(train_loader.dataset), 100.0 * batch_idx / len(train_loader), loss.item()))
             if args.dry_run:
@@ -70,8 +65,8 @@ def test(model, device, test_loader):
     test_loss = 0
     correct = 0
     with torch.no_grad():
-        for data, target in test_loader:
-            data, target = (data.to(device), target.to(device))
+        for (data, target) in test_loader:
+            (data, target) = (data.to(device), target.to(device))
             output = model(data)
             test_loss += F.nll_loss(output, target, reduction='sum').item()
             pred = output.argmax(dim=1, keepdim=True)
@@ -80,6 +75,9 @@ def test(model, device, test_loader):
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(test_loss, correct, len(test_loader.dataset), 100.0 * correct / len(test_loader.dataset)))
 
 def main():
+    for cls in get_all_subclasses(torch.nn.Module):
+        print(f'Create new wrapper: {cls.__name__}')
+        cls.__new__ = new_wrapper(cls.__new__)
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
     parser.add_argument('--batch-size', type=int, default=64, metavar='N', help='input batch size for training (default: 64)')
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N', help='input batch size for testing (default: 1000)')
@@ -114,10 +112,7 @@ def main():
     dataset2 = datasets.MNIST('../data', train=False, transform=transform)
     train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
-    model = Net()
-    assert isinstance(model, ProxyWrapper.Proxy), f"model is not an instance of ProxyWrapper.Proxy, but {type(model)}"
-    
-    model = model.to(device)
+    model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     print('All subclasses of torch.nn.Module:')
@@ -128,9 +123,4 @@ def main():
     if args.save_model:
         torch.save(model.state_dict(), 'mnist_cnn.pt')
 if __name__ == '__main__':
-    for cls in get_all_subclasses(torch.nn.Module):
-        print(f'init: {cls.__name__}')
-        cls.__new__ =  new_wrapper(cls.__new__)
-
-
     main()

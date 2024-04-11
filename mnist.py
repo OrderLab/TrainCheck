@@ -6,7 +6,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
-from src.instrumentor.tracer import init_wrapper, get_all_subclasses
 
 class Net(nn.Module):
     def __init__(self):
@@ -36,6 +35,7 @@ class Net(nn.Module):
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
+    i=0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
@@ -43,6 +43,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
+        i=i+1
+        if i>100:
+            break
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -126,7 +129,7 @@ def main():
                        transform=transform)
     dataset2 = datasets.MNIST('../data', train=False,
                        transform=transform)
-    train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
+    train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
     
 
@@ -147,7 +150,4 @@ def main():
 
 
 if __name__ == '__main__':
-    for cls in get_all_subclasses(torch.nn.Module):
-        print(f"init: {cls.__name__}")
-        cls.__init__ = init_wrapper(cls.__init__)
     main()
