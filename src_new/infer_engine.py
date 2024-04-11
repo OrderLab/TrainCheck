@@ -1,10 +1,12 @@
 import argparse
 import logging
 
-from invariant import relation_pool
-from trace import read_trace_file
+from ml_daikon_trace import read_trace_file
+
+from src_new.invariant.relation_pool import relation_pool
 
 logger = logging.getLogger(__name__)
+
 
 class InferEngine:
     def __init__(self, traces: list[str]):
@@ -17,10 +19,10 @@ class InferEngine:
             for r in relation_pool:
                 logger.info(f"Infering invariants for relation: {r}")
                 invs.append(r.infer(trace))
-                logger.info(f"Found {len(invs)} invariants for relation: {r}")        
+                logger.info(f"Found {len(invs)} invariants for relation: {r}")
         logger.info(f"Found {len(invs)} invariants.")
         return invs
-    
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -35,7 +37,6 @@ if __name__ == "__main__":
     )
 
     logging.basicConfig(level=logging.DEBUG)
-
 
     args = parser.parse_args()
 
