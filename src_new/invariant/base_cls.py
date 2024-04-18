@@ -40,6 +40,8 @@ class Hypothesis:
         self.positive_examples = positive_examples
         self.negative_examples = negative_examples
 
+    # TODO: think about refinement for hypothesis (e.g. across multiple traces) / invariants (e.g A > B --> A >= B) needs abstaction for this
+
 
 class Relation(abc.ABC):
 
@@ -111,7 +113,10 @@ class Relation(abc.ABC):
         all_neg_events: pl.DataFrame = pl.concat(
             [trace.events for trace in hypothesis.negative_examples]
         )
-
+        # TODO: think about candidate properties for preconditions
+        """
+        eliminate at least vars used in the relation
+        """
         # find consistent properties of the positive examples
         consistent_pos_properties = []
         for col in all_pos_events.columns:
@@ -129,6 +134,8 @@ class Relation(abc.ABC):
 
         # now, find the properties that are consistent in positive examples but not in negative examples (at least not having the same value)
         preconditions = set(consistent_pos_properties) - set(consistent_neg_properties)
+        # TODO: how is a 'property' defined? Single value? Groups of values? Single value / Set() only work for && relationships for multiple preconditions.
+
         if len(preconditions) == 0:
             logger.info("No preconditions found for the hypothesis.")
             return None

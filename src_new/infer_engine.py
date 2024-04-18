@@ -18,7 +18,7 @@ class InferEngine:
         for trace in self.traces:
             for r in relation_pool:
                 logger.info(f"Infering invariants for relation: {r}")
-                invs.append(r.infer(trace))
+                invs.extend(r.infer(trace))
                 logger.info(f"Found {len(invs)} invariants for relation: {r}")
         logger.info(f"Found {len(invs)} invariants.")
         return invs

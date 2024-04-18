@@ -97,7 +97,7 @@ class APIContainRelation(Relation):
         # split the trace into groups based on (process_id and thread_id)
         hypothesis: dict[str, dict[str, Hypothesis]] = {}
         func_names = (
-            trace.events.select("function").drop_nulls().drop_nans().unique().to_list()
+            trace.events.select("function").drop_nulls().unique().to_series().to_list()
         )
 
         for parent in func_names:
@@ -155,14 +155,16 @@ class APIContainRelation(Relation):
                 for expected_child_func in unique_seen_child_func_names:
                     parent_pre_event = trace.events.row(index=idx, named=True)
 
-                    # FIXME: the commented code will slow down the code by 2x (~3min on mnist)
+                    # # FIXME: the commented code will slow down the code by 2x (~3min on mnist)
                     # parent_post_idx = trace.events.select(
-                    #     pl.arg_where(pl.col("uuid")==parent_pre_event["uuid"])
+                    # pl.arg_where(pl.col("uuid")==parent_pre_event["uuid"]) # TODO: build a index for this and replace "uuid"
                     #     ).to_series()[1]
                     # events = trace.events.slice(idx, length=parent_post_idx-idx).filter(
                     #     pl.col("thread_id")==parent_pre_event["thread_id"],
                     #     pl.col("process_id")==parent_pre_event["process_id"]
                     # )
+
+                    # TODO: collect examples in the first pass (don't just collect values)
 
                     # assumption: the precondition can only resides in the parent pre-event
                     if expected_child_func in child_func_names:
