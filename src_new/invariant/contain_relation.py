@@ -176,9 +176,16 @@ class APIContainRelation(Relation):
                             expected_child_func
                         ].negative_examples.append(Trace([parent_pre_event]))
         all_invariants: list[Invariant] = []
-        for child_hypotheses in hypothesis.values():
-            for h in child_hypotheses.values():
+        all_hypotheses = []
+        for p, child_hypotheses in hypothesis.items():
+            for k, h in child_hypotheses.items():
                 all_invariants.append(h.invariant)
+                all_hypotheses.append((h, f"{p} contains {k}"))
+
+        # sort the hypotheses for debugging purposes
+        all_hypotheses.sort(key=lambda h: len(h[0].positive_examples), reverse=True)
+        for h, desc in all_hypotheses:
+            print(desc, h._print_debug())
 
         return all_invariants
 

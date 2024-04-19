@@ -28,6 +28,9 @@ class Invariant:
                 return False
         return True
 
+    def __str__(self) -> str:
+        return f"""Relation: {self.relation}\nParam Selectors: {self.param_selectors}\nPrecondition: {self.precondition}"""
+
 
 class Hypothesis:
     def __init__(
@@ -40,7 +43,13 @@ class Hypothesis:
         self.positive_examples = positive_examples
         self.negative_examples = negative_examples
 
-    # TODO: think about refinement for hypothesis (e.g. across multiple traces) / invariants (e.g A > B --> A >= B) needs abstaction for this
+    @staticmethod
+    def refine(trace: Trace, hypothesis_list: list) -> list:
+        # TODO: think about refinement for hypothesis (e.g. across multiple traces) / invariants (e.g A > B --> A >= B) needs abstaction for this
+        raise NotImplementedError("refine method is not implemented yet.")
+
+    def _print_debug(self):
+        return f"Hypothesized Invariant: {self.invariant}\n# Positive examples: {len(self.positive_examples)}\n# Negative examples: {len(self.negative_examples)}"
 
 
 class Relation(abc.ABC):
@@ -49,6 +58,9 @@ class Relation(abc.ABC):
     def __init__(self):
         # TODO: indentify common attributes of relations and initialize them here
         pass
+
+    def __str__(self):
+        return self.__class__.__name__
 
     @staticmethod
     @abc.abstractmethod
