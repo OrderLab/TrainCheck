@@ -3,7 +3,7 @@ import logging
 
 from ml_daikon_trace import read_trace_file
 
-from src_new.invariant.relation_pool import relation_pool
+from src.invariant.relation_pool import relation_pool
 
 logger = logging.getLogger(__name__)
 

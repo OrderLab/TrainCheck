@@ -3,7 +3,7 @@ import logging
 
 import polars as pl
 
-from src_new.ml_daikon_trace import Trace
+from src.ml_daikon_trace import Trace
 
 
 class Invariant:
