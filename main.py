@@ -1,13 +1,11 @@
 import argparse
 import json
 import logging
-import torch
 
 import src.analyzer as analyzer
+import src.config.config as config
 import src.instrumentor as instrumentor
 import src.runner as runner
-import src.config as config
-from src.instrumentor.tracer import new_wrapper, get_all_subclasses
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -36,21 +34,21 @@ if __name__ == "__main__":
         help="Modules to be instrumented",
         default=instrumentor.MODULES_TO_INSTRUMENT,
     )
-    
+
     parser.add_argument(
-        '--wrapped_modules', 
-        type=list, 
-        default=instrumentor.INCLUDED_WRAP_LIST, 
-        metavar='Module', 
-        help = 'Module to be traced by the proxy wrapper')
-    
+        "--wrapped_modules",
+        type=list,
+        default=instrumentor.INCLUDED_WRAP_LIST,
+        metavar="Module",
+        help="Module to be traced by the proxy wrapper",
+    )
+
     parser.add_argument(
         "--tracer_log_dir",
         type=str,
         default="proxy_log.log",
-        help="Path to the log file of the tracer"
+        help="Path to the log file of the tracer",
     )
-    
 
     args = parser.parse_args()
     config.INCLUDED_WRAP_LIST = args.wrapped_modules
@@ -67,10 +65,8 @@ if __name__ == "__main__":
     if args.only_instrument:
         print(source_code)
         exit()
-        
-    # Add new_wrapper
-    
 
+    # Add new_wrapper
 
     # call into the program runner
     program_runner = runner.ProgramRunner(source_code)

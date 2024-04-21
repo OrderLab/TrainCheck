@@ -1,11 +1,8 @@
 import ast
+import logging
 import os
 
-if __name__ == "__main__":
-    from src.config.config import MODULES_TO_INSTRUMENT, INCLUDED_WRAP_LIST
-else:
-    from ..config.config import MODULES_TO_INSTRUMENT, INCLUDED_WRAP_LIST
-import logging
+from src.config.config import MODULES_TO_INSTRUMENT
 
 logger = logging.getLogger(__name__)
 
@@ -122,16 +119,18 @@ logging.basicConfig(level=logging.INFO,
 
     # insert code before main() execution
     if main_func:
-        code_to_insert = ast.parse("""
+        code_to_insert = ast.parse(
+            """
 for cls in get_all_subclasses(torch.nn.Module):
     print(f"Create new wrapper: {cls.__name__}")
     cls.__new__ = new_wrapper(cls.__new__)
-""")
+"""
+        )
         main_func.body = code_to_insert.body + main_func.body
 
     # instrument the source code
     instrumented_source = ast.unparse(root)
-    
+
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
     instrumented_source = (
         instrumented_source.split("\n")[0]
