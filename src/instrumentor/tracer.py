@@ -3,11 +3,10 @@ import inspect
 import json
 import logging
 import os
+import random
 import threading
 import types
-import uuid
 
-import compactdump
 import torch
 
 logger_instrumentation = logging.getLogger("instrumentation")
@@ -38,7 +37,8 @@ def typename(o):
 
 
 def global_wrapper(original_function, *args, **kwargs):
-    func_id = str(uuid.uuid4())
+    func_call_id = random.randint(0, 1000)
+
     # Get the current thread object
     current_thread = threading.current_thread()
     # Get the thread ID
@@ -55,10 +55,9 @@ def global_wrapper(original_function, *args, **kwargs):
 
     # logger_trace.info({'type': 'function_call (pre)', 'function': original_function.__name__, 'args': args, 'kwargs': kwargs})
     logger_trace.info(
-        compactdump.dump_json(
-            # json.dumps(
+        json.dumps(
             {
-                "uuid": func_id,
+                "func_call_id": func_call_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "meta_vars": meta_vars,
@@ -73,7 +72,7 @@ def global_wrapper(original_function, *args, **kwargs):
         logger_trace.error(
             json.dumps(  # keep the error logs as json
                 {
-                    "uuid": func_id,
+                    "func_call_id": func_call_id,
                     "thread_id": thread_id,
                     "process_id": process_id,
                     "meta_vars": meta_vars,
@@ -88,10 +87,9 @@ def global_wrapper(original_function, *args, **kwargs):
         raise e
     # logger_trace.info({'type': 'function_call (post)', 'function': original_function.__name__, 'result': result})
     logger_trace.info(
-        compactdump.dump_json(
-            # json.dumps(
+        json.dumps(
             {
-                "uuid": func_id,
+                "func_call_id": func_call_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "meta_vars": meta_vars,
@@ -116,7 +114,12 @@ skipped_modules: set[types.ModuleType | type | types.FunctionType] = set()
 skipped_functions = set()
 
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
-modules_to_skip = ["torch.fx"]
+modules_to_skip = [
+    "torch.fx",
+    "torch.jit",
+    "torch._jit",
+    "torch._C._log_api_usage_once",
+]
 
 
 class instrumentor:
@@ -379,7 +382,7 @@ class StateVarObserver:
                 getattr(obj, attr)
                 return True
             except Exception as e:
-                logger_trace.warn(
+                print(
                     f"Failed to get attribute {attr} of parameter {name}, skipping it. Error: {e}"
                 )
                 return False

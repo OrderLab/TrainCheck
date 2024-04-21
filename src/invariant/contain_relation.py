@@ -39,22 +39,33 @@ def events_scanner(trace_df: pl.DataFrame, parent_func_name: str) -> set[str] | 
     # get the process_id and thread_id of the first record
     process_id = first_record["process_id"]
     thread_id = first_record["thread_id"]
-    uuid = first_record["uuid"]
+    func_call_id = first_record["func_call_id"]
 
-    # get the post-event of the parent_func_name, according to uuid
-    post_idx = trace_df.select(pl.arg_where(pl.col("uuid") == uuid)).to_series()
+    # get the post-event of the parent_func_name, according to func_call_id
+    post_idx = trace_df.select(
+        pl.arg_where(
+            (
+                pl.col("type").is_in(
+                    ["function_call (post)", "function_call (post) (exception)"]
+                )
+            )
+            & (pl.col("function") == parent_func_name)
+            & (pl.col("func_call_id") == func_call_id)
+        )
+    ).to_series()
 
-    num_records = len(post_idx) - 1
+    num_records = len(post_idx)
     if num_records == 0:
         logger.error(
             f"No post-event found for the parent_func_name: {parent_func_name}"
         )
         return None
-    assert (
-        num_records == 1
-    ), "There should be only one post-event for the parent_func_name"
 
-    post_idx = post_idx[1]
+    # This assert no longer holds as we do not use UUIDs for func_call_id
+    # assert (
+    #     num_records == 1
+    # ), "There should be only one post-event for the parent_func_name"
+    post_idx = post_idx[0]  # the first post-event
     post_event = trace_df.row(index=post_idx, named=True)
     assert (
         post_event["process_id"] == process_id and post_event["thread_id"] == thread_id
@@ -157,7 +168,7 @@ class APIContainRelation(Relation):
 
                     # # FIXME: the commented code will slow down the code by 2x (~3min on mnist)
                     # parent_post_idx = trace.events.select(
-                    # pl.arg_where(pl.col("uuid")==parent_pre_event["uuid"]) # TODO: build a index for this and replace "uuid"
+                    # pl.arg_where(pl.col("func_call_id")==parent_pre_event["func_call_id"]) # TODO: build a index for this and replace "func_call_id"
                     #     ).to_series()[1]
                     # events = trace.events.slice(idx, length=parent_post_idx-idx).filter(
                     #     pl.col("thread_id")==parent_pre_event["thread_id"],

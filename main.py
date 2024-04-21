@@ -1,10 +1,8 @@
 import argparse
-import json
 import logging
 import os
 
 import src.instrumentor as instrumentor
-import src.invariant.analyzer as analyzer
 import src.runner as runner
 
 if __name__ == "__main__":
@@ -70,31 +68,7 @@ if __name__ == "__main__":
         logging.info(f"Skipping analysis, trace file is at {log_file}")
         exit()
 
-    with open(log_file, "r") as f:
-        # ad-hoc preprocessing step to convert trace into a list of events
-        trace_lines = [
-            analyzer.Event(line) for line in f.readlines() if line.startswith("{")
-        ]
-
-    # call into the trace analyzer
-    trace = analyzer.Trace(trace_lines)
-    invariants = trace.analyze(
-        analyze_api_invariants=not args.skip_api,
-        analyze_variable_invariants=not args.skip_variable,
+    print(
+        "We do not run analysis anymore in a single program run due to the need to analyze multiple traces."
     )
-
-    def default(o):
-        if isinstance(o, set):
-            return list(o)
-        if isinstance(o, analyzer.Event):
-            return o.get_event()
-        return o
-
-    # dump the invariants
-    with open("invariants.json", "w") as f:
-        json.dump(invariants, f, indent=4, default=default)
-    # call into the invariant finder
-    # invariants = finder.find(trace)
-
-    # dump the invariants
-    # dumper.dump(invariants)
+    print("Please run the analysis script separately.")
