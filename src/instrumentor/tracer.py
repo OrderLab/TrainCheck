@@ -118,7 +118,7 @@ modules_to_skip = [
     "torch.fx",
     "torch.jit",
     "torch._jit",
-    "torch._C._log_api_usage_once",
+    "torch._C",
 ]
 
 
