@@ -12,7 +12,7 @@ from .dumper import json_dumper as dumper
 def dump_tensor(value):
     min = float(value.min().item())
     max = float(value.max().item())
-    shape = tuple(int(x) for x in value.shape)
+    shape = tuple(int(x) for x in value.size())
     result = {
         "min": min,
         "max": max,
@@ -38,7 +38,7 @@ def get_meta_vars(level=5):
         )
         for key, value in frame_vars.items():
             if isinstance(value, torch.Tensor):
-                important_vars[key] = dump_tensor(value)
+                important_vars[key] = str(dump_tensor(value))
         frame = frame.f_back
         if frame is None:
             break
@@ -52,7 +52,7 @@ def torch_serialize(obj):
     if isinstance(obj, (int, float, str, bool)):
         return obj
     if isinstance(obj, torch.Tensor):
-        new_value = dump_tensor(obj)
+        new_value = str(dump_tensor(obj))
         return new_value
     if isinstance(obj, torch.nn.Module):
         new_value = obj.__class__.__name__ + "(nn.Module)"
@@ -151,6 +151,13 @@ class Proxy:
                             f"Creating proxy for Tensor with shape '{shape}'"
                         )
 
+                        self.jsondumper.dump_json(
+                            self.process_id,
+                            self.thread_id,
+                            get_meta_vars(),
+                            f"torch.Tensor with shape {shape}",
+                            {"old_value": None, "new_value": dump_tensor(obj)},
+                        )
                         self.print_tensor(obj, logging.INFO)
                         self.__dict__["_obj"] = obj
                         tensor_dict[shape] = self
@@ -159,12 +166,24 @@ class Proxy:
                             f"Tensor with shape '{shape}' is already proxied"
                         )
                         self.print_update(tensor_dict[shape]._obj, obj, f"torch.Tensor")
+
+                        self.jsondumper.dump_json(
+                            self.process_id,
+                            self.thread_id,
+                            get_meta_vars(),
+                            f"torch.Tensor with shape {shape}",
+                            {
+                                "old_value": dump_tensor(tensor_dict[shape]._obj),
+                                "new_value": dump_tensor(obj),
+                            },
+                        )
+
                         del tensor_dict[shape]
                         self._obj = obj
                         tensor_dict[shape] = self
             else:
                 if Proxy.frame_dict.get(tuple(frame_array)) is None:
-                    new_value = torch_serialize(obj)
+                    new_value = str(torch_serialize(obj))
 
                     if hasattr(obj, "__name__"):
                         self.logger_proxy.info(
@@ -174,7 +193,7 @@ class Proxy:
                         self.jsondumper.dump_json(
                             self.process_id,
                             self.thread_id,
-                            get_meta_vars(),
+                            "",
                             obj.__name__,
                             {"old_value": None, "new_value": new_value},
                         )
@@ -186,7 +205,7 @@ class Proxy:
                         self.jsondumper.dump_json(
                             self.process_id,
                             self.thread_id,
-                            get_meta_vars(),
+                            "",
                             obj.__class__.__name__,
                             {"old_value": None, "new_value": new_value},
                         )
@@ -203,12 +222,11 @@ class Proxy:
                     # self._obj = Proxy.frame_dict[tuple(frame_array)]._obj ## attention, need to delete the original one before creating new instance
                     obj_name = obj.__class__.__module__ + "." + obj.__class__.__name__
 
-                    old_value = Proxy.frame_dict[tuple(frame_array)]._obj
-                    if isinstance(old_value, torch.Tensor):
-                        old_value = self.print_tensor(old_value)
-                    new_value = obj
-                    if isinstance(new_value, torch.Tensor):
-                        new_value = self.print_tensor(new_value)
+                    old_value = str(
+                        torch_serialize(Proxy.frame_dict[tuple(frame_array)]._obj)
+                    )
+
+                    new_value = str(torch_serialize(obj))
 
                     self.print_update(old_value, new_value, obj_name)
 
@@ -223,7 +241,7 @@ class Proxy:
                     self._obj = obj
                     Proxy.frame_dict[tuple(frame_array)] = self
 
-    # @property
+    @property
     def __class__(self):
         return self._obj.__class__
 
@@ -466,6 +484,26 @@ class Proxy:
             f"Calling __len__ for object '{self.__class__.__name__}'"
         )
         return len(self._obj)
+
+    def __getreal__(self):
+        self.logger_proxy.debug(
+            f"Calling __getreal__ for object '{self.__class__.__name__}'"
+        )
+        return self._obj
+
+    def min(self):
+        self.logger_proxy.debug(f"Calling min() for object '{self.__class__.__name__}'")
+        return self._obj.min()
+
+    def max(self):
+        self.logger_proxy.debug(f"Calling max() for object '{self.__class__.__name__}'")
+        return self._obj.max()
+
+    def size(self):
+        self.logger_proxy.debug(
+            f"Calling size() for object '{self.__class__.__name__}'"
+        )
+        return self._obj.size()
 
     def print_proxy_dict(self):
         self.logger_proxy.info(f"Dump Proxy Dict: ")

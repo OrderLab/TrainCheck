@@ -210,7 +210,7 @@ def new_wrapper(original_new_func):
                 return None
         try:
             print(
-                f"idx: {func_id} Initalizing {cls.__name__} with Args: {args}, Kwargs: {kwargs}"
+                f"idx: {func_id} Initializing {cls.__name__} with Args: {args}, Kwargs: {kwargs}"
             )
             result.__init__(*args, **kwargs)
         except Exception as e:
