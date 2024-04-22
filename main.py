@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 
 import src.config.config as config
 import src.instrumentor as instrumentor
@@ -11,10 +10,19 @@ if __name__ == "__main__":
         description="Invariant Finder for ML Pipelines in Python"
     )
     parser.add_argument(
-        "--path",
+        "-p",
+        "--pyscript",
         type=str,
         required=True,
         help="Path to the main file of the pipeline to be analyzed",
+    )
+    parser.add_argument(
+        "-s",
+        "--shscript",
+        type=str,
+        required=False,
+        help="""Path to the shell script that runs the python script. 
+        If not provided, the python script will be run directly.""",
     )
     parser.add_argument(
         "--only-instrument",
@@ -65,18 +73,12 @@ if __name__ == "__main__":
 
     # call into the instrumentor
     source_code, log_file = instrumentor.instrument_file(
-        args.path, args.modules_to_instrument
+        args.pyscript, args.modules_to_instrument
     )
-
-    if args.only_instrument:
-        print(source_code)
-        exit()
-
-    # Add new_wrapper
 
     # call into the program runner
     program_runner = runner.ProgramRunner(
-        source_code, os.path.abspath(os.path.dirname(args.path))
+        source_code, args.pyscript, args.shscript, dry_run=args.only_instrument
     )
     program_output = program_runner.run()
 
