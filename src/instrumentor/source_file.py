@@ -1,11 +1,8 @@
 import ast
+import logging
 import os
 
-if __name__ == "__main__":
-    from CONSTANTS import MODULES_TO_INSTRUMENT
-else:
-    from .CONSTANTS import MODULES_TO_INSTRUMENT
-import logging
+from src.config.config import MODULES_TO_INSTRUMENT
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +104,7 @@ def instrument_file(path: str, modules_to_instrument: list[str]) -> tuple[str, s
     # attaching logging configs to the instrumented source TODO: need to replace the original logging config / figure out how to avoid interference
     logging_code = f"""
 
+from src.instrumentor.tracer import new_wrapper, get_all_subclasses
 import logging
 
 from src.instrumentor import logger_trace, logger_instrumentation
@@ -122,7 +120,30 @@ instrumentation_file_handler = logging.FileHandler(\"{instrumentation_file}\")
 instrumentation_file_handler.setFormatter(logging.Formatter('%(message)s'))
 logger_instrumentation.addHandler(instrumentation_file_handler)
 
+
 """
+    # find the main() function
+    main_func = None
+    root = ast.parse(source)
+    for node in ast.walk(root):
+        if isinstance(node, ast.FunctionDef) and node.name == "main":
+            main_func = node
+            break
+
+    # insert code before main() execution
+    if main_func:
+        code_to_insert = ast.parse(
+            """
+for cls in get_all_subclasses(torch.nn.Module):
+    print(f"Create new wrapper: {cls.__name__}")
+    cls.__new__ = new_wrapper(cls.__new__)
+"""
+        )
+        main_func.body = code_to_insert.body + main_func.body
+
+    # instrument the source code
+    instrumented_source = ast.unparse(root)
+
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
     instrumented_source = (
         instrumented_source.split("\n")[0]
