@@ -3,16 +3,12 @@ import inspect
 import json
 import logging
 import os
-import random
 import threading
-import traceback
 import types
+import uuid
 
+import compactdump
 import torch
-import torch.utils
-
-import src.proxy_wrapper.proxy as ProxyWrapper
-from src.config.config import INCLUDED_WRAP_LIST, proxy_log_dir
 
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
@@ -42,8 +38,7 @@ def typename(o):
 
 
 def global_wrapper(original_function, *args, **kwargs):
-    func_call_id = random.randint(0, 1000)
-
+    func_id = str(uuid.uuid4())
     # Get the current thread object
     current_thread = threading.current_thread()
     # Get the thread ID
@@ -60,9 +55,10 @@ def global_wrapper(original_function, *args, **kwargs):
 
     # logger_trace.info({'type': 'function_call (pre)', 'function': original_function.__name__, 'args': args, 'kwargs': kwargs})
     logger_trace.info(
-        json.dumps(
+        compactdump.dump_json(
+            # json.dumps(
             {
-                "func_call_id": func_call_id,
+                "uuid": func_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "meta_vars": meta_vars,
@@ -77,7 +73,7 @@ def global_wrapper(original_function, *args, **kwargs):
         logger_trace.error(
             json.dumps(  # keep the error logs as json
                 {
-                    "func_call_id": func_call_id,
+                    "uuid": func_id,
                     "thread_id": thread_id,
                     "process_id": process_id,
                     "meta_vars": meta_vars,
@@ -86,17 +82,16 @@ def global_wrapper(original_function, *args, **kwargs):
                     "args": [f"{arg}" for arg in args],
                     "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
                     "exception": str(e),
-                    "traceback": traceback.format_exc(),
                 }
             )
         )
-        print(f"Error in {func_name}: {e}")
         raise e
     # logger_trace.info({'type': 'function_call (post)', 'function': original_function.__name__, 'result': result})
     logger_trace.info(
-        json.dumps(
+        compactdump.dump_json(
+            # json.dumps(
             {
-                "func_call_id": func_call_id,
+                "uuid": func_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "meta_vars": meta_vars,
@@ -116,135 +111,12 @@ def wrapper(original_function):
     return wrapped
 
 
-EXCLUDED_CLASSES = (torch.utils.data._utils.worker.WorkerInfo,)
-
-
-def safe_serialize(obj):
-    """Include custom serialization logic to handle parameters that cannot be serialized by json.dumps"""
-    try:
-        if isinstance(obj, torch.Tensor):
-            return f"Tensor(shape={obj.size()}, dtype={obj.dtype})"
-        return json.dumps(obj)
-    except TypeError:
-        return str(type(obj))
-
-
-# https://stackoverflow.com/a/63851681/9201239
-def get_all_subclasses(cls):
-    subclass_list = []
-
-    def recurse(cl):
-        for subclass in cl.__subclasses__():
-            subclass_list.append(subclass)
-            recurse(subclass)
-
-    recurse(cls)
-    return set(subclass_list)
-
-
-def init_wrapper(original_init):
-    @functools.wraps(original_init)
-    def wrapped_init(self, *args, **kwargs):
-        print(f"wrapped_init for {self.__class__.__name__}")
-        if isinstance(self, torch._ops._OpNamespace):
-            result = original_init(self, *args) if args else None
-        else:
-            try:
-                result = original_init(self, *args, **kwargs)
-            except Exception as e:
-                logging.error(f"Error in __init__ of {self.__class__.__name__}: {e}")
-                print(f"Error in __init__ of {self.__class__.__name__}: {e}")
-                return None
-
-        serialized_args = [safe_serialize(arg) for arg in args]
-        serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
-        print(
-            f"Initialized {self.__class__.__name__} with args: {serialized_args} and kwargs: {serialized_kwargs}"
-        )
-        logger_trace.info(
-            json.dumps(
-                {
-                    "thread_id": threading.current_thread().ident,
-                    "process_id": os.getpid(),
-                    "type": "class_init",
-                    "class": self.__class__.__name__,
-                    "args": serialized_args,
-                    "kwargs": serialized_kwargs,
-                }
-            )
-        )
-
-        self = ProxyWrapper.Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
-
-        return result
-
-    return wrapped_init
-
-
-def new_wrapper(original_new_func):
-    if getattr(original_new_func, "_is_wrapped", False):
-        logging.warning(f"__new__ of {original_new_func.__name__} is already wrapped")
-        print(f"__new__ of {original_new_func.__name__} is already wrapped")
-        return original_new_func
-
-    @functools.wraps(original_new_func)
-    def wrapped_new(cls, *args, **kwargs):
-        import random
-
-        # generate a random id for the function call
-        func_id = str(random.randint(0, 10))
-
-        print(f"idx: {func_id} wrapped_new for {cls.__name__}")
-        if isinstance(cls, torch._ops._OpNamespace):
-            print(f"idx: {func_id} CALLing original_new_func")
-            result = original_new_func(cls)
-            print(f"idx: {func_id} EXITing original_new_func")
-        else:
-            try:
-                print(f"idx: {func_id} CALLing original_new_func")
-                result = original_new_func(cls)
-                print(f"idx: {func_id} EXITing original_new_func")
-            except Exception as e:
-                print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
-                logging.error(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
-                return None
-        try:
-            print(
-                f"idx: {func_id} Initalizing {cls.__name__} with Args: {args}, Kwargs: {kwargs}"
-            )
-            result.__init__(*args, **kwargs)
-        except Exception as e:
-            print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
-            logging.error(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
-            return None
-
-        if cls.__name__ in INCLUDED_WRAP_LIST:
-            print(
-                f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
-            )
-            result = ProxyWrapper.Proxy(
-                result, log_level=logging.INFO, logdir=proxy_log_dir
-            )
-
-        return result
-
-    # Mark this function as wrapped
-    wrapped_new._is_wrapped = True
-
-    return wrapped_new
-
-
 instrumented_modules = set()
 skipped_modules: set[types.ModuleType | type | types.FunctionType] = set()
 skipped_functions = set()
 
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
-modules_to_skip = [
-    "torch.fx",
-    "torch.jit",
-    "torch._jit",
-    "torch._C",
-]
+modules_to_skip = ["torch.fx"]
 
 
 class instrumentor:
@@ -502,34 +374,12 @@ class StateVarObserver:
         )
 
     def _get_state_copy(self):
-        return {
-            name: param.clone().detach()
-            for name, param in self.model.named_parameters()
-        }
-
-    def has_changed(self):
-        # Check if there is any change in the model parameters
-        for name in self.current_state:
-            if not torch.equal(self.current_state[name], self.model.state_dict()[name]):
-                logger_trace.info(f"State variable {name} has changed")
-                logger_trace.info(
-                    json.dumps(
-                        {
-                            "thread_id": threading.current_thread().ident,
-                            "process_id": os.getpid(),
-                            "type": "state_variable_change",
-                            "variable": name,
-                        }
-                    )
-                )
-                self.current_state = self._get_state_copy()
-
         def is_safe_getattr(obj, attr):
             try:
                 getattr(obj, attr)
                 return True
             except Exception as e:
-                print(
+                logger_trace.warn(
                     f"Failed to get attribute {attr} of parameter {name}, skipping it. Error: {e}"
                 )
                 return False

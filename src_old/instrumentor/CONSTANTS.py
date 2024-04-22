@@ -1,0 +1,1 @@
+MODULES_TO_INSTRUMENT = ["torch"]
