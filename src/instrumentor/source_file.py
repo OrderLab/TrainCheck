@@ -94,7 +94,8 @@ def instrument_file(path: str, modules_to_instrument: list[str]) -> tuple[str, s
 
     with open(path, "r") as file:
         source = file.read()
-    # instrument the source code
+
+    # instrument APIs
     instrumented_source = instrument_source(source, modules_to_instrument)
 
     file_name = os.path.basename(path).split(".")[0]
@@ -122,9 +123,10 @@ logger_instrumentation.addHandler(instrumentation_file_handler)
 
 
 """
+
     # find the main() function
     main_func = None
-    root = ast.parse(source)
+    root = ast.parse(instrumented_source)
     for node in ast.walk(root):
         if isinstance(node, ast.FunctionDef) and node.name == "main":
             main_func = node
@@ -141,7 +143,6 @@ for cls in get_all_subclasses(torch.nn.Module):
         )
         main_func.body = code_to_insert.body + main_func.body
 
-    # instrument the source code
     instrumented_source = ast.unparse(root)
 
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
