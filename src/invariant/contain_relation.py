@@ -164,18 +164,9 @@ class APIContainRelation(Relation):
             # scan the child_func_names for positive and negative examples
             for idx, child_func_names in zip(parent_pre_idx, all_child_func_names):
                 for expected_child_func in unique_seen_child_func_names:
-                    parent_pre_event = trace.events.row(index=idx, named=True)
-
-                    # # FIXME: the commented code will slow down the code by 2x (~3min on mnist)
-                    # parent_post_idx = trace.events.select(
-                    # pl.arg_where(pl.col("func_call_id")==parent_pre_event["func_call_id"]) # TODO: build a index for this and replace "func_call_id"
-                    #     ).to_series()[1]
-                    # events = trace.events.slice(idx, length=parent_post_idx-idx).filter(
-                    #     pl.col("thread_id")==parent_pre_event["thread_id"],
-                    #     pl.col("process_id")==parent_pre_event["process_id"]
-                    # )
-
-                    # TODO: collect examples in the first pass (don't just collect values)
+                    parent_pre_event = trace.events.row(
+                        index=idx, named=True
+                    )  # NOTE: for this specific analysis, the examples we use is just the pre-event, if in other cases we need to use other parts of the trace, we may collect them in the hypothesis construction phase
 
                     # assumption: the precondition can only resides in the parent pre-event
                     if expected_child_func in child_func_names:
@@ -186,6 +177,7 @@ class APIContainRelation(Relation):
                         hypothesis[parent][
                             expected_child_func
                         ].negative_examples.append(Trace([parent_pre_event]))
+
         all_invariants: list[Invariant] = []
         all_hypotheses = []
         for p, child_hypotheses in hypothesis.items():
