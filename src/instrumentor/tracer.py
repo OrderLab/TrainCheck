@@ -248,17 +248,6 @@ modules_to_skip = [
 ]
 
 
-def check_if_module_to_skip(module: types.ModuleType | type):
-    if typename(module) in modules_to_skip:
-        return True
-
-    for modules_to_skip_prefix in modules_to_skip:
-        if typename(module).startswith(modules_to_skip_prefix):
-            return True
-
-    return False
-
-
 class instrumentor:
     def __init__(
         self,
@@ -290,9 +279,25 @@ class instrumentor:
         self.instrumented_count = 0
         self.target = target
 
+        # TODO: check if self.target or self.root_module is in the modules_to_skip list
+
         # remove the target from the skipped_modules set
         if target in skipped_modules:
             skipped_modules.remove(target)
+
+    def check_if_to_skip(self, attr: type):
+        if typename(attr) in modules_to_skip:
+            return True
+
+        for modules_to_skip_prefix in modules_to_skip:
+            if typename(attr).startswith(modules_to_skip_prefix):
+                return True
+
+        # attr should also be skipped if the attr does belong to the target
+        if not typename(attr).startswith(typename(self.target)):
+            return True
+
+        return False
 
     def instrument(self):
         self.instrumented_count = self._instrument_module(self.target)
@@ -412,7 +417,7 @@ class instrumentor:
             TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
             """
 
-            if check_if_module_to_skip(attr):
+            if self.check_if_to_skip(attr):
                 logger_instrumentation.info(
                     f"Depth: {depth}, Skipping due to modules_to_skip: {typename(attr)}"
                 )
