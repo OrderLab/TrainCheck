@@ -10,14 +10,14 @@ class ProgramRunner(object):
         self,
         source_code: str,
         py_script_path: str,
-        sh_script_path: str|None = None,
+        sh_script_path: str | None = None,
         dry_run: bool = False,
     ):
         self.python = (
             sys.executable
         )  # use the same python executable that is running this script
         self.dry_run = dry_run
-        self._tmp_sh_script_path: str|None
+        self._tmp_sh_script_path: str | None
         self._tmp_py_script_path: str
 
         # create temp files to write the source code to

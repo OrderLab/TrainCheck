@@ -32,12 +32,15 @@ def typename(o):
         and o.__module__ is not None
     ):
         module = o.__module__ + "."
-    if hasattr(o, "__qualname__"):
+    if hasattr(o, "__qualname__") and isinstance(
+        o.__qualname__, str
+    ):  # the instance here is for the case when __qualname__ is _ClassNamespace
         class_name = o.__qualname__
     elif hasattr(o, "__name__"):
         class_name = o.__name__
     else:
         class_name = o.__class__.__name__
+    assert isinstance(module, str) and isinstance(class_name, str)
     return module + class_name
 
 
@@ -114,9 +117,6 @@ def wrapper(original_function):
         return global_wrapper(original_function, *args, **kwargs)
 
     return wrapped
-
-
-EXCLUDED_CLASSES = (torch.utils.data._utils.worker.WorkerInfo,)
 
 
 def safe_serialize(obj):
@@ -244,7 +244,19 @@ modules_to_skip = [
     "torch.jit",
     "torch._jit",
     "torch._C",
+    "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
 ]
+
+
+def check_if_module_to_skip(module: types.ModuleType | type):
+    if typename(module) in modules_to_skip:
+        return True
+
+    for modules_to_skip_prefix in modules_to_skip:
+        if typename(module).startswith(modules_to_skip_prefix):
+            return True
+
+    return False
 
 
 class instrumentor:
@@ -400,6 +412,12 @@ class instrumentor:
             TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
             """
 
+            if check_if_module_to_skip(attr):
+                logger_instrumentation.info(
+                    f"Depth: {depth}, Skipping due to modules_to_skip: {typename(attr)}"
+                )
+                continue
+
             if isinstance(attr, types.FunctionType) or isinstance(
                 attr, types.BuiltinFunctionType
             ):
@@ -407,58 +425,52 @@ class instrumentor:
                 try:
                     if attr in skipped_functions:
                         logger_instrumentation.info(
-                            f"Depth: {depth}, Skipping function: {attr_name}"
+                            f"Depth: {depth}, Skipping function: {typename(attr)}"
                         )
                         continue
                 except Exception as e:
                     logger_instrumentation.fatal(
-                        f"Depth: {depth}, Error while checking if function {attr_name} is in skipped_functions: {e}"
+                        f"Depth: {depth}, Error while checking if function {typename(attr)} is in skipped_functions: {e}"
                     )
                     continue
-                logger_instrumentation.info(f"Instrumenting function: {attr_name}")
+                logger_instrumentation.info(f"Instrumenting function: {typename(attr)}")
                 wrapped = wrapper(attr)
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
                     # handling immutable types and attrs that have no setters
                     logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping function {attr_name} due to error: {e}"
+                        f"Depth: {depth}, Skipping function {typename(attr)} due to error: {e}"
                     )
                     continue
                 count_wrapped += 1
             elif isinstance(attr, types.ModuleType):
-                if attr.__name__ in modules_to_skip:
-                    logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping module due to modules_to_skip: {attr_name}"
-                    )
-                    continue
-
                 if attr in skipped_modules:
                     logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping module: {attr_name}"
+                        f"Depth: {depth}, Skipping module: {typename(attr)}"
                     )
                     continue
-                if not attr.__name__.startswith(
+                if not typename(attr).startswith(
                     self.root_module
                 ):  # TODO: refine the logic of how to rule out irrelevant modules
                     logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping module due to irrelevant name:{attr_name}"
+                        f"Depth: {depth}, Skipping module due to irrelevant name:{typename(attr)}"
                     )
                     skipped_modules.add(attr)
                     continue
 
                 logger_instrumentation.info(
-                    f"Depth: {depth}, Recursing into module: {attr_name}"
+                    f"Depth: {depth}, Recursing into module: {typename(attr)}"
                 )
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
             elif inspect.isclass(attr):
                 logger_instrumentation.info(
-                    f"Depth: {depth}, Recursing into class: {attr_name}"
+                    f"Depth: {depth}, Recursing into class: {typename(attr)}"
                 )
                 if not attr.__module__.startswith(self.root_module):
                     logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping class {attr_name} due to irrelevant module: {attr.__module__}"
+                        f"Depth: {depth}, Skipping class {typename(attr)} due to irrelevant module: {attr.__module__}"
                     )
                     continue
                 count_wrapped += self._instrument_module(attr, depth + 1)
@@ -561,7 +573,7 @@ class StateVarObserver:
                     json.dumps(attr)  # skipping compression
                 except Exception as e:
                     logger_instrumentation.warn(
-                        f"Failed to serialize attribute {attr_name} of parameter {name}, skipping it. Error: {e}"
+                        f"Failed to serialize attribute {typename(attr)} of parameter {name}, skipping it. Error: {e}"
                     )
                     continue
 
