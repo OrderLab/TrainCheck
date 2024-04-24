@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 ## ML-DAIKON Instrumentation
 ## ML-DAIKON Instrumentation
-from src.instrumentor import meta_vars, tracer
+from mldaikon.instrumentor import meta_vars, tracer
 
 ## ML-DAIKON Instrumentation
 meta_vars["stage"] = "data_preparation"

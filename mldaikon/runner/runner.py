@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-from src.config.config import TMP_FILE_PREFIX
+from mldaikon.config.config import TMP_FILE_PREFIX
 
 
 class ProgramRunner(object):
@@ -56,11 +56,16 @@ class ProgramRunner(object):
             return "Dry run. Program not executed."
 
         if self._tmp_sh_script_path is not None:
+            # change to the directory of the sh script
+            current_dir = os.getcwd()
+            os.chdir(os.path.dirname(self._tmp_sh_script_path))
             process = subprocess.Popen(
                 ["bash", self._tmp_sh_script_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
+            # change back to the original directory
+            os.chdir(current_dir)
         else:
             process = subprocess.Popen(
                 [self.python, self._tmp_py_script_path],

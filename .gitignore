@@ -6,3 +6,8 @@ log*
 .*cache*
 *temp*
 !_temp.py
+*.egg-info
+build
+*.log
+*.json
+program_output.txt

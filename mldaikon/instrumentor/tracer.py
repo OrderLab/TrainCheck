@@ -11,8 +11,8 @@ import types
 import torch
 import torch.utils
 
-import src.proxy_wrapper.proxy as ProxyWrapper
-from src.config.config import INCLUDED_WRAP_LIST, proxy_log_dir
+import mldaikon.proxy_wrapper.proxy as ProxyWrapper
+from mldaikon.config.config import INCLUDED_WRAP_LIST, proxy_log_dir
 
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
@@ -248,7 +248,7 @@ modules_to_skip = [
 ]
 
 
-class instrumentor:
+class Instrumentor:
     def __init__(
         self,
         target: (
@@ -628,4 +628,4 @@ class StateVarObserver:
 
 
 if __name__ == "__main__":
-    instrumentor(torch).instrument()
+    Instrumentor(torch).instrument()

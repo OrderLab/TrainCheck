@@ -1,9 +1,9 @@
 import argparse
 import logging
 
-import src.config.config as config
-import src.instrumentor as instrumentor
-import src.runner as runner
+import mldaikon.config.config as config
+import mldaikon.instrumentor as instrumentor
+import mldaikon.runner as runner
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

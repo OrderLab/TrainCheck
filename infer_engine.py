@@ -1,8 +1,8 @@
 import argparse
 import logging
 
-from src.invariant.relation_pool import relation_pool
-from src.ml_daikon_trace import read_trace_file
+from mldaikon.invariant.relation_pool import relation_pool
+from mldaikon.ml_daikon_trace import read_trace_file
 
 logger = logging.getLogger(__name__)
 

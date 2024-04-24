@@ -2,7 +2,7 @@ import ast
 import logging
 import os
 
-from src.config.config import MODULES_TO_INSTRUMENT
+from mldaikon.config.config import MODULES_TO_INSTRUMENT
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class InsertTracerVisitor(ast.NodeTransformer):
 
     def get_instrument_node(self, module_name):
         return ast.parse(
-            f"from src.instrumentor import tracer; tracer.instrumentor({module_name}).instrument()"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -99,16 +99,16 @@ def instrument_file(path: str, modules_to_instrument: list[str]) -> tuple[str, s
     instrumented_source = instrument_source(source, modules_to_instrument)
 
     file_name = os.path.basename(path).split(".")[0]
-    trace_file = file_name + "_ml_daikon_trace.log"
-    instrumentation_file = file_name + "_ml_daikon_instrumentation.log"
+    trace_file = file_name + "_mldaikon_trace.log"
+    instrumentation_file = file_name + "_mldaikon_instrumentation.log"
 
     # attaching logging configs to the instrumented source TODO: need to replace the original logging config / figure out how to avoid interference
     logging_code = f"""
 
-from src.instrumentor.tracer import new_wrapper, get_all_subclasses
+from mldaikon.instrumentor.tracer import new_wrapper, get_all_subclasses
 import logging
 
-from src.instrumentor import logger_trace, logger_instrumentation
+from mldaikon.instrumentor import logger_trace, logger_instrumentation
 
 logger_trace.setLevel(logging.INFO)
 logger_instrumentation.setLevel(logging.INFO)

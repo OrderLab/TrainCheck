@@ -2,8 +2,8 @@ import logging
 
 import polars as pl
 
-from src.invariant.base_cls import Hypothesis, Invariant, Relation
-from src.ml_daikon_trace import Trace
+from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
+from mldaikon.ml_daikon_trace import Trace
 
 
 def events_scanner(trace_df: pl.DataFrame, parent_func_name: str) -> set[str] | None:
