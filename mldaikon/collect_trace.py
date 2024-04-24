@@ -48,7 +48,6 @@ if __name__ == "__main__":
         help="Modules to be instrumented",
         default=instrumentor.MODULES_TO_INSTRUMENT,
     )
-
     parser.add_argument(
         "--wrapped_modules",
         type=list,
@@ -56,12 +55,17 @@ if __name__ == "__main__":
         metavar="Module",
         help="Module to be traced by the proxy wrapper",
     )
-
     parser.add_argument(
         "--tracer_log_dir",
         type=str,
         default="proxy_log.log",
         help="Path to the log file of the tracer",
+
+    )
+    parser.add_argument(
+        "--disable_proxy_class",
+        action="store_true",
+        help="Disable proxy class for tracing",
     )
 
     args = parser.parse_args()
@@ -73,18 +77,22 @@ if __name__ == "__main__":
 
     # call into the instrumentor
     source_code, log_file = instrumentor.instrument_file(
-        args.pyscript, args.modules_to_instrument
+        args.pyscript, args.modules_to_instrument, args.disable_proxy_class
     )
 
     # call into the program runner
     program_runner = runner.ProgramRunner(
         source_code, args.pyscript, args.shscript, dry_run=args.only_instrument
     )
-    program_output = program_runner.run()
+    program_output, return_code = program_runner.run()
 
     # dump the log
     with open("program_output.txt", "w") as f:
         f.write(program_output)
+
+    if return_code != 0:
+        logging.error(f"Program exited with code {return_code}")
+        exit()
 
     if args.run_without_analysis:
         logging.info(f"Skipping analysis, trace file is at {log_file}")
