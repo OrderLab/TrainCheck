@@ -60,7 +60,6 @@ if __name__ == "__main__":
         type=str,
         default="proxy_log.log",
         help="Path to the log file of the tracer",
-
     )
     parser.add_argument(
         "--disable_proxy_class",
@@ -91,11 +90,11 @@ if __name__ == "__main__":
         f.write(program_output)
 
     if return_code != 0:
-        logging.error(f"Program exited with code {return_code}")
+        logging.error(f"Program exited with code {return_code}, skipping analysis.")
         exit()
 
     if args.run_without_analysis:
-        logging.info(f"Skipping analysis, trace file is at {log_file}")
+        logging.info(f"Skipping analysis, trace file is at {log_file}.")
         exit()
 
     print(

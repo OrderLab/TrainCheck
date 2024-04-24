@@ -87,7 +87,9 @@ def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
     return source
 
 
-def instrument_file(path: str, modules_to_instrument: list[str], disable_proxy_class) -> tuple[str, str]:
+def instrument_file(
+    path: str, modules_to_instrument: list[str], disable_proxy_class
+) -> tuple[str, str]:
     """
     Instruments the given file and returns the instrumented source code.
     """
@@ -182,6 +184,11 @@ if __name__ == "__main__":
         help="Modules to be instrumented",
         default=MODULES_TO_INSTRUMENT,
     )
+    parser.add_argument(
+        "--disable_proxy_class",
+        action="store_true",
+        help="Disable the proxy class",
+    )
 
     args = parser.parse_args()
 
@@ -191,5 +198,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     # instrument the source file
-    instrumented_source = instrument_file(args.path, args.modules_to_instrument)
+    instrumented_source = instrument_file(
+        args.path, args.modules_to_instrument, args.disable_proxy_class
+    )[0]
     print(instrumented_source)

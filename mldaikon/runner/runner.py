@@ -1,10 +1,14 @@
+import logging
 import os
 import subprocess
 import sys
-import selectors
-from itertools import zip_longest
 
 from mldaikon.config.config import TMP_FILE_PREFIX
+
+
+def program_print(program_output: str):
+    # print the program output in blue color
+    print("\033[94m" + program_output + "\033[0m")
 
 
 class ProgramRunner(object):
@@ -55,7 +59,7 @@ class ProgramRunner(object):
         """
 
         if self.dry_run:
-            return "Dry run. Program not executed."
+            return "Dry run. Program not executed.", 0
 
         if self._tmp_sh_script_path is not None:
             # change to the directory of the sh script
@@ -64,7 +68,7 @@ class ProgramRunner(object):
             process = subprocess.Popen(
                 ["bash", self._tmp_sh_script_path],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
             # change back to the original directory
             os.chdir(current_dir)
@@ -72,45 +76,21 @@ class ProgramRunner(object):
             process = subprocess.Popen(
                 [self.python, "-u", self._tmp_py_script_path],
                 stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
             )
 
-        sel = selectors.DefaultSelector()
-        sel.register(process.stdout, selectors.EVENT_READ)
-        sel.register(process.stderr, selectors.EVENT_READ)
-        out_lines = []
-        err_lines = []
-        ok = True
-        while ok:
-            for key, _ in sel.select():
-                line = key.fileobj.readline()
-                if not line:
-                    ok = False
-                    break
-                
-                line = line.decode("utf-8").strip('\n')
-                if key.fileobj is process.stdout:
-                    print(f"STDOUT: {line}")
-                    out_lines.append(line)
-                else:
-                    print(f"STDERR: {line}", file=sys.stderr)
-                    err_lines.append(line)
-
-        # with process.stdout as out, process.stderr as err:
-        #     for line_out, line_err in zip_longest(out, err):
-        #         if line_out:
-        #             decoded_line_out = line_out.decode("utf-8").strip('\n')
-        #             print(decoded_line_out)
-        #             out_lines.append(decoded_line_out)
-        #         if line_err:
-        #             decoded_line_err = line_err.decode("utf-8").strip('\n')
-        #             print(decoded_line_err)
-        #             err_lines.append(decoded_line_err)
-        program_output = "STDOUT:\n" + "\n".join(out_lines) + "\nSTDERR:\n" + "\n".join(err_lines)
+        out_lines = []  # STDERR is redirected to STDOUT
+        assert process.stdout is not None
+        with process.stdout as out:
+            logging.info("Running the program... below is the output:")
+            for line_out in out:
+                decoded_line_out = line_out.decode("utf-8").strip("\n")
+                program_print(decoded_line_out)
+                out_lines.append(decoded_line_out)
+        program_output = "\n".join(out_lines)
 
         return_code = process.poll()
         assert return_code is not None
-        
 
         # XXX: This is a dummy implementation. Replace this with the actual implementation.
         return program_output, return_code
