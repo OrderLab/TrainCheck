@@ -44,8 +44,9 @@ def get_meta_vars(level=5):
             break
         frame_vars = frame.f_locals
     # Convert the dictionary to a JSON string and print it
-    json_data = json.dumps(important_vars)
-    return json_data
+    # json_data = json.dumps(important_vars)
+    # return json_data
+    return important_vars
 
 
 def torch_serialize(obj):
@@ -434,6 +435,14 @@ class Proxy:
         other = other._obj if isinstance(other, Proxy) else other
         return self._obj * other
 
+    def __rmul__(self, other):
+        self.logger_proxy.debug(
+            f"Calling __rmul__ for object '{self.__class__.__name__}'"
+        )
+        # Unwrap other if it's a Proxy
+        other = other._obj if isinstance(other, Proxy) else other
+        return other * self._obj
+
     def __truediv__(self, other):
         self.logger_proxy.debug(
             f"Calling __truediv__ for object '{self.__class__.__name__}'"
@@ -449,6 +458,14 @@ class Proxy:
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
         return self._obj // other
+
+    def __rfloordiv__(self, other):
+        self.logger_proxy.debug(
+            f"Calling __ifloordiv__ for object '{self.__class__.__name__}'"
+        )
+        # Unwrap other if it's a Proxy
+        other = other._obj if isinstance(other, Proxy) else other
+        return other // self._obj
 
     def __float__(self):
         self.logger_proxy.debug(

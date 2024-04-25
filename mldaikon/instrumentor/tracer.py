@@ -142,48 +142,50 @@ def get_all_subclasses(cls):
     return set(subclass_list)
 
 
-def init_wrapper(original_init):
-    @functools.wraps(original_init)
-    def wrapped_init(self, *args, **kwargs):
-        print(f"wrapped_init for {self.__class__.__name__}")
-        if isinstance(self, torch._ops._OpNamespace):
-            result = original_init(self, *args) if args else None
-        else:
-            try:
-                result = original_init(self, *args, **kwargs)
-            except Exception as e:
-                logging.error(f"Error in __init__ of {self.__class__.__name__}: {e}")
-                print(f"Error in __init__ of {self.__class__.__name__}: {e}")
-                return None
+# def init_wrapper(original_init):
+#     @functools.wraps(original_init)
+#     def wrapped_init(self, *args, **kwargs):
+#         print(f"wrapped_init for {self.__class__.__name__}")
+#         if isinstance(self, torch._ops._OpNamespace):
+#             result = original_init(self, *args) if args else None
+#         else:
+#             try:
+#                 result = original_init(self, *args, **kwargs)
+#             except Exception as e:
+#                 logger_instrumentation.error(f"Error in __init__ of {self.__class__.__name__}: {e}")
+#                 print(f"Error in __init__ of {self.__class__.__name__}: {e}")
+#                 return None
 
-        serialized_args = [safe_serialize(arg) for arg in args]
-        serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
-        print(
-            f"Initialized {self.__class__.__name__} with args: {serialized_args} and kwargs: {serialized_kwargs}"
-        )
-        logger_trace.info(
-            json.dumps(
-                {
-                    "thread_id": threading.current_thread().ident,
-                    "process_id": os.getpid(),
-                    "type": "class_init",
-                    "class": self.__class__.__name__,
-                    "args": serialized_args,
-                    "kwargs": serialized_kwargs,
-                }
-            )
-        )
+#         serialized_args = [safe_serialize(arg) for arg in args]
+#         serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
+#         print(
+#             f"Initialized {self.__class__.__name__} with args: {serialized_args} and kwargs: {serialized_kwargs}"
+#         )
+#         logger_trace.info(
+#             json.dumps(
+#                 {
+#                     "thread_id": threading.current_thread().ident,
+#                     "process_id": os.getpid(),
+#                     "type": "class_init",
+#                     "class": self.__class__.__name__,
+#                     "args": serialized_args,
+#                     "kwargs": serialized_kwargs,
+#                 }
+#             )
+#         )
 
-        self = ProxyWrapper.Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
+#         self = ProxyWrapper.Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
 
-        return result
+#         return result
 
-    return wrapped_init
+#     return wrapped_init
 
 
 def new_wrapper(original_new_func):
     if getattr(original_new_func, "_is_wrapped", False):
-        logging.warning(f"__new__ of {original_new_func.__name__} is already wrapped")
+        logger_instrumentation.warning(
+            f"__new__ of {original_new_func.__name__} is already wrapped"
+        )
         print(f"__new__ of {original_new_func.__name__} is already wrapped")
         return original_new_func
 
@@ -206,7 +208,9 @@ def new_wrapper(original_new_func):
                 print(f"idx: {func_id} EXITing original_new_func")
             except Exception as e:
                 print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
-                logging.error(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
+                logger_instrumentation.error(
+                    f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}"
+                )
                 return None
         try:
             print(
@@ -215,16 +219,18 @@ def new_wrapper(original_new_func):
             result.__init__(*args, **kwargs)
         except Exception as e:
             print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
-            logging.error(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
+            logger_instrumentation.error(
+                f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}"
+            )
             return None
 
-        if cls.__name__ in INCLUDED_WRAP_LIST:
-            print(
-                f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
-            )
-            result = ProxyWrapper.Proxy(
-                result, log_level=logging.INFO, logdir=proxy_log_dir
-            )
+        # if cls.__name__ in INCLUDED_WRAP_LIST:
+        #     print(
+        #         f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
+        #     )
+        #     result = ProxyWrapper.Proxy(
+        #         result, log_level=logging.INFO, logdir=proxy_log_dir
+        #     )
 
         return result
 
