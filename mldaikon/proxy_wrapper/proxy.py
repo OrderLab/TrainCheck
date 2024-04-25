@@ -74,6 +74,7 @@ class Proxy:
     jsondumper = dumper("proxy_trace.json")
     handler = logging.FileHandler(logdir)
     handler.setLevel(loglevel)
+    logger_proxy.handlers.clear()
     logger_proxy.addHandler(handler)
 
     @staticmethod
