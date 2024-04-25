@@ -87,8 +87,8 @@ class ProgramRunner(object):
                 decoded_line_out = line_out.decode("utf-8").strip("\n")
                 program_print(decoded_line_out)
                 out_lines.append(decoded_line_out)
+            _, _ = process.communicate()
         program_output = "\n".join(out_lines)
-
         return_code = process.poll()
         assert return_code is not None
 
