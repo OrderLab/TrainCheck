@@ -259,23 +259,26 @@ class Instrumentor:
             | types.BuiltinMethodType
         ),
     ):
+        self.instrumenting = True
         if isinstance(target, types.ModuleType):
             self.root_module = target.__name__.split(".")[0]
         elif inspect.isclass(target):
             self.root_module = target.__module__.split(".")[0]
         elif callable(target):
-            raise ValueError(
-                """Unsupported target type. This instrumentor does not support function, 
+            logger_instrumentation.warning(
+                f"""Unsupported target {target}. This instrumentor does not support function, 
                 due to inability to swap the original function with the wrapper function 
                 in the namespace. However, you can use the wrapper function directly by 
                 setting 
                     `func = wrapper(func)`
                 """
             )
+            self.instrumenting = False
         else:
-            raise ValueError(
-                "Unsupported target type. This instrumentor only supports module, class."
+            logger_instrumentation.warning(
+                f"Unsupported target {target}. This instrumentor only supports module, class."
             )
+            self.instrumenting = False
         self.instrumented_count = 0
         self.target = target
 
@@ -300,8 +303,10 @@ class Instrumentor:
         return False
 
     def instrument(self):
-        self.instrumented_count = self._instrument_module(self.target)
-        return self.instrumented_count
+        if self.instrumenting:
+            self.instrumented_count = self._instrument_module(self.target)
+            return self.instrumented_count
+        return 0
 
     def _instrument_module(self, pymodule: types.ModuleType | type, depth=0):
         target_name = pymodule.__name__
