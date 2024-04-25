@@ -61,7 +61,7 @@ class InsertTracerVisitor(ast.NodeTransformer):
             if n.asname:
                 instrument_nodes.append(self.get_instrument_node(n.asname))
             else:
-                instrument_nodes.append(self.get_instrument_node(node.module))
+                instrument_nodes.append(self.get_instrument_node(n.name))
         return [node] + instrument_nodes
 
 
@@ -106,7 +106,7 @@ def instrument_file(
 
     # attaching logging configs to the instrumented source TODO: need to replace the original logging config / figure out how to avoid interference
     logging_code = f"""
-
+    
 from mldaikon.instrumentor.tracer import new_wrapper, get_all_subclasses
 import logging
 
@@ -122,7 +122,6 @@ logger_trace.addHandler(trace_file_handler)
 instrumentation_file_handler = logging.FileHandler(\"{instrumentation_file}\")
 instrumentation_file_handler.setFormatter(logging.Formatter('%(message)s'))
 logger_instrumentation.addHandler(instrumentation_file_handler)
-
 
 """
 
