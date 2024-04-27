@@ -1,6 +1,5 @@
 import ast
 import logging
-import os
 
 from mldaikon.config.config import MODULES_TO_INSTRUMENT
 
@@ -89,7 +88,7 @@ def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
 
 def instrument_file(
     path: str, modules_to_instrument: list[str], disable_proxy_class
-) -> tuple[str, str]:
+) -> str:
     """
     Instruments the given file and returns the instrumented source code.
     """
@@ -100,29 +99,9 @@ def instrument_file(
     # instrument APIs
     instrumented_source = instrument_source(source, modules_to_instrument)
 
-    file_name = os.path.basename(path).split(".")[0]
-    trace_file = file_name + "_mldaikon_trace.log"
-    instrumentation_file = file_name + "_mldaikon_instrumentation.log"
-
-    # attaching logging configs to the instrumented source TODO: need to replace the original logging config / figure out how to avoid interference
-    logging_code = f"""
-    
-from mldaikon.instrumentor.tracer import new_wrapper, get_all_subclasses
-import logging
-
-from mldaikon.instrumentor import logger_trace, logger_instrumentation
-
-logger_trace.setLevel(logging.INFO)
-logger_instrumentation.setLevel(logging.INFO)
-
-trace_file_handler = logging.FileHandler(\"{trace_file}\")
-trace_file_handler.setFormatter(logging.Formatter('%(message)s'))
-logger_trace.addHandler(trace_file_handler)
-
-instrumentation_file_handler = logging.FileHandler(\"{instrumentation_file}\")
-instrumentation_file_handler.setFormatter(logging.Formatter('%(message)s'))
-logger_instrumentation.addHandler(instrumentation_file_handler)
-
+    logging_code = """
+import os
+os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]    
 """
 
     if not disable_proxy_class:
@@ -138,6 +117,7 @@ logger_instrumentation.addHandler(instrumentation_file_handler)
         if main_func:
             code_to_insert = ast.parse(
                 """
+from mldaikon.instrumentor.tracer import new_wrapper, get_all_subclasses
 for cls in get_all_subclasses(torch.nn.Module):
     print(f"Create new wrapper: {cls.__name__}")
     cls.__new__ = new_wrapper(cls.__new__)
@@ -154,7 +134,7 @@ for cls in get_all_subclasses(torch.nn.Module):
         + "\n".join(instrumented_source.split("\n")[1:])
     )
 
-    return instrumented_source, trace_file
+    return instrumented_source
 
 
 if __name__ == "__main__":

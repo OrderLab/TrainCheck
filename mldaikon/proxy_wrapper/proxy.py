@@ -1,10 +1,11 @@
 import inspect
-import json
 import logging
 import os
 import threading
 
 import torch
+
+from mldaikon.utils import typename
 
 from .dumper import json_dumper as dumper
 
@@ -59,10 +60,11 @@ def torch_serialize(obj):
         new_value = obj.__class__.__name__ + "(nn.Module)"
         return new_value
     else:
-        if hasattr(obj, "__name__"):
-            new_value = obj.__name__
-        else:
-            new_value = obj.__class__.__name__
+        # if hasattr(obj, "__name__"):
+        #     new_value = obj.__name__
+        # else:
+        #     new_value = obj.__class__.__name__
+        return str(obj)
 
 
 class Proxy:
@@ -81,28 +83,28 @@ class Proxy:
     @staticmethod
     def print_tensor(value, logging_level=logging.DEBUG):
         if logging_level == logging.INFO:
-            Proxy.logger_proxy.info(f"Tensor with shape'{value.shape}'")
-            Proxy.logger_proxy.info(f"Minimum value: {torch.min(value)}")
-            Proxy.logger_proxy.info(f"Maximum value: {torch.max(value)}")
+            print("logger_proxy: " + f"Tensor with shape'{value.shape}'")
+            print("logger_proxy: " + f"Minimum value: {torch.min(value)}")
+            print("logger_proxy: " + f"Maximum value: {torch.max(value)}")
         else:
-            Proxy.logger_proxy.debug(f"Tensor with shape'{value.shape}'")
-            Proxy.logger_proxy.debug(f"Minimum value: {torch.min(value)}")
-            Proxy.logger_proxy.debug(f"Maximum value: {torch.max(value)}")
+            print("logger_proxy: " + f"Tensor with shape'{value.shape}'")
+            print("logger_proxy: " + f"Minimum value: {torch.min(value)}")
+            print("logger_proxy: " + f"Maximum value: {torch.max(value)}")
 
     @staticmethod
     def print_update(old_value, value, attr_name=None):
-        Proxy.logger_proxy.info(f"Updating the attribute '{attr_name}'")
-        Proxy.logger_proxy.info(f"From:")
+        print("logger_proxy: " + f"Updating the attribute '{attr_name}'")
+        print("logger_proxy: " + f"From:")
         if type(old_value) is torch.Tensor:
             Proxy.print_tensor(old_value, logging_level=logging.INFO)
         else:
-            Proxy.logger_proxy.info(f"'{old_value}'")
+            print("logger_proxy: " + f"'{old_value}'")
 
-        Proxy.logger_proxy.info(f"To:")
+        print("logger_proxy: " + f"To:")
         if type(value) is torch.Tensor:
             Proxy.print_tensor(value, logging_level=logging.INFO)
         else:
-            Proxy.logger_proxy.info(f"'{value}'")
+            print("logger_proxy: " + f"'{value}'")
 
     def __init__(self, obj, logdir, log_level):
         self.__dict__["process_id"] = os.getpid()
@@ -114,16 +116,23 @@ class Proxy:
         # handler.setLevel(log_level)
         # self.logger_proxy.addHandler(handler)
 
+        # # if the object is of type in torch.distributed namespace, we should not proxy it
+        # if typename(obj).startswith("torch.distributed"):
+        #     self._obj = obj
+        #     return
+
         if not type(obj) in [int, float, str, bool] and obj is not None:
-            self.logger_proxy.debug(
-                f"Go to __init__ for object '{obj.__class__.__name__}'"
+            print(
+                "logger_proxy: "
+                + f"Go to __init__ for object '{obj.__class__.__name__}'"
             )
         else:
-            self.logger_proxy.debug(f"Proxied premitive type '{type(obj)}'")
+            print("logger_proxy: " + f"Proxied premitive type '{type(obj)}'")
 
         if type(obj) is Proxy:
-            self.logger_proxy.debug(
-                f"Object '{obj.__class__.__name__}' is already a proxy"
+            print(
+                "logger_proxy: "
+                + f"Object '{obj.__class__.__name__}' is already a proxy"
             )
             self._obj = obj._obj
 
@@ -137,7 +146,7 @@ class Proxy:
                 else:
                     frame_array.append((frame.f_code.co_filename, frame.f_lineno))
                     frame = frame.f_back
-                # print("Go up!")
+
             if type(obj) is torch.Tensor:
                 if Proxy.tensor_frame_dict.get(tuple(frame_array)) is None:
                     self.__dict__["_obj"] = obj
@@ -149,8 +158,9 @@ class Proxy:
                     shape = tuple(obj.shape)
 
                     if tensor_dict.get(shape) is None:
-                        self.logger_proxy.info(
-                            f"Creating proxy for Tensor with shape '{shape}'"
+                        print(
+                            "logger_proxy: "
+                            + f"Creating proxy for Tensor with shape '{shape}'"
                         )
 
                         self.jsondumper.dump_json(
@@ -164,8 +174,9 @@ class Proxy:
                         self.__dict__["_obj"] = obj
                         tensor_dict[shape] = self
                     else:
-                        self.logger_proxy.debug(
-                            f"Tensor with shape '{shape}' is already proxied"
+                        print(
+                            "logger_proxy: "
+                            + f"Tensor with shape '{shape}' is already proxied"
                         )
                         self.print_update(tensor_dict[shape]._obj, obj, f"torch.Tensor")
 
@@ -188,8 +199,9 @@ class Proxy:
                     new_value = str(torch_serialize(obj))
 
                     if hasattr(obj, "__name__"):
-                        self.logger_proxy.info(
-                            f"Creating proxy for object '{obj.__name__}'"
+                        print(
+                            "logger_proxy: "
+                            + f"Creating proxy for object '{obj.__name__}'"
                         )
 
                         self.jsondumper.dump_json(
@@ -200,8 +212,9 @@ class Proxy:
                             {"old_value": None, "new_value": new_value},
                         )
                     else:
-                        self.logger_proxy.info(
-                            f"Creating proxy for object with type '{obj.__class__.__name__}'"
+                        print(
+                            "logger_proxy: "
+                            + f"Creating proxy for object with type '{obj.__class__.__name__}'"  # FIXME: combine this with the above branch with typename(obj)
                         )
 
                         self.jsondumper.dump_json(
@@ -218,11 +231,14 @@ class Proxy:
                     Proxy.frame_dict[tuple(frame_array)] = self
                 else:
                     if not type(obj) in [int, float, str, bool] and obj is not None:
-                        self.logger_proxy.debug(
-                            f"Object '{obj.__class__.__name__}' is already proxied"
+                        print(
+                            "logger_proxy: "
+                            + f"Object '{obj.__class__.__name__}' is already proxied"
                         )
                     # self._obj = Proxy.frame_dict[tuple(frame_array)]._obj ## attention, need to delete the original one before creating new instance
-                    obj_name = obj.__class__.__module__ + "." + obj.__class__.__name__
+                    obj_name = (
+                        obj.__class__.__module__ + "." + obj.__class__.__name__
+                    )  # TODO: refactor with typename
 
                     old_value = str(
                         torch_serialize(Proxy.frame_dict[tuple(frame_array)]._obj)
@@ -248,29 +264,32 @@ class Proxy:
         return self._obj.__class__
 
     def __array__(self):
-        self.logger_proxy.debug(
-            f"Go to __array__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Go to __array__ for object '{self.__class__.__name__}'"
         )
         return self._obj.__array__()
 
-    def __torch_function__(self, func, types, args=(), kwargs=None):
-        self.logger_proxy.debug(
-            f"Go to __torch_function__ for function '{func.__name__}'"
-        )
-        if kwargs is None:
-            kwargs = {}
+    # def __torch_function__(self, func, types, args=(), kwargs=None):
+    #     print("logger_proxy: " +
+    #         f"Go to __torch_function__ for function '{func.__name__}'"
+    #     )
+    #     if kwargs is None:
+    #         kwargs = {}
 
-        # Unwrap Proxy objects in args and kwargs
-        args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)
-        kwargs = {k: v._obj if (type(v) is Proxy) else v for k, v in kwargs.items()}
-        result = func(*args, **kwargs)
+    #     # Unwrap Proxy objects in args and kwargs
+    #     args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)
+    #     kwargs = {k: v._obj if (type(v) is Proxy) else v for k, v in kwargs.items()}
+    #     if hasattr(self._obj, "__torch_function__"):
+    #         result = self._obj.__torch_function__(func, types, args, kwargs)
+    #     else:
+    #         result = func(*args, **kwargs)
 
-        # Call the original function with the unwrapped args and kwargs
-        return Proxy(result, logdir=self.logdir, log_level=self.log_level)
+    #     # Call the original function with the unwrapped args and kwargs
+    #     return Proxy(result, logdir=self.logdir, log_level=self.log_level)
 
     def __call__(self, *args, **kwargs):
-        self.logger_proxy.debug(
-            f"Go to __call__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Go to __call__ for object '{self.__class__.__name__}'"
         )
         args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)
         kwargs = {k: v._obj if (type(v) is Proxy) else v for k, v in kwargs.items()}
@@ -278,42 +297,62 @@ class Proxy:
         # kwargs={k: v if isinstance(v, Proxy) else Proxy(v) for k, v in kwargs.items()}
         result = self._obj(*args, **kwargs)
 
+        # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
+        if typename(result).startswith("torch.distributed"):
+            return result
+
         return Proxy(result, logdir=self.logdir, log_level=self.log_level)
 
     def __format__(self, format_spec):
-        self.logger_proxy.debug(
-            f"Go to __format__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Go to __format__ for object '{self.__class__.__name__}'"
         )
         # Delegate the formatting to the wrapped object
         return format(self._obj, format_spec)
 
     def __iter__(self):
-        self.logger_proxy.debug(f"Calling __iter__")
+        print("logger_proxy: " + f"Calling __iter__")
+        # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
         return iter(
-            Proxy(obj, logdir=self.logdir, log_level=self.log_level)
+            (
+                Proxy(obj, logdir=self.logdir, log_level=self.log_level)
+                if not typename(obj).startswith("torch.distributed")
+                else obj
+            )
             for obj in self._obj
         )
 
     def __next__(self):
-        self.logger_proxy.debug(f"Calling __next__")
+        print("logger_proxy: " + f"Calling __next__")
+        result = next(self._obj)
+
+        # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
+        if typename(result).startswith("torch.distributed"):
+            return result
+
         return Proxy(next(self))
 
     def __getattr__(self, name):
-        self.logger_proxy.debug(f"Accessing attribute '{name}'")
+        print("logger_proxy: " + f"Accessing attribute '{name}'")
         if name == "logdir":
             return self.__dict__.get("logdir", None)  # in order to pass down the dir
-        # self.logger_proxy.info(f"Accessing attribute '{name}'")
+        # print("logger_proxy: " +f"Accessing attribute '{name}'")
         attr = getattr(self._obj, name)
+
+        # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
+        if typename(attr).startswith("torch.distributed"):
+            return attr
 
         return Proxy(attr, logdir=self.logdir, log_level=self.log_level)
 
     def __setattr__(self, name, value):
-        self.logger_proxy.debug(f"Setting attribute '{name}' to '{value}'")
+        print("logger_proxy: " + f"Setting attribute '{name}' to '{value}'")
         if name == "_obj":
             if type(value) is torch.Tensor:
                 self.print_tensor(value)
             else:
-                self.logger_proxy.debug(f"Setting attribute '_obj'")
+                print("logger_proxy: " + f"Setting attribute '_obj'")
             self.__dict__[name] = value  # Set the attribute directly
         else:
             # Intercept attribute assignment
@@ -345,36 +384,36 @@ class Proxy:
 
     def __delattr__(self, name):
         # Intercept attribute deletion
-        self.logger_proxy.debug(f"Deleting attribute '{name}'")
+        print("logger_proxy: " + f"Deleting attribute '{name}'")
         delattr(self._obj, name)
 
     def __getitem__(self, key):
         # Intercept item retrieval
-        self.logger_proxy.debug(f"Getting item with key '{key}'")
+        print("logger_proxy: " + f"Getting item with key '{key}'")
 
         return list(self._obj)[key]
 
     def __setitem__(self, key, value):
         # Intercept item assignment
-        self.logger_proxy.info(f"Setting item with key '{key}' to '{value}'")
+        print("logger_proxy: " + f"Setting item with key '{key}' to '{value}'")
         self._obj[key] = value
 
     def __delitem__(self, key):
         # Intercept item deletion
-        self.logger_proxy.debug(f"Deleting item with key '{key}'")
+        print("logger_proxy: " + f"Deleting item with key '{key}'")
         del self._obj[key]
 
     def __add__(self, other):
         # Unwrap other if it's a Proxy
-        self.logger_proxy.debug(
-            f"Calling __add__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __add__ for object '{self.__class__.__name__}'"
         )
         other = other._obj if isinstance(other, Proxy) else other
         return self._obj + other
 
     def __or__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __or__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __or__ for object '{self.__class__.__name__}'"
         )
         if isinstance(other, bool):
             # If the other operand is a boolean, convert the Proxy object to a boolean and do the bitwise OR
@@ -384,8 +423,8 @@ class Proxy:
             return self._obj | other
 
     def __ior__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __ior__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __ior__ for object '{self.__class__.__name__}'"
         )
         if isinstance(other, bool):
             self._obj = bool(self._obj) | other
@@ -394,8 +433,8 @@ class Proxy:
         return self
 
     def __ror__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __ror__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __ror__ for object '{self.__class__.__name__}'"
         )
         if isinstance(other, bool):
             return other | bool(self._obj)
@@ -403,16 +442,18 @@ class Proxy:
             return other | self._obj
 
     def __radd__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __radd__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __radd__ for object '{self.__class__.__name__}'"
         )
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
         return other + self._obj
 
     def __iadd__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __iadd__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __iadd__ for object '{self.__class__.__name__}'"
         )
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
@@ -420,121 +461,133 @@ class Proxy:
         return self
 
     def __sub__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __sub__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __sub__ for object '{self.__class__.__name__}'"
         )
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
         return self._obj - other
 
     def __mul__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __mul__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __mul__ for object '{self.__class__.__name__}'"
         )
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
         return self._obj * other
 
     def __rmul__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __rmul__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __rmul__ for object '{self.__class__.__name__}'"
         )
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
         return other * self._obj
 
     def __truediv__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __truediv__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __truediv__ for object '{self.__class__.__name__}'"
         )
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
         return self._obj / other
 
     def __floatdiv__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __floatdiv__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __floatdiv__ for object '{self.__class__.__name__}'"
         )
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
         return self._obj // other
 
     def __rfloordiv__(self, other):
-        self.logger_proxy.debug(
-            f"Calling __ifloordiv__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __ifloordiv__ for object '{self.__class__.__name__}'"
         )
         # Unwrap other if it's a Proxy
         other = other._obj if isinstance(other, Proxy) else other
         return other // self._obj
 
     def __float__(self):
-        self.logger_proxy.debug(
-            f"Calling __float__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __float__ for object '{self.__class__.__name__}'"
         )
         return float(self._obj)
 
     def __int__(self):
-        self.logger_proxy.debug(
-            f"Calling __int__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __int__ for object '{self.__class__.__name__}'"
         )
         return int(self._obj)
 
     def __str__(self):
-        self.logger_proxy.debug(
-            f"Calling __str__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __str__ for object '{self.__class__.__name__}'"
         )
         return str(self._obj)
 
     def __bool__(self):
-        self.logger_proxy.debug(
-            f"Calling __bool__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __bool__ for object '{self.__class__.__name__}'"
         )
         return bool(self._obj)
 
     def __repr__(self):
-        self.logger_proxy.debug(
-            f"Calling __repr__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __repr__ for object '{self.__class__.__name__}'"
         )
         return repr(self._obj)
 
     def __len__(self):
-        self.logger_proxy.debug(
-            f"Calling __len__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling __len__ for object '{self.__class__.__name__}'"
         )
         return len(self._obj)
 
     def __getreal__(self):
-        self.logger_proxy.debug(
-            f"Calling __getreal__ for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: "
+            + f"Calling __getreal__ for object '{self.__class__.__name__}'"
         )
         return self._obj
 
     def min(self):
-        self.logger_proxy.debug(f"Calling min() for object '{self.__class__.__name__}'")
+        print(
+            "logger_proxy: " + f"Calling min() for object '{self.__class__.__name__}'"
+        )
         return self._obj.min()
 
     def max(self):
-        self.logger_proxy.debug(f"Calling max() for object '{self.__class__.__name__}'")
+        print(
+            "logger_proxy: " + f"Calling max() for object '{self.__class__.__name__}'"
+        )
         return self._obj.max()
 
     def size(self):
-        self.logger_proxy.debug(
-            f"Calling size() for object '{self.__class__.__name__}'"
+        print(
+            "logger_proxy: " + f"Calling size() for object '{self.__class__.__name__}'"
         )
         return self._obj.size()
 
     def print_proxy_dict(self):
-        self.logger_proxy.info(f"Dump Proxy Dict: ")
+        print("logger_proxy: " + f"Dump Proxy Dict: ")
 
         for k, value in Proxy.proxy_dict.items():
             if isinstance(value, torch.Tensor):
                 self.print_tensor(value)
             else:
-                self.logger_proxy.info(f"{k}: {value}")
+                print("logger_proxy: " + f"{k}: {value}")
 
-        self.logger_proxy.info(f"Dump Frame Dict: ")
+        print("logger_proxy: " + f"Dump Frame Dict: ")
         for k, value in Proxy.frame_dict.items():
             if isinstance(value, torch.Tensor):
                 self.print_tensor(value)
             else:
-                self.logger_proxy.info(f"{k}: {value}")
+                print("logger_proxy: " + f"{k}: {value}")

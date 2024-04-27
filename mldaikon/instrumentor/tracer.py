@@ -1,3 +1,4 @@
+import datetime
 import functools
 import inspect
 import json
@@ -13,35 +14,55 @@ import torch.utils
 
 import mldaikon.proxy_wrapper.proxy as ProxyWrapper
 from mldaikon.config.config import INCLUDED_WRAP_LIST, proxy_log_dir
+from mldaikon.utils import typename
 
-logger_instrumentation = logging.getLogger("instrumentation")
-logger_trace = logging.getLogger("trace")
+EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 meta_vars: dict[str, object] = {}
+# TODO: refactor the skipped_modules logic. Use an attribute to mark if the module is wrapped or skipped or not.
+
+trace_loggers: dict[int, logging.Logger] = {}
+instrumentation_loggers: dict[int, logging.Logger] = {}
 
 
-def typename(o):
-    if isinstance(o, torch.Tensor):
-        return o.type()
-    module = ""
-    class_name = ""
-    if (
-        hasattr(o, "__module__")
-        and o.__module__ != "builtins"
-        and o.__module__ != "__builtin__"
-        and o.__module__ is not None
-    ):
-        module = o.__module__ + "."
-    if hasattr(o, "__qualname__") and isinstance(
-        o.__qualname__, str
-    ):  # the instance here is for the case when __qualname__ is _ClassNamespace
-        class_name = o.__qualname__
-    elif hasattr(o, "__name__"):
-        class_name = o.__name__
-    else:
-        class_name = o.__class__.__name__
-    assert isinstance(module, str) and isinstance(class_name, str)
-    return module + class_name
+def get_trace_logger_for_process():
+    pid = os.getpid()
+    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    assert (
+        script_name is not None
+    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+
+    if pid in trace_loggers:
+        return trace_loggers[pid]
+
+    logger = logging.getLogger(f"trace_{pid}")
+    logger.setLevel(logging.INFO)
+    log_file = f"{script_name}_mldaikon_trace_{EXP_START_TIME}_{pid}.log"
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(file_handler)
+    trace_loggers[pid] = logger
+    return logger
+
+
+def get_instrumentation_logger_for_process():
+    pid = os.getpid()
+    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    assert (
+        script_name is not None
+    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+
+    if pid in instrumentation_loggers:
+        return instrumentation_loggers[pid]
+
+    logger = logging.getLogger(f"instrumentation_{pid}")
+    logger.setLevel(logging.INFO)
+    log_file = f"{script_name}_mldaikon_instrumentation_{EXP_START_TIME}_{pid}.log"
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(file_handler)
+    instrumentation_loggers[pid] = logger
+    return logger
 
 
 def global_wrapper(original_function, *args, **kwargs):
@@ -61,7 +82,7 @@ def global_wrapper(original_function, *args, **kwargs):
 
     func_name = f"{module_name}.{func_name}"
 
-    # logger_trace.info({'type': 'function_call (pre)', 'function': original_function.__name__, 'args': args, 'kwargs': kwargs})
+    logger_trace = get_trace_logger_for_process()
     logger_trace.info(
         json.dumps(
             {
@@ -152,7 +173,7 @@ def get_all_subclasses(cls):
 #             try:
 #                 result = original_init(self, *args, **kwargs)
 #             except Exception as e:
-#                 logger_instrumentation.error(f"Error in __init__ of {self.__class__.__name__}: {e}")
+#                 get_instrumentation_logger_for_process().error(f"Error in __init__ of {self.__class__.__name__}: {e}")
 #                 print(f"Error in __init__ of {self.__class__.__name__}: {e}")
 #                 return None
 
@@ -183,7 +204,7 @@ def get_all_subclasses(cls):
 
 def new_wrapper(original_new_func):
     if getattr(original_new_func, "_is_wrapped", False):
-        logger_instrumentation.warning(
+        get_instrumentation_logger_for_process().warning(
             f"__new__ of {original_new_func.__name__} is already wrapped"
         )
         print(f"__new__ of {original_new_func.__name__} is already wrapped")
@@ -208,7 +229,7 @@ def new_wrapper(original_new_func):
                 print(f"idx: {func_id} EXITing original_new_func")
             except Exception as e:
                 print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
-                logger_instrumentation.error(
+                get_instrumentation_logger_for_process().error(
                     f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}"
                 )
                 return None
@@ -219,18 +240,18 @@ def new_wrapper(original_new_func):
             result.__init__(*args, **kwargs)
         except Exception as e:
             print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
-            logger_instrumentation.error(
+            get_instrumentation_logger_for_process().error(
                 f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}"
             )
             return None
 
-        # if cls.__name__ in INCLUDED_WRAP_LIST:
-        #     print(
-        #         f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
-        #     )
-        #     result = ProxyWrapper.Proxy(
-        #         result, log_level=logging.INFO, logdir=proxy_log_dir
-        #     )
+        if cls.__name__ in INCLUDED_WRAP_LIST:
+            print(
+                f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
+            )
+            result = ProxyWrapper.Proxy(
+                result, log_level=logging.INFO, logdir=proxy_log_dir
+            )
 
         return result
 
@@ -271,7 +292,7 @@ class Instrumentor:
         elif inspect.isclass(target):
             self.root_module = target.__module__.split(".")[0]
         elif callable(target):
-            logger_instrumentation.warning(
+            get_instrumentation_logger_for_process().warning(
                 f"""Unsupported target {target}. This instrumentor does not support function, 
                 due to inability to swap the original function with the wrapper function 
                 in the namespace. However, you can use the wrapper function directly by 
@@ -281,7 +302,7 @@ class Instrumentor:
             )
             self.instrumenting = False
         else:
-            logger_instrumentation.warning(
+            get_instrumentation_logger_for_process().warning(
                 f"Unsupported target {target}. This instrumentor only supports module, class."
             )
             self.instrumenting = False
@@ -291,7 +312,8 @@ class Instrumentor:
         # TODO: check if self.target or self.root_module is in the modules_to_skip list
 
         # remove the target from the skipped_modules set
-        if target in skipped_modules:
+        if target in skipped_modules and self.instrumenting:
+            assert not callable(target), f"Skipping callable {target} is not supported"
             skipped_modules.remove(target)
 
     def check_if_to_skip(self, attr: type):
@@ -318,12 +340,12 @@ class Instrumentor:
         target_name = pymodule.__name__
 
         if pymodule in instrumented_modules or pymodule in skipped_modules:
-            logger_instrumentation.info(
+            get_instrumentation_logger_for_process().info(
                 f"Depth: {depth}, Skipping module: {target_name}"
             )
             return 0
 
-        logger_instrumentation.info(
+        get_instrumentation_logger_for_process().info(
             f"Depth: {depth}, Instrumenting module: {target_name}"
         )
         instrumented_modules.add(pymodule)
@@ -332,7 +354,7 @@ class Instrumentor:
         for attr_name in dir(pymodule):
             if not hasattr(pymodule, attr_name):
                 # handle __abstractmethods__ attribute
-                logger_instrumentation.info(
+                get_instrumentation_logger_for_process().info(
                     f"Depth: {depth}, Skipping attribute as it does not exist: {attr_name}"
                 )
                 continue
@@ -342,7 +364,7 @@ class Instrumentor:
             )  # getattr(pymodule, attr_name)
 
             if attr is None:
-                logger_instrumentation.info(
+                get_instrumentation_logger_for_process().info(
                     f"Depth: {depth}, Skipping attribute as it is None: {attr_name}"
                 )
                 """
@@ -354,14 +376,14 @@ class Instrumentor:
 
             # TODO: fix the bug "TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method"
             if "getfile" in attr_name:
-                logger_instrumentation.info(
+                get_instrumentation_logger_for_process().info(
                     f"Depth: {depth}, Skipping attribute as it is getfile: {attr_name}"
                 )
                 continue
 
             # skip private attributes
             if attr_name.startswith("__"):
-                logger_instrumentation.info(
+                get_instrumentation_logger_for_process().info(
                     f"Depth: {depth}, Skipping magic functions: {attr_name}"
                 )
                 # if callable(attr): # TODO: understand why callable leads to issues
@@ -429,7 +451,7 @@ class Instrumentor:
             """
 
             if self.check_if_to_skip(attr):
-                logger_instrumentation.info(
+                get_instrumentation_logger_for_process().info(
                     f"Depth: {depth}, Skipping due to modules_to_skip: {typename(attr)}"
                 )
                 continue
@@ -440,58 +462,60 @@ class Instrumentor:
                 # if isinstance(attr
                 try:
                     if attr in skipped_functions:
-                        logger_instrumentation.info(
+                        get_instrumentation_logger_for_process().info(
                             f"Depth: {depth}, Skipping function: {typename(attr)}"
                         )
                         continue
                 except Exception as e:
-                    logger_instrumentation.fatal(
+                    get_instrumentation_logger_for_process().fatal(
                         f"Depth: {depth}, Error while checking if function {typename(attr)} is in skipped_functions: {e}"
                     )
                     continue
-                logger_instrumentation.info(f"Instrumenting function: {typename(attr)}")
+                get_instrumentation_logger_for_process().info(
+                    f"Instrumenting function: {typename(attr)}"
+                )
                 wrapped = wrapper(attr)
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
                     # handling immutable types and attrs that have no setters
-                    logger_instrumentation.info(
+                    get_instrumentation_logger_for_process().info(
                         f"Depth: {depth}, Skipping function {typename(attr)} due to error: {e}"
                     )
                     continue
                 count_wrapped += 1
             elif isinstance(attr, types.ModuleType):
                 if attr in skipped_modules:
-                    logger_instrumentation.info(
+                    get_instrumentation_logger_for_process().info(
                         f"Depth: {depth}, Skipping module: {typename(attr)}"
                     )
                     continue
                 if not typename(attr).startswith(
                     self.root_module
                 ):  # TODO: refine the logic of how to rule out irrelevant modules
-                    logger_instrumentation.info(
+                    get_instrumentation_logger_for_process().info(
                         f"Depth: {depth}, Skipping module due to irrelevant name:{typename(attr)}"
                     )
                     skipped_modules.add(attr)
                     continue
 
-                logger_instrumentation.info(
+                get_instrumentation_logger_for_process().info(
                     f"Depth: {depth}, Recursing into module: {typename(attr)}"
                 )
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
             elif inspect.isclass(attr):
-                logger_instrumentation.info(
+                get_instrumentation_logger_for_process().info(
                     f"Depth: {depth}, Recursing into class: {typename(attr)}"
                 )
                 if not attr.__module__.startswith(self.root_module):
-                    logger_instrumentation.info(
+                    get_instrumentation_logger_for_process().info(
                         f"Depth: {depth}, Skipping class {typename(attr)} due to irrelevant module: {attr.__module__}"
                     )
                     continue
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
-        logger_instrumentation.info(
+        get_instrumentation_logger_for_process().info(
             f"Depth: {depth}, Wrapped {count_wrapped} functions in module {target_name}"
         )
         return count_wrapped
@@ -514,6 +538,7 @@ class StateVarObserver:
         self.var = var
         self.current_state = self._get_state_copy()
         # dump the initial state
+        logger_trace = get_trace_logger_for_process()
         logger_trace.info(
             # also not compressing here (we want to maintain tensor information)
             json.dumps(
@@ -537,6 +562,7 @@ class StateVarObserver:
 
     def has_changed(self):
         # Check if there is any change in the model parameters
+        logger_trace = get_trace_logger_for_process()
         for name in self.current_state:
             if not torch.equal(self.current_state[name], self.model.state_dict()[name]):
                 logger_trace.info(f"State variable {name} has changed")
@@ -588,7 +614,7 @@ class StateVarObserver:
                 try:
                     json.dumps(attr)  # skipping compression
                 except Exception as e:
-                    logger_instrumentation.warn(
+                    get_instrumentation_logger_for_process().warn(
                         f"Failed to serialize attribute {typename(attr)} of parameter {name}, skipping it. Error: {e}"
                     )
                     continue
@@ -606,6 +632,7 @@ class StateVarObserver:
                 - The value of the tensor.
                 - The properties of the tensor, such as requires_grad, device, tensor_model_parallel, etc.
         """
+        logger_trace = get_trace_logger_for_process()
         state_copy = self._get_state_copy()
         for old_param, new_param in zip(self.current_state, state_copy):
             # three types of changes: value, properties, and both
