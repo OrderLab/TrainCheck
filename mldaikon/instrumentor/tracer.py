@@ -3,12 +3,16 @@ import inspect
 import json
 import logging
 import os
+import random
 import threading
+import traceback
 import types
-import uuid
 
 import torch
-import compactdump 
+import torch.utils
+
+import mldaikon.proxy_wrapper.proxy as ProxyWrapper
+from mldaikon.config.config import INCLUDED_WRAP_LIST, proxy_log_dir
 
 logger_instrumentation = logging.getLogger("instrumentation")
 logger_trace = logging.getLogger("trace")
@@ -28,17 +32,21 @@ def typename(o):
         and o.__module__ is not None
     ):
         module = o.__module__ + "."
-    if hasattr(o, "__qualname__"):
+    if hasattr(o, "__qualname__") and isinstance(
+        o.__qualname__, str
+    ):  # the instance here is for the case when __qualname__ is _ClassNamespace
         class_name = o.__qualname__
     elif hasattr(o, "__name__"):
         class_name = o.__name__
     else:
         class_name = o.__class__.__name__
+    assert isinstance(module, str) and isinstance(class_name, str)
     return module + class_name
 
 
 def global_wrapper(original_function, *args, **kwargs):
-    func_id = str(uuid.uuid4())
+    func_call_id = random.randint(0, 1000)
+
     # Get the current thread object
     current_thread = threading.current_thread()
     # Get the thread ID
@@ -55,10 +63,9 @@ def global_wrapper(original_function, *args, **kwargs):
 
     # logger_trace.info({'type': 'function_call (pre)', 'function': original_function.__name__, 'args': args, 'kwargs': kwargs})
     logger_trace.info(
-        compactdump.dump_json(
-        # json.dumps(
+        json.dumps(
             {
-                "uuid": func_id,
+                "func_call_id": func_call_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "meta_vars": meta_vars,
@@ -71,9 +78,9 @@ def global_wrapper(original_function, *args, **kwargs):
         result = original_function(*args, **kwargs)
     except Exception as e:
         logger_trace.error(
-            json.dumps( # keep the error logs as json
+            json.dumps(  # keep the error logs as json
                 {
-                    "uuid": func_id,
+                    "func_call_id": func_call_id,
                     "thread_id": thread_id,
                     "process_id": process_id,
                     "meta_vars": meta_vars,
@@ -82,16 +89,17 @@ def global_wrapper(original_function, *args, **kwargs):
                     "args": [f"{arg}" for arg in args],
                     "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
                     "exception": str(e),
+                    "traceback": traceback.format_exc(),
                 }
             )
         )
+        print(f"Error in {func_name}: {e}")
         raise e
     # logger_trace.info({'type': 'function_call (post)', 'function': original_function.__name__, 'result': result})
     logger_trace.info(
-        compactdump.dump_json(
-        # json.dumps(
+        json.dumps(
             {
-                "uuid": func_id,
+                "func_call_id": func_call_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "meta_vars": meta_vars,
@@ -111,15 +119,142 @@ def wrapper(original_function):
     return wrapped
 
 
+def safe_serialize(obj):
+    """Include custom serialization logic to handle parameters that cannot be serialized by json.dumps"""
+    try:
+        if isinstance(obj, torch.Tensor):
+            return f"Tensor(shape={obj.size()}, dtype={obj.dtype})"
+        return json.dumps(obj)
+    except TypeError:
+        return str(type(obj))
+
+
+# https://stackoverflow.com/a/63851681/9201239
+def get_all_subclasses(cls):
+    subclass_list = []
+
+    def recurse(cl):
+        for subclass in cl.__subclasses__():
+            subclass_list.append(subclass)
+            recurse(subclass)
+
+    recurse(cls)
+    return set(subclass_list)
+
+
+# def init_wrapper(original_init):
+#     @functools.wraps(original_init)
+#     def wrapped_init(self, *args, **kwargs):
+#         print(f"wrapped_init for {self.__class__.__name__}")
+#         if isinstance(self, torch._ops._OpNamespace):
+#             result = original_init(self, *args) if args else None
+#         else:
+#             try:
+#                 result = original_init(self, *args, **kwargs)
+#             except Exception as e:
+#                 logger_instrumentation.error(f"Error in __init__ of {self.__class__.__name__}: {e}")
+#                 print(f"Error in __init__ of {self.__class__.__name__}: {e}")
+#                 return None
+
+#         serialized_args = [safe_serialize(arg) for arg in args]
+#         serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
+#         print(
+#             f"Initialized {self.__class__.__name__} with args: {serialized_args} and kwargs: {serialized_kwargs}"
+#         )
+#         logger_trace.info(
+#             json.dumps(
+#                 {
+#                     "thread_id": threading.current_thread().ident,
+#                     "process_id": os.getpid(),
+#                     "type": "class_init",
+#                     "class": self.__class__.__name__,
+#                     "args": serialized_args,
+#                     "kwargs": serialized_kwargs,
+#                 }
+#             )
+#         )
+
+#         self = ProxyWrapper.Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
+
+#         return result
+
+#     return wrapped_init
+
+
+def new_wrapper(original_new_func):
+    if getattr(original_new_func, "_is_wrapped", False):
+        logger_instrumentation.warning(
+            f"__new__ of {original_new_func.__name__} is already wrapped"
+        )
+        print(f"__new__ of {original_new_func.__name__} is already wrapped")
+        return original_new_func
+
+    @functools.wraps(original_new_func)
+    def wrapped_new(cls, *args, **kwargs):
+        import random
+
+        # generate a random id for the function call
+        func_id = str(random.randint(0, 10))
+
+        print(f"idx: {func_id} wrapped_new for {cls.__name__}")
+        if isinstance(cls, torch._ops._OpNamespace):
+            print(f"idx: {func_id} CALLing original_new_func")
+            result = original_new_func(cls)
+            print(f"idx: {func_id} EXITing original_new_func")
+        else:
+            try:
+                print(f"idx: {func_id} CALLing original_new_func")
+                result = original_new_func(cls)
+                print(f"idx: {func_id} EXITing original_new_func")
+            except Exception as e:
+                print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
+                logger_instrumentation.error(
+                    f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}"
+                )
+                return None
+        try:
+            print(
+                f"idx: {func_id} Initializing {cls.__name__} with Args: {args}, Kwargs: {kwargs}"
+            )
+            result.__init__(*args, **kwargs)
+        except Exception as e:
+            print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
+            logger_instrumentation.error(
+                f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}"
+            )
+            return None
+
+        # if cls.__name__ in INCLUDED_WRAP_LIST:
+        #     print(
+        #         f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
+        #     )
+        #     result = ProxyWrapper.Proxy(
+        #         result, log_level=logging.INFO, logdir=proxy_log_dir
+        #     )
+
+        return result
+
+    # Mark this function as wrapped
+    wrapped_new._is_wrapped = True
+
+    return wrapped_new
+
+
 instrumented_modules = set()
 skipped_modules: set[types.ModuleType | type | types.FunctionType] = set()
 skipped_functions = set()
 
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
-modules_to_skip = ["torch.fx"]
+modules_to_skip = [
+    "torch.fx",
+    "torch.jit",
+    "torch._jit",
+    "torch._C",
+    "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
+]
 
 
-class instrumentor:
+class Instrumentor:
     def __init__(
         self,
         target: (
@@ -130,33 +265,54 @@ class instrumentor:
             | types.BuiltinMethodType
         ),
     ):
+        self.instrumenting = True
         if isinstance(target, types.ModuleType):
             self.root_module = target.__name__.split(".")[0]
         elif inspect.isclass(target):
             self.root_module = target.__module__.split(".")[0]
         elif callable(target):
-            raise ValueError(
-                """Unsupported target type. This instrumentor does not support function, 
+            logger_instrumentation.warning(
+                f"""Unsupported target {target}. This instrumentor does not support function, 
                 due to inability to swap the original function with the wrapper function 
                 in the namespace. However, you can use the wrapper function directly by 
                 setting 
                     `func = wrapper(func)`
                 """
             )
+            self.instrumenting = False
         else:
-            raise ValueError(
-                "Unsupported target type. This instrumentor only supports module, class."
+            logger_instrumentation.warning(
+                f"Unsupported target {target}. This instrumentor only supports module, class."
             )
+            self.instrumenting = False
         self.instrumented_count = 0
         self.target = target
+
+        # TODO: check if self.target or self.root_module is in the modules_to_skip list
 
         # remove the target from the skipped_modules set
         if target in skipped_modules:
             skipped_modules.remove(target)
 
+    def check_if_to_skip(self, attr: type):
+        if typename(attr) in modules_to_skip:
+            return True
+
+        for modules_to_skip_prefix in modules_to_skip:
+            if typename(attr).startswith(modules_to_skip_prefix):
+                return True
+
+        # attr should also be skipped if the attr does belong to the target
+        if not typename(attr).startswith(typename(self.target)):
+            return True
+
+        return False
+
     def instrument(self):
-        self.instrumented_count = self._instrument_module(self.target)
-        return self.instrumented_count
+        if self.instrumenting:
+            self.instrumented_count = self._instrument_module(self.target)
+            return self.instrumented_count
+        return 0
 
     def _instrument_module(self, pymodule: types.ModuleType | type, depth=0):
         target_name = pymodule.__name__
@@ -272,6 +428,12 @@ class instrumentor:
             TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
             """
 
+            if self.check_if_to_skip(attr):
+                logger_instrumentation.info(
+                    f"Depth: {depth}, Skipping due to modules_to_skip: {typename(attr)}"
+                )
+                continue
+
             if isinstance(attr, types.FunctionType) or isinstance(
                 attr, types.BuiltinFunctionType
             ):
@@ -279,58 +441,52 @@ class instrumentor:
                 try:
                     if attr in skipped_functions:
                         logger_instrumentation.info(
-                            f"Depth: {depth}, Skipping function: {attr_name}"
+                            f"Depth: {depth}, Skipping function: {typename(attr)}"
                         )
                         continue
                 except Exception as e:
                     logger_instrumentation.fatal(
-                        f"Depth: {depth}, Error while checking if function {attr_name} is in skipped_functions: {e}"
+                        f"Depth: {depth}, Error while checking if function {typename(attr)} is in skipped_functions: {e}"
                     )
                     continue
-                logger_instrumentation.info(f"Instrumenting function: {attr_name}")
+                logger_instrumentation.info(f"Instrumenting function: {typename(attr)}")
                 wrapped = wrapper(attr)
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
                     # handling immutable types and attrs that have no setters
                     logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping function {attr_name} due to error: {e}"
+                        f"Depth: {depth}, Skipping function {typename(attr)} due to error: {e}"
                     )
                     continue
                 count_wrapped += 1
             elif isinstance(attr, types.ModuleType):
-                if attr.__name__ in modules_to_skip:
-                    logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping module due to modules_to_skip: {attr_name}"
-                    )
-                    continue
-
                 if attr in skipped_modules:
                     logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping module: {attr_name}"
+                        f"Depth: {depth}, Skipping module: {typename(attr)}"
                     )
                     continue
-                if not attr.__name__.startswith(
+                if not typename(attr).startswith(
                     self.root_module
                 ):  # TODO: refine the logic of how to rule out irrelevant modules
                     logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping module due to irrelevant name:{attr_name}"
+                        f"Depth: {depth}, Skipping module due to irrelevant name:{typename(attr)}"
                     )
                     skipped_modules.add(attr)
                     continue
 
                 logger_instrumentation.info(
-                    f"Depth: {depth}, Recursing into module: {attr_name}"
+                    f"Depth: {depth}, Recursing into module: {typename(attr)}"
                 )
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
             elif inspect.isclass(attr):
                 logger_instrumentation.info(
-                    f"Depth: {depth}, Recursing into class: {attr_name}"
+                    f"Depth: {depth}, Recursing into class: {typename(attr)}"
                 )
                 if not attr.__module__.startswith(self.root_module):
                     logger_instrumentation.info(
-                        f"Depth: {depth}, Skipping class {attr_name} due to irrelevant module: {attr.__module__}"
+                        f"Depth: {depth}, Skipping class {typename(attr)} due to irrelevant module: {attr.__module__}"
                     )
                     continue
                 count_wrapped += self._instrument_module(attr, depth + 1)
@@ -374,12 +530,34 @@ class StateVarObserver:
         )
 
     def _get_state_copy(self):
+        return {
+            name: param.clone().detach()
+            for name, param in self.model.named_parameters()
+        }
+
+    def has_changed(self):
+        # Check if there is any change in the model parameters
+        for name in self.current_state:
+            if not torch.equal(self.current_state[name], self.model.state_dict()[name]):
+                logger_trace.info(f"State variable {name} has changed")
+                logger_trace.info(
+                    json.dumps(
+                        {
+                            "thread_id": threading.current_thread().ident,
+                            "process_id": os.getpid(),
+                            "type": "state_variable_change",
+                            "variable": name,
+                        }
+                    )
+                )
+                self.current_state = self._get_state_copy()
+
         def is_safe_getattr(obj, attr):
             try:
                 getattr(obj, attr)
                 return True
             except Exception as e:
-                logger_trace.warn(
+                print(
                     f"Failed to get attribute {attr} of parameter {name}, skipping it. Error: {e}"
                 )
                 return False
@@ -408,10 +586,10 @@ class StateVarObserver:
                     continue
                 # try to serialize the attribute, if it fails, then skip it
                 try:
-                    json.dumps(attr) # skipping compression 
+                    json.dumps(attr)  # skipping compression
                 except Exception as e:
                     logger_instrumentation.warn(
-                        f"Failed to serialize attribute {attr_name} of parameter {name}, skipping it. Error: {e}"
+                        f"Failed to serialize attribute {typename(attr)} of parameter {name}, skipping it. Error: {e}"
                     )
                     continue
 
@@ -461,4 +639,4 @@ class StateVarObserver:
 
 
 if __name__ == "__main__":
-    instrumentor(torch).instrument()
+    Instrumentor(torch).instrument()

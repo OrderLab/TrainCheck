@@ -1,11 +1,8 @@
 import ast
+import logging
 import os
 
-if __name__ == "__main__":
-    from CONSTANTS import MODULES_TO_INSTRUMENT
-else:
-    from .CONSTANTS import MODULES_TO_INSTRUMENT
-import logging
+from mldaikon.config.config import MODULES_TO_INSTRUMENT
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +24,7 @@ class InsertTracerVisitor(ast.NodeTransformer):
 
     def get_instrument_node(self, module_name):
         return ast.parse(
-            f"from src.instrumentor import tracer; tracer.instrumentor({module_name}).instrument()"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -64,7 +61,7 @@ class InsertTracerVisitor(ast.NodeTransformer):
             if n.asname:
                 instrument_nodes.append(self.get_instrument_node(n.asname))
             else:
-                instrument_nodes.append(self.get_instrument_node(node.module))
+                instrument_nodes.append(self.get_instrument_node(n.name))
         return [node] + instrument_nodes
 
 
@@ -90,26 +87,30 @@ def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
     return source
 
 
-def instrument_file(path: str, modules_to_instrument: list[str]) -> tuple[str, str]:
+def instrument_file(
+    path: str, modules_to_instrument: list[str], disable_proxy_class
+) -> tuple[str, str]:
     """
     Instruments the given file and returns the instrumented source code.
     """
 
     with open(path, "r") as file:
         source = file.read()
-    # instrument the source code
+
+    # instrument APIs
     instrumented_source = instrument_source(source, modules_to_instrument)
 
     file_name = os.path.basename(path).split(".")[0]
-    trace_file = file_name + "_ml_daikon_trace.log"
-    instrumentation_file = file_name + "_ml_daikon_instrumentation.log"
+    trace_file = file_name + "_mldaikon_trace.log"
+    instrumentation_file = file_name + "_mldaikon_instrumentation.log"
 
     # attaching logging configs to the instrumented source TODO: need to replace the original logging config / figure out how to avoid interference
     logging_code = f"""
-
+    
+from mldaikon.instrumentor.tracer import new_wrapper, get_all_subclasses
 import logging
 
-from src.instrumentor import logger_trace, logger_instrumentation
+from mldaikon.instrumentor import logger_trace, logger_instrumentation
 
 logger_trace.setLevel(logging.INFO)
 logger_instrumentation.setLevel(logging.INFO)
@@ -123,6 +124,29 @@ instrumentation_file_handler.setFormatter(logging.Formatter('%(message)s'))
 logger_instrumentation.addHandler(instrumentation_file_handler)
 
 """
+
+    if not disable_proxy_class:
+        # find the main() function
+        main_func = None
+        root = ast.parse(instrumented_source)
+        for node in ast.walk(root):
+            if isinstance(node, ast.FunctionDef) and node.name == "main":
+                main_func = node
+                break
+
+        # insert code before main() execution
+        if main_func:
+            code_to_insert = ast.parse(
+                """
+for cls in get_all_subclasses(torch.nn.Module):
+    print(f"Create new wrapper: {cls.__name__}")
+    cls.__new__ = new_wrapper(cls.__new__)
+"""
+            )
+            main_func.body = code_to_insert.body + main_func.body
+
+        instrumented_source = ast.unparse(root)
+
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
     instrumented_source = (
         instrumented_source.split("\n")[0]
@@ -159,6 +183,11 @@ if __name__ == "__main__":
         help="Modules to be instrumented",
         default=MODULES_TO_INSTRUMENT,
     )
+    parser.add_argument(
+        "--disable_proxy_class",
+        action="store_true",
+        help="Disable the proxy class",
+    )
 
     args = parser.parse_args()
 
@@ -168,5 +197,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     # instrument the source file
-    instrumented_source = instrument_file(args.path, args.modules_to_instrument)
+    instrumented_source = instrument_file(
+        args.path, args.modules_to_instrument, args.disable_proxy_class
+    )[0]
     print(instrumented_source)

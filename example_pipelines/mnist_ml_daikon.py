@@ -10,7 +10,7 @@ from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
 ## ML-DAIKON Instrumentation
-from src.instrumentor import meta_vars
+from mldaikon.instrumentor import meta_vars
 
 
 class Net(nn.Module):
@@ -202,7 +202,7 @@ def main():
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     ## ML-DAIKON Instrumentation
-    from src.instrumentor import tracer
+    from mldaikon.instrumentor import tracer
 
     observer = tracer.StateVarObserver(model)
 

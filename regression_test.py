@@ -5,8 +5,8 @@ import subprocess
 
 import torch.cuda
 
-import src.instrumentor as instrumentor
-import src.runner as runner
+import mldaikon.instrumentor as instrumentor
+import mldaikon.runner as runner
 
 """
 Run default mnist.py and instrumented mnist.py, compare the accuracy of the two.
