@@ -75,7 +75,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     # call into the instrumentor
-    source_code, log_file = instrumentor.instrument_file(
+    source_code = instrumentor.instrument_file(
         args.pyscript, args.modules_to_instrument, args.disable_proxy_class
     )
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         exit()
 
     if args.run_without_analysis:
-        logging.info(f"Skipping analysis, trace file is at {log_file}.")
+        logging.info("Skipping analysis as requested.")
         exit()
 
     print(

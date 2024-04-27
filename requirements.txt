@@ -1,5 +1,0 @@
-isort
-pre-commit
-tqdm
-deepdiff
-polars
