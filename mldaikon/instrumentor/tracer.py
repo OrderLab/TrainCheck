@@ -21,33 +21,62 @@ EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 meta_vars: dict[str, object] = {}
 # TODO: refactor the skipped_modules logic. Use an attribute to mark if the module is wrapped or skipped or not.
 
-trace_loggers: dict[int, logging.Logger] = {}
+trace_API_loggers: dict[int, logging.Logger] = {}
+trace_VAR_loggers: dict[int, logging.Logger] = {}
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
 
-def get_trace_logger_for_process():
+def get_trace_API_logger_for_process():
     pid = os.getpid()
     script_name = os.getenv("MAIN_SCRIPT_NAME")
     assert (
         script_name is not None
     ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
 
-    if pid in trace_loggers:
-        return trace_loggers[pid]
+    if pid in trace_API_loggers:
+        return trace_API_loggers[pid]
 
     logger = logging.getLogger(f"trace_{pid}")
     logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_trace_{EXP_START_TIME}_{pid}.log"
+    log_file = f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}.log"
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
-    trace_loggers[pid] = logger
+    trace_API_loggers[pid] = logger
     return logger
 
 
-def dump_trace(trace: dict, level=logging.INFO):
+def get_trace_VAR_logger_for_process():
+    pid = os.getpid()
+    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    assert (
+        script_name is not None
+    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+
+    if pid in trace_VAR_loggers:
+        return trace_VAR_loggers[pid]
+
+    logger = logging.getLogger(f"trace_{pid}")
+    logger.setLevel(logging.INFO)
+    log_file = f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}.log"
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(file_handler)
+    trace_VAR_loggers[pid] = logger
+    return logger
+
+
+def dump_trace_API(trace: dict, level=logging.INFO):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    logger = get_trace_logger_for_process()
+    logger = get_trace_API_logger_for_process()
+    if "time" not in trace:
+        trace["time"] = datetime.datetime.now().timestamp()
+    logger.log(level, json.dumps(trace))
+
+
+def dump_trace_VAR(trace: dict, level=logging.INFO):
+    """add a timestamp (unix) to the trace and dump it to the trace log file"""
+    logger = get_trace_VAR_logger_for_process()
     if "time" not in trace:
         trace["time"] = datetime.datetime.now().timestamp()
     logger.log(level, json.dumps(trace))
@@ -90,7 +119,7 @@ def global_wrapper(original_function, *args, **kwargs):
 
     func_name = f"{module_name}.{func_name}"
 
-    dump_trace(
+    dump_trace_API(
         {
             "func_call_id": func_call_id,
             "thread_id": thread_id,
@@ -103,7 +132,7 @@ def global_wrapper(original_function, *args, **kwargs):
     try:
         result = original_function(*args, **kwargs)
     except Exception as e:
-        dump_trace(
+        dump_trace_API(
             {
                 "func_call_id": func_call_id,
                 "thread_id": thread_id,
@@ -120,7 +149,7 @@ def global_wrapper(original_function, *args, **kwargs):
         )
         print(f"Error in {func_name}: {e}")
         raise e
-    dump_trace(
+    dump_trace_API(
         {
             "func_call_id": func_call_id,
             "thread_id": thread_id,
@@ -543,19 +572,21 @@ class StateVarObserver:
         assert isinstance(var, torch.nn.Module), "Currently only supports torch models."
         self.var = var
         self.current_state = self._get_state_copy()
+
+        # FIXME: change this to have a uniform schema with the state_change events
         # dump the initial state
-        dump_trace(
-            {
-                "process_id": os.getpid(),
-                "thread_id": threading.current_thread().ident,
-                "meta_vars": meta_vars,
-                "type": "state_dump",
-                "var": self.var.__class__.__name__,
-                "var_type": typename(self.var),
-                "state": self.current_state,
-            },
-            logging.INFO,
-        )
+        # dump_trace(
+        #     {
+        #         "process_id": os.getpid(),
+        #         "thread_id": threading.current_thread().ident,
+        #         "meta_vars": meta_vars,
+        #         "type": "state_dump",
+        #         "var": self.var.__class__.__name__,
+        #         "var_type": typename(self.var),
+        #         "state": self.current_state,
+        #     },
+        #     logging.INFO,
+        # )
 
     def _get_state_copy(self):
         def is_safe_getattr(obj, attr):
@@ -641,7 +672,7 @@ class StateVarObserver:
                     "new": new_param["properties"],
                 }
             if "change" in msg_dict:
-                dump_trace(msg_dict, logging.INFO)
+                dump_trace_VAR(msg_dict, logging.INFO)
 
         self.current_state = state_copy
 

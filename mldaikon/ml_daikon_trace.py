@@ -4,6 +4,8 @@ import polars as pl
 
 logger = logging.getLogger(__name__)
 
+# TODO: formalize the trace schema for efficient polars processing
+
 
 def _unnest_all(schema, separator):
     def _unnest(schema, path=[]):
@@ -34,35 +36,55 @@ def unnest_all(df: pl.DataFrame, separator=".") -> pl.DataFrame:
     return df.select(_unnest_all(df.schema, separator))
 
 
-def read_trace_file(file_path: str) -> pl.DataFrame:
+def read_trace_file(file_path: str | list[str]) -> pl.DataFrame:
     """Reads the trace file and returns the trace instance."""
-    events = pl.read_ndjson(file_path)
+    if isinstance(file_path, list):
+        events = pl.concat(
+            [pl.read_ndjson(f) for f in file_path], how="diagonal_relaxed"
+        )
+    else:
+        events = pl.read_ndjson(file_path)
     return Trace(unnest_all(events))
 
 
 class Trace:
-    def __init__(self, events: pl.DataFrame):
+    def __init__(self, events: pl.DataFrame | list[pl.DataFrame] | list[dict]):
         self.events = events
-        if isinstance(events, (list, dict)):
+
+        if isinstance(events, list) and all(
+            [isinstance(e, pl.DataFrame) for e in events]
+        ):
+            self.events = pl.concat(events, how="diagonal_relaxed")
+        elif isinstance(events, list) and all([isinstance(e, dict) for e in events]):
             self.events = pl.DataFrame(events)
             self.events = unnest_all(self.events)
 
-        # We may want to sort the events by time as now we have multiple traces from different processes
+        assert isinstance(
+            self.events, pl.DataFrame
+        ), "events should be a DataFrame, list of DataFrames, or a list of dictionaries."
 
-        # # events shouldn't have any columns that are nested dictionaries
-        # for col in self.events.columns:
-        #     if any([isinstance(e, dict) for e in self.events[col]]):
-        #         print(self.events[col].describe())
-        #         raise ValueError(f"Column {col} contains nested lists or dictionaries. Please flatten the trace before creating Trace instance.")
+        try:
+            self.events = self.events.sort("time", descending=False)
+        except pl.PolarsError:
+            raise ValueError(
+                "Failed to sort the events by time. Check if the time column is present in the events."
+            )
 
     def filter(self, predicate):
         # TODO: need to think about how to implement this, as pre-conditions for bugs like DS-1801 needs to take multiple events into account
         raise NotImplementedError("filter method is not implemented yet.")
         return Trace(self.events[self.events.apply(predicate, axis=1)])
 
-    def find_variables_states(self) -> list:
-        """Find all variables and their states from the trace."""
-        # the
+    def find_variable_identifiers(self) -> pl.DataFrame:
+        """Find all variables (uniquely identified by name, type and process id) from the trace."""
+
+        # Identification of Variables --> (variable_name, process_id)
+        variables = (
+            self.events.select("var_name", "var_type", "process_id")
+            .drop_nulls()
+            .unique()
+        )
+        return variables
 
     def scan_to_groups(self, param_selectors: list):
         """Extract from trace, groups of events
