@@ -47,6 +47,8 @@ class Trace:
             self.events = pl.DataFrame(events)
             self.events = unnest_all(self.events)
 
+        # We may want to sort the events by time as now we have multiple traces from different processes
+
         # # events shouldn't have any columns that are nested dictionaries
         # for col in self.events.columns:
         #     if any([isinstance(e, dict) for e in self.events[col]]):
@@ -57,6 +59,10 @@ class Trace:
         # TODO: need to think about how to implement this, as pre-conditions for bugs like DS-1801 needs to take multiple events into account
         raise NotImplementedError("filter method is not implemented yet.")
         return Trace(self.events[self.events.apply(predicate, axis=1)])
+
+    def find_variables_states(self) -> list:
+        """Find all variables and their states from the trace."""
+        # the
 
     def scan_to_groups(self, param_selectors: list):
         """Extract from trace, groups of events

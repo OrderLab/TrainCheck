@@ -48,6 +48,8 @@ class Hypothesis:
         # TODO: think about refinement for hypothesis (e.g. across multiple traces) / invariants (e.g A > B --> A >= B) needs abstaction for this
         raise NotImplementedError("refine method is not implemented yet.")
 
+        # hypothesis would be a major part of the inference process, as inferring & refining the invariants needs to be based on the positive and negative examples
+
     def _print_debug(self):
         return f"Hypothesized Invariant: {self.invariant}\n# Positive examples: {len(self.positive_examples)}\n# Negative examples: {len(self.negative_examples)}"
 

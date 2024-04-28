@@ -45,6 +45,14 @@ def get_trace_logger_for_process():
     return logger
 
 
+def dump_trace(trace: dict, level=logging.INFO):
+    """add a timestamp (unix) to the trace and dump it to the trace log file"""
+    logger = get_trace_logger_for_process()
+    if "time" not in trace:
+        trace["time"] = datetime.datetime.now().timestamp()
+    logger.log(level, json.dumps(trace))
+
+
 def get_instrumentation_logger_for_process():
     pid = os.getpid()
     script_name = os.getenv("MAIN_SCRIPT_NAME")
@@ -82,52 +90,46 @@ def global_wrapper(original_function, *args, **kwargs):
 
     func_name = f"{module_name}.{func_name}"
 
-    logger_trace = get_trace_logger_for_process()
-    logger_trace.info(
-        json.dumps(
-            {
-                "func_call_id": func_call_id,
-                "thread_id": thread_id,
-                "process_id": process_id,
-                "meta_vars": meta_vars,
-                "type": "function_call (pre)",
-                "function": func_name,
-            }
-        )
+    dump_trace(
+        {
+            "func_call_id": func_call_id,
+            "thread_id": thread_id,
+            "process_id": process_id,
+            "meta_vars": meta_vars,
+            "type": "function_call (pre)",
+            "function": func_name,
+        }
     )
     try:
         result = original_function(*args, **kwargs)
     except Exception as e:
-        logger_trace.error(
-            json.dumps(  # keep the error logs as json
-                {
-                    "func_call_id": func_call_id,
-                    "thread_id": thread_id,
-                    "process_id": process_id,
-                    "meta_vars": meta_vars,
-                    "type": "function_call (post) (exception)",
-                    "function": func_name,
-                    "args": [f"{arg}" for arg in args],
-                    "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
-                    "exception": str(e),
-                    "traceback": traceback.format_exc(),
-                }
-            )
-        )
-        print(f"Error in {func_name}: {e}")
-        raise e
-    # logger_trace.info({'type': 'function_call (post)', 'function': original_function.__name__, 'result': result})
-    logger_trace.info(
-        json.dumps(
+        dump_trace(
             {
                 "func_call_id": func_call_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "meta_vars": meta_vars,
-                "type": "function_call (post)",
+                "type": "function_call (post) (exception)",
                 "function": func_name,
-            }
+                "args": [f"{arg}" for arg in args],
+                "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
+                "exception": str(e),
+                "traceback": traceback.format_exc(),
+            },
+            logging.ERROR,
         )
+        print(f"Error in {func_name}: {e}")
+        raise e
+    dump_trace(
+        {
+            "func_call_id": func_call_id,
+            "thread_id": thread_id,
+            "process_id": process_id,
+            "meta_vars": meta_vars,
+            "type": "function_call (post)",
+            "function": func_name,
+        },
+        logging.INFO,
     )
     return result
 
@@ -528,6 +530,10 @@ class StateVarObserver:
     """
 
     def __init__(self, var):
+        self.step = (
+            0  # HACK: this is a hack to get the step number as we observe every step
+        )
+        meta_vars.update({"step": self.step})
         # Get the current thread object
         if isinstance(var, list):
             assert (
@@ -538,52 +544,26 @@ class StateVarObserver:
         self.var = var
         self.current_state = self._get_state_copy()
         # dump the initial state
-        logger_trace = get_trace_logger_for_process()
-        logger_trace.info(
-            # also not compressing here (we want to maintain tensor information)
-            json.dumps(
-                {
-                    "process_id": os.getpid(),
-                    "thread_id": threading.current_thread().ident,
-                    "meta_vars": meta_vars,
-                    "type": "state_dump",
-                    "var": self.var.__class__.__name__,
-                    "var_type": typename(self.var),
-                    "state": self.current_state,
-                }
-            )
+        dump_trace(
+            {
+                "process_id": os.getpid(),
+                "thread_id": threading.current_thread().ident,
+                "meta_vars": meta_vars,
+                "type": "state_dump",
+                "var": self.var.__class__.__name__,
+                "var_type": typename(self.var),
+                "state": self.current_state,
+            },
+            logging.INFO,
         )
 
     def _get_state_copy(self):
-        return {
-            name: param.clone().detach()
-            for name, param in self.model.named_parameters()
-        }
-
-    def has_changed(self):
-        # Check if there is any change in the model parameters
-        logger_trace = get_trace_logger_for_process()
-        for name in self.current_state:
-            if not torch.equal(self.current_state[name], self.model.state_dict()[name]):
-                logger_trace.info(f"State variable {name} has changed")
-                logger_trace.info(
-                    json.dumps(
-                        {
-                            "thread_id": threading.current_thread().ident,
-                            "process_id": os.getpid(),
-                            "type": "state_variable_change",
-                            "variable": name,
-                        }
-                    )
-                )
-                self.current_state = self._get_state_copy()
-
         def is_safe_getattr(obj, attr):
             try:
                 getattr(obj, attr)
                 return True
             except Exception as e:
-                print(
+                get_instrumentation_logger_for_process().warn(
                     f"Failed to get attribute {attr} of parameter {name}, skipping it. Error: {e}"
                 )
                 return False
@@ -612,10 +592,10 @@ class StateVarObserver:
                     continue
                 # try to serialize the attribute, if it fails, then skip it
                 try:
-                    json.dumps(attr)  # skipping compression
+                    json.dumps(attr)
                 except Exception as e:
                     get_instrumentation_logger_for_process().warn(
-                        f"Failed to serialize attribute {typename(attr)} of parameter {name}, skipping it. Error: {e}"
+                        f"Failed to serialize attribute {attr_name} of parameter {name}, skipping it. Error: {e}"
                     )
                     continue
 
@@ -632,7 +612,8 @@ class StateVarObserver:
                 - The value of the tensor.
                 - The properties of the tensor, such as requires_grad, device, tensor_model_parallel, etc.
         """
-        logger_trace = get_trace_logger_for_process()
+        self.step += 1
+        meta_vars.update({"step": self.step})
         state_copy = self._get_state_copy()
         for old_param, new_param in zip(self.current_state, state_copy):
             # three types of changes: value, properties, and both
@@ -660,7 +641,7 @@ class StateVarObserver:
                     "new": new_param["properties"],
                 }
             if "change" in msg_dict:
-                logger_trace.info(json.dumps(msg_dict))
+                dump_trace(msg_dict, logging.INFO)
 
         self.current_state = state_copy
 
