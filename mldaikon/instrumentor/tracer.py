@@ -36,7 +36,7 @@ def get_trace_API_logger_for_process():
     if pid in trace_API_loggers:
         return trace_API_loggers[pid]
 
-    logger = logging.getLogger(f"trace_{pid}")
+    logger = logging.getLogger(f"trace_API_{pid}")
     logger.setLevel(logging.INFO)
     log_file = f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}.log"
     file_handler = logging.FileHandler(log_file)
@@ -56,7 +56,7 @@ def get_trace_VAR_logger_for_process():
     if pid in trace_VAR_loggers:
         return trace_VAR_loggers[pid]
 
-    logger = logging.getLogger(f"trace_{pid}")
+    logger = logging.getLogger(f"trace_VAR_{pid}")
     logger.setLevel(logging.INFO)
     log_file = f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}.log"
     file_handler = logging.FileHandler(log_file)
@@ -584,8 +584,24 @@ class StateVarObserver:
                     "type": "state_init",
                     "var_type": param["type"],
                     "var_name": param["name"],
-                    "value": param["param"],
-                    "properties": param["properties"],
+                    "change": {
+                        "value": {
+                            "old": param[
+                                "param"
+                            ],  # HACK: this is a hack for polars to get consistent schemas
+                            "new": param[
+                                "param"
+                            ],  # HACK: this is a hack for polars to get consistent schemas
+                        },
+                        "properties": {
+                            "old": param[
+                                "properties"
+                            ],  # HACK: this is a hack for polars to get consistent schemas
+                            "new": param[
+                                "properties"
+                            ],  # HACK: this is a hack for polars to get consistent schemas
+                        },
+                    },
                     "time": timestamp,
                 }
             )
@@ -603,11 +619,17 @@ class StateVarObserver:
 
         state_copy = []
         for name, param in self.var.named_parameters():
+            param_list = param.clone().detach().tolist()
+
+            # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
+            if not isinstance(param_list[0], list):
+                param_list = [param_list]
+
             state_copy.append(
                 {
                     "name": name,
                     "type": typename(param),
-                    "param": param.clone().detach().tolist(),
+                    "param": param_list,
                     "properties": {},
                 }
             )
