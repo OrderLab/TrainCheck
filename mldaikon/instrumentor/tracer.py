@@ -571,22 +571,24 @@ class StateVarObserver:
             var = var[0]
         assert isinstance(var, torch.nn.Module), "Currently only supports torch models."
         self.var = var
+
+        timestamp = datetime.datetime.now().timestamp()
         self.current_state = self._get_state_copy()
 
-        # FIXME: change this to have a uniform schema with the state_change events
-        # dump the initial state
-        # dump_trace(
-        #     {
-        #         "process_id": os.getpid(),
-        #         "thread_id": threading.current_thread().ident,
-        #         "meta_vars": meta_vars,
-        #         "type": "state_dump",
-        #         "var": self.var.__class__.__name__,
-        #         "var_type": typename(self.var),
-        #         "state": self.current_state,
-        #     },
-        #     logging.INFO,
-        # )
+        for param in self.current_state:
+            dump_trace_VAR(
+                {
+                    "process_id": os.getpid(),
+                    "thread_id": threading.current_thread().ident,
+                    "meta_vars": meta_vars,
+                    "type": "state_init",
+                    "var_type": param["type"],
+                    "var_name": param["name"],
+                    "value": param["param"],
+                    "properties": param["properties"],
+                    "time": timestamp,
+                }
+            )
 
     def _get_state_copy(self):
         def is_safe_getattr(obj, attr):
@@ -645,6 +647,9 @@ class StateVarObserver:
         """
         self.step += 1
         meta_vars.update({"step": self.step})
+
+        timestamp = datetime.datetime.now().timestamp()
+
         state_copy = self._get_state_copy()
         for old_param, new_param in zip(self.current_state, state_copy):
             # three types of changes: value, properties, and both
@@ -656,6 +661,7 @@ class StateVarObserver:
                 # "var": self.var.__class__.__name__,
                 "var_type": old_param["type"],  # FIXME: hardcoding the type for now
                 "var_name": old_param["name"],
+                "time": timestamp,
             }
             if old_param["param"] != new_param["param"]:
                 if "change" not in msg_dict:

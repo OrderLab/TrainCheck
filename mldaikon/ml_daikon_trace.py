@@ -36,17 +36,6 @@ def unnest_all(df: pl.DataFrame, separator=".") -> pl.DataFrame:
     return df.select(_unnest_all(df.schema, separator))
 
 
-def read_trace_file(file_path: str | list[str]) -> pl.DataFrame:
-    """Reads the trace file and returns the trace instance."""
-    if isinstance(file_path, list):
-        events = pl.concat(
-            [pl.read_ndjson(f) for f in file_path], how="diagonal_relaxed"
-        )
-    else:
-        events = pl.read_ndjson(file_path)
-    return Trace(unnest_all(events))
-
-
 class Trace:
     def __init__(self, events: pl.DataFrame | list[pl.DataFrame] | list[dict]):
         self.events = events
@@ -126,3 +115,14 @@ class Trace:
             )
 
         return groups
+
+
+def read_trace_file(file_path: str | list[str]) -> Trace:
+    """Reads the trace file and returns the trace instance."""
+    if isinstance(file_path, list):
+        events = pl.concat(
+            [pl.read_ndjson(f) for f in file_path], how="diagonal_relaxed"
+        )
+    else:
+        events = pl.read_ndjson(file_path)
+    return Trace(unnest_all(events))
