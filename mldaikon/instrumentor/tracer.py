@@ -130,6 +130,20 @@ def global_wrapper(original_function, *args, **kwargs):
         }
     )
     try:
+        def unwrap_proxies(obj):
+            if isinstance(obj, ProxyWrapper.Proxy):
+                return obj._obj
+            elif isinstance(obj, (list, tuple)):
+                return [unwrap_proxies(item) for item in obj]
+            elif isinstance(obj, dict):
+                return {key: unwrap_proxies(value) for key, value in obj.items()}
+            elif isinstance(obj, types.ModuleType):
+                return obj
+            else:
+                return obj
+
+        args = [unwrap_proxies(arg) for arg in args]
+        kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
