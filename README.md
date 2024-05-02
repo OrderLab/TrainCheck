@@ -1,32 +1,24 @@
 # ML-DAIKON
 
-## Usage
+The analysis compoent is not completely functional as we are refactoring the codebase to make the workflow less ad-hoc to the bugs that we have found. If you want to use the e2e workflow and reproduce the results for DS-1801 and PyTorch-FORUM84911, please swtich to commit [600ce9b](https://github.com/Essoz/ml-daikon-eecs598/commit/600ce9b0fe2e6fd97068d9f20002f26fb1a0303b).
+
+## Instrumentator Usage
+ML-Daikon performs automatic instrumentation of programs and supports out-of-tree execution. To use the instrumentor, please install mldaikon as a pip package in the desired python environment where the example pipeline should be run in.
+
+To install the instrumentor:
 ```shell
-python3 main.py --help
-usage: main.py [-h] --path PATH [--only-instrument] [--print_instr]
-
-Invariant Finder for ML Pipelines in Python
-
-options:
-  -h, --help         show this help message and exit
-  --path PATH        Path to the main file of the pipeline to be analyzed
-  --only-instrument  Only instrument and dump the modified file
-  --print_instr      print the log related to instrumentation
+git clone git@github.com:OrderLab/ml-daikon.git
+cd ml-daikon
+pip3 install -e .
+```
+To use the instrumentor:
+```shell
+python3 -m mldaikon.collect_trace \
+  -p <path to your python script> \
+  -s <optional path to sh script that invokes the python script> \
+  -t [names of the module to be instrumented, e.g. torch, megatron] \
+  --disable_proxy_class <optional flag to disable automatic variable instrumentation> \
+  --instrument-only <optional flag to only instrument the files without running it>
 ```
 
-## Example
-```shell
-python3 main.py --path mnist.py
-```
-
-## Output
-```shell
-> head -5 invariants.json
-"torch._C._get_privateuse1_backend_name": [],
-"torch.random._seed_custom_device": [
-    "{\"uuid\": \"7971ee35-2c99-4338-be11-a976f8ece67c\", \"thread_id\": 140084976235584, \"process_id\": 1884965, \"type\": \"function_call (pre)\", \"function\": \"torch._C._get_privateuse1_backend_name\"}",
-    "{\"uuid\": \"7971ee35-2c99-4338-be11-a976f8ece67c\", \"thread_id\": 140084976235584, \"process_id\": 1884965, \"type\": \"function_call (post)\", \"function\": \"torch._C._get_privateuse1_backend_name\"}"
-],
-"torch.random.manual_seed": [
-    "{\"uuid\": \"e6d0653e-3972-4734-b898-6e31a40a3d7c\", \"thread_id\": 140081023039040, \"process_id\": 1884965, \"type\": \"function_call (post)\", \"function\": \"torch._C._get_privateuse1_backend_name\"}",
-```
+After executing the above command, you can find the dumped traces and the instrumented program at the parent folder of your python script. The instrumented script will have the prefix `_ml_daikon_`.
