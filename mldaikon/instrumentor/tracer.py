@@ -130,19 +130,19 @@ def global_wrapper(original_function, *args, **kwargs):
         }
     )
     try:
-        def unwrap_proxies(obj):
+        def unwrap_proxies(obj, level = 0):
             if isinstance(obj, ProxyWrapper.Proxy):
-                return unwrap_proxies(obj._obj)
+                return unwrap_proxies(obj._obj, level+1)
             elif isinstance(obj, list):
                 for i in range(len(obj)):
-                    obj[i] = unwrap_proxies(obj[i])
+                    obj[i] = unwrap_proxies(obj[i], level+1)
                 return obj
-            elif isinstance(obj, dict):
-                for key in obj:
-                    obj[key] = unwrap_proxies(obj[key])
-                return obj
+            # elif isinstance(obj, dict):
+            #     for key in obj:
+            #         obj[key] = unwrap_proxies(obj[key], level+1)
+            #     return obj
             elif isinstance(obj, tuple):
-                obj = tuple(unwrap_proxies(item) for item in obj)
+                obj = tuple(unwrap_proxies(item, level+1) for item in obj)
                 return obj
             elif isinstance(obj, types.ModuleType):
                 return obj
@@ -518,6 +518,7 @@ class Instrumentor:
                             f"Depth: {depth}, Skipping function: {typename(attr)}"
                         )
                         continue
+                    
                 except Exception as e:
                     get_instrumentation_logger_for_process().fatal(
                         f"Depth: {depth}, Error while checking if function {typename(attr)} is in skipped_functions: {e}"
