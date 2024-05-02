@@ -132,11 +132,18 @@ def global_wrapper(original_function, *args, **kwargs):
     try:
         def unwrap_proxies(obj):
             if isinstance(obj, ProxyWrapper.Proxy):
-                return obj._obj
-            elif isinstance(obj, (list, tuple)):
-                return [unwrap_proxies(item) for item in obj]
+                return unwrap_proxies(obj._obj)
+            elif isinstance(obj, list):
+                for i in range(len(obj)):
+                    obj[i] = unwrap_proxies(obj[i])
+                return obj
             elif isinstance(obj, dict):
-                return {key: unwrap_proxies(value) for key, value in obj.items()}
+                for key in obj:
+                    obj[key] = unwrap_proxies(obj[key])
+                return obj
+            elif isinstance(obj, tuple):
+                obj = tuple(unwrap_proxies(item) for item in obj)
+                return obj
             elif isinstance(obj, types.ModuleType):
                 return obj
             else:
