@@ -20,6 +20,8 @@ line 99 in `./proxyclass_tracer_result/instrumented_84911.py`
 
 `model_transfer=Proxy.Proxy(model_transfer, "model_transfer-example.log", log_level = logging.INFO)`
 
+Note: Initially, we want to achieve automatic instrumentation via `__new__ wrapper`, wrapping all `torch.nn` modules and add a proxy to the targeted modules inherently. However, it is discovered that this instrumentation would interfere with inherent torch functionality, such as `torch.autograd` behavior.
+
 ## Functionality
 
 - Recursive wrapping: wrap every submodule, call function result, attributes of a given Proxy wrapper
@@ -43,9 +45,51 @@ However, this method still leads to `multiple wrappings` of the same object give
 
 - Logging file dir: to support easy partition of the tracer, the logging file dir for every module (or submodule) could be specified by the `log_dir` parameter. By default, the logging file dir from sub-module inherits from the super-module.
 
+## Enforced Rules (to make proxy wrapper well-defined)
+
+1. every proxied object should **NOT** be proxied
+2. every accessed attributed should be proxied
+3. *Almost* every return value of the function call should be proxied (despite the interfaces specified by *us* to unwrap the object, e.g. `def __float__(obj)`)
+4. every function parameters should **NOT** be proxied
+5. functions that alters (create/add/delete + deepcopy) the input parameters should be wrapped to a special proxy method to ensure those special parameters are still traced
+(e.g. wrapped `torch.utils.distributed.broadcast` in `proxy.py` as follows):
+
+```python
+# Save the original broadcast function
+original_broadcast = torch.distributed.broadcast
+
+def broadcast(tensor, src, group=None, async_op=False):
+    # Perform the original broadcast operation
+    original_broadcast(tensor, src, group, async_op)
+
+    # Wrap the first argument in a Proxy object
+    tensor = Proxy(tensor, logdir='proxy_log.log', log_level=logging.INFO)
+
+# Override the broadcast function
+torch.distributed.broadcast = broadcast
+```
+
+## Engineering challenge
+
+Special care with the wrapping/unwrapping:
+1. Do Modification instead of Initialization:
+don't creat new object unless its an unmutable type. There are some inherent types in `pytorch` that inherits from dict or list type, `isintance` would pass under this case.
+
+2. Do not modify list (still needs triage):
+
+```python
+# Ziming: comment out the dict unwrapping here, it would interfere 
+# with the _try_get_data functionality in dataloader 
+# elif isinstance(obj, dict):
+#     for key in obj:
+#         obj[key] = unwrap_proxies(obj[key], level+1)
+#     return obj
+```
+
+The `_try_get_data` function is responsible for fetching data from the DataLoader's underlying queue. If the data in the queue is wrapped in `Proxy` objects, unwrapping them before `_try_get_data` has a chance to process them might lead to unexpected behavior or errors.
 
 
-## Output
+## Output (TO BE UPDATED)
 
 Tracing log for `python3 ./proxyclass_tracer_result/instrumented_mnist.py`
 

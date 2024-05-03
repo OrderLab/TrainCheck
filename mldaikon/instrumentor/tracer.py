@@ -130,19 +130,21 @@ def global_wrapper(original_function, *args, **kwargs):
         }
     )
     try:
-        def unwrap_proxies(obj, level = 0):
+        def unwrap_proxies(obj):
             if isinstance(obj, ProxyWrapper.Proxy):
-                return unwrap_proxies(obj._obj, level+1)
+                return unwrap_proxies(obj._obj)
             elif isinstance(obj, list):
                 for i in range(len(obj)):
-                    obj[i] = unwrap_proxies(obj[i], level+1)
+                    obj[i] = unwrap_proxies(obj[i])
                 return obj
+            # Ziming: comment out the dict unwrapping here, it would interfere 
+            # with the _try_get_data functionality in dataloader 
             # elif isinstance(obj, dict):
             #     for key in obj:
             #         obj[key] = unwrap_proxies(obj[key], level+1)
             #     return obj
             elif isinstance(obj, tuple):
-                obj = tuple(unwrap_proxies(item, level+1) for item in obj)
+                obj = tuple(unwrap_proxies(item) for item in obj)
                 return obj
             elif isinstance(obj, types.ModuleType):
                 return obj
