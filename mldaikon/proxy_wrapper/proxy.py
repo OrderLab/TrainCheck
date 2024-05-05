@@ -133,7 +133,7 @@ class Proxy:
         else:
             print("logger_proxy: " + f"'{value}'")
 
-    def __init__(self, obj, logdir, log_level):
+    def __init__(self, obj, logdir='proxy_log.log', log_level=logging.INFO):
         self.__dict__["process_id"] = os.getpid()
         self.__dict__["thread_id"] = threading.current_thread().ident
         self.__dict__["logdir"] = logdir
@@ -417,8 +417,7 @@ class Proxy:
     def __getitem__(self, key):
         # Intercept item retrieval
         print("logger_proxy: " + f"Getting item with key '{key}'")
-
-        return list(self._obj)[key]
+        return self._obj[key]
 
     def __setitem__(self, key, value):
         # Intercept item assignment
