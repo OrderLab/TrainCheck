@@ -68,6 +68,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    config.disable_proxy_class = args.disable_proxy_class
     config.INCLUDED_WRAP_LIST = args.wrapped_modules
     config.proxy_log_dir = args.tracer_log_dir
 

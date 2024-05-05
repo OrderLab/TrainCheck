@@ -13,7 +13,8 @@ import torch
 import torch.utils
 
 import mldaikon.proxy_wrapper.proxy as ProxyWrapper
-from mldaikon.config.config import INCLUDED_WRAP_LIST, proxy_log_dir
+
+from mldaikon.config.config import INCLUDED_WRAP_LIST, proxy_log_dir, disable_proxy_class
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -24,6 +25,9 @@ meta_vars: dict[str, object] = {}
 trace_API_loggers: dict[int, logging.Logger] = {}
 trace_VAR_loggers: dict[int, logging.Logger] = {}
 instrumentation_loggers: dict[int, logging.Logger] = {}
+
+
+disable_proxy_class = disable_proxy_class
 
 
 def get_trace_API_logger_for_process():
@@ -150,9 +154,9 @@ def global_wrapper(original_function, *args, **kwargs):
                 return obj
             else:
                 return obj
-
-        args = [unwrap_proxies(arg) for arg in args]
-        kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
+        if not disable_proxy_class:
+            args = [unwrap_proxies(arg) for arg in args]
+            kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
@@ -255,64 +259,65 @@ def get_all_subclasses(cls):
 
 #     return wrapped_init
 
+# Ziming: temporarily disable the new_wrapper because it is relatively unstable
 
-def new_wrapper(original_new_func):
-    if getattr(original_new_func, "_is_wrapped", False):
-        get_instrumentation_logger_for_process().warning(
-            f"__new__ of {original_new_func.__name__} is already wrapped"
-        )
-        print(f"__new__ of {original_new_func.__name__} is already wrapped")
-        return original_new_func
+# def new_wrapper(original_new_func):
+#     if getattr(original_new_func, "_is_wrapped", False):
+#         get_instrumentation_logger_for_process().warning(
+#             f"__new__ of {original_new_func.__name__} is already wrapped"
+#         )
+#         print(f"__new__ of {original_new_func.__name__} is already wrapped")
+#         return original_new_func
 
-    @functools.wraps(original_new_func)
-    def wrapped_new(cls, *args, **kwargs):
-        import random
+#     @functools.wraps(original_new_func)
+#     def wrapped_new(cls, *args, **kwargs):
+#         import random
 
-        # generate a random id for the function call
-        func_id = str(random.randint(0, 10))
+#         # generate a random id for the function call
+#         func_id = str(random.randint(0, 10))
 
-        print(f"idx: {func_id} wrapped_new for {cls.__name__}")
-        if isinstance(cls, torch._ops._OpNamespace):
-            print(f"idx: {func_id} CALLing original_new_func")
-            result = original_new_func(cls)
-            print(f"idx: {func_id} EXITing original_new_func")
-        else:
-            try:
-                print(f"idx: {func_id} CALLing original_new_func")
-                result = original_new_func(cls)
-                print(f"idx: {func_id} EXITing original_new_func")
-            except Exception as e:
-                print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
-                get_instrumentation_logger_for_process().error(
-                    f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}"
-                )
-                return None
-        try:
-            print(
-                f"idx: {func_id} Initializing {cls.__name__} with Args: {args}, Kwargs: {kwargs}"
-            )
-            result.__init__(*args, **kwargs)
-        except Exception as e:
-            print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
-            get_instrumentation_logger_for_process().error(
-                f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}"
-            )
-            return None
+#         print(f"idx: {func_id} wrapped_new for {cls.__name__}")
+#         if isinstance(cls, torch._ops._OpNamespace):
+#             print(f"idx: {func_id} CALLing original_new_func")
+#             result = original_new_func(cls)
+#             print(f"idx: {func_id} EXITing original_new_func")
+#         else:
+#             try:
+#                 print(f"idx: {func_id} CALLing original_new_func")
+#                 result = original_new_func(cls)
+#                 print(f"idx: {func_id} EXITing original_new_func")
+#             except Exception as e:
+#                 print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
+#                 get_instrumentation_logger_for_process().error(
+#                     f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}"
+#                 )
+#                 return None
+#         try:
+#             print(
+#                 f"idx: {func_id} Initializing {cls.__name__} with Args: {args}, Kwargs: {kwargs}"
+#             )
+#             result.__init__(*args, **kwargs)
+#         except Exception as e:
+#             print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
+#             get_instrumentation_logger_for_process().error(
+#                 f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}"
+#             )
+#             return None
 
-        if cls.__name__ in INCLUDED_WRAP_LIST:
-            print(
-                f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
-            )
-            result = ProxyWrapper.Proxy(
-                result, log_level=logging.INFO, logdir=proxy_log_dir
-            )
+#         if cls.__name__ in INCLUDED_WRAP_LIST:
+#             print(
+#                 f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
+#             )
+#             result = ProxyWrapper.Proxy(
+#                 result, log_level=logging.INFO, logdir=proxy_log_dir
+#             )
 
-        return result
+#         return result
 
-    # Mark this function as wrapped
-    wrapped_new._is_wrapped = True
+#     # Mark this function as wrapped
+#     wrapped_new._is_wrapped = True
 
-    return wrapped_new
+#     return wrapped_new
 
 
 instrumented_modules = set()
