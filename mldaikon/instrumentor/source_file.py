@@ -123,7 +123,9 @@ for cls in get_all_subclasses(torch.nn.Module):
     cls.__new__ = new_wrapper(cls.__new__)
 """
             )
-            code_to_insert = ast.parse("") # Ziming: disable new_wrapper instrumentations
+            code_to_insert = ast.parse(
+                ""
+            )  # Ziming: disable new_wrapper instrumentations
             main_func.body = code_to_insert.body + main_func.body
 
         instrumented_source = ast.unparse(root)
