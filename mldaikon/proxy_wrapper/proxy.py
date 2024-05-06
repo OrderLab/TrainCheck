@@ -2,7 +2,7 @@ import inspect
 import logging
 import os
 import threading
-
+import json
 import torch
 
 from mldaikon.utils import typename
@@ -11,6 +11,9 @@ from .dumper import json_dumper as dumper
 
 import torch.distributed
 from torch._C._distributed_c10d import ReduceOp
+
+#################################################
+###         Proxied Torch functions
 
 # Save the original broadcast function
 original_broadcast = torch.distributed.broadcast
@@ -87,11 +90,11 @@ def torch_serialize(obj):
         new_value = obj.__class__.__name__ + "(nn.Module)"
         return new_value
     else:
-        # if hasattr(obj, "__name__"):
-        #     new_value = obj.__name__
-        # else:
-        #     new_value = obj.__class__.__name__
-        return str(obj)
+        try:
+            json.dumps(obj)
+        except TypeError:
+            obj = str(obj)
+        return obj
 
 
 class Proxy:
@@ -101,7 +104,7 @@ class Proxy:
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
     loglevel = logging.INFO
-    jsondumper = dumper("proxy_trace.json")
+    jsondumper = dumper("/data/ziming/ml-daikon/proxy_trace.json")
     handler = logging.FileHandler(logdir)
     handler.setLevel(loglevel)
     logger_proxy.handlers.clear()
@@ -384,11 +387,9 @@ class Proxy:
         else:
             # Intercept attribute assignment
             old_value = getattr(self._obj, name, None)
-            if isinstance(old_value, torch.Tensor):
-                old_value = self.print_tensor(old_value)
-            new_value = value
-            if isinstance(new_value, torch.Tensor):
-                new_value = self.print_tensor(new_value)
+            old_value = str(torch_serialize(old_value))
+            new_value = str(torch_serialize(value))
+            
 
             attr_name = f"{self._obj.__class__.__module__}.{self._obj.__class__.__name__}.{name}"
             self.print_update(old_value, value, attr_name)
@@ -417,7 +418,7 @@ class Proxy:
     def __getitem__(self, key):
         # Intercept item retrieval
         print("logger_proxy: " + f"Getting item with key '{key}'")
-        return self._obj[key]
+        return Proxy(self._obj[key])
 
     def __setitem__(self, key, value):
         # Intercept item assignment
