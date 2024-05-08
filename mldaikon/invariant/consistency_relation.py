@@ -78,6 +78,21 @@ def compare_with_fp_tolerance(value1, value2):
         return abs(value1 - value2) < 1e-6
     return value1 == value2
 
+class VariableValueSelector:
+    def __init__(self, var_type1, attr1, var_type2, attr2, precondition):
+        self.var_type1 = var_type1
+        self.attr1 = attr1
+        self.var_type2 = var_type2
+        self.attr2 = attr2
+        self.precondition = precondition
+    def __call__(self, trace: Trace) -> list|None:
+        # TODO: Implement this scanner
+
+        # YOU CAN'T SIMPLY SCAN ON A PARTIAL TRACE, YOU NEED TO SCAN ON THE WHOLE TRACE TO ESTABLISH THE INVARIANTs
+
+        return None
+
+
 
 class ConsistencyRelation(Relation):
     def __init__(self, parent_func_name: str, child_func_name: str):
@@ -340,6 +355,8 @@ class ConsistencyRelation(Relation):
             del hypothesis_with_examples[hypo]
 
         ## 6. TODO: Invariant Construction
+        ## NEED TO THINK ABOUT HOW TO EXPRESS THIS INVARIANT
+
 
         return list(hypothesis_with_examples.values())
 
