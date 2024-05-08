@@ -4,7 +4,12 @@ from tqdm import tqdm
 
 import polars as pl
 
-from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
+from mldaikon.invariant.base_cls import (
+    Hypothesis,
+    Invariant,
+    Relation,
+    find_precondition,
+)
 from mldaikon.ml_daikon_trace import Trace
 from mldaikon.config import config
 
@@ -306,7 +311,37 @@ class ConsistencyRelation(Relation):
 
         ## 5. Precondition Inference
 
-        # Q: How can we proactively prune out useless stuff?
+        hypos_to_delete = []
+        for hypo in hypothesis_with_examples:
+            preconditions = find_precondition(hypothesis_with_examples[hypo])
+            # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant
+            if (
+                len(preconditions) == 0
+                and len(hypothesis_with_examples[hypo].negative_examples) == 0
+            ):
+                hypothesis_with_examples[hypo].invariant.precondition = (
+                    None  # Unconditional
+                )
+            elif (
+                len(preconditions) == 0
+                and len(hypothesis_with_examples[hypo].negative_examples) > 0
+            ):
+                # delete the hypothesis
+                """TODO: even if we cannot find any precondition, it might be possible that the invariant holds, but its just that our tracer didn't capture the necessary information.
+                Thus, we might still want to evaluate the invariant's statistical likelihood instead of just deleting it.
+                """
+                hypos_to_delete.append(hypo)
+            else:
+                hypothesis_with_examples[hypo].invariant.precondition = preconditions[0]
+
+            """NOTE: If a hypo have no negative examples, potentially there might be noises in the preconditions inferred."""
+
+        for hypo in hypos_to_delete:
+            del hypothesis_with_examples[hypo]
+
+        ## 6. TODO: Invariant Construction
+
+        return list(hypothesis_with_examples.values())
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
