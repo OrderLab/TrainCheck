@@ -10,8 +10,18 @@ class Invariant:
     def __init__(self, relation, param_selectors: list, precondition: list | None):
         # def __init__(self, relation: Relation, param_selectors: list[Predicate], precondition: Predicate):
         self.relation = relation
-        self.param_selectors = param_selectors
-        self.precondition = precondition
+        self.param_selectors = param_selectors  ## Param selector
+        self.precondition = precondition  # stateful preconditions
+
+    def param_selectors(self, trace: Trace) -> list:
+        """Given a trace, should return the values of the parameters
+        that the invariant should be evaluated on.
+
+        args:
+            trace: str
+                A trace to get the parameter values from.
+        """
+        raise NotImplementedError("param_selectors method is not implemented yet.")
 
     def verify(self, trace) -> bool:
         """Given a trace, should return a boolean value indicating
@@ -21,8 +31,9 @@ class Invariant:
             trace: str
                 A trace to verify the invariant on.
         """
-        relevant_trace = trace.filter(self.precondition)
-        groups = relevant_trace.group(self.param_selectors)
+        # relevant_trace = trace.filter(self.precondition)
+        # the pre-condition should be incorporated into the param_selectors
+        groups = trace.group(self.param_selectors)
         for g in groups:
             if not self.relation.evaluate(g):
                 return False
@@ -104,54 +115,139 @@ class Relation(abc.ABC):
         """
         pass
 
-    @staticmethod
-    def find_precondition(hypothesis: Hypothesis) -> list | None:
-        """Given a hypothesis, should return a list of preconditions
-        that should be satisfied for the invariant to hold.
 
-        The preconditions should be certain properties of the relevant events that
-        should be satisfied for the invariant to hold.
+class Precondition:
+    def __init__(self, prop_name: str, _type: str, values: list | type):
+        self.prop_name = prop_name
+        if _type not in ["constant", "consistent"]:
+            raise ValueError(f"Invalid type {_type}")
+        self.type = _type  # either "constant" or "consistent"
+        self.values = values if isinstance(values, list) else [values]
 
-        args:
-            hypothesis: Hypothesis
-                A hypothesis to find preconditions for.
-        """
+    def verify(self, example) -> bool:
+        if isinstance(example, list):
+            example = pl.DataFrame(example)
+        assert isinstance(
+            example, pl.DataFrame
+        ), f"Expected example to be a DataFrame, got {type(example)}"
 
-        logger = logging.getLogger(__name__)
+        # prop_key = prop_prefix + self.prop_name if self.prop_name != "param_value" else value_prefix
+        prop_key = self.prop_name
+        if prop_key not in example.columns:
+            return False
+        prop_values = example[prop_key].drop_nulls().unique().to_list()
+        if self.type == "constant":
+            return len(prop_values) == 1 and prop_values[0] in self.values
+        if self.type == "consistent":
+            return len(prop_values) == 1
 
-        ## 1. Find consistent properties of the positive examples & negative examples
-        # merge all events from positive examples
-        all_pos_events: pl.DataFrame = pl.concat(
-            [trace.events for trace in hypothesis.positive_examples]
-        )
-        all_neg_events: pl.DataFrame = pl.concat(
-            [trace.events for trace in hypothesis.negative_examples]
-        )
-        # TODO: think about candidate properties for preconditions
-        """
-        eliminate at least vars used in the relation
-        """
-        # find consistent properties of the positive examples
-        consistent_pos_properties = []
-        for col in all_pos_events.columns:
-            if all_pos_events.select(col).drop_nulls().n_unique() == 1:
+    def try_relax(self) -> bool:
+        if self.type == "consistent":
+            self.type = "constant"
+            return True
+        return False  # cannot relax further
+
+
+def find_precondition(hypothesis: Hypothesis) -> list | None:
+    """Given a hypothesis, should return a list of preconditions
+    that should be satisfied for the invariant to hold.
+
+    The preconditions should be certain properties of the relevant events that
+    should be satisfied for the invariant to hold.
+
+    args:
+        hypothesis: Hypothesis
+            A hypothesis to find preconditions for.
+    """
+
+    logger = logging.getLogger(__name__)
+
+    ## 1. Find consistent properties of the positive examples & negative examples
+    positive_properties = []
+
+    def find_conditions(example: list, key_to_skip: str = "value"):
+        """A list of traces to find common properties from. The property should hold locally within the example."""
+        try:
+            example_df = pl.DataFrame(example)
+        except:
+            import pprint
+
+            pprint.pprint(example)
+            raise
+        const_conds = {}
+        # find properties that have only one value in the example
+        for col in example_df.columns:
+            if key_to_skip is not None and key_to_skip in col:
+                continue
+
+            # let's also skip anything with .old
+            if ".old" in col:
+                continue
+
+            try:
+                values = example_df.get_column(col).drop_nulls().unique().to_list()
+            except:
+                # .unique() might fail due to column having dtype 'list[null]' or something similar, let's just continue
+                continue
+            if len(values) == 1:
                 # get the value of the property
-                value = all_pos_events[col].drop_nulls().first()
-                consistent_pos_properties.append((col, value))
-        # find consistent properties of the negative examples
-        consistent_neg_properties = []
-        for col in all_neg_events.columns:
-            if all_neg_events[col].drop_nulls.n_unique() == 1:
-                # get the value of the property
-                value = all_neg_events[col].drop_nulls().first()
-                consistent_neg_properties.append((col, value))
+                value = values[0]
+                const_conds[col] = value
+        return const_conds
 
-        # now, find the properties that are consistent in positive examples but not in negative examples (at least not having the same value)
-        preconditions = set(consistent_pos_properties) - set(consistent_neg_properties)
-        # TODO: how is a 'property' defined? Single value? Groups of values? Single value / Set() only work for && relationships for multiple preconditions.
+    for example in hypothesis.positive_examples:
+        conds = find_conditions(example)
+        # print(f"found #conds: {len(conds)}")
 
-        if len(preconditions) == 0:
-            logger.info("No preconditions found for the hypothesis.")
-            return None
-        # TODO: implement the disjoint-set based algorithm to find the preconditions
-        return list(preconditions)
+        found = False
+        for cond_name in conds:
+            if "tensor_model_parallel" in cond_name:
+                found = True
+                break
+        if not found:
+            import pprint
+
+            print("example no tensor_model_parallel:")
+            pprint.pprint(example)
+            return []
+        if len(conds) == 0:
+            print("example: ", example)
+            # stop
+            return []
+
+        positive_properties.append(conds)
+
+    # exclude those also hold in the negative examples
+    # for each negative example, we verify the conds in the positive examples
+
+    # find the common properties
+    precondition_targets = set(positive_properties[0].keys())
+    precondition_target_values = {key: [] for key in precondition_targets}
+
+    for pos_props in positive_properties:
+        precondition_targets = precondition_targets.intersection(pos_props.keys())
+        for key in pos_props:
+            if key in precondition_targets:
+                # precondition_target_values[key].append(pos_props[key])
+                if pos_props[key] not in precondition_target_values[key]:
+                    precondition_target_values[key].append(pos_props[key])
+
+    preconditions = {
+        key: (
+            Precondition(key, "constant", precondition_target_values[key])
+            if len(precondition_target_values[key]) == 1
+            else Precondition(key, "consistent", precondition_target_values[key])
+        )
+        for key in precondition_targets
+    }
+
+    print(f"# Initial Precondition: {len(preconditions)}")
+
+    """
+    1. Only one value (assumes to be the prop == constant precondition)
+    2. Multiple Values (first assumes to be prop == prop precondition, if it do not hold, relax to prop in [const1, const2, ...] but constant in one example precondition)
+    """
+
+    # TODO: implement precondition refinement logic here
+
+    return preconditions
