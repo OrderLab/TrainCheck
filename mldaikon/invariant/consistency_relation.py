@@ -62,7 +62,7 @@ def compare_with_fp_tolerance(value1, value2):
         if len(value1) != len(value2):
             return False
         for idx, val in enumerate(value1):
-            if not compare(val, value2[idx]):
+            if not compare_with_fp_tolerance(val, value2[idx]):
                 return False
         return True
     if isinstance(value1, dict):
@@ -71,7 +71,7 @@ def compare_with_fp_tolerance(value1, value2):
         for key in value1:
             if key not in value2:
                 return False
-            if not compare(value1[key], value2[key]):
+            if not compare_with_fp_tolerance(value1[key], value2[key]):
                 return False
         return True
     if isinstance(value1, float):
@@ -93,7 +93,6 @@ class VariableValueSelector:
         return None
 
 
-
 class ConsistencyRelation(Relation):
     def __init__(self, parent_func_name: str, child_func_name: str):
         self.parent_func_name = parent_func_name
@@ -108,7 +107,7 @@ class ConsistencyRelation(Relation):
         var_insts = trace.get_variable_insts()
         var_inst_values = {}
         for var_inst in var_insts:
-            var_inst_states = trace.filter(
+            var_inst_states = trace.events.filter(
                 pl.col("process_id") == var_inst["process_id"],
                 pl.col("var_name") == var_inst["var_name"],
                 pl.col("var_type") == var_inst["var_type"],
@@ -130,7 +129,7 @@ class ConsistencyRelation(Relation):
                         AttrState(state_init[col], Liveness(state_init["time"], None))
                     ]
 
-            for state_change in state_changes:
+            for state_change in state_changes.rows(named=True):
                 for col in state_change:
                     if col.startswith(tracker_var_field_prefix):
                         attr_name = get_attr_name(col)
@@ -199,8 +198,11 @@ class ConsistencyRelation(Relation):
                             continue
 
                         # for each pair of attributes, calculate the liveness overlapping
+                        done_creating_hypothesis = False
                         for value in var_inst_values[var_inst][attr]:
                             saw_overlap = False
+                            if done_creating_hypothesis:
+                                break
                             for other_value in var_inst_values[other_var_inst][
                                 other_attr
                             ]:
@@ -212,22 +214,23 @@ class ConsistencyRelation(Relation):
                                     if compare_with_fp_tolerance(
                                         value.value, other_value.value
                                     ):
-                                        break
-                                    hypothesis.append(
-                                        (
-                                            var_inst.var_type,
-                                            attr,
-                                            other_var_inst.var_type,
-                                            other_attr,
+                                        hypothesis.append(
+                                            (
+                                                var_inst.var_type,
+                                                attr,
+                                                other_var_inst.var_type,
+                                                other_attr,
+                                            )
                                         )
-                                    )
-                                    break
+                                        done_creating_hypothesis = True
+                                        break
                                 else:
                                     if saw_overlap:
                                         # there won't be any more overlap, so we can break
                                         break
 
         ## 3. Hypothesis Pruning
+        print(f"Hypothesis: {hypothesis}")
 
         # for each hypothesis, collect number of positive examples seen, if it is below a threshold, prune it
         filtered_hypothesis = []
@@ -262,23 +265,45 @@ class ConsistencyRelation(Relation):
                     len(var_type1_vars) * (len(var_type1_vars) - 1) / 2
                 )
 
-            for var_inst1 in var_type1_vars:
-                for var_inst2 in var_type2_vars:
-                    if var_inst1 == var_inst2:
-                        continue
-                    for value1 in var_inst_values[var_inst1][attr1]:
-                        for value2 in var_inst_values[var_inst2][attr2]:
-                            overlap = calc_liveness_overlap(
-                                value1.liveness, value2.liveness
-                            )
-                            if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
-                                if compare_with_fp_tolerance(
-                                    var_inst_values[var_inst1][attr1][0].value,
-                                    var_inst_values[var_inst2][attr2][0].value,
-                                ):
-                                    positive_examples += 1
+            if attr1 != attr2 or var_type1 != var_type2:
+                for var_inst1 in var_type1_vars:
+                    for var_inst2 in var_type2_vars:
+                        if var_inst1 == var_inst2:
+                            continue
+                        for value1 in var_inst_values[var_inst1][attr1]:
+                            for value2 in var_inst_values[var_inst2][attr2]:
+                                overlap = calc_liveness_overlap(
+                                    value1.liveness, value2.liveness
+                                )
+                                if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                                    if compare_with_fp_tolerance(
+                                        var_inst_values[var_inst1][attr1][0].value,
+                                        var_inst_values[var_inst2][attr2][0].value,
+                                    ):
+                                        positive_examples += 1
+            else:
+                for idx1, var_inst1 in enumerate(var_type1_vars):
+                    for idx2, var_inst2 in enumerate(var_type2_vars):
+                        if idx1 >= idx2:
+                            continue
+                        for value1 in var_inst_values[var_inst1][attr1]:
+                            for value2 in var_inst_values[var_inst2][attr2]:
+                                overlap = calc_liveness_overlap(
+                                    value1.liveness, value2.liveness
+                                )
+                                if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                                    if compare_with_fp_tolerance(
+                                        var_inst_values[var_inst1][attr1][0].value,
+                                        var_inst_values[var_inst2][attr2][0].value,
+                                    ):
+                                        positive_examples += 1
             if positive_examples > POSITIVE_EXAMPLE_THRESHOLD:
                 filtered_hypothesis.append(hypo)
+                print(f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {POSITIVE_EXAMPLE_THRESHOLD}")
+            else:
+                print(f"Filtering out hypothesis: {hypo} with num positive examples: {positive_examples}, expected threshold: {POSITIVE_EXAMPLE_THRESHOLD}")
+
+        print(f"Filtered Hypothesis: {filtered_hypothesis}")
 
         ## 4.  Positive Examples and Negative Examples Collection
         hypothesis_with_examples = {
@@ -356,8 +381,7 @@ class ConsistencyRelation(Relation):
 
         ## 6. TODO: Invariant Construction
         ## NEED TO THINK ABOUT HOW TO EXPRESS THIS INVARIANT
-
-
+        print(f"Hypothesis Passed: {hypothesis_with_examples.keys()}")
         return list(hypothesis_with_examples.values())
 
     @staticmethod
