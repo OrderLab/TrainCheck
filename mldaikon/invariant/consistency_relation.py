@@ -29,9 +29,10 @@ class Liveness:
 
 
 class AttrState:
-    def __init__(self, value: type, liveness: Liveness):
+    def __init__(self, value: type, liveness: Liveness, traces: list[dict]):
         self.value: type = value
         self.liveness: Liveness = liveness
+        self.traces = traces
 
 
 def calc_liveness_overlap(liveness1: Liveness, liveness2: Liveness) -> int:
@@ -78,6 +79,7 @@ def compare_with_fp_tolerance(value1, value2):
         return abs(value1 - value2) < 1e-6
     return value1 == value2
 
+
 class VariableValueSelector:
     def __init__(self, var_type1, attr1, var_type2, attr2, precondition):
         self.var_type1 = var_type1
@@ -85,7 +87,8 @@ class VariableValueSelector:
         self.var_type2 = var_type2
         self.attr2 = attr2
         self.precondition = precondition
-    def __call__(self, trace: Trace) -> list|None:
+
+    def __call__(self, trace: Trace) -> list | None:
         # TODO: Implement this scanner
 
         # YOU CAN'T SIMPLY SCAN ON A PARTIAL TRACE, YOU NEED TO SCAN ON THE WHOLE TRACE TO ESTABLISH THE INVARIANTs
@@ -126,7 +129,11 @@ class ConsistencyRelation(Relation):
                 if col.startswith(tracker_var_field_prefix):
                     attr_name = get_attr_name(col)
                     attr_values[attr_name] = [
-                        AttrState(state_init[col], Liveness(state_init["time"], None))
+                        AttrState(
+                            state_init[col],
+                            Liveness(state_init["time"], None),
+                            [state_init],
+                        )
                     ]
 
             for state_change in state_changes.rows(named=True):
@@ -138,6 +145,7 @@ class ConsistencyRelation(Relation):
                                 AttrState(
                                     state_change[col],
                                     Liveness(state_change["time"], None),
+                                    [state_change],
                                 )
                             ]
                         else:
@@ -149,8 +157,14 @@ class ConsistencyRelation(Relation):
                                     AttrState(
                                         state_change[col],
                                         Liveness(state_change["time"], None),
+                                        [state_change],
                                     )
                                 )
+                            else:
+                                # attr_values[attr_name][-1].liveness.end_time = (
+                                #     state_change["time"]
+                                # )
+                                attr_values[attr_name][-1].traces.append(state_change)
 
             # set end time for the last state change
             for attr_name in attr_values:
@@ -163,10 +177,15 @@ class ConsistencyRelation(Relation):
                 )
             ] = attr_values
 
+        ## CHECK EVERY VALUE SHOULD HAVE A NON-EMPTY TRACES FIELD
+        for var_inst in var_inst_values:
+            for attr in var_inst_values[var_inst]:
+                for value in var_inst_values[var_inst][attr]:
+                    if len(value.traces) == 0:
+                        print(f"Warning: No traces found for {var_inst} {attr}")
+
         ## 2. Hypothesis Generation Based on Liveness Overlapping
-        hypothesis = (
-            []
-        )  # key: (var_type1, attr1, var_type2, attr2), var_type1 might be the same as var_type2
+        hypothesis = []  # key: (var_type1, attr1, var_type2, attr2)
         for var_inst in tqdm(var_inst_values):
             for attr in var_inst_values[var_inst]:
                 for other_var_inst in var_inst_values:
@@ -183,6 +202,7 @@ class ConsistencyRelation(Relation):
                             other_attr,
                         ) in hypothesis:
                             continue
+
                         if (
                             other_var_inst.var_type,
                             other_attr,
@@ -253,7 +273,7 @@ class ConsistencyRelation(Relation):
             ]
 
             positive_examples = 0
-            positive_examples_threshold = 0 # This number should be the total number of varInst pairs on which the hypothesis is applicable
+            positive_examples_threshold = 0  # This number should be the total number of varInst pairs on which the hypothesis is applicable
 
             for idx1, var_inst1 in enumerate(var_type1_vars):
                 for idx2, var_inst2 in enumerate(var_type2_vars):
@@ -279,15 +299,20 @@ class ConsistencyRelation(Relation):
 
             if positive_examples > positive_examples_threshold:
                 filtered_hypothesis.append(hypo)
-                print(f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}")
+                print(
+                    f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
+                )
             else:
-                print(f"Filtering out hypothesis: {hypo} with num positive examples: {positive_examples}, expected threshold: {positive_examples_threshold}")
+                print(
+                    f"Filtering out hypothesis: {hypo} with num positive examples: {positive_examples}, expected threshold: {positive_examples_threshold}"
+                )
 
         print(f"Filtered Hypothesis: {filtered_hypothesis}")
 
         ## 4.  Positive Examples and Negative Examples Collection
         hypothesis_with_examples = {
-            key: Hypothesis(None, [], []) for key in filtered_hypothesis
+            key: Hypothesis(Invariant(None, None, None), [], [])
+            for key in filtered_hypothesis
         }
         for hypo in hypothesis_with_examples:
             var_type1 = hypo[0]
@@ -318,22 +343,28 @@ class ConsistencyRelation(Relation):
                             )
                             if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
                                 if compare_with_fp_tolerance(
-                                    var_inst_values[var_inst1][attr1][0].value,
-                                    var_inst_values[var_inst2][attr2][0].value,
+                                    value1.value,
+                                    value2.value,
                                 ):
                                     hypothesis_with_examples[
                                         hypo
-                                    ].positive_examples.append((var_inst1, var_inst2))
+                                    ].positive_examples.append(
+                                        value1.traces + value2.traces
+                                    )
                                 else:
                                     hypothesis_with_examples[
                                         hypo
-                                    ].negative_examples.append((var_inst1, var_inst2))
+                                    ].negative_examples.append(
+                                        value1.traces + value2.traces
+                                    )
 
         ## 5. Precondition Inference
-
         hypos_to_delete = []
         for hypo in hypothesis_with_examples:
             preconditions = find_precondition(hypothesis_with_examples[hypo])
+            print(f"Preconditions for {hypo}:")
+            for pre in preconditions:
+                print(str(preconditions[pre]))
             # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant
             if (
                 len(preconditions) == 0
@@ -352,7 +383,7 @@ class ConsistencyRelation(Relation):
                 """
                 hypos_to_delete.append(hypo)
             else:
-                hypothesis_with_examples[hypo].invariant.precondition = preconditions[0]
+                hypothesis_with_examples[hypo].invariant.precondition = preconditions
 
             """NOTE: If a hypo have no negative examples, potentially there might be noises in the preconditions inferred."""
 

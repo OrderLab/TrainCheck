@@ -1,7 +1,7 @@
 import abc
 import logging
-
 import polars as pl
+from tqdm import tqdm
 
 from mldaikon.ml_daikon_trace import Trace
 
@@ -124,6 +124,9 @@ class Precondition:
         self.type = _type  # either "constant" or "consistent"
         self.values = values if isinstance(values, list) else [values]
 
+    def __str__(self) -> str:
+        return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
+
     def verify(self, example) -> bool:
         if isinstance(example, list):
             example = pl.DataFrame(example)
@@ -167,35 +170,36 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
 
     def find_conditions(example: list, key_to_skip: str = "value"):
         """A list of traces to find common properties from. The property should hold locally within the example."""
-        try:
-            example_df = pl.DataFrame(example)
-        except:
-            import pprint
 
-            pprint.pprint(example)
-            raise
         const_conds = {}
         # find properties that have only one value in the example
-        for col in example_df.columns:
-            if key_to_skip is not None and key_to_skip in col:
-                continue
-
+        for prop in example[0]:
             # let's also skip anything with .old
-            if ".old" in col:
+            if ".old" in prop:
                 continue
 
-            try:
-                values = example_df.get_column(col).drop_nulls().unique().to_list()
-            except:
-                # .unique() might fail due to column having dtype 'list[null]' or something similar, let's just continue
-                continue
-            if len(values) == 1:
-                # get the value of the property
-                value = values[0]
-                const_conds[col] = value
+            is_constant = True
+            for i in range(1, len(example)):
+                if prop not in example[i]:
+                    # TODO: we might not want to skip this, as if this prop is a local attribute of a specific variable type, it might not be other traces
+                    logger.error(
+                        f"Property {prop} not found in example {example[i]}, precondition inference might not be correct if this prop is not a local attribute of the variable"
+                    )
+                    continue
+                if example[i][prop] != example[0][prop]:
+                    is_constant = False
+                    break
+            if is_constant:
+                const_conds[prop] = example[0][prop]
+
         return const_conds
 
-    for example in hypothesis.positive_examples:
+    for example in tqdm(hypothesis.positive_examples):
+        if len(example) == 0:
+            # raise ValueError("Empty example found in positive examples")
+            print("Warning: empty examples found in positive examples")
+            continue
+
         conds = find_conditions(example)
         # print(f"found #conds: {len(conds)}")
 
@@ -209,6 +213,8 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
 
             print("example no tensor_model_parallel:")
             pprint.pprint(example)
+            print("inferred pre-conditions")
+            pprint.pprint(conds)
             return []
         if len(conds) == 0:
             print("example: ", example)
