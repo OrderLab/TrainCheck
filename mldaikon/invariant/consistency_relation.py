@@ -253,55 +253,35 @@ class ConsistencyRelation(Relation):
             ]
 
             positive_examples = 0
-            POSITIVE_EXAMPLE_THRESHOLD = None
-            if var_type1 != var_type2:
-                POSITIVE_EXAMPLE_THRESHOLD = len(var_type1_vars) * len(var_type2_vars)
-            elif attr1 != attr2:
-                POSITIVE_EXAMPLE_THRESHOLD = len(var_type1_vars) * (
-                    len(var_type1_vars) - 1
-                )
-            else:
-                POSITIVE_EXAMPLE_THRESHOLD = (
-                    len(var_type1_vars) * (len(var_type1_vars) - 1) / 2
-                )
+            positive_examples_threshold = 0 # This number should be the total number of varInst pairs on which the hypothesis is applicable
 
-            if attr1 != attr2 or var_type1 != var_type2:
-                for var_inst1 in var_type1_vars:
-                    for var_inst2 in var_type2_vars:
-                        if var_inst1 == var_inst2:
-                            continue
-                        for value1 in var_inst_values[var_inst1][attr1]:
-                            for value2 in var_inst_values[var_inst2][attr2]:
-                                overlap = calc_liveness_overlap(
-                                    value1.liveness, value2.liveness
-                                )
-                                if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
-                                    if compare_with_fp_tolerance(
-                                        var_inst_values[var_inst1][attr1][0].value,
-                                        var_inst_values[var_inst2][attr2][0].value,
-                                    ):
-                                        positive_examples += 1
-            else:
-                for idx1, var_inst1 in enumerate(var_type1_vars):
-                    for idx2, var_inst2 in enumerate(var_type2_vars):
-                        if idx1 >= idx2:
-                            continue
-                        for value1 in var_inst_values[var_inst1][attr1]:
-                            for value2 in var_inst_values[var_inst2][attr2]:
-                                overlap = calc_liveness_overlap(
-                                    value1.liveness, value2.liveness
-                                )
-                                if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
-                                    if compare_with_fp_tolerance(
-                                        var_inst_values[var_inst1][attr1][0].value,
-                                        var_inst_values[var_inst2][attr2][0].value,
-                                    ):
-                                        positive_examples += 1
-            if positive_examples > POSITIVE_EXAMPLE_THRESHOLD:
+            for idx1, var_inst1 in enumerate(var_type1_vars):
+                for idx2, var_inst2 in enumerate(var_type2_vars):
+                    if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
+                        continue
+                    found_positive_example = False
+                    if var_inst1 == var_inst2:
+                        continue
+                    for value1 in var_inst_values[var_inst1][attr1]:
+                        for value2 in var_inst_values[var_inst2][attr2]:
+                            overlap = calc_liveness_overlap(
+                                value1.liveness, value2.liveness
+                            )
+                            if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                                if compare_with_fp_tolerance(
+                                    var_inst_values[var_inst1][attr1][0].value,
+                                    var_inst_values[var_inst2][attr2][0].value,
+                                ):
+                                    positive_examples += 1
+                                    found_positive_example = True
+                    if found_positive_example:
+                        positive_examples_threshold += 1
+
+            if positive_examples > positive_examples_threshold:
                 filtered_hypothesis.append(hypo)
-                print(f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {POSITIVE_EXAMPLE_THRESHOLD}")
+                print(f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}")
             else:
-                print(f"Filtering out hypothesis: {hypo} with num positive examples: {positive_examples}, expected threshold: {POSITIVE_EXAMPLE_THRESHOLD}")
+                print(f"Filtering out hypothesis: {hypo} with num positive examples: {positive_examples}, expected threshold: {positive_examples_threshold}")
 
         print(f"Filtered Hypothesis: {filtered_hypothesis}")
 
