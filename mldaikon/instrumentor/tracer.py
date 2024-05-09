@@ -13,8 +13,7 @@ import torch
 import torch.utils
 
 import mldaikon.proxy_wrapper.proxy as ProxyWrapper
-
-from mldaikon.config.config import INCLUDED_WRAP_LIST, proxy_log_dir, disable_proxy_class
+from mldaikon.config.config import disable_proxy_class
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -134,6 +133,7 @@ def global_wrapper(original_function, *args, **kwargs):
         }
     )
     try:
+
         def unwrap_proxies(obj):
             if isinstance(obj, ProxyWrapper.Proxy):
                 return unwrap_proxies(obj._obj)
@@ -141,8 +141,8 @@ def global_wrapper(original_function, *args, **kwargs):
                 for i in range(len(obj)):
                     obj[i] = unwrap_proxies(obj[i])
                 return obj
-            # Ziming: comment out the dict unwrapping here, it would interfere 
-            # with the _try_get_data functionality in dataloader 
+            # Ziming: comment out the dict unwrapping here, it would interfere
+            # with the _try_get_data functionality in dataloader
             # elif isinstance(obj, dict):
             #     for key in obj:
             #         obj[key] = unwrap_proxies(obj[key], level+1)
@@ -154,6 +154,7 @@ def global_wrapper(original_function, *args, **kwargs):
                 return obj
             else:
                 return obj
+
         if not disable_proxy_class:
             args = [unwrap_proxies(arg) for arg in args]
             kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
@@ -525,7 +526,7 @@ class Instrumentor:
                             f"Depth: {depth}, Skipping function: {typename(attr)}"
                         )
                         continue
-                    
+
                 except Exception as e:
                     get_instrumentation_logger_for_process().fatal(
                         f"Depth: {depth}, Error while checking if function {typename(attr)} is in skipped_functions: {e}"
@@ -581,10 +582,14 @@ class Instrumentor:
         return count_wrapped
 
 
-class StateVarObserver:
+class StatefulVarObserver:
     """
-    Currently only suports torch models
-    TODO: Generalize this to general python objects
+    Tracker for the state of a variable. This variable itself cannot be reassigned, i.e. var.attr = new_value is allowed but not var = new_var.
+
+    Currently only suports torch models.
+
+    The difference of this class with StatelessVarObserver is that this class keeps track of the previous state of the variable.
+    During each observation, the current state is compared with the previous state and the differences are dumped.
     """
 
     def __init__(self, var):
@@ -732,6 +737,74 @@ class StateVarObserver:
                 dump_trace_VAR(msg_dict, logging.INFO)
 
         self.current_state = state_copy
+
+
+class StatelessVarObserver(StatefulVarObserver):
+    """
+    Tracker for the state of a variable. This variable itself cannot be reassigned, i.e. var.attr = new_value is allowed but not var = new_var.
+
+    Currently only suports torch models.
+
+    The difference of this class with StatefulVarObserver is that this class does not keep track of the previous state of the variable.
+    Only the current state is dumped during each observation, regardless of whether the state has changed or not.
+    """
+
+    def __init__(self, var):
+        self.step = (
+            0  # HACK: this is a hack to get the step number as we observe every step
+        )
+        meta_vars.update({"step": self.step})
+        # Get the current thread object
+        if isinstance(var, list):
+            assert (
+                len(var) == 1
+            ), "Currently only supports single variable, please use multiple observers for multiple variables."
+            var = var[0]
+        assert isinstance(var, torch.nn.Module), "Currently only supports torch models."
+        self.var = var
+
+        timestamp = datetime.datetime.now().timestamp()
+
+        for param in self._get_state_copy():
+            dump_trace_VAR(
+                {
+                    "process_id": os.getpid(),
+                    "thread_id": threading.current_thread().ident,
+                    "meta_vars": meta_vars,
+                    "type": "state_init",
+                    "var_type": param["type"],
+                    "var_name": param["name"],
+                    "value": param["param"],
+                    "properties": param["properties"],
+                    "time": timestamp,
+                }
+            )
+
+    def observe(self):
+        """The function is called to observe the state of the model. Each call to this function will
+        1. Get the current state of the model
+        2. Log the state
+        """
+        self.step += 1
+        meta_vars.update({"step": self.step})
+
+        timestamp = datetime.datetime.now().timestamp()
+
+        for param in self._get_state_copy():
+            dump_trace_VAR(
+                {
+                    "process_id": os.getpid(),
+                    "thread_id": threading.current_thread().ident,
+                    "meta_vars": meta_vars,
+                    "type": "state_change",
+                    # "var": self.var.__class__.__name__,
+                    "var_type": param["type"],  # FIXME: hardcoding the type for now
+                    "var_name": param["name"],
+                    "value": param["param"],
+                    "properties": param["properties"],
+                    "time": timestamp,
+                }
+            )
 
 
 if __name__ == "__main__":

@@ -1,5 +1,6 @@
 import argparse
 import logging
+import time
 
 from mldaikon.invariant.relation_pool import relation_pool
 from mldaikon.ml_daikon_trace import read_trace_file
@@ -39,7 +40,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    traces = [read_trace_file(t) for t in args.traces]
+    # traces = [read_trace_file(t) for t in args.traces]
+    time_start = time.time()
+    logger.info(f"Reading traces from {args.traces}")
+    traces = [read_trace_file(args.traces)]
+    time_end = time.time()
+    logger.info(f"Traces read successfully in {time_end - time_start} seconds.")
 
     engine = InferEngine(traces)
     invs = engine.infer()

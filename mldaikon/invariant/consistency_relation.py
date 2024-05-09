@@ -1,9 +1,99 @@
 import logging
+from typing import NamedTuple
+from tqdm import tqdm
 
 import polars as pl
 
-from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
+from mldaikon.invariant.base_cls import (
+    Hypothesis,
+    Invariant,
+    Relation,
+    find_precondition,
+)
 from mldaikon.ml_daikon_trace import Trace
+from mldaikon.config import config
+
+tracker_var_field_prefix = "attributes."
+
+
+class VarInstId(NamedTuple):
+    process_id: int
+    var_name: str
+    var_type: str
+
+
+class Liveness:
+    def __init__(self, start_time: int, end_time: int):
+        self.start_time = start_time
+        self.end_time = end_time
+
+
+class AttrState:
+    def __init__(self, value: type, liveness: Liveness, traces: list[dict]):
+        self.value: type = value
+        self.liveness: Liveness = liveness
+        self.traces = traces
+
+
+def calc_liveness_overlap(liveness1: Liveness, liveness2: Liveness) -> int:
+    if (
+        liveness1.start_time >= liveness2.end_time
+        or liveness1.end_time <= liveness2.start_time
+    ):
+        return 0
+    return (
+        min(liveness1.end_time, liveness2.end_time)
+        - max(liveness1.start_time, liveness2.start_time)
+    ) / (
+        max(liveness1.end_time, liveness2.end_time)
+        - min(liveness1.start_time, liveness2.start_time)
+    )
+
+
+def get_attr_name(col_name: str) -> str:
+    if tracker_var_field_prefix not in col_name:
+        raise ValueError(f"{col_name} does not contain the tracker_var_field_prefix.")
+    return col_name[len(tracker_var_field_prefix) :]
+
+
+def compare_with_fp_tolerance(value1, value2):
+    if type(value1) != type(value2):
+        return False
+    if isinstance(value1, list):
+        if len(value1) != len(value2):
+            return False
+        for idx, val in enumerate(value1):
+            if not compare_with_fp_tolerance(val, value2[idx]):
+                return False
+        return True
+    if isinstance(value1, dict):
+        if len(value1) != len(value2):
+            return False
+        for key in value1:
+            if key not in value2:
+                return False
+            if not compare_with_fp_tolerance(value1[key], value2[key]):
+                return False
+        return True
+    if isinstance(value1, float):
+        return abs(value1 - value2) < 1e-6
+    return value1 == value2
+
+
+class VariableValueSelector:
+    def __init__(self, var_type1, attr1, var_type2, attr2, precondition):
+        self.var_type1 = var_type1
+        self.attr1 = attr1
+        self.var_type2 = var_type2
+        self.attr2 = attr2
+        self.precondition = precondition
+
+    def __call__(self, trace: Trace) -> list | None:
+        # TODO: Implement this scanner
+
+        # YOU CAN'T SIMPLY SCAN ON A PARTIAL TRACE, YOU NEED TO SCAN ON THE WHOLE TRACE TO ESTABLISH THE INVARIANTs
+
+        return None
 
 
 class ConsistencyRelation(Relation):
@@ -14,13 +104,296 @@ class ConsistencyRelation(Relation):
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:
         """Infer Invariants for the ConsistencyRelation."""
-        # find all variables in the trace, we need time stamps, as we only want to look forward in time
 
-        # for a specific variable's value, check for consistent values in other variables
+        ## 1. Pre-scanning: Collecting variable instances and their values from the trace
+        # get identifiers of the variables, those variables can be used to query the actual values
+        var_insts = trace.get_variable_insts()
+        var_inst_values = {}
+        for var_inst in var_insts:
+            var_inst_states = trace.events.filter(
+                pl.col("process_id") == var_inst["process_id"],
+                pl.col("var_name") == var_inst["var_name"],
+                pl.col("var_type") == var_inst["var_type"],
+            )
 
-        # if found a consistent value, start a hypothesis, start to collect the consistent values
+            state_init = var_inst_states.filter(
+                pl.col("type") == "state_init"
+            )  ## state_init is different in diff-based variable tracker, but not needed in proxyClass
+            assert len(state_init) == 1, "There should be only one state_init event."
+            state_init = state_init.row(0, named=True)
+            state_changes = var_inst_states.filter(pl.col("type") == "state_change")
 
-        # invariants
+            # init attribute values for this variable
+            attr_values = {}
+            for col in state_init:
+                if col.startswith(tracker_var_field_prefix):
+                    attr_name = get_attr_name(col)
+                    attr_values[attr_name] = [
+                        AttrState(
+                            state_init[col],
+                            Liveness(state_init["time"], None),
+                            [state_init],
+                        )
+                    ]
+
+            for state_change in state_changes.rows(named=True):
+                for col in state_change:
+                    if col.startswith(tracker_var_field_prefix):
+                        attr_name = get_attr_name(col)
+                        if not attr_name in attr_values:
+                            attr_values[attr_name] = [
+                                AttrState(
+                                    state_change[col],
+                                    Liveness(state_change["time"], None),
+                                    [state_change],
+                                )
+                            ]
+                        else:
+                            if attr_values[attr_name][-1].value != state_change[col]:
+                                attr_values[attr_name][-1].liveness.end_time = (
+                                    state_change["time"]
+                                )
+                                attr_values[attr_name].append(
+                                    AttrState(
+                                        state_change[col],
+                                        Liveness(state_change["time"], None),
+                                        [state_change],
+                                    )
+                                )
+                            else:
+                                # attr_values[attr_name][-1].liveness.end_time = (
+                                #     state_change["time"]
+                                # )
+                                attr_values[attr_name][-1].traces.append(state_change)
+
+            # set end time for the last state change
+            for attr_name in attr_values:
+                if attr_values[attr_name][-1].liveness.end_time is None:
+                    attr_values[attr_name][-1].liveness.end_time = trace.get_end_time()
+
+            var_inst_values[
+                VarInstId(
+                    var_inst["process_id"], var_inst["var_name"], var_inst["var_type"]
+                )
+            ] = attr_values
+
+        ## CHECK EVERY VALUE SHOULD HAVE A NON-EMPTY TRACES FIELD
+        for var_inst in var_inst_values:
+            for attr in var_inst_values[var_inst]:
+                for value in var_inst_values[var_inst][attr]:
+                    if len(value.traces) == 0:
+                        print(f"Warning: No traces found for {var_inst} {attr}")
+
+        ## 2. Hypothesis Generation Based on Liveness Overlapping
+        hypothesis = []  # key: (var_type1, attr1, var_type2, attr2)
+        for var_inst in tqdm(var_inst_values):
+            for attr in var_inst_values[var_inst]:
+                for other_var_inst in var_inst_values:
+                    for other_attr in var_inst_values[other_var_inst]:
+                        if var_inst == other_var_inst and attr == other_attr:
+                            # skipping the same variable instance's same attribute
+                            continue
+
+                        # if we already have such hypothesis, skipping
+                        if (
+                            var_inst.var_type,
+                            attr,
+                            other_var_inst.var_type,
+                            other_attr,
+                        ) in hypothesis:
+                            continue
+
+                        if (
+                            other_var_inst.var_type,
+                            other_attr,
+                            var_inst.var_type,
+                            attr,
+                        ) in hypothesis:
+                            continue
+
+                        # if the types are different, skipping
+                        if type(var_inst_values[var_inst][attr][0].value) != type(
+                            var_inst_values[other_var_inst][other_attr][0].value
+                        ):
+                            continue
+
+                        # for each pair of attributes, calculate the liveness overlapping
+                        done_creating_hypothesis = False
+                        for value in var_inst_values[var_inst][attr]:
+                            saw_overlap = False
+                            if done_creating_hypothesis:
+                                break
+                            for other_value in var_inst_values[other_var_inst][
+                                other_attr
+                            ]:
+                                overlap = calc_liveness_overlap(
+                                    value.liveness, other_value.liveness
+                                )
+                                if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                                    saw_overlap = True
+                                    if compare_with_fp_tolerance(
+                                        value.value, other_value.value
+                                    ):
+                                        hypothesis.append(
+                                            (
+                                                var_inst.var_type,
+                                                attr,
+                                                other_var_inst.var_type,
+                                                other_attr,
+                                            )
+                                        )
+                                        done_creating_hypothesis = True
+                                        break
+                                else:
+                                    if saw_overlap:
+                                        # there won't be any more overlap, so we can break
+                                        break
+
+        ## 3. Hypothesis Pruning
+        print(f"Hypothesis: {hypothesis}")
+
+        # for each hypothesis, collect number of positive examples seen, if it is below a threshold, prune it
+        filtered_hypothesis = []
+        for hypo in hypothesis:
+            var_type1 = hypo[0]
+            attr1 = hypo[1]
+            var_type2 = hypo[2]
+            attr2 = hypo[3]
+
+            # collect all variables that have the same types as var_type1 and var_type2
+            var_type1_vars = [
+                var_inst
+                for var_inst in var_inst_values
+                if var_inst.var_type == var_type1
+            ]
+            var_type2_vars = [
+                var_inst
+                for var_inst in var_inst_values
+                if var_inst.var_type == var_type2
+            ]
+
+            positive_examples = 0
+            positive_examples_threshold = 0  # This number should be the total number of varInst pairs on which the hypothesis is applicable
+
+            for idx1, var_inst1 in enumerate(var_type1_vars):
+                for idx2, var_inst2 in enumerate(var_type2_vars):
+                    if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
+                        continue
+                    found_positive_example = False
+                    if var_inst1 == var_inst2:
+                        continue
+                    for value1 in var_inst_values[var_inst1][attr1]:
+                        for value2 in var_inst_values[var_inst2][attr2]:
+                            overlap = calc_liveness_overlap(
+                                value1.liveness, value2.liveness
+                            )
+                            if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                                if compare_with_fp_tolerance(
+                                    var_inst_values[var_inst1][attr1][0].value,
+                                    var_inst_values[var_inst2][attr2][0].value,
+                                ):
+                                    positive_examples += 1
+                                    found_positive_example = True
+                    if found_positive_example:
+                        positive_examples_threshold += 1
+
+            if positive_examples > positive_examples_threshold:
+                filtered_hypothesis.append(hypo)
+                print(
+                    f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
+                )
+            else:
+                print(
+                    f"Filtering out hypothesis: {hypo} with num positive examples: {positive_examples}, expected threshold: {positive_examples_threshold}"
+                )
+
+        print(f"Filtered Hypothesis: {filtered_hypothesis}")
+
+        ## 4.  Positive Examples and Negative Examples Collection
+        hypothesis_with_examples = {
+            key: Hypothesis(Invariant(None, None, None), [], [])
+            for key in filtered_hypothesis
+        }
+        for hypo in hypothesis_with_examples:
+            var_type1 = hypo[0]
+            attr1 = hypo[1]
+            var_type2 = hypo[2]
+            attr2 = hypo[3]
+
+            # collect all variables that have the same types as var_type1 and var_type2
+            var_type1_vars = [
+                var_inst
+                for var_inst in var_inst_values
+                if var_inst.var_type == var_type1
+            ]
+            var_type2_vars = [
+                var_inst
+                for var_inst in var_inst_values
+                if var_inst.var_type == var_type2
+            ]
+
+            for var_inst1 in var_type1_vars:
+                for var_inst2 in var_type2_vars:
+                    if var_inst1 == var_inst2:
+                        continue
+                    for value1 in var_inst_values[var_inst1][attr1]:
+                        for value2 in var_inst_values[var_inst2][attr2]:
+                            overlap = calc_liveness_overlap(
+                                value1.liveness, value2.liveness
+                            )
+                            if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                                if compare_with_fp_tolerance(
+                                    value1.value,
+                                    value2.value,
+                                ):
+                                    hypothesis_with_examples[
+                                        hypo
+                                    ].positive_examples.append(
+                                        value1.traces + value2.traces
+                                    )
+                                else:
+                                    hypothesis_with_examples[
+                                        hypo
+                                    ].negative_examples.append(
+                                        value1.traces + value2.traces
+                                    )
+
+        ## 5. Precondition Inference
+        hypos_to_delete = []
+        for hypo in hypothesis_with_examples:
+            preconditions = find_precondition(hypothesis_with_examples[hypo])
+            print(f"Preconditions for {hypo}:")
+            for pre in preconditions:
+                print(str(preconditions[pre]))
+            # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant
+            if (
+                len(preconditions) == 0
+                and len(hypothesis_with_examples[hypo].negative_examples) == 0
+            ):
+                hypothesis_with_examples[hypo].invariant.precondition = (
+                    None  # Unconditional
+                )
+            elif (
+                len(preconditions) == 0
+                and len(hypothesis_with_examples[hypo].negative_examples) > 0
+            ):
+                # delete the hypothesis
+                """TODO: even if we cannot find any precondition, it might be possible that the invariant holds, but its just that our tracer didn't capture the necessary information.
+                Thus, we might still want to evaluate the invariant's statistical likelihood instead of just deleting it.
+                """
+                hypos_to_delete.append(hypo)
+            else:
+                hypothesis_with_examples[hypo].invariant.precondition = preconditions
+
+            """NOTE: If a hypo have no negative examples, potentially there might be noises in the preconditions inferred."""
+
+        for hypo in hypos_to_delete:
+            del hypothesis_with_examples[hypo]
+
+        ## 6. TODO: Invariant Construction
+        ## NEED TO THINK ABOUT HOW TO EXPRESS THIS INVARIANT
+        print(f"Hypothesis Passed: {hypothesis_with_examples.keys()}")
+        return list(hypothesis_with_examples.values())
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
