@@ -12,7 +12,7 @@ import types
 import torch
 import torch.utils
 
-import mldaikon.proxy_wrapper.proxy as ProxyWrapper
+# import mldaikon.proxy_wrapper.proxy as ProxyWrapper
 from mldaikon.config.config import disable_proxy_class
 from mldaikon.utils import typename
 
@@ -135,25 +135,7 @@ def global_wrapper(original_function, *args, **kwargs):
     try:
 
         def unwrap_proxies(obj):
-            if isinstance(obj, ProxyWrapper.Proxy):
-                return unwrap_proxies(obj._obj)
-            elif isinstance(obj, list):
-                for i in range(len(obj)):
-                    obj[i] = unwrap_proxies(obj[i])
-                return obj
-            # Ziming: comment out the dict unwrapping here, it would interfere
-            # with the _try_get_data functionality in dataloader
-            # elif isinstance(obj, dict):
-            #     for key in obj:
-            #         obj[key] = unwrap_proxies(obj[key], level+1)
-            #     return obj
-            elif isinstance(obj, tuple):
-                obj = tuple(unwrap_proxies(item) for item in obj)
-                return obj
-            elif isinstance(obj, types.ModuleType):
-                return obj
-            else:
-                return obj
+            return obj
 
         if not disable_proxy_class:
             args = [unwrap_proxies(arg) for arg in args]
@@ -627,12 +609,12 @@ class StatefulVarObserver:
                                 "param"
                             ],  # HACK: this is a hack for polars to get consistent schemas
                         },
-                        "properties": {
+                        "attributes": {
                             "old": param[
-                                "properties"
+                                "attributes"
                             ],  # HACK: this is a hack for polars to get consistent schemas
                             "new": param[
-                                "properties"
+                                "attributes"
                             ],  # HACK: this is a hack for polars to get consistent schemas
                         },
                     },
@@ -655,7 +637,7 @@ class StatefulVarObserver:
         for name, param in self.var.named_parameters():
             param_list = param.clone().detach().tolist()
 
-            # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
+            # # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
             if not isinstance(param_list[0], list):
                 param_list = [param_list]
 
@@ -663,8 +645,9 @@ class StatefulVarObserver:
                 {
                     "name": name,
                     "type": typename(param),
-                    "param": param_list,
-                    "properties": {},
+                    "attributes": {
+                        "param_value": param_list,
+                    },
                 }
             )
             # only get the attributes that are actual values
@@ -678,7 +661,9 @@ class StatefulVarObserver:
 
                 if isinstance(attr, torch.Tensor):
                     # skipping the tensor values as we should have already captured them
+                    # also, the fields in tensor such as `H` and `T` are just views of the same tensor`
                     continue
+
                 # try to serialize the attribute, if it fails, then skip it
                 try:
                     json.dumps(attr)
@@ -688,7 +673,7 @@ class StatefulVarObserver:
                     )
                     continue
 
-                state_copy[-1]["properties"][attr_name] = attr
+                state_copy[-1]["attributes"][attr_name] = attr
 
         return state_copy
 
@@ -699,7 +684,7 @@ class StatefulVarObserver:
         3. Log the differences
             The differences are computed by comparing the below values:
                 - The value of the tensor.
-                - The properties of the tensor, such as requires_grad, device, tensor_model_parallel, etc.
+                - The attributes of the tensor, such as requires_grad, device, tensor_model_parallel, etc.
         """
         self.step += 1
         meta_vars.update({"step": self.step})
@@ -708,7 +693,7 @@ class StatefulVarObserver:
 
         state_copy = self._get_state_copy()
         for old_param, new_param in zip(self.current_state, state_copy):
-            # three types of changes: value, properties, and both
+            # three types of changes: value, attributes, and both
             msg_dict = {
                 "process_id": os.getpid(),
                 "thread_id": threading.current_thread().ident,
@@ -726,12 +711,12 @@ class StatefulVarObserver:
                     "old": old_param["param"],
                     "new": new_param["param"],
                 }
-            if old_param["properties"] != new_param["properties"]:
+            if old_param["attributes"] != new_param["attributes"]:
                 if "change" not in msg_dict:
                     msg_dict["change"] = {}
-                msg_dict["change"]["properties"] = {
-                    "old": old_param["properties"],
-                    "new": new_param["properties"],
+                msg_dict["change"]["attributes"] = {
+                    "old": old_param["attributes"],
+                    "new": new_param["attributes"],
                 }
             if "change" in msg_dict:
                 dump_trace_VAR(msg_dict, logging.INFO)
@@ -774,8 +759,7 @@ class StatelessVarObserver(StatefulVarObserver):
                     "type": "state_init",
                     "var_type": param["type"],
                     "var_name": param["name"],
-                    "value": param["param"],
-                    "properties": param["properties"],
+                    "attributes": param["attributes"],
                     "time": timestamp,
                 }
             )
@@ -800,8 +784,7 @@ class StatelessVarObserver(StatefulVarObserver):
                     # "var": self.var.__class__.__name__,
                     "var_type": param["type"],  # FIXME: hardcoding the type for now
                     "var_name": param["name"],
-                    "value": param["param"],
-                    "properties": param["properties"],
+                    "attributes": param["attributes"],
                     "time": timestamp,
                 }
             )
