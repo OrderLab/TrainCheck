@@ -125,7 +125,7 @@ class Precondition:
         self.values = values if isinstance(values, list) else [values]
 
     def __str__(self) -> str:
-        return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
+        return f"Prop: {self.prop_name}, Type: {self.type}, Values: {len(self.values)}"
 
     def verify(self, example) -> bool:
         if isinstance(example, list):
@@ -168,7 +168,7 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
     ## 1. Find consistent properties of the positive examples & negative examples
     positive_properties = []
 
-    def find_conditions(example: list, key_to_skip: str = "value"):
+    def find_conditions(example: list, key_to_skip: str = "param_value"):
         """A list of traces to find common properties from. The property should hold locally within the example."""
 
         const_conds = {}
@@ -176,6 +176,10 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
         for prop in example[0]:
             # let's also skip anything with .old
             if ".old" in prop:
+                continue
+
+            # skip tensor values as preconditions ## TODO: revisit this decision, we might not have data-dependent control-flow because of this.
+            if key_to_skip in prop:
                 continue
 
             is_constant = True
