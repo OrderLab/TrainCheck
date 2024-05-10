@@ -1,6 +1,7 @@
 import logging
 from typing import NamedTuple
 from tqdm import tqdm
+import re
 
 import polars as pl
 
@@ -128,6 +129,21 @@ class ConsistencyRelation(Relation):
             for col in state_init:
                 if col.startswith(tracker_var_field_prefix):
                     attr_name = get_attr_name(col)
+
+                    # pruning out the attributes that might be properties
+                    if any(
+                        [
+                            re.match(pattern, attr_name) is not None
+                            for pattern in config.PROP_ATTR_PATTERNS
+                        ]
+                    ) or any(
+                        [
+                            isinstance(state_init[col], _type)
+                            for _type in config.PROP_ATTR_TYPES
+                        ]
+                    ):
+                        continue
+
                     attr_values[attr_name] = [
                         AttrState(
                             state_init[col],
@@ -140,6 +156,21 @@ class ConsistencyRelation(Relation):
                 for col in state_change:
                     if col.startswith(tracker_var_field_prefix):
                         attr_name = get_attr_name(col)
+
+                        # pruning out the attributes that might be properties
+                        if any(
+                            [
+                                re.match(pattern, attr_name) is not None
+                                for pattern in config.PROP_ATTR_PATTERNS
+                            ]
+                        ) or any(
+                            [
+                                isinstance(state_init[col], _type)
+                                for _type in config.PROP_ATTR_TYPES
+                            ]
+                        ):
+                            continue
+
                         if not attr_name in attr_values:
                             attr_values[attr_name] = [
                                 AttrState(
