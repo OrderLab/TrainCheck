@@ -110,7 +110,6 @@ class ConsistencyRelation(Relation):
         var_insts = trace.get_variable_insts()
         var_inst_values = {}
         for var_inst in tqdm(var_insts, desc="Indexing Variable Instances"):
-
             var_inst_states = trace.events.filter(
                 pl.col("process_id") == var_inst["process_id"],
                 pl.col("var_name") == var_inst["var_name"],
@@ -185,7 +184,7 @@ class ConsistencyRelation(Relation):
                     if len(value.traces) == 0:
                         print(f"Warning: No traces found for {var_inst} {attr}")
 
-        ## 2. Hypothesis Generation Based on Liveness Overlapping
+        ## 2. Hypothesis Generation Based on Liveness Overlapping  ## TODO: this part can be made more efficient by iterating over the types instead of the variables
         hypothesis = set()  # (var_type1, attr1, var_type2, attr2)
         for var_inst in tqdm(var_inst_values, desc="Generating Hypothesis"):
             for attr in var_inst_values[var_inst]:
