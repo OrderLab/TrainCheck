@@ -109,7 +109,7 @@ class Proxy:
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
     loglevel = logging.INFO
-    jsondumper = dumper("/data/ziming/ml-daikon/proxy_trace.json")
+    # jsondumper = dumper("/data/ziming/ml-daikon/proxy_trace.json")
     handler = logging.FileHandler(logdir)
     handler.setLevel(loglevel)
     logger_proxy.handlers.clear()
