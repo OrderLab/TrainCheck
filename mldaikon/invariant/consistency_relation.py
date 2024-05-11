@@ -117,46 +117,14 @@ class ConsistencyRelation(Relation):
                 pl.col("var_type") == var_inst["var_type"],
             )
 
-            state_init = var_inst_states.filter(
-                pl.col("type") == "state_init"
-            )  ## state_init is different in diff-based variable tracker, but not needed in proxyClass
-            assert len(state_init) == 1, "There should be only one state_init event."
-            state_init = state_init.row(0, named=True)
             state_changes = var_inst_states.filter(pl.col("type") == "state_change")
 
             # init attribute values for this variable
             attr_values = {}
-            for col in state_init:
-                if col.startswith(tracker_var_field_prefix):
-                    attr_name = get_attr_name(col)
-
-                    # pruning out the attributes that might be properties
-                    if any(
-                        [
-                            re.match(pattern, attr_name) is not None
-                            for pattern in config.PROP_ATTR_PATTERNS
-                        ]
-                    ) or any(
-                        [
-                            isinstance(state_init[col], _type)
-                            for _type in config.PROP_ATTR_TYPES
-                        ]
-                    ):
-                        continue
-
-                    attr_values[attr_name] = [
-                        AttrState(
-                            state_init[col],
-                            Liveness(state_init["time"], None),
-                            [state_init],
-                        )
-                    ]
-
             for state_change in state_changes.rows(named=True):
                 for col in state_change:
                     if col.startswith(tracker_var_field_prefix):
                         attr_name = get_attr_name(col)
-
                         # pruning out the attributes that might be properties
                         if any(
                             [
@@ -165,7 +133,7 @@ class ConsistencyRelation(Relation):
                             ]
                         ) or any(
                             [
-                                isinstance(state_init[col], _type)
+                                isinstance(state_change[col], _type)
                                 for _type in config.PROP_ATTR_TYPES
                             ]
                         ):
