@@ -597,7 +597,7 @@ class StatefulVarObserver:
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
                     "meta_vars": meta_vars,
-                    "type": "state_init",
+                    "type": "state_change",
                     "var_type": param["type"],
                     "var_name": param["name"],
                     "change": {
@@ -756,7 +756,7 @@ class StatelessVarObserver(StatefulVarObserver):
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
                     "meta_vars": meta_vars,
-                    "type": "state_init",
+                    "type": "state_change",
                     "var_type": param["type"],
                     "var_name": param["name"],
                     "attributes": param["attributes"],
