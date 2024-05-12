@@ -350,13 +350,13 @@ class ConsistencyRelation(Relation):
                                     hypothesis_with_examples[
                                         hypo
                                     ].positive_examples.append(
-                                        value1.traces + value2.traces
+                                        [value1.traces[0], value2.traces[0]]  ## HACK to make preconditions inference work for `step`
                                     )
                                 else:
                                     hypothesis_with_examples[
                                         hypo
                                     ].negative_examples.append(
-                                        value1.traces + value2.traces
+                                        [value1.traces[0], value2.traces[0]] ## HACK to make preconditions inference work for `step`
                                     )
 
         ## 5. Precondition Inference
