@@ -331,7 +331,9 @@ class ConsistencyRelation(Relation):
                 if var_inst.var_type == var_type2
             ]
 
-            for var_inst1 in var_type1_vars:
+            for var_inst1 in tqdm(
+                var_type1_vars, desc=f"Collecting Examples for Hypo: {hypo}"
+            ):
                 for var_inst2 in var_type2_vars:
                     if var_inst1 == var_inst2:
                         continue

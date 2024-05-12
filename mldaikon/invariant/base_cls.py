@@ -127,22 +127,26 @@ class Precondition:
     def __str__(self) -> str:
         return f"Prop: {self.prop_name}, Type: {self.type}, Values: {len(self.values)}"
 
-    def verify(self, example) -> bool:
-        if isinstance(example, list):
-            example = pl.DataFrame(example)
-        assert isinstance(
-            example, pl.DataFrame
-        ), f"Expected example to be a DataFrame, got {type(example)}"
+    def verify(self, example: list) -> bool:
+        assert isinstance(example, list)
+        assert len(example) > 0
 
-        # prop_key = prop_prefix + self.prop_name if self.prop_name != "param_value" else value_prefix
-        prop_key = self.prop_name
-        if prop_key not in example.columns:
-            return False
-        prop_values = example[prop_key].drop_nulls().unique().to_list()
+        prop_name = self.prop_name
+        for i in range(len(example)):
+            if prop_name not in example[i]:
+                return False
+
         if self.type == "constant":
-            return len(prop_values) == 1 and prop_values[0] in self.values
+            if example[0][prop_name] not in self.values:
+                return False
+            for i in range(1, len(example)):
+                if example[i][prop_name] != example[0][prop_name]:
+                    return False
         if self.type == "consistent":
-            return len(prop_values) == 1
+            for i in range(1, len(example)):
+                if example[i][prop_name] != example[0][prop_name]:
+                    return False
+        return True
 
     def try_relax(self) -> bool:
         if self.type == "consistent":
@@ -209,13 +213,13 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
 
         found = False
         for cond_name in conds:
-            if "tensor_model_parallel" in cond_name:
+            if "step" in cond_name:
                 found = True
                 break
         if not found:
             import pprint
 
-            print("example no tensor_model_parallel:")
+            print("example no step:")
             pprint.pprint(example)
             print("inferred pre-conditions")
             pprint.pprint(conds)
@@ -232,6 +236,8 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
 
     # find the common properties
     precondition_targets = set(positive_properties[0].keys())
+    print(f"# Initial Precondition Targets: {precondition_targets}")
+
     precondition_target_values = {key: [] for key in precondition_targets}
 
     for pos_props in positive_properties:
@@ -244,9 +250,11 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
 
     preconditions = {
         key: (
-            Precondition(key, "constant", precondition_target_values[key])
-            if len(precondition_target_values[key]) == 1
-            else Precondition(key, "consistent", precondition_target_values[key])
+            Precondition(
+                key, "constant", precondition_target_values[key]
+            )  # FIXME: disabling the consistent preconditions for now as it is less strict than the constant preconditions and we don't have a good way to refine it
+            # if len(precondition_target_values[key]) == 1
+            # else Precondition(key, "consistent", precondition_target_values[key])
         )
         for key in precondition_targets
     }
@@ -259,5 +267,44 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
     """
 
     # TODO: implement precondition refinement logic here
+
+    """ Precondition Refinement Logic:
+
+    # Background: The preconditions inferred from the positive examples might be over-constrained and contains a lot of noises. 
+        The goal here is get rid of such noises, such as (is_cuda, constant, [True]). Note: The goal here is not to refine the preconditions that might be inaccurate, but to get rid of the ones that are not necessary.
+    """
+    pre_cond_num_false_in_neg = {}
+    for key in preconditions:
+        pre_cond_num_false_in_neg[key] = 0
+
+    for neg_example in tqdm(hypothesis.negative_examples, desc="Refining Precondition"):
+        whether_precondition_holds = True
+        for key in preconditions:
+            whether_key_holds = preconditions[key].verify(neg_example)
+            whether_precondition_holds = (
+                whether_precondition_holds and whether_key_holds
+            )
+            if not preconditions[key].verify(neg_example):
+                pre_cond_num_false_in_neg[key] += 1
+        if whether_precondition_holds:
+            # print preconditions and the negative example
+            print("Negative example satisfies the preconditions")
+            import pprint
+
+            pprint.pprint(preconditions)
+            pprint.pprint(neg_example)
+
+            raise ValueError("Negative example satisfies the preconditions")
+
+    precond_keys_to_delete = []
+    for key in preconditions:
+        if pre_cond_num_false_in_neg[key] == 0:
+            print(
+                f"Precondition {key} is not necessary as it is not violated in any of the negative examples"
+            )
+            precond_keys_to_delete.append(key)
+
+    for key in precond_keys_to_delete:
+        del preconditions[key]
 
     return preconditions
