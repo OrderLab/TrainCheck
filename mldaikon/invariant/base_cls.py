@@ -139,13 +139,9 @@ class Precondition:
         if self.type == "constant":
             if example[0][prop_name] not in self.values:
                 return False
-            for i in range(1, len(example)):
-                if example[i][prop_name] != example[0][prop_name]:
-                    return False
-        if self.type == "consistent":
-            for i in range(1, len(example)):
-                if example[i][prop_name] != example[0][prop_name]:
-                    return False
+        for i in range(1, len(example)):
+            if example[i][prop_name] != example[0][prop_name]:
+                return False
         return True
 
     def try_relax(self) -> bool:
@@ -290,10 +286,15 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
             # print preconditions and the negative example
             print("Negative example satisfies the preconditions")
             import pprint
-
-            pprint.pprint(preconditions)
             pprint.pprint(neg_example)
 
+            for key in preconditions:
+                # print the precondition itself (target, type, values)
+                print(preconditions[key], preconditions[key].verify(neg_example))
+                print("values", preconditions[key].values)
+                print("type", preconditions[key].type)
+                print("target", preconditions[key].prop_name)
+                print("==============================")
             raise ValueError("Negative example satisfies the preconditions")
 
     precond_keys_to_delete = []
