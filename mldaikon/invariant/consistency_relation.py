@@ -364,8 +364,12 @@ class ConsistencyRelation(Relation):
         for hypo in hypothesis_with_examples:
             preconditions = find_precondition(hypothesis_with_examples[hypo])
             print(f"Preconditions for {hypo}:")
-            for pre in preconditions:
-                print(str(preconditions[pre]))
+            for key in preconditions:
+                print(preconditions[key])
+                print("values", preconditions[key].values)
+                print("type", preconditions[key].type)
+                print("target", preconditions[key].prop_name)
+                print("====================================")
             # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant
             if (
                 len(preconditions) == 0
