@@ -18,7 +18,6 @@ class json_dumper:
             "variable_name": variable_name,
             "var_properties_changed": var_properties_changed,
         }
-        print(data)
         json_data = json.dumps(data)
         
         self.json_file.write(json_data + "\n")
