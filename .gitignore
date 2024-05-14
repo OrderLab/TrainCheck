@@ -11,3 +11,11 @@ build
 *.log
 *.json
 program_output.txt
+
+DS-1801
+*.txt
+pretrain_gpt2_codeparrot_short.sh
+.hydra/*
+cora/*
+dataset/*
+experiments/*
