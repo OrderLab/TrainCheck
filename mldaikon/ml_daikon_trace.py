@@ -64,16 +64,21 @@ class Trace:
         raise NotImplementedError("filter method is not implemented yet.")
         return Trace(self.events[self.events.apply(predicate, axis=1)])
 
-    def find_variable_identifiers(self) -> pl.DataFrame:
-        """Find all variables (uniquely identified by name, type and process id) from the trace."""
+    def get_start_time(self) -> int:
+        return self.events["time"].min()
 
+    def get_end_time(self) -> int:
+        return self.events["time"].max()
+
+    def get_variable_insts(self) -> list[dict]:
+        """Find all variables (uniquely identified by name, type and process id) from the trace."""
         # Identification of Variables --> (variable_name, process_id)
         variables = (
             self.events.select("var_name", "var_type", "process_id")
             .drop_nulls()
             .unique()
         )
-        return variables
+        return variables.rows(named=True)
 
     def scan_to_groups(self, param_selectors: list):
         """Extract from trace, groups of events
