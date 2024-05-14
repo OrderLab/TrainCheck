@@ -1,16 +1,16 @@
 import inspect
+import json
 import logging
 import os
 import threading
-import json
+
 import torch
+import torch.distributed
+from torch._C._distributed_c10d import ReduceOp
 
 from mldaikon.utils import typename
 
 from .dumper import json_dumper as dumper
-
-import torch.distributed
-from torch._C._distributed_c10d import ReduceOp
 
 #################################################
 ###         Proxied Torch functions
@@ -18,27 +18,32 @@ from torch._C._distributed_c10d import ReduceOp
 # Save the original broadcast function
 original_broadcast = torch.distributed.broadcast
 
+
 def broadcast(tensor, src, group=None, async_op=False):
     # Perform the original broadcast operation
     original_broadcast(tensor, src, group, async_op)
 
     # Wrap the first argument in a Proxy object
-    tensor = Proxy(tensor, logdir='proxy_log.log', log_level=logging.INFO)
+    tensor = Proxy(tensor, logdir="proxy_log.log", log_level=logging.INFO)
+
 
 # Override the broadcast function
 torch.distributed.broadcast = broadcast
 
 original_all_reduce = torch.distributed.all_reduce
 
+
 def all_reduce(tensor, op=ReduceOp.SUM, group=None, async_op=False):
     # Perform the original all_reduce operation
     original_all_reduce(tensor, op, group, async_op)
 
     # Wrap the first argument in a Proxy object
-    tensor = Proxy(tensor, logdir='proxy_log.log', log_level=logging.INFO)
+    tensor = Proxy(tensor, logdir="proxy_log.log", log_level=logging.INFO)
+
 
 # Override the all_reduce function
 torch.distributed.all_reduce = all_reduce
+
 
 def dump_tensor(value):
     min = float(value.min().item())
@@ -104,7 +109,7 @@ class Proxy:
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
     loglevel = logging.INFO
-    jsondumper = dumper("/data/ziming/ml-daikon/proxy_trace.json")
+    # jsondumper = dumper("/data/ziming/ml-daikon/proxy_trace.json")
     handler = logging.FileHandler(logdir)
     handler.setLevel(loglevel)
     logger_proxy.handlers.clear()
@@ -136,7 +141,7 @@ class Proxy:
         else:
             print("logger_proxy: " + f"'{value}'")
 
-    def __init__(self, obj, logdir='proxy_log.log', log_level=logging.INFO):
+    def __init__(self, obj, logdir="proxy_log.log", log_level=logging.INFO):
         self.__dict__["process_id"] = os.getpid()
         self.__dict__["thread_id"] = threading.current_thread().ident
         self.__dict__["logdir"] = logdir
@@ -389,7 +394,6 @@ class Proxy:
             old_value = getattr(self._obj, name, None)
             old_value = str(torch_serialize(old_value))
             new_value = str(torch_serialize(value))
-            
 
             attr_name = f"{self._obj.__class__.__module__}.{self._obj.__class__.__name__}.{name}"
             self.print_update(old_value, value, attr_name)

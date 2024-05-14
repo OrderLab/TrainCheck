@@ -20,7 +20,7 @@ class json_dumper:
         }
         print(data)
         json_data = json.dumps(data)
-        
+
         self.json_file.write(json_data + "\n")
 
     def close(self):

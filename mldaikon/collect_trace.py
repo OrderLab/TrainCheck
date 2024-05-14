@@ -46,12 +46,12 @@ if __name__ == "__main__":
         "--modules_to_instrument",
         nargs="*",
         help="Modules to be instrumented",
-        default=instrumentor.MODULES_TO_INSTRUMENT,
+        default=config.MODULES_TO_INSTRUMENT,
     )
     parser.add_argument(
         "--wrapped_modules",
         type=list,
-        default=instrumentor.INCLUDED_WRAP_LIST,
+        default=config.INCLUDED_WRAP_LIST,
         metavar="Module",
         help="Module to be traced by the proxy wrapper",
     )

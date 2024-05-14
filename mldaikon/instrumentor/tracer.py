@@ -12,9 +12,8 @@ import types
 import torch
 import torch.utils
 
-import mldaikon.proxy_wrapper.proxy as ProxyWrapper
-
-from mldaikon.config.config import INCLUDED_WRAP_LIST, proxy_log_dir, disable_proxy_class
+# import mldaikon.proxy_wrapper.proxy as ProxyWrapper
+from mldaikon.config.config import disable_proxy_class
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -134,26 +133,10 @@ def global_wrapper(original_function, *args, **kwargs):
         }
     )
     try:
+
         def unwrap_proxies(obj):
-            if isinstance(obj, ProxyWrapper.Proxy):
-                return unwrap_proxies(obj._obj)
-            elif isinstance(obj, list):
-                for i in range(len(obj)):
-                    obj[i] = unwrap_proxies(obj[i])
-                return obj
-            # Ziming: comment out the dict unwrapping here, it would interfere 
-            # with the _try_get_data functionality in dataloader 
-            # elif isinstance(obj, dict):
-            #     for key in obj:
-            #         obj[key] = unwrap_proxies(obj[key], level+1)
-            #     return obj
-            elif isinstance(obj, tuple):
-                obj = tuple(unwrap_proxies(item) for item in obj)
-                return obj
-            elif isinstance(obj, types.ModuleType):
-                return obj
-            else:
-                return obj
+            return obj
+
         if not disable_proxy_class:
             args = [unwrap_proxies(arg) for arg in args]
             kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
@@ -525,7 +508,7 @@ class Instrumentor:
                             f"Depth: {depth}, Skipping function: {typename(attr)}"
                         )
                         continue
-                    
+
                 except Exception as e:
                     get_instrumentation_logger_for_process().fatal(
                         f"Depth: {depth}, Error while checking if function {typename(attr)} is in skipped_functions: {e}"
@@ -581,10 +564,14 @@ class Instrumentor:
         return count_wrapped
 
 
-class StateVarObserver:
+class StatefulVarObserver:
     """
-    Currently only suports torch models
-    TODO: Generalize this to general python objects
+    Tracker for the state of a variable. This variable itself cannot be reassigned, i.e. var.attr = new_value is allowed but not var = new_var.
+
+    Currently only suports torch models.
+
+    The difference of this class with StatelessVarObserver is that this class keeps track of the previous state of the variable.
+    During each observation, the current state is compared with the previous state and the differences are dumped.
     """
 
     def __init__(self, var):
@@ -610,7 +597,7 @@ class StateVarObserver:
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
                     "meta_vars": meta_vars,
-                    "type": "state_init",
+                    "type": "state_change",
                     "var_type": param["type"],
                     "var_name": param["name"],
                     "change": {
@@ -622,12 +609,12 @@ class StateVarObserver:
                                 "param"
                             ],  # HACK: this is a hack for polars to get consistent schemas
                         },
-                        "properties": {
+                        "attributes": {
                             "old": param[
-                                "properties"
+                                "attributes"
                             ],  # HACK: this is a hack for polars to get consistent schemas
                             "new": param[
-                                "properties"
+                                "attributes"
                             ],  # HACK: this is a hack for polars to get consistent schemas
                         },
                     },
@@ -650,7 +637,7 @@ class StateVarObserver:
         for name, param in self.var.named_parameters():
             param_list = param.clone().detach().tolist()
 
-            # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
+            # # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
             if not isinstance(param_list[0], list):
                 param_list = [param_list]
 
@@ -658,8 +645,9 @@ class StateVarObserver:
                 {
                     "name": name,
                     "type": typename(param),
-                    "param": param_list,
-                    "properties": {},
+                    "attributes": {
+                        "param_value": param_list,
+                    },
                 }
             )
             # only get the attributes that are actual values
@@ -673,7 +661,9 @@ class StateVarObserver:
 
                 if isinstance(attr, torch.Tensor):
                     # skipping the tensor values as we should have already captured them
+                    # also, the fields in tensor such as `H` and `T` are just views of the same tensor`
                     continue
+
                 # try to serialize the attribute, if it fails, then skip it
                 try:
                     json.dumps(attr)
@@ -683,7 +673,7 @@ class StateVarObserver:
                     )
                     continue
 
-                state_copy[-1]["properties"][attr_name] = attr
+                state_copy[-1]["attributes"][attr_name] = attr
 
         return state_copy
 
@@ -694,7 +684,7 @@ class StateVarObserver:
         3. Log the differences
             The differences are computed by comparing the below values:
                 - The value of the tensor.
-                - The properties of the tensor, such as requires_grad, device, tensor_model_parallel, etc.
+                - The attributes of the tensor, such as requires_grad, device, tensor_model_parallel, etc.
         """
         self.step += 1
         meta_vars.update({"step": self.step})
@@ -703,7 +693,7 @@ class StateVarObserver:
 
         state_copy = self._get_state_copy()
         for old_param, new_param in zip(self.current_state, state_copy):
-            # three types of changes: value, properties, and both
+            # three types of changes: value, attributes, and both
             msg_dict = {
                 "process_id": os.getpid(),
                 "thread_id": threading.current_thread().ident,
@@ -721,17 +711,83 @@ class StateVarObserver:
                     "old": old_param["param"],
                     "new": new_param["param"],
                 }
-            if old_param["properties"] != new_param["properties"]:
+            if old_param["attributes"] != new_param["attributes"]:
                 if "change" not in msg_dict:
                     msg_dict["change"] = {}
-                msg_dict["change"]["properties"] = {
-                    "old": old_param["properties"],
-                    "new": new_param["properties"],
+                msg_dict["change"]["attributes"] = {
+                    "old": old_param["attributes"],
+                    "new": new_param["attributes"],
                 }
             if "change" in msg_dict:
                 dump_trace_VAR(msg_dict, logging.INFO)
 
         self.current_state = state_copy
+
+
+class StatelessVarObserver(StatefulVarObserver):
+    """
+    Tracker for the state of a variable. This variable itself cannot be reassigned, i.e. var.attr = new_value is allowed but not var = new_var.
+
+    Currently only suports torch models.
+
+    The difference of this class with StatefulVarObserver is that this class does not keep track of the previous state of the variable.
+    Only the current state is dumped during each observation, regardless of whether the state has changed or not.
+    """
+
+    def __init__(self, var):
+        self.step = (
+            0  # HACK: this is a hack to get the step number as we observe every step
+        )
+        meta_vars.update({"step": self.step})
+        # Get the current thread object
+        if isinstance(var, list):
+            assert (
+                len(var) == 1
+            ), "Currently only supports single variable, please use multiple observers for multiple variables."
+            var = var[0]
+        assert isinstance(var, torch.nn.Module), "Currently only supports torch models."
+        self.var = var
+
+        timestamp = datetime.datetime.now().timestamp()
+
+        for param in self._get_state_copy():
+            dump_trace_VAR(
+                {
+                    "process_id": os.getpid(),
+                    "thread_id": threading.current_thread().ident,
+                    "meta_vars": meta_vars,
+                    "type": "state_change",
+                    "var_type": param["type"],
+                    "var_name": param["name"],
+                    "attributes": param["attributes"],
+                    "time": timestamp,
+                }
+            )
+
+    def observe(self):
+        """The function is called to observe the state of the model. Each call to this function will
+        1. Get the current state of the model
+        2. Log the state
+        """
+        self.step += 1
+        meta_vars.update({"step": self.step})
+
+        timestamp = datetime.datetime.now().timestamp()
+
+        for param in self._get_state_copy():
+            dump_trace_VAR(
+                {
+                    "process_id": os.getpid(),
+                    "thread_id": threading.current_thread().ident,
+                    "meta_vars": meta_vars,
+                    "type": "state_change",
+                    # "var": self.var.__class__.__name__,
+                    "var_type": param["type"],  # FIXME: hardcoding the type for now
+                    "var_name": param["name"],
+                    "attributes": param["attributes"],
+                    "time": timestamp,
+                }
+            )
 
 
 if __name__ == "__main__":

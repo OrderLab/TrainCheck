@@ -2,7 +2,12 @@ import logging
 
 import polars as pl
 
-from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
+from mldaikon.invariant.base_cls import (
+    Hypothesis,
+    Invariant,
+    Relation,
+    find_precondition,
+)
 from mldaikon.ml_daikon_trace import Trace
 
 
@@ -177,6 +182,11 @@ class APIContainRelation(Relation):
                         hypothesis[parent][
                             expected_child_func
                         ].negative_examples.append(Trace([parent_pre_event]))
+
+        ## precondition inference
+        for p, child_hypotheses in hypothesis.items():
+            for k, h in child_hypotheses.items():
+                h.invariant.precondition = find_precondition(h)
 
         all_invariants: list[Invariant] = []
         all_hypotheses = []
