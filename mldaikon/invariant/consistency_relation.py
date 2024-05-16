@@ -1,10 +1,10 @@
-import logging
-from typing import NamedTuple
-from tqdm import tqdm
 import re
+from typing import NamedTuple
 
 import polars as pl
+from tqdm import tqdm
 
+from mldaikon.config import config
 from mldaikon.invariant.base_cls import (
     Hypothesis,
     Invariant,
@@ -12,7 +12,6 @@ from mldaikon.invariant.base_cls import (
     find_precondition,
 )
 from mldaikon.ml_daikon_trace import Trace
-from mldaikon.config import config
 
 tracker_var_field_prefix = "attributes."
 
@@ -139,7 +138,7 @@ class ConsistencyRelation(Relation):
                         ):
                             continue
 
-                        if not attr_name in attr_values:
+                        if attr_name not in attr_values:
                             attr_values[attr_name] = [
                                 AttrState(
                                     state_change[col],
@@ -211,8 +210,9 @@ class ConsistencyRelation(Relation):
                             continue
 
                         # if the types are different, skipping
-                        if type(var_inst_values[var_inst][attr][0].value) != type(
-                            var_inst_values[other_var_inst][other_attr][0].value
+                        if not isinstance(
+                            var_inst_values[var_inst][attr][0].value,
+                            type(var_inst_values[other_var_inst][other_attr][0].value),
                         ):
                             continue
 
@@ -277,7 +277,7 @@ class ConsistencyRelation(Relation):
 
             # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
             SKIP_INIT_VALUES = False
-            if 'tensor' in var_type1.lower() and 'tensor' in var_type2.lower():
+            if "tensor" in var_type1.lower() and "tensor" in var_type2.lower():
                 SKIP_INIT_VALUES = True
 
             for idx1, var_inst1 in enumerate(var_type1_vars):
@@ -287,15 +287,17 @@ class ConsistencyRelation(Relation):
                     found_positive_example = False
                     if var_inst1 == var_inst2:
                         continue
-                    
 
-
-                    for val_idx1, value1 in enumerate(var_inst_values[var_inst1][attr1]):
-                        for val_idx2, value2 in enumerate(var_inst_values[var_inst2][attr2]):
+                    for val_idx1, value1 in enumerate(
+                        var_inst_values[var_inst1][attr1]
+                    ):
+                        for val_idx2, value2 in enumerate(
+                            var_inst_values[var_inst2][attr2]
+                        ):
                             if SKIP_INIT_VALUES and val_idx1 == 0 and val_idx2 == 0:
                                 # skipping the init values
                                 continue
-                            
+
                             overlap = calc_liveness_overlap(
                                 value1.liveness, value2.liveness
                             )
@@ -339,9 +341,8 @@ class ConsistencyRelation(Relation):
 
             # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
             SKIP_INIT_VALUES = False
-            if 'tensor' in var_type1.lower() and 'tensor' in var_type2.lower():
+            if "tensor" in var_type1.lower() and "tensor" in var_type2.lower():
                 SKIP_INIT_VALUES = True
-
 
             # collect all variables that have the same types as var_type1 and var_type2
             var_type1_vars = [
@@ -361,8 +362,12 @@ class ConsistencyRelation(Relation):
                 for var_inst2 in var_type2_vars:
                     if var_inst1 == var_inst2:
                         continue
-                    for val_idx1, value1 in enumerate(var_inst_values[var_inst1][attr1]):
-                        for val_idx2, value2 in enumerate(var_inst_values[var_inst2][attr2]):
+                    for val_idx1, value1 in enumerate(
+                        var_inst_values[var_inst1][attr1]
+                    ):
+                        for val_idx2, value2 in enumerate(
+                            var_inst_values[var_inst2][attr2]
+                        ):
                             if SKIP_INIT_VALUES and val_idx1 == 0 and val_idx2 == 0:
                                 # skipping the init values
                                 continue
@@ -378,13 +383,19 @@ class ConsistencyRelation(Relation):
                                     hypothesis_with_examples[
                                         hypo
                                     ].positive_examples.append(
-                                        [value1.traces[0], value2.traces[0]]  ## HACK to make preconditions inference work for `step`
+                                        [
+                                            value1.traces[0],
+                                            value2.traces[0],
+                                        ]  ## HACK to make preconditions inference work for `step`
                                     )
                                 else:
                                     hypothesis_with_examples[
                                         hypo
                                     ].negative_examples.append(
-                                        [value1.traces[0], value2.traces[0]] ## HACK to make preconditions inference work for `step`
+                                        [
+                                            value1.traces[0],
+                                            value2.traces[0],
+                                        ]  ## HACK to make preconditions inference work for `step`
                                     )
 
         # ## DEBUGGING:
@@ -396,7 +407,6 @@ class ConsistencyRelation(Relation):
         #                     " -> " + trace_pair[1]["var_name"] + f" {trace_pair[1]['attributes.tensor_model_parallel']}" + f" {trace_pair[1]['meta_vars.step']} TP: {trace_pair[1]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[1]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[1]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + f" same_process?:{trace_pair[0]['process_id'] == trace_pair[1]['process_id']}"
         #         )
 
-
         # print("Positive Examples: {}".format("\n".join(all_modules_that_have_hypothesis)))
 
         # all_negative_modules_that_have_hypothesis = []
@@ -406,7 +416,7 @@ class ConsistencyRelation(Relation):
         #                 trace_pair[0]["var_name"] + f" {trace_pair[0]['attributes.tensor_model_parallel']}" + f" {trace_pair[0]['meta_vars.step']} TP: {trace_pair[0]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[0]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[0]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + \
         #                     " -> " + trace_pair[1]["var_name"] + f" {trace_pair[1]['attributes.tensor_model_parallel']}" + f" {trace_pair[1]['meta_vars.step']} TP: {trace_pair[1]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[1]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[1]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + f" same_process?:{trace_pair[0]['process_id'] == trace_pair[1]['process_id']}"
         #         )
-        
+
         # print("Negative Examples: {}".format("\n".join(all_negative_modules_that_have_hypothesis)))
 
         ## 5. Precondition Inference

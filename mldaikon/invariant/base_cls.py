@@ -1,6 +1,8 @@
 import abc
 import logging
-import polars as pl
+from enum import Enum
+from typing import Hashable
+
 from tqdm import tqdm
 
 from mldaikon.ml_daikon_trace import Trace
@@ -116,13 +118,22 @@ class Relation(abc.ABC):
         pass
 
 
+class PreconditionType(Enum):
+    CONSTANT = "constant"
+    CONSISTENT = "consistent"
+    UNEQUAL = "unequal"
+
+
+PT = PreconditionType
+
+
 class Precondition:
-    def __init__(self, prop_name: str, _type: str, values: list | type):
+    def __init__(self, prop_name: str, _type: PT, values: set | type):
         self.prop_name = prop_name
-        if _type not in ["constant", "consistent"]:
+        if _type not in [PT.CONSISTENT, PT.CONSTANT, PT.UNEQUAL]:
             raise ValueError(f"Invalid type {_type}")
         self.type = _type  # either "constant" or "consistent"
-        self.values = values if isinstance(values, list) else [values]
+        self.values = values if isinstance(values, set) else {values}
 
     def __str__(self) -> str:
         return f"Prop: {self.prop_name}, Type: {self.type}, Values: {len(self.values)}"
@@ -136,22 +147,37 @@ class Precondition:
             if prop_name not in example[i]:
                 return False
 
-        if self.type == "constant":
-            if example[0][prop_name] not in self.values:
-                return False
-        for i in range(1, len(example)):
-            if example[i][prop_name] != example[0][prop_name]:
+        if self.type in [PT.CONSTANT, PT.CONSISTENT]:
+            if self.type == PT.CONSTANT:
+                if example[0][prop_name] not in self.values:
+                    return False
+            for i in range(1, len(example)):
+                if example[i][prop_name] != example[0][prop_name]:
+                    return False
+        if self.type == PT.UNEQUAL:
+            all_values = set()
+            for i in range(len(example)):
+                all_values.add(example[i][prop_name])
+            if len(all_values) != len(example):
                 return False
         return True
 
     def try_relax(self) -> bool:
-        if self.type == "consistent":
-            self.type = "constant"
+        if self.type == PT.CONSISTENT:
+            self.type = PT.CONSTANT
             return True
         return False  # cannot relax further
 
 
-def find_precondition(hypothesis: Hypothesis) -> list | None:
+def pprint_preconds(preconditions: list):
+    for precond in preconditions:
+        print("values", preconditions[precond].values)
+        print("type", preconditions[precond].type)
+        print("target", preconditions[precond].prop_name)
+        print("==============================")
+
+
+def find_precondition(hypothesis: Hypothesis) -> list:
     """Given a hypothesis, should return a list of preconditions
     that should be satisfied for the invariant to hold.
 
@@ -171,18 +197,26 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
     def find_conditions(example: list, key_to_skip: str = "param_value"):
         """A list of traces to find common properties from. The property should hold locally within the example."""
 
-        const_conds = {}
+        conds = {
+            PT.CONSTANT: {},
+            PT.UNEQUAL: set(),
+        }
         # find properties that have only one value in the example
         for prop in example[0]:
-            # let's also skip anything with .old
-            if ".old" in prop:
-                continue
 
             # skip tensor values as preconditions ## TODO: revisit this decision, we might not have data-dependent control-flow because of this.
             if key_to_skip in prop:
                 continue
 
             is_constant = True
+
+            if not isinstance(example[0][prop], Hashable):
+                print(
+                    f"Warning: Non-hashable property found in the example, skipping this property {prop} ({type(example[0][prop])})"
+                )
+                continue
+
+            all_values = {example[0][prop]}  # TODO: support lists as well
             for i in range(1, len(example)):
                 if prop not in example[i]:
                     # TODO: we might not want to skip this, as if this prop is a local attribute of a specific variable type, it might not be other traces
@@ -192,11 +226,13 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
                     continue
                 if example[i][prop] != example[0][prop]:
                     is_constant = False
-                    break
-            if is_constant:
-                const_conds[prop] = example[0][prop]
+                all_values.add(example[i][prop])
+            if len(all_values) == 1 and is_constant:
+                conds[PT.CONSTANT][prop] = example[0][prop]
+            elif len(all_values) == len(example):
+                conds[PT.UNEQUAL].add(prop)
 
-        return const_conds
+        return conds
 
     for example in tqdm(hypothesis.positive_examples):
         if len(example) == 0:
@@ -205,57 +241,59 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
             continue
 
         conds = find_conditions(example)
-        # print(f"found #conds: {len(conds)}")
 
-        found = False
-        for cond_name in conds:
-            if "step" in cond_name:
-                found = True
-                break
-        if not found:
-            import pprint
-
-            print("example no step:")
-            pprint.pprint(example)
-            print("inferred pre-conditions")
-            pprint.pprint(conds)
-            return []
-        if len(conds) == 0:
+        if len(conds[PT.CONSTANT]) == 0 and len(conds[PT.UNEQUAL]) == 0:
             print("example: ", example)
             # stop
             return []
 
         positive_properties.append(conds)
 
-    # exclude those also hold in the negative examples
-    # for each negative example, we verify the conds in the positive examples
+    const_precond_targets = set(positive_properties[0][PT.CONSTANT].keys())
+    print(
+        f"# Initial Precondition Targets for {PT.CONSTANT} or {PT.CONSISTENT}: {const_precond_targets}"
+    )
 
-    # find the common properties
-    precondition_targets = set(positive_properties[0].keys())
-    print(f"# Initial Precondition Targets: {precondition_targets}")
+    const_precond_target_values = {key: set() for key in const_precond_targets}
 
-    precondition_target_values = {key: [] for key in precondition_targets}
-
-    for pos_props in positive_properties:
-        precondition_targets = precondition_targets.intersection(pos_props.keys())
-        for key in pos_props:
-            if key in precondition_targets:
-                # precondition_target_values[key].append(pos_props[key])
-                if pos_props[key] not in precondition_target_values[key]:
-                    precondition_target_values[key].append(pos_props[key])
+    for props in positive_properties:
+        const_conds = props[PT.CONSTANT]
+        const_precond_targets = const_precond_targets.intersection(const_conds.keys())
+        for key in const_conds:
+            if key in const_precond_targets:
+                const_precond_target_values[key].add(const_conds[key])
 
     preconditions = {
         key: (
             Precondition(
-                key, "constant", precondition_target_values[key]
+                key, PT.CONSTANT, const_precond_target_values[key]
             )  # FIXME: disabling the consistent preconditions for now as it is less strict than the constant preconditions and we don't have a good way to refine it
-            # if len(precondition_target_values[key]) == 1
-            # else Precondition(key, "consistent", precondition_target_values[key])
+            if len(const_precond_target_values[key]) == 1
+            else Precondition(key, PT.CONSISTENT, const_precond_target_values[key])
         )
-        for key in precondition_targets
+        for key in const_precond_targets
     }
 
+    unequal_precond_targets = set(positive_properties[0][PT.UNEQUAL])
+    print(f"# Initial Precondition Targets for {PT.UNEQUAL}: {unequal_precond_targets}")
+    for props in positive_properties:
+        unequal_precond_targets = unequal_precond_targets.intersection(
+            props[PT.UNEQUAL]
+        )
+
+    for key in unequal_precond_targets:
+        if key in preconditions:
+            # both consistent and unequal preconditions cannot co-exist
+            print(
+                f"Warning: inconsistent preconditions found {key} (UNEQUAL) and {preconditions[key]}"
+            )
+            # delete the existing precondition
+            del preconditions[key]
+        else:
+            preconditions[key] = Precondition(key, PT.UNEQUAL, None)
+
     print(f"# Initial Precondition: {len(preconditions)}")
+    pprint_preconds(preconditions)
 
     """
     1. Only one value (assumes to be the prop == constant precondition)
@@ -286,6 +324,7 @@ def find_precondition(hypothesis: Hypothesis) -> list | None:
             # print preconditions and the negative example
             print("Negative example satisfies the preconditions")
             import pprint
+
             pprint.pprint(neg_example)
 
             for key in preconditions:
