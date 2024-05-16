@@ -77,7 +77,7 @@ def compare_with_fp_tolerance(value1, value2):
                 return False
         return True
     if isinstance(value1, float):
-        return abs(value1 - value2) < 1e-6
+        return abs(value1 - value2) < 1e-7
     return value1 == value2
 
 
@@ -250,6 +250,7 @@ class ConsistencyRelation(Relation):
 
         ## 3. Hypothesis Pruning
         print(f"Hypothesis: {hypothesis}")
+        print(f"Number of Hypothesis: {len(hypothesis)}")
 
         # for each hypothesis, collect number of positive examples seen, if it is below a threshold, prune it
         filtered_hypothesis = []
@@ -358,6 +359,28 @@ class ConsistencyRelation(Relation):
                                     ].negative_examples.append(
                                         [value1.traces[0], value2.traces[0]] ## HACK to make preconditions inference work for `step`
                                     )
+
+        # ## DEBUGGING:
+        # all_modules_that_have_hypothesis = []
+        # for hypo in hypothesis_with_examples:
+        #     for trace_pair in hypothesis_with_examples[hypo].positive_examples:
+        #         all_modules_that_have_hypothesis.append(
+        #                 trace_pair[0]["var_name"] + f" {trace_pair[0]['attributes.tensor_model_parallel']}" + f" {trace_pair[0]['meta_vars.step']} TP: {trace_pair[0]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[0]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[0]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + \
+        #                     " -> " + trace_pair[1]["var_name"] + f" {trace_pair[1]['attributes.tensor_model_parallel']}" + f" {trace_pair[1]['meta_vars.step']} TP: {trace_pair[1]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[1]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[1]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + f" same_process?:{trace_pair[0]['process_id'] == trace_pair[1]['process_id']}"
+        #         )
+
+
+        # print("Positive Examples: {}".format("\n".join(all_modules_that_have_hypothesis)))
+
+        # all_negative_modules_that_have_hypothesis = []
+        # for hypo in hypothesis_with_examples:
+        #     for trace_pair in hypothesis_with_examples[hypo].negative_examples:
+        #         all_negative_modules_that_have_hypothesis.append(
+        #                 trace_pair[0]["var_name"] + f" {trace_pair[0]['attributes.tensor_model_parallel']}" + f" {trace_pair[0]['meta_vars.step']} TP: {trace_pair[0]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[0]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[0]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + \
+        #                     " -> " + trace_pair[1]["var_name"] + f" {trace_pair[1]['attributes.tensor_model_parallel']}" + f" {trace_pair[1]['meta_vars.step']} TP: {trace_pair[1]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[1]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[1]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + f" same_process?:{trace_pair[0]['process_id'] == trace_pair[1]['process_id']}"
+        #         )
+        
+        # print("Negative Examples: {}".format("\n".join(all_negative_modules_that_have_hypothesis)))
 
         ## 5. Precondition Inference
         hypos_to_delete = []

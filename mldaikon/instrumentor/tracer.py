@@ -423,7 +423,7 @@ class Instrumentor:
                 )
                 continue
 
-            # skip private attributes
+            # skip magic methods 
             if attr_name.startswith("__"):
                 get_instrumentation_logger_for_process().info(
                     f"Depth: {depth}, Skipping magic functions: {attr_name}"
