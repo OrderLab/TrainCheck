@@ -15,7 +15,8 @@ class json_dumper:
             "thread_id": thread_id,
             "timestamp": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
-            "variable_name": variable_name,
+            "var_name": variable_name,
+            "var_type": type(var_properties_changed).__name__,
             "var_properties_changed": var_properties_changed,
         }
         json_data = json.dumps(data)

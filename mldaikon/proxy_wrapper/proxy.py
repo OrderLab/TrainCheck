@@ -114,7 +114,7 @@ class Proxy:
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
     loglevel = logging.INFO
-    jsondumper = dumper("/data/ziming/ml-daikon/proxy_trace.json")
+    jsondumper = dumper(proxy_log_dir)
     handler = logging.FileHandler(logdir)
     handler.setLevel(loglevel)
     logger_proxy.handlers.clear()
@@ -124,30 +124,27 @@ class Proxy:
     non_empty_name_counts = 0
 
     @staticmethod
-    def print_tensor(value, logging_level=logging.DEBUG):
-        if logging_level == logging.INFO:
-            print_debug("logger_proxy: " + f"Tensor with shape'{value.shape}'")
-            print_debug("logger_proxy: " + f"Minimum value: {torch.min(value)}")
-            print_debug("logger_proxy: " + f"Maximum value: {torch.max(value)}")
-        else:
+    def print_tensor(value):
+        if debug_mode:
             print_debug("logger_proxy: " + f"Tensor with shape'{value.shape}'")
             print_debug("logger_proxy: " + f"Minimum value: {torch.min(value)}")
             print_debug("logger_proxy: " + f"Maximum value: {torch.max(value)}")
 
     @staticmethod
     def print_update(old_value, value, attr_name=None):
-        print_debug("logger_proxy: " + f"Updating the attribute '{attr_name}'")
-        print_debug("logger_proxy: " + f"From:")
-        if type(old_value) is torch.Tensor:
-            Proxy.print_tensor(old_value, logging_level=logging.INFO)
-        else:
-            print_debug("logger_proxy: " + f"'{old_value}'")
+        if debug_mode:
+            print_debug("logger_proxy: " + f"Updating the attribute '{attr_name}'")
+            print_debug("logger_proxy: " + f"From:")
+            if type(old_value) is torch.Tensor:
+                Proxy.print_tensor(old_value)
+            else:
+                print_debug("logger_proxy: " + f"'{old_value}'")
 
-        print_debug("logger_proxy: " + f"To:")
-        if type(value) is torch.Tensor:
-            Proxy.print_tensor(value, logging_level=logging.INFO)
-        else:
-            print_debug("logger_proxy: " + f"'{value}'")
+            print_debug("logger_proxy: " + f"To:")
+            if type(value) is torch.Tensor:
+                Proxy.print_tensor(value)
+            else:
+                print_debug("logger_proxy: " + f"'{value}'")
 
     def __init__(self, obj, logdir='proxy_log.log', log_level=logging.INFO):
         self.__dict__["process_id"] = os.getpid()
@@ -188,9 +185,7 @@ class Proxy:
                     frame = frame.f_back
                 else:
                     frame_array.append((frame.f_code.co_filename, frame.f_lineno))
-                    # find the variable name of the object in the current frame
-                    
-                    
+
                     current_var_name = None
                     for var_name, var_val in frame.f_locals.items():
                         if var_val is obj or (isinstance(var_val, Proxy) and var_val._obj is obj):
@@ -242,7 +237,7 @@ class Proxy:
                             self.__dict__["dumped_varname_list"],
                             dump_tensor(obj),
                         )
-                        self.print_tensor(obj, logging.INFO)
+                        self.print_tensor(obj)
                         self.__dict__["_obj"] = obj
                         tensor_dict[shape] = self
                     else:
@@ -309,9 +304,9 @@ class Proxy:
                     #     obj.__class__.__module__ + "." + obj.__class__.__name__
                     # )  # TODO: refactor with typename
 
-                    old_value = str(
-                        torch_serialize(Proxy.frame_dict[tuple(frame_array)]._obj)
-                    )
+                    # old_value = str(
+                    #     torch_serialize(Proxy.frame_dict[tuple(frame_array)]._obj)
+                    # )
 
                     new_value = str(torch_serialize(obj))
 
