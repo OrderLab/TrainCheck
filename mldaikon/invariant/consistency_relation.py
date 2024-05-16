@@ -77,7 +77,7 @@ def compare_with_fp_tolerance(value1, value2):
                 return False
         return True
     if isinstance(value1, float):
-        return abs(value1 - value2) < 1e-7
+        return abs(value1 - value2) < 1e-8
     return value1 == value2
 
 
@@ -275,6 +275,11 @@ class ConsistencyRelation(Relation):
             positive_examples = 0
             positive_examples_threshold = 0  # This number should be the total number of varInst pairs on which the hypothesis is applicable
 
+            # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
+            SKIP_INIT_VALUES = False
+            if 'tensor' in var_type1.lower() and 'tensor' in var_type2.lower():
+                SKIP_INIT_VALUES = True
+
             for idx1, var_inst1 in enumerate(var_type1_vars):
                 for idx2, var_inst2 in enumerate(var_type2_vars):
                     if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
@@ -282,8 +287,15 @@ class ConsistencyRelation(Relation):
                     found_positive_example = False
                     if var_inst1 == var_inst2:
                         continue
-                    for value1 in var_inst_values[var_inst1][attr1]:
-                        for value2 in var_inst_values[var_inst2][attr2]:
+                    
+
+
+                    for val_idx1, value1 in enumerate(var_inst_values[var_inst1][attr1]):
+                        for val_idx2, value2 in enumerate(var_inst_values[var_inst2][attr2]):
+                            if SKIP_INIT_VALUES and val_idx1 == 0 and val_idx2 == 0:
+                                # skipping the init values
+                                continue
+                            
                             overlap = calc_liveness_overlap(
                                 value1.liveness, value2.liveness
                             )
@@ -297,7 +309,12 @@ class ConsistencyRelation(Relation):
                     if found_positive_example:
                         positive_examples_threshold += 1
 
-            if positive_examples > positive_examples_threshold:
+            if SKIP_INIT_VALUES and positive_examples > 0:
+                filtered_hypothesis.append(hypo)
+                print(
+                    f"Keeping hypothesis (INIT VALUEs SKIPPED): {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
+                )
+            elif positive_examples > positive_examples_threshold:
                 filtered_hypothesis.append(hypo)
                 print(
                     f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
@@ -320,6 +337,12 @@ class ConsistencyRelation(Relation):
             var_type2 = hypo[2]
             attr2 = hypo[3]
 
+            # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
+            SKIP_INIT_VALUES = False
+            if 'tensor' in var_type1.lower() and 'tensor' in var_type2.lower():
+                SKIP_INIT_VALUES = True
+
+
             # collect all variables that have the same types as var_type1 and var_type2
             var_type1_vars = [
                 var_inst
@@ -338,8 +361,12 @@ class ConsistencyRelation(Relation):
                 for var_inst2 in var_type2_vars:
                     if var_inst1 == var_inst2:
                         continue
-                    for value1 in var_inst_values[var_inst1][attr1]:
-                        for value2 in var_inst_values[var_inst2][attr2]:
+                    for val_idx1, value1 in enumerate(var_inst_values[var_inst1][attr1]):
+                        for val_idx2, value2 in enumerate(var_inst_values[var_inst2][attr2]):
+                            if SKIP_INIT_VALUES and val_idx1 == 0 and val_idx2 == 0:
+                                # skipping the init values
+                                continue
+
                             overlap = calc_liveness_overlap(
                                 value1.liveness, value2.liveness
                             )
