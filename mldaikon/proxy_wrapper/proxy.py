@@ -110,7 +110,8 @@ def torch_serialize(obj):
 class Proxy:
     proxy_dict = {}
     frame_dict = {}
-    tensor_frame_dict = {}
+    # tensor_frame_dict = {} # Ziming: deprecated tensor.shape based identifier
+    tensor_var_dict = {}
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
     loglevel = logging.INFO
@@ -184,8 +185,10 @@ class Proxy:
                 if frame.f_code.co_filename == __file__:
                     frame = frame.f_back
                 else:
-                    frame_array.append((frame.f_code.co_filename, frame.f_lineno))
-
+                    # Ziming: old line number based identifier
+                    if debug_mode:
+                        frame_array.append((frame.f_code.co_filename, frame.f_lineno))
+                    # fetch the var_name from the stack_frame
                     current_var_name = None
                     for var_name, var_val in frame.f_locals.items():
                         if var_val is obj or (isinstance(var_val, Proxy) and var_val._obj is obj):
@@ -203,61 +206,40 @@ class Proxy:
             else:
                 print_debug("logger_proxy: " + f"Variable name list: {var_list}") 
                 Proxy.non_empty_name_counts += 1
-                
             
             print_debug("logger_proxy: " + f"Empty name counts: {Proxy.empty_name_counts}")
             print_debug("logger_proxy: " + f"Non-empty name counts: {Proxy.non_empty_name_counts}")
             
             # dumped var_list
             if len(var_list) == 0:
-                self.__dict__["dumped_varname_list"] = "None"
+                current_var_name_list = "None"
             else:
-                self.__dict__["dumped_varname_list"] = json.dumps(var_list)
-
+                current_var_name_list = json.dumps(var_list)
+            self.__dict__["dumped_varname_list"] = current_var_name_list
+            
             if type(obj) is torch.Tensor:
-                if Proxy.tensor_frame_dict.get(tuple(frame_array)) is None:
+                if Proxy.tensor_var_dict.get(current_var_name_list) is None:
                     self.__dict__["_obj"] = obj
-                    Proxy.tensor_frame_dict[tuple(frame_array)] = {
-                        tuple(obj.shape): self
-                    }
+                    Proxy.tensor_var_dict[current_var_name_list] = self
                 else:
-                    tensor_dict = Proxy.tensor_frame_dict.get(tuple(frame_array))
-                    shape = tuple(obj.shape)
+                    
+                    print_debug(
+                        "logger_proxy: "
+                        + f"Tensor '{current_var_name_list}' is already proxied"
+                    )
+                    # self.print_update(Proxy.tensor_frame_dict[current_var_name_list]._obj, obj, f"torch.Tensor")
 
-                    if tensor_dict.get(shape) is None:
-                        print_debug(
-                            "logger_proxy: "
-                            + f"Creating proxy for Tensor with shape '{shape}'"
-                        )
+                    self.jsondumper.dump_json(
+                        self.process_id,
+                        self.thread_id,
+                        get_meta_vars(),
+                        self.__dict__["dumped_varname_list"],
+                        dump_tensor(obj),
+                    )
 
-                        self.jsondumper.dump_json(
-                            self.process_id,
-                            self.thread_id,
-                            get_meta_vars(),
-                            self.__dict__["dumped_varname_list"],
-                            dump_tensor(obj),
-                        )
-                        self.print_tensor(obj)
-                        self.__dict__["_obj"] = obj
-                        tensor_dict[shape] = self
-                    else:
-                        print_debug(
-                            "logger_proxy: "
-                            + f"Tensor with shape '{shape}' is already proxied"
-                        )
-                        self.print_update(tensor_dict[shape]._obj, obj, f"torch.Tensor")
-
-                        self.jsondumper.dump_json(
-                            self.process_id,
-                            self.thread_id,
-                            get_meta_vars(),
-                            self.__dict__["dumped_varname_list"],
-                            dump_tensor(obj),
-                        )
-
-                        del tensor_dict[shape]
-                        self._obj = obj
-                        tensor_dict[shape] = self
+                    del Proxy.tensor_var_dict[current_var_name_list]
+                    self._obj = obj
+                    Proxy.tensor_var_dict[current_var_name_list] = self
             else:
                 if Proxy.frame_dict.get(tuple(frame_array)) is None:
                     new_value = str(torch_serialize(obj))
@@ -413,15 +395,15 @@ class Proxy:
     def __setattr__(self, name, value):
         print_debug("logger_proxy: " + f"Setting attribute '{name}' to '{value}'")
         if name == "_obj":
-            if type(value) is torch.Tensor:
-                self.print_tensor(value)
-            else:
-                print_debug("logger_proxy: " + f"Setting attribute '_obj'")
+            # if type(value) is torch.Tensor:
+            #     self.print_tensor(value)
+            # else:
+            #     print_debug("logger_proxy: " + f"Setting attribute '_obj'")
             self.__dict__[name] = value  # Set the attribute directly
         else:
             # Intercept attribute assignment
-            old_value = getattr(self._obj, name, None)
-            old_value = str(torch_serialize(old_value))
+            # old_value = getattr(self._obj, name, None)
+            # old_value = str(torch_serialize(old_value))
             new_value = str(torch_serialize(value))
             
 
