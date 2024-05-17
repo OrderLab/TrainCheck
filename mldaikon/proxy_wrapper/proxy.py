@@ -4,6 +4,7 @@ import os
 import threading
 import json
 import torch
+import time
 
 from mldaikon.utils import typename
 from mldaikon.config.config import debug_mode, proxy_log_dir
@@ -60,7 +61,7 @@ def dump_tensor(value):
     return result
 
 
-def get_meta_vars(level=5):
+def get_meta_vars(level=8):
     frame = inspect.currentframe()
     while frame.f_code.co_filename == __file__:
         frame = frame.f_back
@@ -153,6 +154,7 @@ class Proxy:
         self.__dict__["logdir"] = logdir
         self.__dict__["log_level"] = log_level
         self.__dict__["meta_vars"] = {}
+        self.__dict__["last_update_timestamp"]=0
         # handler = logging.FileHandler(logdir)
         # handler.setLevel(log_level)
         # self.logger_proxy.addHandler(handler)
@@ -161,7 +163,7 @@ class Proxy:
         # if typename(obj).startswith("torch.distributed"):
         #     self._obj = obj
         #     return
-
+        
         if not type(obj) in [int, float, str, bool] and obj is not None:
             print_debug(
                 "logger_proxy: "
@@ -221,6 +223,7 @@ class Proxy:
                 if Proxy.tensor_var_dict.get(current_var_name_list) is None:
                     self.__dict__["_obj"] = obj
                     Proxy.tensor_var_dict[current_var_name_list] = self
+                    self.__dict__["last_update_timestamp"] = time.time()
                 else:
                     
                     print_debug(
@@ -228,6 +231,11 @@ class Proxy:
                         + f"Tensor '{current_var_name_list}' is already proxied"
                     )
                     # self.print_update(Proxy.tensor_frame_dict[current_var_name_list]._obj, obj, f"torch.Tensor")
+                    
+                    # if is updating too fast, then skip
+                    if time.time() - Proxy.tensor_var_dict[current_var_name_list].__dict__["last_update_timestamp"] < 0.1:
+                        self.__dict__["_obj"] = obj
+                        return
 
                     self.jsondumper.dump_json(
                         self.process_id,
@@ -238,7 +246,7 @@ class Proxy:
                     )
 
                     del Proxy.tensor_var_dict[current_var_name_list]
-                    self._obj = obj
+                    self.__dict__["_obj"] = obj
                     Proxy.tensor_var_dict[current_var_name_list] = self
             else:
                 if Proxy.frame_dict.get(tuple(frame_array)) is None:
