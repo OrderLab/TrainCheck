@@ -110,6 +110,13 @@ class APIContainRelation(Relation):
 
         logger = logging.getLogger(__name__)
 
+        # if no API related traces (i.e. no 'function' in columns), let's return an empty list
+        if "function" not in trace.events.columns:
+            logger.warning(
+                "No API related traces found in the trace. Skipping the APIContainRelation inference."
+            )
+            return []
+
         # split the trace into groups based on (process_id and thread_id)
         hypothesis: dict[str, dict[str, Hypothesis]] = {}
         func_names = (
