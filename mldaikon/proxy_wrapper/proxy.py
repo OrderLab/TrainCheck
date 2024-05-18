@@ -60,6 +60,49 @@ def dump_tensor(value):
     }
     return result
 
+def dump_attributes(obj):
+    def manual_dir(obj):
+    # Get the attributes of the object
+        attrs = {}
+
+        # Add attributes from the object's dictionary
+        if hasattr(obj, '__dict__'):
+            attrs.update(obj.__dict__)
+
+        # Add attributes from the object's class and its parents
+        for cls in obj.__class__.mro():
+            attrs.update(cls.__dict__)
+
+        return attrs
+    result = {}
+    
+    
+    if not hasattr(obj, "__dict__"):
+        return result
+    
+    # # currently only trace tensor object
+    if not isinstance(obj, torch.Tensor):
+        return result
+    
+    
+    obj_dict = obj.__dict__
+    if 'is_proxied_obj' in obj_dict:
+        obj = obj_dict["_obj"]._obj
+    
+    primitive_types = {int, float, str, bool}
+    attr_names = [name for name in dir(obj) if not name.startswith("__")]
+
+    for attr_name in attr_names:
+        try:
+            attr = getattr(obj, attr_name)
+            if type(attr) in primitive_types:
+                result[attr_name] = str(attr)
+        except Exception as e:
+            print_debug(
+                f"Failed to get attribute {attr_name} of object {obj}, skipping it. Error: {e}"
+            )
+        
+    return result
 
 def get_meta_vars(level=8):
     frame = inspect.currentframe()
@@ -110,9 +153,10 @@ def torch_serialize(obj):
 
 class Proxy:
     proxy_dict = {}
-    frame_dict = {}
+    # frame_dict = {} # Ziming: deprecated frame based identifier
     # tensor_frame_dict = {} # Ziming: deprecated tensor.shape based identifier
     tensor_var_dict = {}
+    var_dict = {}
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
     loglevel = logging.INFO
@@ -155,6 +199,7 @@ class Proxy:
         self.__dict__["log_level"] = log_level
         self.__dict__["meta_vars"] = {}
         self.__dict__["last_update_timestamp"]=0
+        self.__dict__["is_proxied_obj"]=True
         # handler = logging.FileHandler(logdir)
         # handler.setLevel(log_level)
         # self.logger_proxy.addHandler(handler)
@@ -220,20 +265,31 @@ class Proxy:
             self.__dict__["dumped_varname_list"] = current_var_name_list
             
             if type(obj) is torch.Tensor:
+                # init tensor
                 if Proxy.tensor_var_dict.get(current_var_name_list) is None:
                     self.__dict__["_obj"] = obj
                     Proxy.tensor_var_dict[current_var_name_list] = self
-                    self.__dict__["last_update_timestamp"] = time.time()
-                else:
                     
+                    self.jsondumper.dump_json(
+                        self.process_id,
+                        self.thread_id,
+                        get_meta_vars(),
+                        self.__dict__["dumped_varname_list"],
+                        type(obj).__name__,
+                        dump_tensor(obj),
+                        dump_attributes(obj),
+                    )
+                    self.__dict__["last_update_timestamp"] = time.time()
+                # update tensor
+                else:
                     print_debug(
                         "logger_proxy: "
                         + f"Tensor '{current_var_name_list}' is already proxied"
                     )
                     # self.print_update(Proxy.tensor_frame_dict[current_var_name_list]._obj, obj, f"torch.Tensor")
-                    
+                    # print(current_var_name_list, time.time() - Proxy.tensor_var_dict[current_var_name_list].__dict__["last_update_timestamp"])
                     # if is updating too fast, then skip
-                    if time.time() - Proxy.tensor_var_dict[current_var_name_list].__dict__["last_update_timestamp"] < 0.1:
+                    if time.time() - Proxy.tensor_var_dict[current_var_name_list].__dict__["last_update_timestamp"] < 0.35:
                         self.__dict__["_obj"] = obj
                         return
 
@@ -242,76 +298,58 @@ class Proxy:
                         self.thread_id,
                         get_meta_vars(),
                         self.__dict__["dumped_varname_list"],
+                        type(obj).__name__,
                         dump_tensor(obj),
+                        dump_attributes(obj),
                     )
 
                     del Proxy.tensor_var_dict[current_var_name_list]
                     self.__dict__["_obj"] = obj
+                    self.__dict__["last_update_timestamp"] = time.time()
                     Proxy.tensor_var_dict[current_var_name_list] = self
             else:
-                if Proxy.frame_dict.get(tuple(frame_array)) is None:
+                if Proxy.var_dict.get(current_var_name_list) is None:
                     new_value = str(torch_serialize(obj))
-
-                    if hasattr(obj, "__name__"):
-                        print_debug(
-                            "logger_proxy: "
-                            + f"Creating proxy for object '{obj.__name__}'"
-                        )
-
-                        self.jsondumper.dump_json(
-                            self.process_id,
-                            self.thread_id,
-                            "",
-                            self.__dict__["dumped_varname_list"],
-                            new_value,
-                        )
-                    else:
-                        print_debug(
-                            "logger_proxy: "
-                            + f"Creating proxy for object with type '{obj.__class__.__name__}'"  # FIXME: combine this with the above branch with typename(obj)
-                        )
-
-                        self.jsondumper.dump_json(
-                            self.process_id,
-                            self.thread_id,
-                            "",
-                            self.__dict__["dumped_varname_list"],
-                            new_value,
-                        )
-
+                    
+                    self.__dict__["last_update_timestamp"] = time.time()
+                    self.jsondumper.dump_json(
+                        self.process_id,
+                        self.thread_id,
+                        get_meta_vars(),
+                        self.__dict__["dumped_varname_list"],
+                        type(obj).__name__,
+                        new_value,
+                        dump_attributes(obj),
+                    )
                     self.__dict__["_obj"] = obj
-                    # Proxy.proxy_dict[id(self._obj)] = self
-
-                    Proxy.frame_dict[tuple(frame_array)] = self
+                    Proxy.var_dict[current_var_name_list] = self
                 else:
                     if not type(obj) in [int, float, str, bool] and obj is not None:
                         print_debug(
                             "logger_proxy: "
                             + f"Object '{obj.__class__.__name__}' is already proxied"
                         )
-                    # self._obj = Proxy.frame_dict[tuple(frame_array)]._obj ## attention, need to delete the original one before creating new instance
-                    # obj_name = (
-                    #     obj.__class__.__module__ + "." + obj.__class__.__name__
-                    # )  # TODO: refactor with typename
-
-                    # old_value = str(
-                    #     torch_serialize(Proxy.frame_dict[tuple(frame_array)]._obj)
-                    # )
 
                     new_value = str(torch_serialize(obj))
-
-                    # self.print_update(old_value, new_value, obj_name)
+                                            
+                    if time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"] < 0.35:
+                        self.__dict__["_obj"] = obj
+                        return
 
                     self.jsondumper.dump_json(
                         self.process_id,
                         self.thread_id,
                         get_meta_vars(),
                         self.__dict__["dumped_varname_list"],
+                        type(obj).__name__,
                         new_value,
+                        dump_attributes(obj),
                     )
-                    del Proxy.frame_dict[tuple(frame_array)]
-                    self._obj = obj
-                    Proxy.frame_dict[tuple(frame_array)] = self
+                    
+                    del Proxy.var_dict[current_var_name_list]
+                    self.__dict__["_obj"] = obj
+                    self.__dict__["last_update_timestamp"] = time.time()
+                    Proxy.var_dict[current_var_name_list] = self
 
     @property
     def __class__(self):
@@ -422,7 +460,9 @@ class Proxy:
                 self.thread_id,
                 get_meta_vars(),
                 self.__dict__["dumped_varname_list"],
+                type(value).__name__,
                 new_value,
+                dump_attributes(value),
             )
 
             if not type(value) in [int, float, str, bool] and value is not None:
@@ -575,6 +615,12 @@ class Proxy:
             "logger_proxy: " + f"Calling __int__ for object '{self.__class__.__name__}'"
         )
         return int(self._obj)
+    
+    def __dir__(self):
+        print_debug(
+            "logger_proxy: " + f"Calling __dir__ for object '{self.__class__.__name__}'"
+        )
+        return dir(self._obj)
 
     def __str__(self):
         print_debug(

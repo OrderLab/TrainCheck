@@ -8,16 +8,17 @@ class json_dumper:
         self.json_file = open(json_file_path, "a")
 
     def dump_json(
-        self, process_id, thread_id, meta_vars, variable_name, var_properties_changed
+        self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, var_attributes
     ):
         data = {
             "process_id": process_id,
             "thread_id": thread_id,
-            "timestamp": time.time(),
+            "time": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
             "var_name": variable_name,
-            "var_type": type(var_properties_changed).__name__,
-            "var_properties_changed": var_properties_changed,
+            "var_type": var_type,
+            "attributes": var_attributes,
+            "value": var_value
         }
         json_data = json.dumps(data)
         
