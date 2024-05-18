@@ -280,7 +280,7 @@ class ConsistencyRelation(Relation):
             if "tensor" in var_type1.lower() and "tensor" in var_type2.lower():
                 SKIP_INIT_VALUES = True
 
-            for idx1, var_inst1 in enumerate(var_type1_vars):
+            for idx1, var_inst1 in enumerate(tqdm(var_type1_vars, desc=f"Pruning Hypo {hypo}")):
                 for idx2, var_inst2 in enumerate(var_type2_vars):
                     if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
                         continue
