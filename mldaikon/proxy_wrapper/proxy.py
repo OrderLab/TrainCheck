@@ -69,7 +69,7 @@ class Proxy:
                 "logger_proxy: "
                 + f"Object '{obj.__class__.__name__}' is already a proxy"
             )
-            self.__dict__["_obj"] = obj.__dict__["_obj"]
+            self._obj = obj._obj
 
         else:
             frame = inspect.currentframe()
@@ -122,7 +122,7 @@ class Proxy:
                     self.jsondumper.dump_json(
                         self.process_id,
                         self.thread_id,
-                        dump_meta_vars(),
+                        dump_meta_vars(proxy_file_path=__file__),
                         self.__dict__["dumped_varname_list"],
                         type(obj).__name__,
                         dump_tensor(obj),
@@ -143,7 +143,7 @@ class Proxy:
                     self.jsondumper.dump_json(
                         self.process_id,
                         self.thread_id,
-                        dump_meta_vars(),
+                        dump_meta_vars(proxy_file_path=__file__),
                         self.__dict__["dumped_varname_list"],
                         type(obj).__name__,
                         dump_tensor(obj),
@@ -163,7 +163,7 @@ class Proxy:
                     self.jsondumper.dump_json(
                         self.process_id,
                         self.thread_id,
-                        dump_meta_vars(),
+                        dump_meta_vars(proxy_file_path=__file__),
                         self.__dict__["dumped_varname_list"],
                         type(obj).__name__,
                         new_value,
@@ -187,7 +187,7 @@ class Proxy:
                     self.jsondumper.dump_json(
                         self.process_id,
                         self.thread_id,
-                        dump_meta_vars(),
+                        dump_meta_vars(proxy_file_path=__file__),
                         self.__dict__["dumped_varname_list"],
                         type(obj).__name__,
                         new_value,
@@ -201,10 +201,7 @@ class Proxy:
 
     @property
     def __class__(self):
-        if "_obj" in self.__dict__:
-            return self.__dict__["_obj"].__class__
-        else:
-            return None
+        return self._obj.__class__
 
     def __call__(self, *args, **kwargs):
         print_debug(
@@ -245,7 +242,7 @@ class Proxy:
             self.jsondumper.dump_json(
                 self.process_id,
                 self.thread_id,
-                dump_meta_vars(),
+                dump_meta_vars(proxy_file_path=__file__),
                 self.__dict__["dumped_varname_list"],
                 type(value).__name__,
                 new_value,

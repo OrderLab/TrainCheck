@@ -67,9 +67,9 @@ def dump_attributes(obj):
             ) 
     return result
 
-def dump_meta_vars(level=8):
-    frame = inspect.currentframe()
-    while frame.f_code.co_filename == __file__:
+def dump_meta_vars(level=8, proxy_file_path=""):
+    frame = inspect.currentframe().f_back
+    while frame.f_code.co_filename == proxy_file_path:
         frame = frame.f_back
     frame_vars = frame.f_locals
     important_vars = {}
