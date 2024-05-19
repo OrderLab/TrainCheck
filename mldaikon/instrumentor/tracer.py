@@ -12,7 +12,7 @@ import types
 import torch
 import torch.utils
 
-import mldaikon.proxy_wrapper.proxy as ProxyWrapper
+from mldaikon.proxy_wrapper.proxy import Proxy
 
 from mldaikon.config.config import INCLUDED_WRAP_LIST, proxy_log_dir, disable_proxy_class
 from mldaikon.utils import typename
@@ -135,7 +135,7 @@ def global_wrapper(original_function, *args, **kwargs):
     )
     try:
         def unwrap_proxies(obj):
-            if isinstance(obj, ProxyWrapper.Proxy):
+            if isinstance(obj, Proxy):
                 return unwrap_proxies(obj._obj)
             elif isinstance(obj, list):
                 for i in range(len(obj)):
@@ -253,7 +253,7 @@ def get_all_subclasses(cls):
 #             )
 #         )
 
-#         self = ProxyWrapper.Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
+#         self = Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
 
 #         return result
 
@@ -308,7 +308,7 @@ def get_all_subclasses(cls):
 #             print(
 #                 f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
 #             )
-#             result = ProxyWrapper.Proxy(
+#             result = Proxy(
 #                 result, log_level=logging.INFO, logdir=proxy_log_dir
 #             )
 
