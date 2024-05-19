@@ -12,7 +12,7 @@ import types
 import torch
 import torch.utils
 
-# import mldaikon.proxy_wrapper.proxy as ProxyWrapper
+# from mldaikon.proxy_wrapper.proxy import Proxy
 from mldaikon.config.config import disable_proxy_class
 from mldaikon.utils import typename
 
@@ -135,8 +135,25 @@ def global_wrapper(original_function, *args, **kwargs):
     try:
 
         def unwrap_proxies(obj):
-            return obj
-
+            if isinstance(obj, Proxy):
+                return unwrap_proxies(obj._obj)
+            elif isinstance(obj, list):
+                for i in range(len(obj)):
+                    obj[i] = unwrap_proxies(obj[i])
+                return obj
+            # Ziming: comment out the dict unwrapping here, it would interfere 
+            # with the _try_get_data functionality in dataloader 
+            # elif isinstance(obj, dict):
+            #     for key in obj:
+            #         obj[key] = unwrap_proxies(obj[key], level+1)
+            #     return obj
+            elif isinstance(obj, tuple):
+                obj = tuple(unwrap_proxies(item) for item in obj)
+                return obj
+            elif isinstance(obj, types.ModuleType):
+                return obj
+            else:
+                return obj
         if not disable_proxy_class:
             args = [unwrap_proxies(arg) for arg in args]
             kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
@@ -236,7 +253,7 @@ def get_all_subclasses(cls):
 #             )
 #         )
 
-#         self = ProxyWrapper.Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
+#         self = Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
 
 #         return result
 
@@ -291,7 +308,7 @@ def get_all_subclasses(cls):
 #             print(
 #                 f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
 #             )
-#             result = ProxyWrapper.Proxy(
+#             result = Proxy(
 #                 result, log_level=logging.INFO, logdir=proxy_log_dir
 #             )
 

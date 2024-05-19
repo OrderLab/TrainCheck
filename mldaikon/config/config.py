@@ -1,9 +1,10 @@
 TMP_FILE_PREFIX = "_ml_daikon_"
 MODULES_TO_INSTRUMENT = ["torch"]
 INCLUDED_WRAP_LIST = ["Net", "DataParallel"]  # FIXME: Net & DataParallel seem ad-hoc
-proxy_log_dir = "proxy_log.log"  # FIXME: ad-hoc
+proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: Currently disable proxy_class in default
-LIVENESS_OVERLAP_THRESHOLD = 0.01  # 1%
+proxy_update_limit = 0.35
+debug_mode = FalseLIVENESS_OVERLAP_THRESHOLD = 0.01  # 1%
 PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be the targets of invariants, but can be precondition or postcondition)
     "^is_.*$",  # e.g., is_cuda, is_contiguous
     "^has_.*$",  # e.g., has_names, has_storage
