@@ -11,3 +11,5 @@ build
 *.log
 *.json
 program_output.txt
+pretrain_gpt2_codeparrot_short.sh
+trace_count.ipynb
