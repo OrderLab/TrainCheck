@@ -66,11 +66,27 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable proxy class for tracing",
     )
-
+    parser.add_argument(
+        "--profiling",
+        action="store_true",
+        help="Enable to do profiling during the training process,"\
+            "there would be a train_profiling_results.pstats file generated"\
+            "in the current directory",
+    )
+    parser.add_argument(
+        "--proxy_update_limit",
+        type=float,
+        default=config.proxy_update_limit,
+        help="The threshold for updating the proxy object",
+    )
+        
+        
     args = parser.parse_args()
     config.disable_proxy_class = args.disable_proxy_class
     config.INCLUDED_WRAP_LIST = args.wrapped_modules
     config.proxy_log_dir = args.tracer_log_dir
+    config.proxy_update_limit = args.proxy_update_limit
+    config.profiling = args.profiling # the profiling has not yet been enacted yet
 
     # set up logging
     logging.basicConfig(level=logging.INFO)

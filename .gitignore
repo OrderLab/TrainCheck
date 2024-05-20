@@ -21,3 +21,5 @@ pretrain_gpt2_codeparrot_short.sh
 cora/*
 dataset/*
 experiments/*
+
+*.pstats

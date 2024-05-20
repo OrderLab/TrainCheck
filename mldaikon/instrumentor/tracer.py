@@ -15,6 +15,7 @@ import torch.utils
 # from mldaikon.proxy_wrapper.proxy import Proxy
 from mldaikon.config.config import disable_proxy_class
 from mldaikon.utils import typename
+from mldaikon.proxy_wrapper.proxy import Proxy
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
