@@ -154,6 +154,8 @@ def verify_precondition_safety(precondition: Precondition, negative_examples: li
     """
     for example in negative_examples:
         if precondition.verify(example):
+            print("Precondition is not safe")
+            print("Example", example)
             return False
     return True
 
@@ -235,11 +237,12 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
 
     for neg_example in tqdm(hypothesis.negative_examples, desc="Pruning Precondition"):
         whether_precondition_holds = True
-        for clause in precond_clause_candidates:
+        for clause in clauses_and_example_ids:
             res = clause.verify(neg_example)
             if not res:
                 clause_ever_false_in_neg[clause] = True
-            whether_precondition_holds = whether_precondition_holds and res
+            if clause in precond_clause_candidates:
+                whether_precondition_holds = whether_precondition_holds and res
         if whether_precondition_holds:
             neg_examples_passing_preconditions.append(neg_example)
 
@@ -338,12 +341,17 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     # let's try to add conditions on that split_bool_clauses
     true_precondition, false_precondition, val = split_bool_clauses[0]
     precond_to_be_refined = true_precondition if val else false_precondition
+    precond_to_be_refined.clauses.append(PreconditionClause("meta_vars._MODEL_PARALLEL_GROUP_YUXUAN_RANK", PT.CONSISTENT, {0}))
 
     # let's try to add partial clauses to the precond_to_be_refined
     for group in partial_clauses_grouped:
         for clause in partial_clauses_grouped[group]:
             precond_to_be_refined.clauses.append(clause)
+        
+        break # Let's only add the group with the highest significance for now
 
+    print("Precondition to be refined")
+    print(precond_to_be_refined)
     # verification on negative examples
     res = verify_precondition_safety(precond_to_be_refined, neg_examples_passing_preconditions)
     assert res, "The refined precondition is not safe"
@@ -354,6 +362,12 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     for idx, example in enumerate(hypothesis.positive_examples):
         if any(precond.verify(example) for precond in precond_candids):
             true_example_ids.add(idx)
+
+    print("True Example IDs", len(true_example_ids), len(hypothesis.positive_examples))
+
+    print("Preconditions")
+    for precond in precond_candids:
+        print(precond)
 
     if len(true_example_ids) == len(hypothesis.positive_examples):
         return precond_candids
