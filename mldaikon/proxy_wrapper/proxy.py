@@ -6,18 +6,22 @@ import threading
 
 import torch
 import time
-
+from typing import Union, Tuple, Any, Callable, Iterator, Set, Optional, overload, TypeVar, Mapping, Dict, List
 from mldaikon.utils import typename
 from mldaikon.config.config import debug_mode, proxy_log_dir, proxy_update_limit
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.dumper import dump_tensor, dump_attributes, dump_meta_vars, torch_serialize
 from mldaikon.proxy_wrapper.utils import print_debug
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
+import linecache
+
+def get_line(filename, lineno):
+    return linecache.getline(filename, lineno).strip()
 
 class Proxy:
     proxy_dict = {}
-    # frame_dict = {} # Ziming: deprecated frame based identifier
-    # tensor_frame_dict = {} # Ziming: deprecated tensor.shape based identifier
+    frame_dict = {} # Ziming: deprecated frame based identifier
+    tensor_frame_dict = {} # Ziming: deprecated tensor.shape based identifier
     tensor_var_dict = {}
     var_dict = {}
     logger_proxy = logging.getLogger("proxy")
@@ -56,7 +60,7 @@ class Proxy:
             else:
                 print_debug("logger_proxy: " + f"'{value}'")
 
-    def __init__(self, obj, logdir="proxy_log.log", log_level=logging.INFO):
+    def __init__(self, obj, logdir="proxy_log.log", log_level=logging.INFO, is_root= False ):
         self.__dict__["process_id"] = os.getpid()
         self.__dict__["thread_id"] = threading.current_thread().ident
         self.__dict__["logdir"] = logdir
@@ -64,6 +68,7 @@ class Proxy:
         self.__dict__["meta_vars"] = {}
         self.__dict__["last_update_timestamp"]=0
         self.__dict__["is_proxied_obj"]=True
+        self.__dict__["is_root"]=is_root
 
         if type(obj) is Proxy:
             print_debug(
@@ -71,6 +76,7 @@ class Proxy:
                 + f"Object '{obj.__class__.__name__}' is already a proxy"
             )
             self._obj = obj._obj
+            self.__dict__["dumped_varname_list"] = obj.__dict__["dumped_varname_list"]
 
         else:
             frame = inspect.currentframe()
@@ -81,8 +87,10 @@ class Proxy:
                     frame = frame.f_back
                 else:
                     # Ziming: old line number based identifier
-                    if debug_mode:
-                        frame_array.append((frame.f_code.co_filename, frame.f_lineno))
+                    
+                    # frame_array.append(inspect.getsource(frame.f_code))
+                    # frame_array.append((frame.f_code.co_filename, frame.f_lineno))
+                    frame_array.append((frame.f_code.co_filename, get_line(frame.f_code.co_filename, frame.f_lineno)))
                     # fetch the var_name from the stack_frame
                     current_var_name = None
                     for var_name, var_val in frame.f_locals.items():
@@ -94,7 +102,8 @@ class Proxy:
                             "of the object is found in the current frame")
                         var_list.append(current_var_name)
                     frame = frame.f_back
-                    
+            # Ziming: old line number based identifier
+            dumped_frame_array = json.dumps(frame_array)  
             # print_debug the variable name list of the object
             if len(var_list) == 0:
                 print_debug("logger_proxy: " + f"Empty variable name list")
@@ -114,11 +123,30 @@ class Proxy:
             
             # Ziming: here we still seperate the handling of tensor and other objects
             # however, despite the dumping logic these two are identical and could be merged
+            if self.__dict__["is_root"] == True:
+                print("found the root object")
+            if issubclass(type(obj), torch.nn.Module):
+                # proxy all of its submodules
+                if self.__dict__["is_root"] == True:
+                    print("logger_proxy: " + f"Proxying all submodules of '{obj.__class__.__name__}'")
+                    for name, module in obj.named_children():
+                        print("logger_proxy: " + f"Proxying submodule '{name}'")
+                        setattr(obj, name, Proxy(module))
+                        if issubclass(type(module), torch.nn.Module):
+                            for name, submodule in module.named_children():
+                                print("logger_proxy: " + f"Proxying submodule '{name}'")
+                                setattr(module, name, Proxy(submodule))
+                                
+                                        
+            
             if type(obj) is torch.Tensor:
                 # init tensor
+                tensor_shape = obj.shape.__str__()
+                current_var_name_list = current_var_name_list + dumped_frame_array + tensor_shape
                 if Proxy.tensor_var_dict.get(current_var_name_list) is None:
                     self.__dict__["_obj"] = obj
                     Proxy.tensor_var_dict[current_var_name_list] = self
+                    # if it is a method rather than an object, then we should not dump it
                     
                     self.jsondumper.dump_json(
                         self.process_id,
@@ -127,15 +155,20 @@ class Proxy:
                         self.__dict__["dumped_varname_list"],
                         type(obj).__name__,
                         dump_tensor(obj),
+                        "new",
                         dump_attributes(obj),
+                        dumped_frame_array
                     )
                     self.__dict__["last_update_timestamp"] = time.time()
                 # update tensor
                 else:
                     print_debug(
                         "logger_proxy: "
-                        + f"Tensor '{current_var_name_list}' is already proxied"
+                        + f"Tensor name: '{current_var_name_list}' is already proxied"
                     )
+                    
+                    print_debug(f'Time elapse: {time.time() - Proxy.tensor_var_dict[current_var_name_list].__dict__["last_update_timestamp"]}')
+                    
 
                     if time.time() - Proxy.tensor_var_dict[current_var_name_list].__dict__["last_update_timestamp"] < proxy_update_limit:
                         self.__dict__["_obj"] = obj
@@ -148,7 +181,9 @@ class Proxy:
                         self.__dict__["dumped_varname_list"],
                         type(obj).__name__,
                         dump_tensor(obj),
+                        "update",
                         dump_attributes(obj),
+                        dumped_frame_array
                     )
 
                     del Proxy.tensor_var_dict[current_var_name_list]
@@ -156,6 +191,7 @@ class Proxy:
                     self.__dict__["last_update_timestamp"] = time.time()
                     Proxy.tensor_var_dict[current_var_name_list] = self
             else:
+                current_var_name_list = current_var_name_list + dumped_frame_array
                 if Proxy.var_dict.get(current_var_name_list) is None:
                     new_value = str(torch_serialize(obj))
                     self.__dict__["_obj"] = obj
@@ -168,7 +204,9 @@ class Proxy:
                         self.__dict__["dumped_varname_list"],
                         type(obj).__name__,
                         new_value,
+                        "new",
                         dump_attributes(obj),
+                        dumped_frame_array
                     )
                     
                     Proxy.var_dict[current_var_name_list] = self
@@ -180,7 +218,8 @@ class Proxy:
                         )
 
                     new_value = str(torch_serialize(obj))
-                                            
+                    
+                    print_debug(f'Time elapse: {time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"]}')            
                     if time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"] < proxy_update_limit:
                         self.__dict__["_obj"] = obj
                         return
@@ -192,7 +231,9 @@ class Proxy:
                         self.__dict__["dumped_varname_list"],
                         type(obj).__name__,
                         new_value,
+                        "update",
                         dump_attributes(obj),
+                        dumped_frame_array
                     )
                     
                     del Proxy.var_dict[current_var_name_list]
@@ -203,33 +244,76 @@ class Proxy:
     @property
     def __class__(self):
         return self._obj.__class__
+    
+    def step(self, *args, **kwargs):
+        print("logger_proxy: " + f"Go to step for object '{self.__class__.__name__}'")
+        self._obj.__class__.step(self, *args, **kwargs)
+        
+    
 
     def __call__(self, *args, **kwargs):
         print_debug(
             "logger_proxy: " + f"Go to __call__ for object '{self.__class__.__name__}'"
         )
-        args = tuple(arg._obj if (type(arg) is Proxy) else arg for arg in args)
-        kwargs = {k: v._obj if (type(v) is Proxy) else v for k, v in kwargs.items()}
-
+        # args = tuple(arg._obj if (hasattr(arg,"is_proxied_obj")) else arg for arg in args)
+        # kwargs = {k: v._obj if (hasattr(v,"is_proxied_obj") ) else v for k, v in kwargs.items()}
+        
+        args = tuple(arg._obj if (type(arg) is Proxy and not issubclass(arg._obj,torch.nn.Module) ) else arg for arg in args)
+        kwargs = {k: v._obj if (type(v) is Proxy  and not issubclass(v._obj,torch.nn.Module)) else v for k, v in kwargs.items()}
+        # try:
+        #     result = self._obj.__call__(self, *args, **kwargs)
+        # except Exception as e:
+        #     print(e)
+        #     print(f"Exception in call for object '{self.__class__.__name__}' Shift to unwrapped function call")
+        #     result = self._obj(*args, **kwargs)
         result = self._obj(*args, **kwargs)
-
         # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
         if typename(result).startswith("torch.distributed"):
             return result
-
-        return Proxy(result, logdir=self.logdir, log_level=self.log_level)
+        return result
+        # return Proxy(result, logdir=self.logdir, log_level=self.log_level)
 
     def __getattr__(self, name):
         print_debug("logger_proxy: " + f"Accessing attribute '{name}'")
         if name == "logdir":
             return self.__dict__.get("logdir", None)  # in order to pass down the dir
+        if name == "_obj":
+            return self.__dict__.get("_obj", None)  # in order to pass down the dir
         attr = getattr(self._obj, name)
+        
+        # don't dump out the __getattr__ for now
+        # self.jsondumper.dump_json(
+        #     self.process_id,
+        #     self.thread_id,
+        #     dump_meta_vars(proxy_file_path=__file__),
+        #     self.__dict__["dumped_varname_list"],
+        #     type(attr).__name__,
+        #     str(torch_serialize(attr)),
+        #     dump_attributes(attr),
+        #     "get"
+        # )
 
         # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
         if typename(attr).startswith("torch.distributed"):
             return attr
-
-        return Proxy(attr, logdir=self.logdir, log_level=self.log_level)
+        # if attr is a tensor or nn.Module, return a proxy object
+        if isinstance(attr, torch.Tensor):
+            return Proxy(attr, logdir=self.logdir, log_level=self.log_level)
+        if issubclass(type(attr), torch.nn.Module):
+            return Proxy(attr, logdir=self.logdir, log_level=self.log_level)
+        
+            # if attr is a bound method, return a wrapper function
+        if callable(attr):
+            def method(*args, **kwargs):
+                result = Proxy(attr)(*args, **kwargs)
+                print_debug(f"Called method '{name}' with result {result}")
+                # if result is not primitive, return a proxy object
+                if not isinstance(result, (int, float, str, bool)):
+                    return Proxy(result, logdir=self.logdir, log_level=self.log_level)
+                return result
+            return method
+        return attr
+        # return Proxy(attr, logdir=self.logdir, log_level=self.log_level)
 
     def __setattr__(self, name, value):
         print_debug("logger_proxy: " + f"Setting attribute '{name}' to '{value}'")
@@ -246,11 +330,12 @@ class Proxy:
                 dump_meta_vars(proxy_file_path=__file__),
                 self.__dict__["dumped_varname_list"],
                 type(value).__name__,
+                "update",
                 new_value,
                 dump_attributes(value),
             )
 
-            if not type(value) in [int, float, str, bool] and value is not None:
+            if value is not None:
                 setattr(
                     self._obj,
                     name,
@@ -267,15 +352,12 @@ class Proxy:
     def __iter__(self):
         print_debug("logger_proxy: " + f"Calling __iter__")
         # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
-        return iter(
-            (
-                Proxy(obj, logdir=self.logdir, log_level=self.log_level)
-                if not typename(obj).startswith("torch.distributed")
-                else obj
-            )
-            for obj in self._obj
-        )
-
+        for element in self._obj:
+            if typename(element).startswith("torch.distributed"):
+                yield element
+            else:
+                yield Proxy(element, logdir=self.logdir, log_level=self.log_level)
+    
     def __next__(self):
         print_debug("logger_proxy: " + f"Calling __next__")
         result = next(self._obj)
@@ -316,6 +398,30 @@ class Proxy:
     max = proxy_methods.max
     min = proxy_methods.min
     size = proxy_methods.size
+    
+    # T = TypeVar('T', bound='torch.Module')
+    # def train(self: T, mode: bool = True) -> T:
+    #     r"""Set the module in training mode.
+
+    #     This has any effect only on certain modules. See documentations of
+    #     particular modules for details of their behaviors in training/evaluation
+    #     mode, if they are affected, e.g. :class:`Dropout`, :class:`BatchNorm`,
+    #     etc.
+
+    #     Args:
+    #         mode (bool): whether to set training mode (``True``) or evaluation
+    #                     mode (``False``). Default: ``True``.
+
+    #     Returns:
+    #         Module: self
+    #     """
+    #     if not isinstance(mode, bool):
+    #         raise ValueError("training mode is expected to be boolean")
+    #     self.training = mode
+    #     for module in self.children():
+    #         module = Proxy(module)
+    #         module.train(mode)
+    #     return self
 
     def print_proxy_dict(self, proxy_dict):
         # for debugging purpose: print the var_dict of the proxy object
@@ -325,3 +431,8 @@ class Proxy:
                 self.print_tensor(value)
             else:
                 print_debug("logger_proxy: " + f"{k}: {value}")
+
+class RootProxy(Proxy):
+    def __init__(self, obj, logdir="proxy_log.log", log_level=logging.INFO):
+        super().__init__(obj, logdir, log_level)
+        self.__dict__["is_root"] = True

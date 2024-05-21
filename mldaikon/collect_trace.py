@@ -79,6 +79,11 @@ if __name__ == "__main__":
         default=config.proxy_update_limit,
         help="The threshold for updating the proxy object",
     )
+    parser.add_argument(
+        "--debug_mode",
+        action="store_true",
+        help="Enable debug mode for the program",
+    )
         
         
     args = parser.parse_args()
@@ -87,6 +92,7 @@ if __name__ == "__main__":
     config.proxy_log_dir = args.tracer_log_dir
     config.proxy_update_limit = args.proxy_update_limit
     config.profiling = args.profiling # the profiling has not yet been enacted yet
+    config.debug_mode = args.debug_mode
 
     # set up logging
     logging.basicConfig(level=logging.INFO)

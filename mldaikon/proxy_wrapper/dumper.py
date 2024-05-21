@@ -9,8 +9,10 @@ class json_dumper:
         self.json_file = open(json_file_path, "a")
 
     def dump_json(
-        self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, var_attributes
+        self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, change_type, var_attributes, stack_trace=None
     ):
+        if var_type == "method":
+            return
         data = {
             "process_id": process_id,
             "thread_id": thread_id,
@@ -19,7 +21,9 @@ class json_dumper:
             "var_name": variable_name,
             "var_type": var_type,
             "attributes": var_attributes,
-            "value": var_value
+            "change_type": change_type,  # "new", "update"
+            "value": var_value,
+            "stack_trace": stack_trace,
         }
         json_data = json.dumps(data)
 
@@ -32,14 +36,16 @@ class json_dumper:
         return json_dumper(self.json_file.name)
 
 def dump_tensor(value):
-    min = float(value.min().item())
-    max = float(value.max().item())
-    shape = tuple(int(x) for x in value.size())
-    result = {
-        "min": min,
-        "max": max,
-        "shape": shape,
-    }
+    result = None
+    if isinstance(value, torch.Tensor):
+        min = float(value.min().item())
+        max = float(value.max().item())
+        shape = tuple(int(x) for x in value.size())
+        result = {
+            "min": min,
+            "max": max,
+            "shape": shape,
+        }
     return result
 
 def dump_attributes(obj):
@@ -63,7 +69,7 @@ def dump_attributes(obj):
                 result[attr_name] = str(attr)
         except Exception as e:
             print_debug(
-                f"Failed to get attribute {attr_name} of object {obj}, skipping it. Error: {e}"
+                f"Failed to get attribute {attr_name} of object type {type(obj)}, skipping it. Error: {e}"
             ) 
     return result
 
@@ -98,6 +104,10 @@ def torch_serialize(obj):
         return new_value
     if isinstance(obj, torch.nn.Module):
         new_value = obj.__class__.__name__ + "(nn.Module)"
+        
+        # dump out all tensors inside the nn.Module
+        for name, param in obj.named_parameters():
+            new_value += f"\n{name}: {dump_tensor(param)}"
         return new_value
     else:
         try:

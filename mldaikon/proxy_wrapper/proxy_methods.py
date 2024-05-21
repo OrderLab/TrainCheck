@@ -23,7 +23,10 @@ def __add__(self, other):
         "logger_proxy: " + f"Calling __add__ for object '{self.__class__.__name__}'"
     )
     other = other._obj if hasattr(other, 'is_proxied_obj') else other
-    return self._obj + other
+    if isinstance(other, str):
+        # If the other operand is a string, concatenate it with the string representation of the Proxy object
+        return str(self._obj) + other
+    return self._obj.__add__(other)
 
 def __or__(self, other):
     print_debug(
@@ -50,10 +53,10 @@ def __ror__(self, other):
     print_debug(
         "logger_proxy: " + f"Calling __ror__ for object '{self.__class__.__name__}'"
     )
+    other = other._obj if hasattr(other, 'is_proxied_obj') else other
     if isinstance(other, bool):
         return other | bool(self._obj)
-    else:
-        return other | self._obj
+    return self._obj.__ror__(other)
 
 def __radd__(self, other):
     print_debug(
@@ -62,7 +65,10 @@ def __radd__(self, other):
     )
     # Unwrap other if it's a Proxy
     other = other._obj if hasattr(other, 'is_proxied_obj') else other
-    return other + self._obj
+    if isinstance(other, str):
+        # If the other operand is a string, concatenate it with the string representation of the Proxy object
+        return other + str(self._obj)
+    return self._obj.__radd__(other)
 
 def __iadd__(self, other):
     print_debug(
@@ -71,7 +77,7 @@ def __iadd__(self, other):
     )
     # Unwrap other if it's a Proxy
     other = other._obj if hasattr(other, 'is_proxied_obj') else other
-    self._obj += other
+    self._obj.__iadd__(other)
     return self
 
 def __sub__(self, other):
