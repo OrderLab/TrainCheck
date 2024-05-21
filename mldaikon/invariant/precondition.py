@@ -230,6 +230,7 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
         if len(clauses_and_example_ids[clause]) == len(hypothesis.positive_examples)
     }
     clause_ever_false_in_neg = {clause: False for clause in clauses_and_example_ids}
+    print("clause_ever_false_in_neg", clause_ever_false_in_neg)
     neg_examples_passing_preconditions = []
 
     for neg_example in tqdm(hypothesis.negative_examples, desc="Pruning Precondition"):
@@ -259,10 +260,6 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
         return [Precondition(list(precond_clause_candidates))]
 
     # if we have violations, let's try to add constraints to the preconditions
-
-    # print(Precondition(list(clauses_and_example_ids.keys())))
-    # print(len(neg_examples_passing_preconditions))
-    # raise NotImplementedError("Precondition Split is not implemented yet.")
 
     # let's first find the existing clauses whose target are bool type and values are {True, False}
     consistent_bool_clauses = {
@@ -300,17 +297,17 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
             continue
 
         if not true_res:
-            split_bool_clauses.append((clause, True))
+            split_bool_clauses.append((true_precondition, false_precondition, True))
         if not false_res:
-            split_bool_clauses.append((clause, False))
+            split_bool_clauses.append((true_precondition, false_precondition, False))
 
     print("Split Bool Clauses")
-    for clause, val in split_bool_clauses:
+    for true_precondition, false_precondition, val in split_bool_clauses:
         print(clause, val)
 
     partial_clauses = {
-        clause: clause_targets_and_example_ids[clause]
-        for clause in clause_targets_and_example_ids if len(clause_targets_and_example_ids[clause]) < len(hypothesis.positive_examples)
+        clause: clauses_and_example_ids[clause]
+        for clause in clauses_and_example_ids if len(clauses_and_example_ids[clause]) < len(hypothesis.positive_examples)
     }
 
     # sort the partial clauses by the number of examples they are found in
@@ -319,6 +316,54 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     print("Partial Clauses")
     for clause in partial_clauses:
         print(clause, len(partial_clauses[clause]) / len(hypothesis.positive_examples))
+
+    # do partial clause grouping for clauses that have 1 correlation on the positive examples
+    partial_clauses_grouped = {}
+    for clause in partial_clauses:
+        ids = tuple(partial_clauses[clause])
+        if ids not in partial_clauses_grouped:
+            partial_clauses_grouped[ids] = []
+        partial_clauses_grouped[ids].append(clause)
+    print("Partial Clauses Grouped")
+
+    # filter out the groups that are considered as not statistically significant
+    partial_clauses_grouped = {group: clauses for group, clauses in partial_clauses_grouped.items() if is_statistical_significant(group)}
+
+    print("Partial Clauses Grouped")
+    for group in partial_clauses_grouped:
+        print(partial_clauses_grouped[group], len(group) / len(hypothesis.positive_examples))
+
+    # naive implementation for now
+    assert len(split_bool_clauses) == 1, "Can only handle one split bool clause for now"
+    # let's try to add conditions on that split_bool_clauses
+    true_precondition, false_precondition, val = split_bool_clauses[0]
+    precond_to_be_refined = true_precondition if val else false_precondition
+
+    # let's try to add partial clauses to the precond_to_be_refined
+    for group in partial_clauses_grouped:
+        for clause in partial_clauses_grouped[group]:
+            precond_to_be_refined.clauses.append(clause)
+
+    # verification on negative examples
+    res = verify_precondition_safety(precond_to_be_refined, neg_examples_passing_preconditions)
+    assert res, "The refined precondition is not safe"
+
+    # verification on positive examples for all the preconditions
+    precond_candids = [precond_to_be_refined, true_precondition if not val else false_precondition]
+    true_example_ids = set()
+    for idx, example in enumerate(hypothesis.positive_examples):
+        if any(precond.verify(example) for precond in precond_candids):
+            true_example_ids.add(idx)
+
+    if len(true_example_ids) == len(hypothesis.positive_examples):
+        return precond_candids
+    
+    raise ValueError("Cannot find a valid precondition")
+
+    # if there's no split_bool_clauses, we need to split the existing clauses by selecting 2 or more partial clauses and add them, respectively, to the existing preconditions
+
+    # if there's split_bool_clauses, we try to add one partial clause to the existing preconditions
+
 
     # print("Partial Clauses")
 
