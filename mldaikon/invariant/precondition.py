@@ -52,7 +52,7 @@ class PreconditionClause:
             return False
 
         if self.type == PT.CONSISTENT:
-            if prop_values_seen == self.values:
+            if len(prop_values_seen) == 1:
                 return True
             return False
 
@@ -84,7 +84,7 @@ class Precondition:
         return self.__str__()
 
     def __str__(self) -> str:
-        output = "======================"
+        output = "======================\n"
         for clause in self.clauses:
             output += str(clause) + "\n"
         output += "======================"
@@ -143,6 +143,19 @@ def _find_local_clause_targets(example: list, key_to_skip: str = "param_value") 
             clause_targets[PT.UNEQUAL].add(prop)
     return clause_targets
 
+def verify_precondition_safety(precondition: Precondition, negative_examples: list) -> bool:
+    """Given a precondition and a list of negative examples, should return True if the precondition is safe to use, False otherwise.
+
+    args:
+        precondition: Precondition
+            A precondition to verify against the negative examples.
+        negative_examples: list
+            A list of negative examples to verify the precondition against.
+    """
+    for example in negative_examples:
+        if precondition.verify(example):
+            return False
+    return True
 
 def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     """Given a hypothesis, should return a list of `Precondition` objects that invariants should hold if one of the `Precondition` is satisfied.
@@ -245,54 +258,70 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     if len(neg_examples_passing_preconditions) == 0:
         return [Precondition(list(precond_clause_candidates))]
 
-    # if we have violations, let's try to generate new preconditions by adding constraints to the existing ones
-    print(Precondition(list(clauses_and_example_ids.keys())))
-    print(len(neg_examples_passing_preconditions))
-    raise NotImplementedError("Precondition Split is not implemented yet.")
+    # if we have violations, let's try to add constraints to the preconditions
 
-    # """ Precondition Refinement Logic:
+    # print(Precondition(list(clauses_and_example_ids.keys())))
+    # print(len(neg_examples_passing_preconditions))
+    # raise NotImplementedError("Precondition Split is not implemented yet.")
 
-    # # Background: The preconditions inferred from the positive examples might be over-constrained and contains a lot of noises.
-    #     The goal here is get rid of such noises, such as (is_cuda, constant, [True]). Note: The goal here is not to refine the preconditions that might be inaccurate, but to get rid of the ones that are not necessary.
-    # """
-    # pre_cond_num_false_in_neg = {}
-    # for key in preconditions:
-    #     pre_cond_num_false_in_neg[key] = 0
+    # let's first find the existing clauses whose target are bool type and values are {True, False}
+    consistent_bool_clauses = {
+        clause
+        for clause in precond_clause_candidates
+        if clause.type == PT.CONSISTENT
+        and len(clause.values) == 2
+        and True in clause.values
+        and False in clause.values
+    }
 
-    # for neg_example in tqdm(hypothesis.negative_examples, desc="Refining Precondition"):
-    #     whether_precondition_holds = True
-    #     for key in preconditions:
-    #         whether_key_holds = preconditions[key].verify(neg_example)
-    #         whether_precondition_holds = (
-    #             whether_precondition_holds and whether_key_holds
-    #         )
-    #         if not preconditions[key].verify(neg_example):
-    #             pre_cond_num_false_in_neg[key] += 1
-    #     if whether_precondition_holds:
-    #         # print preconditions and the negative example
-    #         print("Negative example satisfies the preconditions")
-    #         import pprint
+    split_bool_clauses = []
 
-    #         pprint.pprint(neg_example)
+    for clause in consistent_bool_clauses:
+        # we can split the clause into two clauses
+        # one with True and one with False
+        true_clause = PreconditionClause(clause.prop_name, PT.CONSTANT, {True})
+        false_clause = PreconditionClause(clause.prop_name, PT.CONSTANT, {False})
 
-    #         for key in preconditions:
-    #             # print the precondition itself (target, type, values)
-    #             print(preconditions[key], preconditions[key].verify(neg_example))
-    #             print("values", preconditions[key].values)
-    #             print("type", preconditions[key].type)
-    #             print("target", preconditions[key].prop_name)
-    #             print("==============================")
-    #         raise ValueError("Negative example satisfies the preconditions")
+        # construct the new preconditions by removing the old clause and adding the new clauses
+        true_precondition = Precondition(
+            list(precond_clause_candidates - {clause} | {true_clause})
+        )
 
-    # precond_keys_to_delete = []
-    # for key in preconditions:
-    #     if pre_cond_num_false_in_neg[key] == 0:
-    #         print(
-    #             f"Precondition {key} is not necessary as it is not violated in any of the negative examples"
-    #         )
-    #         precond_keys_to_delete.append(key)
+        false_precondition = Precondition(
+            list(precond_clause_candidates - {clause} | {false_clause})
+        )
 
-    # for key in precond_keys_to_delete:
-    #     del preconditions[key]
+        true_res = verify_precondition_safety(true_precondition, neg_examples_passing_preconditions)
+        false_res = verify_precondition_safety(false_precondition, neg_examples_passing_preconditions)
+        assert true_res or false_res, f"Both true and false preconditions are unsafe for clause {clause}"
 
-    # return preconditions
+        if true_res and false_res:
+            # both are safe, splitting this clause is not necessary
+            continue
+
+        if not true_res:
+            split_bool_clauses.append((clause, True))
+        if not false_res:
+            split_bool_clauses.append((clause, False))
+
+    print("Split Bool Clauses")
+    for clause, val in split_bool_clauses:
+        print(clause, val)
+
+    partial_clauses = {
+        clause: clause_targets_and_example_ids[clause]
+        for clause in clause_targets_and_example_ids if len(clause_targets_and_example_ids[clause]) < len(hypothesis.positive_examples)
+    }
+
+    # sort the partial clauses by the number of examples they are found in
+    partial_clauses = dict(sorted(partial_clauses.items(), key=lambda x: len(x[1]), reverse=True))
+
+    print("Partial Clauses")
+    for clause in partial_clauses:
+        print(clause, len(partial_clauses[clause]) / len(hypothesis.positive_examples))
+
+    # print("Partial Clauses")
+
+    
+        
+        
