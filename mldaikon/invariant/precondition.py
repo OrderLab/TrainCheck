@@ -243,7 +243,7 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
 
     # if no negative examples pass the preconditions, then the precondition is correct and we can return
     if len(neg_examples_passing_preconditions) == 0:
-        return [Precondition(list(clauses_and_example_ids.keys()))]
+        return [Precondition(list(precond_clause_candidates))]
 
     # if we have violations, let's try to generate new preconditions by adding constraints to the existing ones
     print(Precondition(list(clauses_and_example_ids.keys())))
