@@ -5,12 +5,8 @@ import polars as pl
 from tqdm import tqdm
 
 from mldaikon.config import config
-from mldaikon.invariant.base_cls import (
-    Hypothesis,
-    Invariant,
-    Relation,
-    find_precondition,
-)
+from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
+from mldaikon.invariant.precondition import find_precondition
 from mldaikon.ml_daikon_trace import Trace
 
 tracker_var_field_prefix = "attributes."
@@ -210,9 +206,13 @@ class ConsistencyRelation(Relation):
                             continue
 
                         # if the types are different, skipping
-                        if not isinstance(
-                            var_inst_values[var_inst][attr][0].value,
-                            type(var_inst_values[other_var_inst][other_attr][0].value),
+                        # if not isinstance(
+                        #     var_inst_values[var_inst][attr][0].value,
+                        #     type(var_inst_values[other_var_inst][other_attr][0].value),
+                        # ):
+
+                        if type(var_inst_values[var_inst][attr][0].value) != type(
+                            var_inst_values[other_var_inst][other_attr][0].value
                         ):
                             continue
 
@@ -280,7 +280,9 @@ class ConsistencyRelation(Relation):
             if "tensor" in var_type1.lower() and "tensor" in var_type2.lower():
                 SKIP_INIT_VALUES = True
 
-            for idx1, var_inst1 in enumerate(tqdm(var_type1_vars, desc=f"Pruning Hypo {hypo}")):
+            for idx1, var_inst1 in enumerate(
+                tqdm(var_type1_vars, desc=f"Pruning Hypo {hypo}")
+            ):
                 for idx2, var_inst2 in enumerate(var_type2_vars):
                     if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
                         continue
@@ -424,12 +426,7 @@ class ConsistencyRelation(Relation):
         for hypo in hypothesis_with_examples:
             preconditions = find_precondition(hypothesis_with_examples[hypo])
             print(f"Preconditions for {hypo}:")
-            for key in preconditions:
-                print(preconditions[key])
-                print("values", preconditions[key].values)
-                print("type", preconditions[key].type)
-                print("target", preconditions[key].prop_name)
-                print("====================================")
+            print(f"{str(preconditions)}")
             # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant
             if (
                 len(preconditions) == 0
