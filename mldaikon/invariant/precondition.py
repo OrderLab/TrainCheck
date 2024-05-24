@@ -26,8 +26,12 @@ class PreconditionClause:
             PT.CONSTANT,
             PT.UNEQUAL,
         ], f"Invalid Precondition type {_type}"
+
+        if _type in [PT.CONSISTENT, PT.CONSTANT]:
+            assert len(values) > 0, "Values should not be empty for CONSTANT or CONSISTENT type"
+
         self.prop_name = prop_name
-        self.prop_type
+        self.prop_type = prop_type
         self.type = _type
         self.values = values if isinstance(values, set) else {values}
 
@@ -36,6 +40,14 @@ class PreconditionClause:
 
     def __str__(self) -> str:
         return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
+    
+    def __eq__(self, other):
+        if not isinstance(other, PreconditionClause):
+            return False
+        return self.prop_name == other.prop_name and self.prop_type == other.prop_type and self.type == other.type and self.values == other.values
+    
+    def __hash__(self):
+        return hash((self.prop_name, self.prop_type, self.type, tuple(self.values)))
 
     def verify(self, example: list) -> bool:
         assert isinstance(example, list)
@@ -122,9 +134,6 @@ def _find_local_clauses(example: list, key_to_skip: str = "param_value") -> dict
 
         if not isinstance(example[0][prop], Hashable):
             # we cannot use non-hashable properties as preconditions, due to limitations in the current implementation (set cannot contain non-hashable objects)
-            print(
-                f"Warning: Non-hashable property found in the example, skipping this property {prop} ({type(example[0][prop])})"
-            )
             continue
 
         prop_values_seen = {example[0][prop]}
@@ -208,8 +217,10 @@ def _merge_clauses(clauses_lists: list[list[PreconditionClause]]) -> dict[Precon
                 clauses_and_example_ids[clause] = clauses_exp_ids[clause]
 
         # merge the constant clauses into consistent clauses
-        if len(seen_constant_values) > CONST_CLAUSE_NUM_VALUES_THRESHOLD:
-            prop_type 
+        if len(seen_constant_values) == 0:
+            continue
+
+        if len(seen_constant_values) > CONST_CLAUSE_NUM_VALUES_THRESHOLD and prop_type is not bool:
             consistent_clause = PreconditionClause(target, prop_type, PT.CONSISTENT, seen_constant_values)
             clauses_and_example_ids[consistent_clause] = example_ids
         else:
@@ -261,6 +272,16 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
 
     clause_ever_false_in_neg = {clause: False for clause in clauses_and_example_ids}
     passing_neg_exps = []
+
+    print("Number of base preconditions", len(base_precond_clauses))
+    print("Number of total preconditions", len(clauses_and_example_ids))
+    print("Clauses")
+    for clause in clauses_and_example_ids:
+        print(clause, len(clauses_and_example_ids[clause]) / len(hypothesis.positive_examples))
+
+    print("Base preconditions")
+    for clause in base_precond_clauses:
+        print(clause)
 
     for neg_example in tqdm(hypothesis.negative_examples, desc="Pruning Precondition"):
         whether_precondition_holds = True
