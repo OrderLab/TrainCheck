@@ -364,7 +364,7 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
         sub_hypothesis = Hypothesis(
             hypothesis.invariant,
             [hypothesis.positive_examples[i] for i in exp_ids],
-            passing_neg_exps,
+            hypothesis.negative_examples,
         )
         sub_preconditions.extend(find_precondition(sub_hypothesis))
 
