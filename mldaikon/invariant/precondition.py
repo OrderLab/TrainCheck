@@ -28,7 +28,9 @@ class PreconditionClause:
         ], f"Invalid Precondition type {_type}"
 
         if _type in [PT.CONSISTENT, PT.CONSTANT]:
-            assert len(values) > 0, "Values should not be empty for CONSTANT or CONSISTENT type"
+            assert (
+                len(values) > 0
+            ), "Values should not be empty for CONSTANT or CONSISTENT type"
 
         self.prop_name = prop_name
         self.prop_type = prop_type
@@ -40,12 +42,17 @@ class PreconditionClause:
 
     def __str__(self) -> str:
         return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
-    
+
     def __eq__(self, other):
         if not isinstance(other, PreconditionClause):
             return False
-        return self.prop_name == other.prop_name and self.prop_type == other.prop_type and self.type == other.type and self.values == other.values
-    
+        return (
+            self.prop_name == other.prop_name
+            and self.prop_type == other.prop_type
+            and self.type == other.type
+            and self.values == other.values
+        )
+
     def __hash__(self):
         return hash((self.prop_name, self.prop_type, self.type, tuple(self.values)))
 
@@ -149,13 +156,18 @@ def _find_local_clauses(example: list, key_to_skip: str = "param_value") -> dict
         prop_type = type(example[0][prop])
 
         if len(prop_values_seen) == 1:
-            clauses.append(PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen))
+            clauses.append(
+                PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen)
+            )
         elif len(prop_values_seen) == len(example):
             clauses.append(PreconditionClause(prop, prop_type, PT.UNEQUAL, None))
 
     return clauses
 
-def verify_precondition_safety(precondition: Precondition, negative_examples: list) -> bool:
+
+def verify_precondition_safety(
+    precondition: Precondition, negative_examples: list
+) -> bool:
     """Given a precondition and a list of negative examples, should return True if the precondition is safe to use, False otherwise.
 
     args:
@@ -171,9 +183,12 @@ def verify_precondition_safety(precondition: Precondition, negative_examples: li
             return False
     return True
 
-def _merge_clauses(clauses_lists: list[list[PreconditionClause]]) -> dict[PreconditionClause, list[int]]:
+
+def _merge_clauses(
+    clauses_lists: list[list[PreconditionClause]],
+) -> dict[PreconditionClause, list[int]]:
     """Given a list of clauses, should merge the 'constant' clauses into 'consistent' clauses if the number of values seen is too large
-    
+
     args:
         clauses: list[list[PreconditionClause]]
             A list of clauses to merge. **The index of the list should correspond to the example index.**
@@ -207,7 +222,9 @@ def _merge_clauses(clauses_lists: list[list[PreconditionClause]]) -> dict[Precon
                 seen_constant_values.update(clause.values)
                 example_ids.update(clauses_exp_ids[clause])
             if clause.type == PT.CONSISTENT:
-                raise ValueError("Consistent clause found in the local clauses, this should not happen")
+                raise ValueError(
+                    "Consistent clause found in the local clauses, this should not happen"
+                )
 
             if clause.type == PT.CONSTANT and prop_type is bool:
                 # if the prop_type is bool, we should not merge the constant clauses
@@ -220,14 +237,22 @@ def _merge_clauses(clauses_lists: list[list[PreconditionClause]]) -> dict[Precon
         if len(seen_constant_values) == 0:
             continue
 
-        if len(seen_constant_values) > CONST_CLAUSE_NUM_VALUES_THRESHOLD and prop_type is not bool:
-            consistent_clause = PreconditionClause(target, prop_type, PT.CONSISTENT, seen_constant_values)
+        if (
+            len(seen_constant_values) > CONST_CLAUSE_NUM_VALUES_THRESHOLD
+            and prop_type is not bool
+        ):
+            consistent_clause = PreconditionClause(
+                target, prop_type, PT.CONSISTENT, seen_constant_values
+            )
             clauses_and_example_ids[consistent_clause] = example_ids
         else:
-            constant_clause = PreconditionClause(target, prop_type, PT.CONSTANT, seen_constant_values)
+            constant_clause = PreconditionClause(
+                target, prop_type, PT.CONSTANT, seen_constant_values
+            )
             clauses_and_example_ids[constant_clause] = example_ids
 
     return clauses_and_example_ids
+
 
 def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     """Given a hypothesis, should return a list of `Precondition` objects that invariants should hold if one of the `Precondition` is satisfied.
@@ -256,7 +281,9 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
 
         if len(local_cluases) == 0:
             print("example: ", example)
-            raise ValueError("No clauses can be found in the example, precondition will be empty.")
+            raise ValueError(
+                "No clauses can be found in the example, precondition will be empty."
+            )
 
         all_local_clauses.append(local_cluases)
 
@@ -273,16 +300,6 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     clause_ever_false_in_neg = {clause: False for clause in clauses_and_example_ids}
     passing_neg_exps = []
 
-    print("Number of base preconditions", len(base_precond_clauses))
-    print("Number of total preconditions", len(clauses_and_example_ids))
-    print("Clauses")
-    for clause in clauses_and_example_ids:
-        print(clause, len(clauses_and_example_ids[clause]) / len(hypothesis.positive_examples))
-
-    print("Base preconditions")
-    for clause in base_precond_clauses:
-        print(clause)
-
     for neg_example in tqdm(hypothesis.negative_examples, desc="Pruning Precondition"):
         whether_precondition_holds = True
         for clause in clauses_and_example_ids:
@@ -296,15 +313,16 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
 
     # delete the clauses that are never violated in the negative examples from both the candidates and the cluses_and_example_ids
     base_precond_clauses = {
-        clause
-        for clause in base_precond_clauses
-        if clause_ever_false_in_neg[clause]
+        clause for clause in base_precond_clauses if clause_ever_false_in_neg[clause]
     }
     clauses_and_example_ids = {
         clause: clauses_and_example_ids[clause]
         for clause in clauses_and_example_ids
         if clause_ever_false_in_neg[clause]
     }
+
+    if len(passing_neg_exps) == 0:
+        return [Precondition(list(base_precond_clauses))]
 
     partial_clauses_and_example_ids = {
         clause: clauses_and_example_ids[clause]
@@ -315,24 +333,30 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     # group the clauses by the example indices
     grouped_clauses = {}
     for clause, exp_ids in partial_clauses_and_example_ids.items():
-        if exp_ids not in grouped_clauses:
-            grouped_clauses[exp_ids] = []
-        grouped_clauses[exp_ids].append(clause)
+        tuple_exp_ids = tuple(exp_ids)
+        if tuple_exp_ids not in grouped_clauses:
+            grouped_clauses[tuple_exp_ids] = []
+        grouped_clauses[tuple_exp_ids].append(clause)
 
     # find the top-level partial examples
     top_level_example_ids = []
     for exp_ids in grouped_clauses:
+        set_exp_ids = set(exp_ids)  # convert to set for the subset operation
         found_relevant = False
         for ids in range(len(top_level_example_ids)):
-            if exp_ids.issubset(top_level_example_ids[ids]):
+            set_top_level_ids = set(top_level_example_ids[ids])
+            if set_exp_ids.issubset(set_top_level_ids):
                 found_relevant = True
                 break
-            if top_level_example_ids[ids].issubset(exp_ids):
+            if set_top_level_ids.issubset(set_exp_ids):
                 top_level_example_ids[ids] = exp_ids
                 found_relevant = True
                 break
         if not found_relevant:
             top_level_example_ids.append(exp_ids)
+
+    # construct the top-level preconditions
+    print(f"Splitting into {len(top_level_example_ids)} sub-hypotheses")
 
     # construct the sub-hypothesis with the top-level partial examples
     sub_preconditions = []
@@ -348,7 +372,11 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     for exp in hypothesis.positive_examples:
         if not any(precond.verify(exp) for precond in sub_preconditions):
             print("Warning: sub-preconditions do not cover all the positive examples")
-            print("Example", exp)        
+            # print("Example", exp)
+            print("Sub-preconditions")
+            for precond in sub_preconditions:
+                print(precond)
+
             raise ValueError("Sub-preconditions do not cover all the positive examples")
-        
+
     return sub_preconditions

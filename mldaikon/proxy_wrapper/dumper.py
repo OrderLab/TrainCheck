@@ -3,13 +3,22 @@ import time
 import torch
 import inspect
 from mldaikon.proxy_wrapper.utils import print_debug
+
+
 class json_dumper:
 
     def __init__(self, json_file_path):
         self.json_file = open(json_file_path, "a")
 
     def dump_json(
-        self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, var_attributes
+        self,
+        process_id,
+        thread_id,
+        meta_vars,
+        variable_name,
+        var_type,
+        var_value,
+        var_attributes,
     ):
         data = {
             "process_id": process_id,
@@ -19,7 +28,7 @@ class json_dumper:
             "var_name": variable_name,
             "var_type": var_type,
             "attributes": var_attributes,
-            "value": var_value
+            "value": var_value,
         }
         json_data = json.dumps(data)
 
@@ -30,6 +39,7 @@ class json_dumper:
 
     def create_instance(self):
         return json_dumper(self.json_file.name)
+
 
 def dump_tensor(value):
     min = float(value.min().item())
@@ -42,6 +52,7 @@ def dump_tensor(value):
     }
     return result
 
+
 def dump_attributes(obj):
     result = {}
     if not hasattr(obj, "__dict__"):
@@ -50,9 +61,9 @@ def dump_attributes(obj):
     if not isinstance(obj, torch.Tensor):
         return result
     obj_dict = obj.__dict__
-    if 'is_proxied_obj' in obj_dict:
+    if "is_proxied_obj" in obj_dict:
         obj = obj_dict["_obj"]._obj
-    
+
     primitive_types = {int, float, str, bool}
     attr_names = [name for name in dir(obj) if not name.startswith("__")]
 
@@ -64,8 +75,9 @@ def dump_attributes(obj):
         except Exception as e:
             print_debug(
                 f"Failed to get attribute {attr_name} of object {obj}, skipping it. Error: {e}"
-            ) 
+            )
     return result
+
 
 def dump_meta_vars(level=8, proxy_file_path=""):
     frame = inspect.currentframe().f_back
