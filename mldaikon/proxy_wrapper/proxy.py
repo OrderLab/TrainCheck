@@ -389,8 +389,3 @@ class Proxy:
                 self.print_tensor(value)
             else:
                 print_debug("logger_proxy: " + f"{k}: {value}")
-
-class RootProxy(Proxy):
-    def __init__(self, obj, logdir="proxy_log.log", log_level=logging.INFO):
-        super().__init__(obj, logdir, log_level)
-        self.__dict__["is_root"] = True

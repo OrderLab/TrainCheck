@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
-from mldaikon.proxy_wrapper.proxy import RootProxy, Proxy
+from mldaikon.proxy_wrapper.proxy import Proxy
 
 class Net(nn.Module):
     def __init__(self):
