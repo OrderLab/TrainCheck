@@ -6,19 +6,19 @@
 
 `import src.proxy_wrapper.proxy as Proxy`
 
-- wrap the machine learning model
+- wrap the machine learning model with `is_root = True`
 
-`model = Proxy(model)`
+`model = Proxy(model, is_root = True)`
 
 - Examples:
 
 As shown in line 140 in `./proxyclass_tracer_result/instrumented_mnist.py`
 
-`model=Proxy.Proxy(model, logdir='log-model-proxy-example.log', log_level=logging.INFO)`
+`model=Proxy.Proxy(model, is_root = True, logdir='log-model-proxy-example.log', log_level=logging.INFO)`
 
 line 99 in `./proxyclass_tracer_result/instrumented_84911.py`
 
-`model_transfer=Proxy.Proxy(model_transfer, "model_transfer-example.log", log_level = logging.INFO)`
+`model_transfer=Proxy.Proxy(model_transfer, is_root = True, "model_transfer-example.log", log_level = logging.INFO)`
 
 Note: Initially, we want to achieve automatic instrumentation via `__new__ wrapper`, wrapping all `torch.nn` modules and add a proxy to the targeted modules inherently. However, it is discovered that this instrumentation would interfere with inherent torch functionality, such as `torch.autograd` behavior.
 
@@ -48,10 +48,11 @@ However, this method still leads to `multiple wrappings` of the same object give
 ## Enforced Rules (to make proxy wrapper well-defined)
 
 1. every proxied object should **NOT** be proxied
-2. every accessed attributed should be proxied
+2. every encounterd `torch.nn.Module` object should be proxied
 3. *Almost* every return value of the function call should be proxied (despite the interfaces specified by *us* to unwrap the object, e.g. `def __float__(obj)`)
-4. every function parameters should **NOT** be proxied
-5. functions that alters (create/add/delete + deepcopy) the input parameters should be wrapped to a special proxy method to ensure those special parameters are still traced
+4. every function parameters, despite `torch.nn.Module` object, should be proxied
+5. the lower level `torch.nn.Module` object (which could invoke python built-in type & functions) should be put in the blacklist and should **NOT** be wrapped ever to avoid unexpected behavior.
+6. ~~~functions that alters (create/add/delete + deepcopy) the input parameters should be wrapped to a special proxy method to ensure those special parameters are still traced~~~ (not required for now)
 (e.g. wrapped `torch.utils.distributed.broadcast` in `proxy.py` as follows):
 
 ```python
@@ -75,7 +76,7 @@ Special care with the wrapping/unwrapping:
 1. Do Modification instead of Initialization:
 don't creat new object unless its an unmutable type. There are some inherent types in `pytorch` that inherits from dict or list type, `isintance` would pass under this case.
 
-2. Do not modify list (still needs triage):
+2. ~~~Do not modify list~~~ (Update: this could be well-handled if we take enough care not to pass `Proxy` objects into Python built-in calls):
 
 ```python
 # Ziming: comment out the dict unwrapping here, it would interfere 
@@ -89,7 +90,87 @@ don't creat new object unless its an unmutable type. There are some inherent typ
 The `_try_get_data` function is responsible for fetching data from the DataLoader's underlying queue. If the data in the queue is wrapped in `Proxy` objects, unwrapping them before `_try_get_data` has a chance to process them might lead to unexpected behavior or errors.
 
 
-## Output (TO BE UPDATED)
+## Output
+
+
+### Proxy wrapper v2
+
+For now, turn on debug_mode in config.py to see full proxy_trace debug output.
+
+Tracing log for DS-1801:
+run `PYTORCH_JIT=0 python -m mldaikon.collect_trace -p Megatron-DeepSpeed/pretrain_gpt.py -s ./pretrain_gpt2_codeparrot_short.sh -t megatron deepspeed torch`
+
+```
+found the root object
+logger_proxy: Proxying all submodules of 'GPTModelPipe'
+logger_proxy: Proxying submodule 'tied_modules'
+logger_proxy: Proxying submodule 'embed'
+logger_proxy: Proxying submodule 'embed'
+logger_proxy: Proxying submodule '3'
+logger_proxy: Proxying submodule '3'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule '4'
+logger_proxy: Proxying submodule '4'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule '5'
+logger_proxy: Proxying submodule '5'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule '6'
+logger_proxy: Proxying submodule 'embed'
+logger_proxy: Proxying submodule '6'
+logger_proxy: Proxying submodule 'embed'
+logger_proxy: Proxying submodule '3'
+logger_proxy: Proxying submodule 'embed'
+logger_proxy: Proxying submodule '3'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule '3'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule '8'
+logger_proxy: Proxying submodule 'input_layernorm'
+logger_proxy: Proxying submodule '8'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'self_attention'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule '4'
+logger_proxy: Proxying submodule 'post_attention_layernorm'
+logger_proxy: Proxying submodule 'mlp'
+logger_proxy: Proxying submodule '4'
+```
+
+### Proxy wrapper v1
 
 Tracing log for `python3 ./proxyclass_tracer_result/instrumented_mnist.py`
 
