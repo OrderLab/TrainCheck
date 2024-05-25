@@ -292,7 +292,9 @@ class Proxy:
                 result = Proxy(attr)(*args, **kwargs)
                 print_debug(f"Called method '{name}' with result {result}")
                 # if result is not primitive, return a proxy object
-                if not isinstance(result, (int, float, str, bool)): # TODO: check if it is sufficient only wrapping torch.nn.Module here
+                if isinstance(result, torch.Tensor):
+                    return Proxy(result, logdir=self.logdir, log_level=self.log_level)
+                elif issubclass(type(result), torch.nn.Module):
                     return Proxy(result, logdir=self.logdir, log_level=self.log_level)
                 return result
             return method

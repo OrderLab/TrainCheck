@@ -2,6 +2,7 @@ import json
 import time
 import torch
 import inspect
+from mldaikon.config.config import meta_var_black_list
 from mldaikon.proxy_wrapper.utils import print_debug
 class json_dumper:
 
@@ -39,12 +40,16 @@ class json_dumper:
 def dump_tensor(value):
     result = None
     if isinstance(value, torch.Tensor):
+        # dump the min, max, mean of the tensor to check whether the tensor is updated
         min = float(value.min().item())
         max = float(value.max().item())
+        mean = float(value.mean().item())
+        
         shape = tuple(int(x) for x in value.size())
         result = {
             "min": min,
             "max": max,
+            "mean": mean,
             "shape": shape,
         }
     return result
@@ -54,16 +59,19 @@ def dump_attributes(obj):
     if not hasattr(obj, "__dict__"):
         return result
     
+    # if the object is a proxy object, get the original object
     obj_dict = obj.__dict__
     if 'is_proxied_obj' in obj_dict:
         obj = obj_dict["_obj"]._obj
     
     # currently only dump primitive types, tensors and nn.Module
-    
     primitive_types = {int, float, str, bool}
     attr_names = [name for name in dir(obj) if not name.startswith("__")]
 
     for attr_name in attr_names:
+        # don't track the attr_name starts with a _ (private variable)
+        if attr_name.startswith("_"):
+            continue
         try:
             attr = getattr(obj, attr_name)
             if type(attr) in primitive_types:
@@ -94,8 +102,8 @@ def dump_meta_vars(level=8, proxy_file_path=""):
             {
                 key: frame_vars[key]
                 for key in frame_vars
-                # Ziming: only get primitive types for now
-                if isinstance(frame_vars[key], (int, float, str, bool))
+                # Ziming: only dump primitive types, block the var name on the black list
+                if isinstance(frame_vars[key], (int, float, str, bool)) and key not in meta_var_black_list
             }
         )
 
