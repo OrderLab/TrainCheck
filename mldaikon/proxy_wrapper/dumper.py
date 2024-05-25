@@ -2,39 +2,53 @@ import json
 import time
 import torch
 import inspect
-from mldaikon.config.config import meta_var_black_list
+from mldaikon.proxy_wrapper.config import meta_var_black_list
 from mldaikon.proxy_wrapper.utils import print_debug
 
-
-class json_dumper:
-
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+    
+class json_dumper(metaclass = Singleton):
+    # singleton pattern for shared state
+    _shared_state = False
     def __init__(self, json_file_path):
         self.json_file = open(json_file_path, "a")
+        self.json_file.write("[\n")
 
     def dump_json(
         self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, change_type, var_attributes, stack_trace=None
     ):
         primitive_types = {int, float, str, bool}
-        if var_type == "method" or var_type in primitive_types:
+        if var_type == "method" or var_type == "function" or var_type in primitive_types:
             return
         data = {
+            "value": var_value,
+            "var_name": variable_name,
+            "var_type": var_type,
             "process_id": process_id,
             "thread_id": thread_id,
             "time": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
-            "var_name": variable_name,
-            "var_type": var_type,
+            
             "attributes": var_attributes,
-            "change_type": change_type,  # "new", "update"
-            "value": var_value,
+            "mode": change_type,  # "new", "update"
+            
             "stack_trace": stack_trace,
         }
         json_data = json.dumps(data)
 
         self.json_file.write(json_data + "\n")
 
+    def __del__(self):
+        self.close()
+    
     def close(self):
         self.json_file.close()
+        self.json_file.write("]\n")
 
     def create_instance(self):
         return json_dumper(self.json_file.name)
@@ -83,7 +97,11 @@ def dump_attributes(obj):
             
             elif isinstance(attr, torch.Tensor):
                 result[attr_name] = dump_tensor(attr)
-                
+            
+            elif isinstance(attr, torch.nn.parameter.Parameter):
+                result[attr_name] = attr.__class__.__name__ + "(Parameter)"
+                result[attr_name] = dump_tensor(attr.data)
+            
             elif isinstance(attr, torch.nn.Module):
                 result[attr_name] = attr.__class__.__name__ + "(nn.Module)"  
                 # dump out all tensors inside the nn.Module

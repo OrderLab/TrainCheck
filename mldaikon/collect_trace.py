@@ -2,6 +2,7 @@ import argparse
 import logging
 
 import mldaikon.config.config as config
+import mldaikon.proxy_wrapper.config as proxy_config
 import mldaikon.instrumentor as instrumentor
 import mldaikon.runner as runner
 
@@ -76,7 +77,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--proxy_update_limit",
         type=float,
-        default=config.proxy_update_limit,
+        default=proxy_config.proxy_update_limit,
         help="The threshold for updating the proxy object",
     )
     parser.add_argument(
@@ -86,12 +87,12 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    config.disable_proxy_class = args.disable_proxy_class
     config.INCLUDED_WRAP_LIST = args.wrapped_modules
-    config.proxy_log_dir = args.tracer_log_dir
-    config.proxy_update_limit = args.proxy_update_limit
-    config.profiling = args.profiling  # the profiling has not yet been enacted yet
-    config.debug_mode = args.debug_mode
+    proxy_config.disable_proxy_class = args.disable_proxy_class
+    proxy_config.proxy_log_dir = args.tracer_log_dir
+    proxy_config.proxy_update_limit = args.proxy_update_limit
+    proxy_config.profiling = args.profiling  # the profiling has not yet been enacted yet
+    proxy_config.debug_mode = args.debug_mode
 
     # set up logging
     logging.basicConfig(level=logging.INFO)

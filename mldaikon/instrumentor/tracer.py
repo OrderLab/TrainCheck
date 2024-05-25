@@ -13,9 +13,8 @@ import torch
 import torch.utils
 
 # from mldaikon.proxy_wrapper.proxy import Proxy
-from mldaikon.config.config import disable_proxy_class
+from mldaikon.proxy_wrapper.config import disable_proxy_class
 from mldaikon.utils import typename
-from mldaikon.proxy_wrapper.proxy import Proxy
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -135,30 +134,30 @@ def global_wrapper(original_function, *args, **kwargs):
     )
     try:
 
-        def unwrap_proxies(obj):
-            if isinstance(obj, Proxy):
-                return unwrap_proxies(obj._obj)
-            elif isinstance(obj, list):
-                for i in range(len(obj)):
-                    obj[i] = unwrap_proxies(obj[i])
-                return obj
+        # def unwrap_proxies(obj):
+        #     if isinstance(obj, Proxy):
+        #         return unwrap_proxies(obj._obj)
+        #     elif isinstance(obj, list):
+        #         for i in range(len(obj)):
+        #             obj[i] = unwrap_proxies(obj[i])
+        #         return obj
             # Ziming: comment out the dict unwrapping here, it would interfere
             # with the _try_get_data functionality in dataloader
             # elif isinstance(obj, dict):
             #     for key in obj:
             #         obj[key] = unwrap_proxies(obj[key], level+1)
             #     return obj
-            elif isinstance(obj, tuple):
-                obj = tuple(unwrap_proxies(item) for item in obj)
-                return obj
-            elif isinstance(obj, types.ModuleType):
-                return obj
-            else:
-                return obj
+            # elif isinstance(obj, tuple):
+            #     obj = tuple(unwrap_proxies(item) for item in obj)
+            #     return obj
+            # elif isinstance(obj, types.ModuleType):
+            #     return obj
+            # else:
+            #     return obj
 
-        if not disable_proxy_class:
-            args = [unwrap_proxies(arg) for arg in args]
-            kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
+        # if not disable_proxy_class:
+        #     args = [unwrap_proxies(arg) for arg in args]
+        #     kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
