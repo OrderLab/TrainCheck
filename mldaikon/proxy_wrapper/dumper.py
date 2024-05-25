@@ -4,6 +4,8 @@ import torch
 import inspect
 from mldaikon.config.config import meta_var_black_list
 from mldaikon.proxy_wrapper.utils import print_debug
+
+
 class json_dumper:
 
     def __init__(self, json_file_path):
@@ -37,6 +39,7 @@ class json_dumper:
     def create_instance(self):
         return json_dumper(self.json_file.name)
 
+
 def dump_tensor(value):
     result = None
     if isinstance(value, torch.Tensor):
@@ -54,6 +57,7 @@ def dump_tensor(value):
         }
     return result
 
+
 def dump_attributes(obj):
     result = {}
     if not hasattr(obj, "__dict__"):
@@ -61,7 +65,7 @@ def dump_attributes(obj):
     
     # if the object is a proxy object, get the original object
     obj_dict = obj.__dict__
-    if 'is_proxied_obj' in obj_dict:
+    if "is_proxied_obj" in obj_dict:
         obj = obj_dict["_obj"]._obj
     
     # currently only dump primitive types, tensors and nn.Module
@@ -90,6 +94,7 @@ def dump_attributes(obj):
                 f"Failed to get attribute {attr_name} of object type {type(obj)}, skipping it. Error: {e}"
             ) 
     return result
+
 
 def dump_meta_vars(level=8, proxy_file_path=""):
     frame = inspect.currentframe()

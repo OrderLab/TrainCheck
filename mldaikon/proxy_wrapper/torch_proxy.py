@@ -3,11 +3,13 @@ import logging
 import torch.distributed
 from torch._C._distributed_c10d import ReduceOp
 from .proxy import Proxy
+
 #################################################
 ###         Proxied Torch functions
 
 # Save the original broadcast function
 original_broadcast = torch.distributed.broadcast
+
 
 def broadcast(tensor, src, group=None, async_op=False):
     # Perform the original broadcast operation
@@ -26,6 +28,7 @@ def broadcast(tensor, src, group=None, async_op=False):
 torch.distributed.broadcast = broadcast
 
 original_all_reduce = torch.distributed.all_reduce
+
 
 def all_reduce(tensor, op=ReduceOp.SUM, group=None, async_op=False):
     if type(tensor) is Proxy:

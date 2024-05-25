@@ -26,3 +26,4 @@ PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be th
     "^can_.*$",  # e.g., can_cast, can_slice
 ]
 PROP_ATTR_TYPES = [bool]
+CONST_CLAUSE_NUM_VALUES_THRESHOLD = 10  # FIXME: ad-hoc

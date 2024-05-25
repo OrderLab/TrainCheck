@@ -10,7 +10,12 @@ from typing import Union, Tuple, Any, Callable, Iterator, Set, Optional, overloa
 from mldaikon.utils import typename
 from mldaikon.config.config import debug_mode, proxy_log_dir, proxy_update_limit
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
-from mldaikon.proxy_wrapper.dumper import dump_tensor, dump_attributes, dump_meta_vars, torch_serialize
+from mldaikon.proxy_wrapper.dumper import (
+    dump_tensor,
+    dump_attributes,
+    dump_meta_vars,
+    torch_serialize,
+)
 from mldaikon.proxy_wrapper.utils import print_debug
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
 import linecache
@@ -32,8 +37,7 @@ class Proxy:
     handler.setLevel(loglevel)
     logger_proxy.handlers.clear()
     logger_proxy.addHandler(handler)
-    
-    
+
     empty_name_counts = 0
     non_empty_name_counts = 0
 
@@ -92,12 +96,16 @@ class Proxy:
                     # fetch the var_name from the stack_frame
                     current_var_name = None
                     for var_name, var_val in frame.f_locals.items():
-                        if var_val is obj or (isinstance(var_val, Proxy) and var_val._obj is obj):
+                        if var_val is obj or (
+                            isinstance(var_val, Proxy) and var_val._obj is obj
+                        ):
                             current_var_name = var_name
                             break
                     if current_var_name is not None:
-                        print_debug("logger_proxy: " + f"Variable name f{current_var_name}"\
-                            "of the object is found in the current frame")
+                        print_debug(
+                            "logger_proxy: " + f"Variable name f{current_var_name}"
+                            "of the object is found in the current frame"
+                        )
                         var_list.append(current_var_name)
                     frame = frame.f_back
             
@@ -108,18 +116,23 @@ class Proxy:
                 print_debug("logger_proxy: " + f"Empty variable name list")
                 Proxy.empty_name_counts += 1
             else:
-                print_debug("logger_proxy: " + f"Variable name list: {var_list}") 
+                print_debug("logger_proxy: " + f"Variable name list: {var_list}")
                 Proxy.non_empty_name_counts += 1
-            print_debug("logger_proxy: " + f"Empty name counts: {Proxy.empty_name_counts}")
-            print_debug("logger_proxy: " + f"Non-empty name counts: {Proxy.non_empty_name_counts}")
-            
+            print_debug(
+                "logger_proxy: " + f"Empty name counts: {Proxy.empty_name_counts}"
+            )
+            print_debug(
+                "logger_proxy: "
+                + f"Non-empty name counts: {Proxy.non_empty_name_counts}"
+            )
+
             # dumped var_list
             if len(var_list) == 0:
                 current_var_name_list = "None"
             else:
                 current_var_name_list = json.dumps(var_list)
             self.__dict__["dumped_varname_list"] = current_var_name_list
-            
+
             # Ziming: here we still seperate the handling of tensor and other objects
             # however, despite the dumping logic these two are identical and could be merged
             if self.__dict__["is_root"] == True:
@@ -196,7 +209,7 @@ class Proxy:
                 if Proxy.var_dict.get(current_var_name_list) is None:
                     new_value = str(torch_serialize(obj))
                     self.__dict__["_obj"] = obj
-                    
+
                     self.__dict__["last_update_timestamp"] = time.time()
                     self.jsondumper.dump_json(
                         self.process_id,
@@ -209,7 +222,7 @@ class Proxy:
                         dump_attributes(obj),
                         dumped_frame_array
                     )
-                    
+
                     Proxy.var_dict[current_var_name_list] = self
                 else:
                     if not type(obj) in [int, float, str, bool] and obj is not None:
@@ -236,7 +249,7 @@ class Proxy:
                         dump_attributes(obj),
                         dumped_frame_array
                     )
-                    
+
                     del Proxy.var_dict[current_var_name_list]
                     self.__dict__["_obj"] = obj
                     self.__dict__["last_update_timestamp"] = time.time()
@@ -325,12 +338,12 @@ class Proxy:
                 )
             else:
                 setattr(self._obj, name, value)
-                
+
     def __getitem__(self, key):
         # Intercept item retrieval
         print_debug("logger_proxy: " + f"Getting item with key '{key}'")
         return Proxy(self._obj[key])
-    
+
     def __iter__(self):
         print_debug("logger_proxy: " + f"Calling __iter__")
         # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
@@ -376,7 +389,7 @@ class Proxy:
     __str__ = proxy_methods.__str__
     __sub__ = proxy_methods.__sub__
     __truediv__ = proxy_methods.__truediv__
-    
+
     max = proxy_methods.max
     min = proxy_methods.min
     size = proxy_methods.size
