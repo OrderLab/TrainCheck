@@ -17,7 +17,6 @@ class json_dumper(metaclass = Singleton):
     _shared_state = False
     def __init__(self, json_file_path):
         self.json_file = open(json_file_path, "a")
-        self.json_file.write("[\n")
 
     def dump_json(
         self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, change_type, var_attributes, stack_trace=None
