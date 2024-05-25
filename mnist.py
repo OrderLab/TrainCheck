@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
-
+from mldaikon.proxy_wrapper.proxy import RootProxy, Proxy
 
 class Net(nn.Module):
     def __init__(self):
@@ -192,8 +192,9 @@ def main():
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
     print("Defining model...")
-    model = Net().to(device)
-
+    model = Net()
+    model = Proxy(model, is_root=True)
+    model = model.to(device)
     # tracer.trace_state_variables(model)
 
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
