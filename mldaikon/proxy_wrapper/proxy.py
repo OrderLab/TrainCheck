@@ -20,10 +20,10 @@ def get_line(filename, lineno):
 
 class Proxy:
     proxy_dict = {}
-    frame_dict = {} # Ziming: deprecated frame based identifier
-    tensor_frame_dict = {} # Ziming: deprecated tensor.shape based identifier
-    tensor_var_dict = {}
-    var_dict = {}
+    frame_dict = {} # Ziming: currently used together with var name based identifier
+    tensor_frame_dict = {} # Ziming: currently used together with var name based identifier
+    tensor_var_dict = {} # Ziming: deprecated
+    var_dict = {} # Ziming: deprecated
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
     loglevel = logging.INFO
@@ -86,11 +86,9 @@ class Proxy:
                 if frame.f_code.co_filename == __file__:
                     frame = frame.f_back
                 else:
-                    # Ziming: old line number based identifier
+                    # fetch the frame info
+                    frame_array.append((frame.f_code.co_filename, frame.f_lineno, get_line(frame.f_code.co_filename, frame.f_lineno)))
                     
-                    # frame_array.append(inspect.getsource(frame.f_code))
-                    # frame_array.append((frame.f_code.co_filename, frame.f_lineno))
-                    frame_array.append((frame.f_code.co_filename, get_line(frame.f_code.co_filename, frame.f_lineno)))
                     # fetch the var_name from the stack_frame
                     current_var_name = None
                     for var_name, var_val in frame.f_locals.items():
@@ -102,8 +100,9 @@ class Proxy:
                             "of the object is found in the current frame")
                         var_list.append(current_var_name)
                     frame = frame.f_back
-            # Ziming: old line number based identifier
+            
             dumped_frame_array = json.dumps(frame_array)  
+            
             # print_debug the variable name list of the object
             if len(var_list) == 0:
                 print_debug("logger_proxy: " + f"Empty variable name list")
@@ -132,6 +131,8 @@ class Proxy:
                     for name, module in obj.named_children():
                         print("logger_proxy: " + f"Proxying submodule '{name}'")
                         setattr(obj, name, Proxy(module))
+                        # TODO: improve the nn.Module tracing logic, currently we only trace two levels of submodules
+                        # We could try to enforce a blacklist of modules that we can't trace (contain low level functions)
                         if issubclass(type(module), torch.nn.Module):
                             for name, submodule in module.named_children():
                                 print("logger_proxy: " + f"Proxying submodule '{name}'")
@@ -255,23 +256,18 @@ class Proxy:
         print_debug(
             "logger_proxy: " + f"Go to __call__ for object '{self.__class__.__name__}'"
         )
-        # args = tuple(arg._obj if (hasattr(arg,"is_proxied_obj")) else arg for arg in args)
-        # kwargs = {k: v._obj if (hasattr(v,"is_proxied_obj") ) else v for k, v in kwargs.items()}
-        
+        # only pass down the torch.nn.Module here
         args = tuple(arg._obj if (type(arg) is Proxy and not issubclass(arg._obj,torch.nn.Module) ) else arg for arg in args)
         kwargs = {k: v._obj if (type(v) is Proxy  and not issubclass(v._obj,torch.nn.Module)) else v for k, v in kwargs.items()}
-        # try:
-        #     result = self._obj.__call__(self, *args, **kwargs)
-        # except Exception as e:
-        #     print(e)
-        #     print(f"Exception in call for object '{self.__class__.__name__}' Shift to unwrapped function call")
-        #     result = self._obj(*args, **kwargs)
+        
         result = self._obj(*args, **kwargs)
         # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
         if typename(result).startswith("torch.distributed"):
             return result
+        if issubclass(type(result), torch.nn.Module):
+            return Proxy(result, logdir=self.logdir, log_level=self.log_level)
         return result
-        # return Proxy(result, logdir=self.logdir, log_level=self.log_level)
+       
 
     def __getattr__(self, name):
         print_debug("logger_proxy: " + f"Accessing attribute '{name}'")
@@ -280,49 +276,33 @@ class Proxy:
         if name == "_obj":
             return self.__dict__.get("_obj", None)  # in order to pass down the dir
         attr = getattr(self._obj, name)
-        
-        # don't dump out the __getattr__ for now
-        # self.jsondumper.dump_json(
-        #     self.process_id,
-        #     self.thread_id,
-        #     dump_meta_vars(proxy_file_path=__file__),
-        #     self.__dict__["dumped_varname_list"],
-        #     type(attr).__name__,
-        #     str(torch_serialize(attr)),
-        #     dump_attributes(attr),
-        #     "get"
-        # )
 
         # HACK: avoid proxying torch.distributed as we cannot handle ProcessGroup `in` ops in the get_group_rank & get_global_rank function
         if typename(attr).startswith("torch.distributed"):
             return attr
         # if attr is a tensor or nn.Module, return a proxy object
-        if isinstance(attr, torch.Tensor):
+        if isinstance(attr, torch.Tensor): # TODO: should double check if the torch.Tensor wrapping is effective here
             return Proxy(attr, logdir=self.logdir, log_level=self.log_level)
         if issubclass(type(attr), torch.nn.Module):
             return Proxy(attr, logdir=self.logdir, log_level=self.log_level)
         
-            # if attr is a bound method, return a wrapper function
+        # if attr is a bound method, return a wrapper function
         if callable(attr):
             def method(*args, **kwargs):
                 result = Proxy(attr)(*args, **kwargs)
                 print_debug(f"Called method '{name}' with result {result}")
                 # if result is not primitive, return a proxy object
-                if not isinstance(result, (int, float, str, bool)):
+                if not isinstance(result, (int, float, str, bool)): # TODO: check if it is sufficient only wrapping torch.nn.Module here
                     return Proxy(result, logdir=self.logdir, log_level=self.log_level)
                 return result
             return method
         return attr
-        # return Proxy(attr, logdir=self.logdir, log_level=self.log_level)
 
     def __setattr__(self, name, value):
         print_debug("logger_proxy: " + f"Setting attribute '{name}' to '{value}'")
         if name == "_obj":
             self.__dict__[name] = value  # Set the attribute directly
         else:
-            # Intercept attribute assignment
-            # old_value = getattr(self._obj, name, None)
-            # old_value = str(torch_serialize(old_value))
             new_value = str(torch_serialize(value))
             self.jsondumper.dump_json(
                 self.process_id,
@@ -398,30 +378,6 @@ class Proxy:
     max = proxy_methods.max
     min = proxy_methods.min
     size = proxy_methods.size
-    
-    # T = TypeVar('T', bound='torch.Module')
-    # def train(self: T, mode: bool = True) -> T:
-    #     r"""Set the module in training mode.
-
-    #     This has any effect only on certain modules. See documentations of
-    #     particular modules for details of their behaviors in training/evaluation
-    #     mode, if they are affected, e.g. :class:`Dropout`, :class:`BatchNorm`,
-    #     etc.
-
-    #     Args:
-    #         mode (bool): whether to set training mode (``True``) or evaluation
-    #                     mode (``False``). Default: ``True``.
-
-    #     Returns:
-    #         Module: self
-    #     """
-    #     if not isinstance(mode, bool):
-    #         raise ValueError("training mode is expected to be boolean")
-    #     self.training = mode
-    #     for module in self.children():
-    #         module = Proxy(module)
-    #         module.train(mode)
-    #     return self
 
     def print_proxy_dict(self, proxy_dict):
         # for debugging purpose: print the var_dict of the proxy object

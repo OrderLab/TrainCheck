@@ -11,7 +11,8 @@ class json_dumper:
     def dump_json(
         self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, change_type, var_attributes, stack_trace=None
     ):
-        if var_type == "method":
+        primitive_types = {int, float, str, bool}
+        if var_type == "method" or var_type in primitive_types:
             return
         data = {
             "process_id": process_id,
@@ -52,12 +53,12 @@ def dump_attributes(obj):
     result = {}
     if not hasattr(obj, "__dict__"):
         return result
-    # # currently only trace tensor object
-    if not isinstance(obj, torch.Tensor):
-        return result
+    
     obj_dict = obj.__dict__
     if 'is_proxied_obj' in obj_dict:
         obj = obj_dict["_obj"]._obj
+    
+    # currently only dump primitive types, tensors and nn.Module
     
     primitive_types = {int, float, str, bool}
     attr_names = [name for name in dir(obj) if not name.startswith("__")]
@@ -67,6 +68,15 @@ def dump_attributes(obj):
             attr = getattr(obj, attr_name)
             if type(attr) in primitive_types:
                 result[attr_name] = str(attr)
+            
+            elif isinstance(attr, torch.Tensor):
+                result[attr_name] = dump_tensor(attr)
+                
+            elif isinstance(attr, torch.nn.Module):
+                result[attr_name] = attr.__class__.__name__ + "(nn.Module)"  
+                # dump out all tensors inside the nn.Module
+                for name, param in attr.named_parameters():
+                    result[attr_name] += f"\n{name}: {dump_tensor(param)}"
         except Exception as e:
             print_debug(
                 f"Failed to get attribute {attr_name} of object type {type(obj)}, skipping it. Error: {e}"
@@ -74,8 +84,8 @@ def dump_attributes(obj):
     return result
 
 def dump_meta_vars(level=8, proxy_file_path=""):
-    frame = inspect.currentframe().f_back
-    while frame.f_code.co_filename == proxy_file_path:
+    frame = inspect.currentframe()
+    while frame.f_code.co_filename == proxy_file_path or frame.f_code.co_filename == __file__:
         frame = frame.f_back
     frame_vars = frame.f_locals
     important_vars = {}
@@ -96,7 +106,7 @@ def dump_meta_vars(level=8, proxy_file_path=""):
     return important_vars
 
 
-def torch_serialize(obj):
+def torch_serialize(obj, dump_module_tensors = False):
     if isinstance(obj, (int, float, str, bool)):
         return obj
     if isinstance(obj, torch.Tensor):
@@ -104,10 +114,10 @@ def torch_serialize(obj):
         return new_value
     if isinstance(obj, torch.nn.Module):
         new_value = obj.__class__.__name__ + "(nn.Module)"
-        
-        # dump out all tensors inside the nn.Module
-        for name, param in obj.named_parameters():
-            new_value += f"\n{name}: {dump_tensor(param)}"
+        if dump_module_tensors:
+            # dump out all tensors inside the nn.Module
+            for name, param in obj.named_parameters():
+                new_value += f"\n{name}: {dump_tensor(param)}"
         return new_value
     else:
         try:
