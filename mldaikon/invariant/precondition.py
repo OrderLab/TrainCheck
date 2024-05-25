@@ -254,7 +254,7 @@ def _merge_clauses(
     return clauses_and_example_ids
 
 
-def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
+def find_precondition(hypothesis: Hypothesis, pruned_clauses: set[PreconditionClause] = set()) -> list[Precondition]:
     """Given a hypothesis, should return a list of `Precondition` objects that invariants should hold if one of the `Precondition` is satisfied.
 
     args:
@@ -267,11 +267,13 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
 
     To implement the invariant split OP. We need to determine how this verification / pruning process should be done, because now all the `Precondition` objects have to be violated in the negative examples.
     """
+    import random
+    func_call_id = random.randint(0, 1000) 
 
     ## 1. Find the properties (meta_vars and variable local attributes) that are consistently shows up positive examples
     all_local_clauses = []
 
-    for idx, example in enumerate(tqdm(hypothesis.positive_examples)):
+    for example in tqdm(hypothesis.positive_examples):
         if len(example) == 0:
             # raise ValueError("Empty example found in positive examples")
             print("Warning: empty examples found in positive examples")
@@ -289,6 +291,13 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
 
     ## merge the local clauses: 1) group by the clause target and 2) merge into consistent if too many values are found
     clauses_and_example_ids = _merge_clauses(all_local_clauses)
+    
+    if pruned_clauses:
+        clauses_and_example_ids = {
+            clause: clauses_and_example_ids[clause]
+            for clause in clauses_and_example_ids
+            if clause not in pruned_clauses
+        }
 
     # use the clauses that are consistent in all the positive examples as the initial preconditions
     base_precond_clauses = {
@@ -320,6 +329,11 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
         for clause in clauses_and_example_ids
         if clause_ever_false_in_neg[clause]
     }
+
+    # update pruned_clauses
+    pruned_clauses.update(
+        {clause for clause in clause_ever_false_in_neg if not clause_ever_false_in_neg[clause]}
+    )
 
     if len(passing_neg_exps) == 0:
         return [Precondition(list(base_precond_clauses))]
@@ -359,19 +373,28 @@ def find_precondition(hypothesis: Hypothesis) -> list[Precondition]:
     print(f"Splitting into {len(top_level_example_ids)} sub-hypotheses")
 
     # construct the sub-hypothesis with the top-level partial examples
-    sub_preconditions = []
+    preconditions = []
+    print("func_call_id: ", func_call_id)
     for exp_ids in top_level_example_ids:
         sub_hypothesis = Hypothesis(
             hypothesis.invariant,
             [hypothesis.positive_examples[i] for i in exp_ids],
             hypothesis.negative_examples,
         )
-        sub_preconditions.extend(find_precondition(sub_hypothesis))
+        print(func_call_id, "calling find_precondition recursively")
+        sub_preconditions = find_precondition(sub_hypothesis, pruned_clauses)
+        print(func_call_id, "returned from find_precondition recursively")
+        if len(sub_preconditions) == 0:
+            print("Warning: empty preconditions found in the sub-hypothesis")
+        
+        preconditions.extend(sub_preconditions)
+
+    # deduplicate the preconditions based on content and containing relations
 
     # verify that the sub-preconditions covers all the positive examples
     for exp in hypothesis.positive_examples:
-        if not any(precond.verify(exp) for precond in sub_preconditions):
-            print("Warning: sub-preconditions do not cover all the positive examples")
+        if not any(precond.verify(exp) for precond in preconditions):
+            print(f"{func_call_id} Warning: sub-preconditions do not cover all the positive examples")
             # print("Example", exp)
             print("Sub-preconditions")
             for precond in sub_preconditions:
