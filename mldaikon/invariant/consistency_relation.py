@@ -155,9 +155,6 @@ class ConsistencyRelation(Relation):
                                     )
                                 )
                             else:
-                                # attr_values[attr_name][-1].liveness.end_time = (
-                                #     state_change["time"]
-                                # )
                                 attr_values[attr_name][-1].traces.append(state_change)
 
             # set end time for the last state change
@@ -205,15 +202,7 @@ class ConsistencyRelation(Relation):
                         ) in hypothesis:
                             continue
 
-                        # if the types are different, skipping
-                        # if not isinstance(
-                        #     var_inst_values[var_inst][attr][0].value,
-                        #     type(var_inst_values[other_var_inst][other_attr][0].value),
-                        # ):
-
-                        if type(var_inst_values[var_inst][attr][0].value) != type(
-                            var_inst_values[other_var_inst][other_attr][0].value
-                        ):
+                        if trace.events[tracker_var_field_prefix + attr].dtype != trace.events[tracker_var_field_prefix + other_attr].dtype:
                             continue
 
                         # for each pair of attributes, calculate the liveness overlapping
