@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.2.2] - 2024-05-26
+
+### Added
+
+- enable blacklist for attributes dumping
+
+### Fixed
+
+- dump original obj instead of str for primitive types
+
 ## [0.2.1] - 2024-05-25
 
 ### Added
