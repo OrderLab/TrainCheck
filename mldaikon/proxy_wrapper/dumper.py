@@ -2,7 +2,7 @@ import json
 import time
 import torch
 import inspect
-from mldaikon.proxy_wrapper.config import meta_var_black_list
+from mldaikon.proxy_wrapper.config import meta_var_black_list, attribute_black_list
 from mldaikon.proxy_wrapper.utils import print_debug
 
 class Singleton(type):
@@ -89,10 +89,12 @@ def dump_attributes(obj):
         # don't track the attr_name starts with a _ (private variable)
         if attr_name.startswith("_"):
             continue
+        if attr_name in attribute_black_list:
+            continue
         try:
             attr = getattr(obj, attr_name)
             if type(attr) in primitive_types:
-                result[attr_name] = str(attr)
+                result[attr_name] = attr
             
             elif isinstance(attr, torch.Tensor):
                 result[attr_name] = dump_tensor(attr)
