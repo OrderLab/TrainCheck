@@ -18,4 +18,19 @@ meta_var_black_list = [
     'thread_id',
     'dumped_frame_array',
 ]
+tensor_attribute_black_list = [
+    'T',
+    'mT',
+    'H',
+    'mH',
+    'volatile',
+    'output_nr',
+    'version',
+    '_backward_hooks',
+    '_backward_hooks',
+    '_version',
+]
+attribute_black_list = \
+    tensor_attribute_black_list
+
 profiling = False
