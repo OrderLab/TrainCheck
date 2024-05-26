@@ -2,7 +2,7 @@ import json
 import time
 import torch
 import inspect
-from mldaikon.proxy_wrapper.config import meta_var_black_list
+from mldaikon.proxy_wrapper.config import meta_var_black_list, attribute_black_list
 from mldaikon.proxy_wrapper.utils import print_debug
 
 class Singleton(type):
@@ -17,7 +17,6 @@ class json_dumper(metaclass = Singleton):
     _shared_state = False
     def __init__(self, json_file_path):
         self.json_file = open(json_file_path, "a")
-        self.json_file.write("[\n")
 
     def dump_json(
         self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, change_type, var_attributes, stack_trace=None
@@ -90,10 +89,12 @@ def dump_attributes(obj):
         # don't track the attr_name starts with a _ (private variable)
         if attr_name.startswith("_"):
             continue
+        if attr_name in attribute_black_list:
+            continue
         try:
             attr = getattr(obj, attr_name)
             if type(attr) in primitive_types:
-                result[attr_name] = str(attr)
+                result[attr_name] = attr
             
             elif isinstance(attr, torch.Tensor):
                 result[attr_name] = dump_tensor(attr)
