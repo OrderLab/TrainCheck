@@ -152,7 +152,7 @@ def _find_local_clauses(example: list, key_to_skip: str = "param_value") -> dict
     clauses = []
     # find properties that have only one value in the example
     for prop in example[0]:
-        if prop in ['process_id", "thread_id', "time", "type"]:
+        if prop in ["process_id", "thread_id", "time", "type"]:
             # skip meta_info about each event
             continue
 
