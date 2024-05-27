@@ -1,5 +1,6 @@
 import re
 from typing import NamedTuple
+from itertools import combinations
 
 import polars as pl
 from tqdm import tqdm
@@ -177,65 +178,72 @@ class ConsistencyRelation(Relation):
 
         ## 2. Hypothesis Generation Based on Liveness Overlapping  ## TODO: this part can be made more efficient by iterating over the types instead of the variables
         hypothesis = set()  # (var_type1, attr1, var_type2, attr2)
-        for var_inst in tqdm(var_inst_values, desc="Generating Hypothesis"):
+        for var_inst, other_var_inst in tqdm(combinations(var_inst_values, 2), desc="Generating Hypothesis", total=len(var_inst_values) * (len(var_inst_values) - 1) // 2):
             for attr in var_inst_values[var_inst]:
-                for other_var_inst in var_inst_values:
-                    for other_attr in var_inst_values[other_var_inst]:
-                        if var_inst == other_var_inst and attr == other_attr:
-                            # skipping the same variable instance's same attribute
-                            continue
+                for other_attr in var_inst_values[other_var_inst]:
+                    if var_inst == other_var_inst and attr == other_attr:
+                        # skipping the same variable instance's same attribute
+                        continue
 
-                        # if we already have such hypothesis, skipping
-                        if (
-                            var_inst.var_type,
-                            attr,
-                            other_var_inst.var_type,
-                            other_attr,
-                        ) in hypothesis:
-                            continue
+                    # if we already have such hypothesis, skipping
+                    if (
+                        var_inst.var_type,
+                        attr,
+                        other_var_inst.var_type,
+                        other_attr,
+                    ) in hypothesis:
+                        continue
 
-                        if (
-                            other_var_inst.var_type,
-                            other_attr,
-                            var_inst.var_type,
-                            attr,
-                        ) in hypothesis:
-                            continue
+                    if (
+                        other_var_inst.var_type,
+                        other_attr,
+                        var_inst.var_type,
+                        attr,
+                    ) in hypothesis:
+                        continue
 
-                        if trace.events[tracker_var_field_prefix + attr].dtype != trace.events[tracker_var_field_prefix + other_attr].dtype:
-                            continue
+                    if trace.events[tracker_var_field_prefix + attr].dtype != trace.events[tracker_var_field_prefix + other_attr].dtype:
+                        continue
 
-                        # for each pair of attributes, calculate the liveness overlapping
-                        done_creating_hypothesis = False
-                        for value in var_inst_values[var_inst][attr]:
-                            saw_overlap = False
-                            if done_creating_hypothesis:
-                                break
-                            for other_value in var_inst_values[other_var_inst][
-                                other_attr
-                            ]:
-                                overlap = calc_liveness_overlap(
-                                    value.liveness, other_value.liveness
-                                )
-                                if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
-                                    saw_overlap = True
-                                    if compare_with_fp_tolerance(
-                                        value.value, other_value.value
-                                    ):
-                                        hypothesis.add(
-                                            (
-                                                var_inst.var_type,
-                                                attr,
-                                                other_var_inst.var_type,
-                                                other_attr,
-                                            )
+                    # for each pair of attributes, calculate the liveness overlapping
+                    done_creating_hypothesis = False
+                    for value in var_inst_values[var_inst][attr]:
+                        saw_overlap = False
+                        if done_creating_hypothesis:
+                            break
+                        for other_value in var_inst_values[other_var_inst][
+                            other_attr
+                        ]:
+                            overlap = calc_liveness_overlap(
+                                value.liveness, other_value.liveness
+                            )
+                            if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                                saw_overlap = True
+                                if compare_with_fp_tolerance(
+                                    value.value, other_value.value
+                                ):
+                                    hypothesis.add(
+                                        (
+                                            var_inst.var_type,
+                                            attr,
+                                            other_var_inst.var_type,
+                                            other_attr,
                                         )
-                                        done_creating_hypothesis = True
-                                        break
-                                else:
-                                    if saw_overlap:
-                                        # there won't be any more overlap, so we can break
-                                        break
+                                    )
+                                    print("Adding Hypothesis: ",
+                                        (
+                                            var_inst.var_type,
+                                            attr,
+                                            other_var_inst.var_type,
+                                            other_attr,
+                                        )
+                                    )
+                                    done_creating_hypothesis = True
+                                    break
+                            else:
+                                if saw_overlap:
+                                    # there won't be any more overlap, so we can break
+                                    break
 
         ## 3. Hypothesis Pruning
         print(f"Hypothesis: {hypothesis}")
