@@ -8,4 +8,11 @@ PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be th
     "^can_.*$",  # e.g., can_cast, can_slice
 ]
 PROP_ATTR_TYPES = [bool]
+
+SKIP_INIT_VALUE_TYPES_KEY_WORDS = [  ## Types that should be skipped for initialization
+    "tensor",
+    "module",
+    "parameter",
+]
+
 CONST_CLAUSE_NUM_VALUES_THRESHOLD = 10  # FIXME: ad-hoc

@@ -273,9 +273,13 @@ class ConsistencyRelation(Relation):
             positive_examples_threshold = 0  # This number should be the total number of varInst pairs on which the hypothesis is applicable
 
             # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
-            SKIP_INIT_VALUES = False
-            if "tensor" in var_type1.lower() and "tensor" in var_type2.lower():
-                SKIP_INIT_VALUES = True
+            is_skipping_init_values = False
+            
+            for skip_init_type in config.SKIP_INIT_VALUE_TYPES_KEY_WORDS:
+                if skip_init_type in var_type1.lower() and skip_init_type in var_type2.lower():
+                    is_skipping_init_values = True
+                    print(f"Skipping init values for {var_type1} and {var_type2}")
+                    break
 
             for idx1, var_inst1 in enumerate(
                 tqdm(var_type1_vars, desc=f"Pruning Hypo {hypo}")
@@ -293,7 +297,7 @@ class ConsistencyRelation(Relation):
                         for val_idx2, value2 in enumerate(
                             var_inst_values[var_inst2][attr2]
                         ):
-                            if SKIP_INIT_VALUES and val_idx1 == 0 and val_idx2 == 0:
+                            if is_skipping_init_values and val_idx1 == 0 and val_idx2 == 0:
                                 # skipping the init values
                                 continue
 
@@ -310,7 +314,7 @@ class ConsistencyRelation(Relation):
                     if found_positive_example:
                         positive_examples_threshold += 1
 
-            if SKIP_INIT_VALUES and positive_examples > 0:
+            if is_skipping_init_values and positive_examples > 0:
                 filtered_hypothesis.append(hypo)
                 print(
                     f"Keeping hypothesis (INIT VALUEs SKIPPED): {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
@@ -339,9 +343,9 @@ class ConsistencyRelation(Relation):
             attr2 = hypo[3]
 
             # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
-            SKIP_INIT_VALUES = False
+            is_skipping_init_values = False
             if "tensor" in var_type1.lower() and "tensor" in var_type2.lower():
-                SKIP_INIT_VALUES = True
+                is_skipping_init_values = True
 
             # collect all variables that have the same types as var_type1 and var_type2
             var_type1_vars = [
@@ -367,7 +371,7 @@ class ConsistencyRelation(Relation):
                         for val_idx2, value2 in enumerate(
                             var_inst_values[var_inst2][attr2]
                         ):
-                            if SKIP_INIT_VALUES and val_idx1 == 0 and val_idx2 == 0:
+                            if is_skipping_init_values and val_idx1 == 0 and val_idx2 == 0:
                                 # skipping the init values
                                 continue
 
@@ -396,27 +400,6 @@ class ConsistencyRelation(Relation):
                                             value2.traces[0],
                                         ]  ## HACK to make preconditions inference work for `step`
                                     )
-
-        # ## DEBUGGING:
-        # all_modules_that_have_hypothesis = []
-        # for hypo in hypothesis_with_examples:
-        #     for trace_pair in hypothesis_with_examples[hypo].positive_examples:
-        #         all_modules_that_have_hypothesis.append(
-        #                 trace_pair[0]["var_name"] + f" {trace_pair[0]['attributes.tensor_model_parallel']}" + f" {trace_pair[0]['meta_vars.step']} TP: {trace_pair[0]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[0]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[0]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + \
-        #                     " -> " + trace_pair[1]["var_name"] + f" {trace_pair[1]['attributes.tensor_model_parallel']}" + f" {trace_pair[1]['meta_vars.step']} TP: {trace_pair[1]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[1]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[1]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + f" same_process?:{trace_pair[0]['process_id'] == trace_pair[1]['process_id']}"
-        #         )
-
-        # print("Positive Examples: {}".format("\n".join(all_modules_that_have_hypothesis)))
-
-        # all_negative_modules_that_have_hypothesis = []
-        # for hypo in hypothesis_with_examples:
-        #     for trace_pair in hypothesis_with_examples[hypo].negative_examples:
-        #         all_negative_modules_that_have_hypothesis.append(
-        #                 trace_pair[0]["var_name"] + f" {trace_pair[0]['attributes.tensor_model_parallel']}" + f" {trace_pair[0]['meta_vars.step']} TP: {trace_pair[0]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[0]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[0]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + \
-        #                     " -> " + trace_pair[1]["var_name"] + f" {trace_pair[1]['attributes.tensor_model_parallel']}" + f" {trace_pair[1]['meta_vars.step']} TP: {trace_pair[1]['meta_vars._TENSOR_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} PP: {trace_pair[1]['meta_vars._PIPELINE_MODEL_PARALLEL_GROUP_YUXUAN_RANK']} DP: {trace_pair[1]['meta_vars._DATA_PARALLEL_GROUP_YUXUAN_RANK']}" + f" same_process?:{trace_pair[0]['process_id'] == trace_pair[1]['process_id']}"
-        #         )
-
-        # print("Negative Examples: {}".format("\n".join(all_negative_modules_that_have_hypothesis)))
 
         ## 5. Precondition Inference
         hypos_to_delete = []
