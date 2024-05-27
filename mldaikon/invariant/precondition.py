@@ -76,6 +76,11 @@ class PreconditionClause:
         for i in range(len(example)):
             if prop_name not in example[i]:
                 return False
+            
+            if not isinstance(example[i][prop_name], Hashable):
+                print(f"ERROR: Property {prop_name} is not hashable, skipping this property")
+                return False
+            
             prop_values_seen.add(example[i][prop_name])
 
         if self.type == PT.CONSTANT:
@@ -160,7 +165,7 @@ def _find_local_clauses(example: list, key_to_skip: str = "param_value") -> dict
             # skip tensor values as preconditions ## TODO: revisit this decision, we might not have data-dependent control-flow because of this.
             continue
 
-        if not isinstance(example[0][prop], Hashable):
+        if not all(isinstance(example[i][prop], Hashable) for i in range(len(example))):
             # we cannot use non-hashable properties as preconditions, due to limitations in the current implementation (set cannot contain non-hashable objects)
             continue
 
@@ -276,7 +281,7 @@ def _merge_clauses(
 
 
 def find_precondition(
-    hypothesis: Hypothesis, pruned_clauses: set[PreconditionClause] = set()
+    hypothesis: Hypothesis, pruned_clauses: set[PreconditionClause] = set(), keys_to_skip: list[str] = []
 ) -> list[Precondition]:
     """Given a hypothesis, should return a list of `Precondition` objects that invariants should hold if one of the `Precondition` is satisfied.
 
