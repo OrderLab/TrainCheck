@@ -4,6 +4,7 @@ import torch
 import inspect
 from mldaikon.proxy_wrapper.config import meta_var_black_list, attribute_black_list
 from mldaikon.proxy_wrapper.utils import print_debug
+from mldaikon.instrumentor.tracer import meta_vars
 
 class Singleton(type):
     _instances = {}
@@ -127,7 +128,8 @@ def dump_meta_vars(level=8, proxy_file_path=""):
                 key: frame_vars[key]
                 for key in frame_vars
                 # Ziming: only dump primitive types, block the var name on the black list
-                if isinstance(frame_vars[key], (int, float, str, bool)) and key not in meta_var_black_list
+                if isinstance(frame_vars[key], (int, float, str, bool)) and key not in meta_var_black_list \
+                    and key not in important_vars
             }
         )
 
@@ -135,7 +137,10 @@ def dump_meta_vars(level=8, proxy_file_path=""):
         if frame is None:
             break
         frame_vars = frame.f_locals
-    return important_vars
+    return concat_dicts(important_vars, meta_vars)
+
+def concat_dicts(dict1, dict2):
+    return {**dict1, **dict2}
 
 
 def torch_serialize(obj, dump_module_tensors = False):

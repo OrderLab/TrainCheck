@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.2.3] - 2024-05-27
+
+### Added
+
+- support global attributes dumping in meta_vars (e.g. DATA_PARALLEL_GROUP_RANK)
+
+### Fixed
+
+- avoid lower-level meta_vars to be overwritten by higher level ones
+
 ## [0.2.2] - 2024-05-26
 
 ### Added
