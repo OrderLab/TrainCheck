@@ -1,3 +1,5 @@
+import polars as pl
+
 TMP_FILE_PREFIX = "_ml_daikon_"
 MODULES_TO_INSTRUMENT = ["torch"]
 INCLUDED_WRAP_LIST = ["Net", "DataParallel"]  # FIXME: Net & DataParallel seem ad-hoc
@@ -7,7 +9,10 @@ PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be th
     "^has_.*$",  # e.g., has_names, has_storage
     "^can_.*$",  # e.g., can_cast, can_slice
 ]
-PROP_ATTR_TYPES = [bool]
+PROP_ATTR_TYPES = [
+    bool,
+    pl.Boolean,
+]
 
 SKIP_INIT_VALUE_TYPES_KEY_WORDS = [  ## Types that should be skipped for initialization
     "tensor",

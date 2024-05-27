@@ -129,7 +129,7 @@ class ConsistencyRelation(Relation):
                             ]
                         ) or any(
                             [
-                                isinstance(state_change[col], _type)
+                                trace.events[col].dtype == _type
                                 for _type in config.PROP_ATTR_TYPES
                             ]
                         ):
