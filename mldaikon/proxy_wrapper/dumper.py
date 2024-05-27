@@ -128,7 +128,8 @@ def dump_meta_vars(level=8, proxy_file_path=""):
                 key: frame_vars[key]
                 for key in frame_vars
                 # Ziming: only dump primitive types, block the var name on the black list
-                if isinstance(frame_vars[key], (int, float, str, bool)) and key not in meta_var_black_list
+                if isinstance(frame_vars[key], (int, float, str, bool)) and key not in meta_var_black_list \
+                    and key not in important_vars
             }
         )
 
