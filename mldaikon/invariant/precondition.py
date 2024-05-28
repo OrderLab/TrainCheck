@@ -76,11 +76,13 @@ class PreconditionClause:
         for i in range(len(example)):
             if prop_name not in example[i]:
                 return False
-            
+
             if not isinstance(example[i][prop_name], Hashable):
-                print(f"ERROR: Property {prop_name} is not hashable, skipping this property")
+                print(
+                    f"ERROR: Property {prop_name} is not hashable, skipping this property"
+                )
                 return False
-            
+
             prop_values_seen.add(example[i][prop_name])
 
         if self.type == PT.CONSTANT:
@@ -151,7 +153,9 @@ def is_statistical_significant(positive_examples: list) -> bool:
     return len(positive_examples) > 100
 
 
-def _find_local_clauses(example: list, key_to_skip: str = "param_value") -> dict:
+def _find_local_clauses(
+    example: list, key_to_skip: str | list[str] = "param_value"
+) -> dict:
     """A list of traces to find common properties from. The property should hold locally within the example."""
 
     clauses = []
@@ -161,8 +165,10 @@ def _find_local_clauses(example: list, key_to_skip: str = "param_value") -> dict
             # skip meta_info about each event
             continue
 
-        if key_to_skip in prop:
-            # skip tensor values as preconditions ## TODO: revisit this decision, we might not have data-dependent control-flow because of this.
+        if isinstance(key_to_skip, list) and any(key in prop for key in key_to_skip):
+            continue
+
+        if isinstance(key_to_skip, str) and key_to_skip in prop:
             continue
 
         if not all(isinstance(example[i][prop], Hashable) for i in range(len(example))):
@@ -281,13 +287,20 @@ def _merge_clauses(
 
 
 def find_precondition(
-    hypothesis: Hypothesis, pruned_clauses: set[PreconditionClause] = set(), keys_to_skip: list[str] = []
+    hypothesis: Hypothesis,
+    keys_to_skip: list[str] = [],
+    _pruned_clauses: set[PreconditionClause] = set(),
+    _skip_pruning: bool = False,
 ) -> list[Precondition]:
     """Given a hypothesis, should return a list of `Precondition` objects that invariants should hold if one of the `Precondition` is satisfied.
 
     args:
-        hypothesis: Hypothesis
-            A hypothesis to find preconditions for.
+        - hypothesis: A hypothesis to find preconditions for.
+        - (private) _pruned_clauses: A set of clauses that should not be considered as a precondition
+        - (private) _skip_pruning: Whether to skip the pruning process, should only be used when `_pruned_clauses` is provided
+            and the hypothesis comes with a reduced set of negative examples
+
+
 
     This function will perform inference on the positive examples to find special properties that consistently show up in the positive examples.
     Then, the found properties will be scanned in the negative examples to prune out unnecessary properties that also hold for the negative examples.
@@ -305,7 +318,7 @@ def find_precondition(
             print("Warning: empty examples found in positive examples")
             continue
 
-        local_cluases = _find_local_clauses(example)
+        local_cluases = _find_local_clauses(example, key_to_skip=keys_to_skip)
 
         if len(local_cluases) == 0:
             print("example: ", example)
@@ -318,11 +331,11 @@ def find_precondition(
     ## merge the local clauses: 1) group by the clause target and 2) merge into consistent if too many values are found
     clauses_and_example_ids = _merge_clauses(all_local_clauses)
 
-    if pruned_clauses:
+    if _pruned_clauses:
         clauses_and_example_ids = {
             clause: clauses_and_example_ids[clause]
             for clause in clauses_and_example_ids
-            if clause not in pruned_clauses
+            if clause not in _pruned_clauses
         }
 
     # use the clauses that are consistent in all the positive examples as the initial preconditions
@@ -335,7 +348,10 @@ def find_precondition(
     clause_ever_false_in_neg = {clause: False for clause in clauses_and_example_ids}
     passing_neg_exps = []
 
-    for neg_example in tqdm(hypothesis.negative_examples, desc="Pruning Precondition"):
+    for neg_example in tqdm(
+        hypothesis.negative_examples,
+        desc="Scanning Base Precondition on All Negative Examples",
+    ):
         whether_precondition_holds = True
         for clause in clauses_and_example_ids:
             res = clause.verify(neg_example)
@@ -346,26 +362,34 @@ def find_precondition(
         if whether_precondition_holds:
             passing_neg_exps.append(neg_example)
 
-    # delete the clauses that are never violated in the negative examples from both the candidates and the cluses_and_example_ids
-    base_precond_clauses = {
-        clause for clause in base_precond_clauses if clause_ever_false_in_neg[clause]
-    }
-    clauses_and_example_ids = {
-        clause: clauses_and_example_ids[clause]
-        for clause in clauses_and_example_ids
-        if clause_ever_false_in_neg[clause]
-    }
-
-    # update pruned_clauses
-    pruned_clauses.update(
-        {
+    if not _skip_pruning:
+        # delete the clauses that are never violated in the negative examples from both the candidates and the cluses_and_example_ids
+        base_precond_clauses = {
             clause
-            for clause in clause_ever_false_in_neg
-            if not clause_ever_false_in_neg[clause]
+            for clause in base_precond_clauses
+            if clause_ever_false_in_neg[clause]
         }
-    )
+        clauses_and_example_ids = {
+            clause: clauses_and_example_ids[clause]
+            for clause in clauses_and_example_ids
+            if clause_ever_false_in_neg[clause]
+        }
+        # update _pruned_clauses
+        _pruned_clauses.update(
+            {
+                clause
+                for clause in clause_ever_false_in_neg
+                if not clause_ever_false_in_neg[clause]
+            }
+        )
+    else:
+        # skip pruning is necessary when we are inferring on a reduced set of negative examples as many clauses may not be violated and thus pruned unnecessarily
+        assert (
+            _pruned_clauses
+        ), "_pruned_clauses must be provided if pruning process are to skipped"
+        print("Skipping Pruning")
 
-    if len(passing_neg_exps) == 0:
+    if not passing_neg_exps:
         return [Precondition(list(base_precond_clauses))]
 
     partial_clauses_and_example_ids = {
@@ -408,9 +432,14 @@ def find_precondition(
         sub_hypothesis = Hypothesis(
             hypothesis.invariant,
             [hypothesis.positive_examples[i] for i in exp_ids],
-            hypothesis.negative_examples,
+            passing_neg_exps,
         )
-        sub_preconditions = find_precondition(sub_hypothesis, pruned_clauses)
+        sub_preconditions = find_precondition(
+            sub_hypothesis,
+            keys_to_skip=keys_to_skip,
+            _pruned_clauses=_pruned_clauses,
+            _skip_pruning=True,
+        )
         if len(sub_preconditions) == 0:
             print("Warning: empty preconditions found in the sub-hypothesis")
 
