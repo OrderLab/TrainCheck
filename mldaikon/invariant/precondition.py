@@ -464,7 +464,7 @@ def find_precondition(
         if not any(precond.verify(exp) for precond in preconditions):
             print("Warning: sub-preconditions do not cover all the positive examples")
             print("Sub-preconditions")
-            for precond in sub_preconditions:
+            for precond in preconditions:
                 print(precond)
 
             raise ValueError("Sub-preconditions do not cover all the positive examples")
