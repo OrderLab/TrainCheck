@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.2.4] - 2024-05-30
+
+### Added
+
+- upload trace-analyzer (only DS-1801 precondition supported)
+
+### Fixed
+
+- fix var_name inconsistency and allow module name to be passed in __call__() function
+
+### Changed
+
+- modify update rate threshold to 10s (around 3 iters) to cater for DS-1801
+
 ## [0.2.3] - 2024-05-27
 
 ### Added
