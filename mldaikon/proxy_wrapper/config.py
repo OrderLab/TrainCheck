@@ -1,6 +1,6 @@
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: Currently disable proxy_class in default
-proxy_update_limit = 0
+proxy_update_limit = 10
 debug_mode = False
 meta_var_black_list = [
     'pre_process',
