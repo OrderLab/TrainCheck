@@ -10,6 +10,7 @@ from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 from mldaikon.proxy_wrapper.proxy import Proxy
 
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()

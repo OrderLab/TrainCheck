@@ -24,6 +24,7 @@ def broadcast(tensor, src, group=None, async_op=False):
     # Wrap the first argument in a Proxy object
     # tensor = Proxy(tensor, logdir='proxy_log.log', log_level=logging.INFO)
 
+
 # Override the broadcast function
 torch.distributed.broadcast = broadcast
 
@@ -42,6 +43,7 @@ def all_reduce(tensor, op=ReduceOp.SUM, group=None, async_op=False):
 
     # Wrap the first argument in a Proxy object
     # tensor = Proxy(tensor, logdir='proxy_log.log', log_level=logging.INFO)
+
 
 # Override the all_reduce function
 torch.distributed.all_reduce = all_reduce

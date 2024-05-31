@@ -141,19 +141,19 @@ def global_wrapper(original_function, *args, **kwargs):
         #         for i in range(len(obj)):
         #             obj[i] = unwrap_proxies(obj[i])
         #         return obj
-            # Ziming: comment out the dict unwrapping here, it would interfere
-            # with the _try_get_data functionality in dataloader
-            # elif isinstance(obj, dict):
-            #     for key in obj:
-            #         obj[key] = unwrap_proxies(obj[key], level+1)
-            #     return obj
-            # elif isinstance(obj, tuple):
-            #     obj = tuple(unwrap_proxies(item) for item in obj)
-            #     return obj
-            # elif isinstance(obj, types.ModuleType):
-            #     return obj
-            # else:
-            #     return obj
+        # Ziming: comment out the dict unwrapping here, it would interfere
+        # with the _try_get_data functionality in dataloader
+        # elif isinstance(obj, dict):
+        #     for key in obj:
+        #         obj[key] = unwrap_proxies(obj[key], level+1)
+        #     return obj
+        # elif isinstance(obj, tuple):
+        #     obj = tuple(unwrap_proxies(item) for item in obj)
+        #     return obj
+        # elif isinstance(obj, types.ModuleType):
+        #     return obj
+        # else:
+        #     return obj
 
         # if not disable_proxy_class:
         #     args = [unwrap_proxies(arg) for arg in args]

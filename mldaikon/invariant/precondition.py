@@ -78,9 +78,9 @@ class PreconditionClause:
                 return False
 
             if not isinstance(example[i][prop_name], Hashable):
-                print(
-                    f"ERROR: Property {prop_name} is not hashable, skipping this property"
-                )
+                # print(
+                #     f"ERROR: Property {prop_name} is not hashable, skipping this property"
+                # )
                 return False
 
             prop_values_seen.add(example[i][prop_name])
@@ -143,9 +143,9 @@ class Precondition:
 def pprint_preconds(clauses: dict):
     for clause in clauses:
         print("==============================")
-        print("values", clauses[clause].values)
-        print("type", clauses[clause].type)
-        print("target", clauses[clause].prop_name)
+        print("values", clause.values)
+        print("type", clause.type)
+        print("target", clause.prop_name)
     print("==============================")
 
 
@@ -183,14 +183,26 @@ def _find_local_clauses(
                     f"Property {prop} not found in example {example[i]}, precondition inference might not be correct if this prop is not a local attribute of the variable"
                 )
                 continue
-            prop_values_seen.add(example[i][prop])
+            if example[i][prop] is not None:
+                prop_values_seen.add(example[i][prop])
 
-        prop_type = type(example[0][prop])
+        # get the type of the property
+        prop_type = None
+        for value in prop_values_seen:
+            if value is None:
+                continue
+            if prop_type is None:
+                prop_type = type(value)
+            if prop_type != type(value) and value is not None:
+                raise ValueError(
+                    f"Property {prop} has inconsistent types {prop_type, type(value)} in the example"
+                )
 
-        if len(prop_values_seen) == 1:
-            clauses.append(
-                PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen)
-            )
+        if len(prop_values_seen) == 1 and prop_type is not None:
+            if prop_type is not None:
+                clauses.append(
+                    PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen)
+                )
         elif len(prop_values_seen) == len(example):
             clauses.append(PreconditionClause(prop, prop_type, PT.UNEQUAL, None))
 
@@ -308,7 +320,12 @@ def find_precondition(
 
     To implement the invariant split OP. We need to determine how this verification / pruning process should be done, because now all the `Precondition` objects have to be violated in the negative examples.
     """
-
+    print(
+        "Calling precondition inference with # positive examples: ",
+        len(hypothesis.positive_examples),
+        " # negative examples: ",
+        len(hypothesis.negative_examples),
+    )
     ## 1. Find the properties (meta_vars and variable local attributes) that are consistently shows up positive examples
     all_local_clauses = []
 
@@ -319,6 +336,15 @@ def find_precondition(
             continue
 
         local_cluases = _find_local_clauses(example, key_to_skip=keys_to_skip)
+
+        for clause in local_cluases:
+            if clause.prop_name in "var_name" and clause.type == PT.UNEQUAL:
+                print("no var_name example: \n", example)
+                print("clauses: ", local_cluases)
+                print("=====================================")
+                # raise ValueError(
+                #     "Variable name should not have unequal values in the example"
+                # )
 
         if len(local_cluases) == 0:
             print("example: ", example)
@@ -344,6 +370,9 @@ def find_precondition(
         for clause in clauses_and_example_ids
         if len(clauses_and_example_ids[clause]) == len(hypothesis.positive_examples)
     }
+
+    print("Base Precondition Clauses")
+    pprint_preconds(base_precond_clauses)
 
     clause_ever_false_in_neg = {clause: False for clause in clauses_and_example_ids}
     passing_neg_exps = []
@@ -425,6 +454,22 @@ def find_precondition(
 
     # construct the top-level preconditions
     print(f"Splitting into {len(top_level_example_ids)} sub-hypotheses")
+    print("Length of the top-level examples")
+    for exp_ids in top_level_example_ids:
+        print(len(exp_ids), len(exp_ids) / len(hypothesis.positive_examples))
+
+    print("Partial Clauses")
+    for clause in partial_clauses_and_example_ids:
+        print("==============================")
+        print("values", clause.values)
+        print("type", clause.type)
+        print("target", clause.prop_name)
+        print(
+            "%examples",
+            len(partial_clauses_and_example_ids[clause])
+            / len(hypothesis.positive_examples),
+        )
+    print("==============================")
 
     # construct the sub-hypothesis with the top-level partial examples
     preconditions = []
@@ -462,11 +507,23 @@ def find_precondition(
     # verify that the sub-preconditions covers all the positive examples
     for exp in hypothesis.positive_examples:
         if not any(precond.verify(exp) for precond in preconditions):
-            print("Warning: sub-preconditions do not cover all the positive examples")
+            print(
+                "Warning: sub-preconditions do not cover all the positive examples",
+                len(hypothesis.positive_examples),
+            )
+            print("No precondition found for this sub-hypothesis")
             print("Sub-preconditions")
             for precond in preconditions:
                 print(precond)
 
-            raise ValueError("Sub-preconditions do not cover all the positive examples")
+            print("==============================")
+            print("Example")
+            print(exp)
+            print("Example Clauses")
+            print(_find_local_clauses(exp, key_to_skip=keys_to_skip))
+            print("==============================")
+
+            # raise ValueError("Sub-preconditions do not cover all the positive examples")
+            return []
 
     return preconditions

@@ -20,4 +20,4 @@ SKIP_INIT_VALUE_TYPES_KEY_WORDS = [  ## Types that should be skipped for initial
     "parameter",
 ]
 
-CONST_CLAUSE_NUM_VALUES_THRESHOLD = 10  # FIXME: ad-hoc
+CONST_CLAUSE_NUM_VALUES_THRESHOLD = 1  # FIXME: ad-hoc

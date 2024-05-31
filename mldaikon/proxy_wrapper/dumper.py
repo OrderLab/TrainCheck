@@ -6,24 +6,41 @@ from mldaikon.proxy_wrapper.config import meta_var_black_list, attribute_black_l
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.instrumentor.tracer import meta_vars
 
+
 class Singleton(type):
     _instances = {}
+
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
-    
-class json_dumper(metaclass = Singleton):
+
+
+class json_dumper(metaclass=Singleton):
     # singleton pattern for shared state
     _shared_state = False
+
     def __init__(self, json_file_path):
         self.json_file = open(json_file_path, "a")
 
     def dump_json(
-        self, process_id, thread_id, meta_vars, variable_name, var_type, var_value, change_type, var_attributes, stack_trace=None
+        self,
+        process_id,
+        thread_id,
+        meta_vars,
+        variable_name,
+        var_type,
+        var_value,
+        change_type,
+        var_attributes,
+        stack_trace=None,
     ):
         primitive_types = {int, float, str, bool}
-        if var_type == "method" or var_type == "function" or var_type in primitive_types:
+        if (
+            var_type == "method"
+            or var_type == "function"
+            or var_type in primitive_types
+        ):
             return
         data = {
             "value": var_value,
@@ -33,10 +50,8 @@ class json_dumper(metaclass = Singleton):
             "thread_id": thread_id,
             "time": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
-            
             "attributes": var_attributes,
             "mode": change_type,  # "new", "update"
-            
             "stack_trace": stack_trace,
         }
         json_data = json.dumps(data)
@@ -45,7 +60,7 @@ class json_dumper(metaclass = Singleton):
 
     def __del__(self):
         self.close()
-    
+
     def close(self):
         self.json_file.close()
         self.json_file.write("]\n")
@@ -61,7 +76,7 @@ def dump_tensor(value):
         min = float(value.min().item())
         max = float(value.max().item())
         mean = float(value.mean().item())
-        
+
         shape = tuple(int(x) for x in value.size())
         result = {
             "min": min,
@@ -76,12 +91,12 @@ def dump_attributes(obj):
     result = {}
     if not hasattr(obj, "__dict__"):
         return result
-    
+
     # if the object is a proxy object, get the original object
     obj_dict = obj.__dict__
     if "is_proxied_obj" in obj_dict:
         obj = obj_dict["_obj"]._obj
-    
+
     # currently only dump primitive types, tensors and nn.Module
     primitive_types = {int, float, str, bool}
     attr_names = [name for name in dir(obj) if not name.startswith("__")]
@@ -96,29 +111,32 @@ def dump_attributes(obj):
             attr = getattr(obj, attr_name)
             if type(attr) in primitive_types:
                 result[attr_name] = attr
-            
+
             elif isinstance(attr, torch.Tensor):
                 result[attr_name] = dump_tensor(attr)
-            
+
             elif isinstance(attr, torch.nn.parameter.Parameter):
                 result[attr_name] = attr.__class__.__name__ + "(Parameter)"
                 result[attr_name] = dump_tensor(attr.data)
-            
+
             elif isinstance(attr, torch.nn.Module):
-                result[attr_name] = attr.__class__.__name__ + "(nn.Module)"  
+                result[attr_name] = attr.__class__.__name__ + "(nn.Module)"
                 # dump out all tensors inside the nn.Module
                 for name, param in attr.named_parameters():
                     result[attr_name] += f"\n{name}: {dump_tensor(param)}"
         except Exception as e:
             print_debug(
                 f"Failed to get attribute {attr_name} of object type {type(obj)}, skipping it. Error: {e}"
-            ) 
+            )
     return result
 
 
 def dump_meta_vars(level=8, proxy_file_path=""):
     frame = inspect.currentframe()
-    while frame.f_code.co_filename == proxy_file_path or frame.f_code.co_filename == __file__:
+    while (
+        frame.f_code.co_filename == proxy_file_path
+        or frame.f_code.co_filename == __file__
+    ):
         frame = frame.f_back
     frame_vars = frame.f_locals
     important_vars = {}
@@ -128,8 +146,9 @@ def dump_meta_vars(level=8, proxy_file_path=""):
                 key: frame_vars[key]
                 for key in frame_vars
                 # Ziming: only dump primitive types, block the var name on the black list
-                if isinstance(frame_vars[key], (int, float, str, bool)) and key not in meta_var_black_list \
-                    and key not in important_vars
+                if isinstance(frame_vars[key], (int, float, str, bool))
+                and key not in meta_var_black_list
+                and key not in important_vars
             }
         )
 
@@ -139,11 +158,12 @@ def dump_meta_vars(level=8, proxy_file_path=""):
         frame_vars = frame.f_locals
     return concat_dicts(important_vars, meta_vars)
 
+
 def concat_dicts(dict1, dict2):
     return {**dict1, **dict2}
 
 
-def torch_serialize(obj, dump_module_tensors = False):
+def torch_serialize(obj, dump_module_tensors=False):
     if isinstance(obj, (int, float, str, bool)):
         return obj
     if isinstance(obj, torch.Tensor):

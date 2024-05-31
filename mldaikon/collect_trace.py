@@ -91,7 +91,9 @@ if __name__ == "__main__":
     proxy_config.disable_proxy_class = args.disable_proxy_class
     proxy_config.proxy_log_dir = args.tracer_log_dir
     proxy_config.proxy_update_limit = args.proxy_update_limit
-    proxy_config.profiling = args.profiling  # the profiling has not yet been enacted yet
+    proxy_config.profiling = (
+        args.profiling
+    )  # the profiling has not yet been enacted yet
     proxy_config.debug_mode = args.debug_mode
 
     # set up logging
