@@ -77,6 +77,13 @@ def compare_with_fp_tolerance(value1, value2):
     return value1 == value2
 
 
+def skip_init_values(var_type: str):
+    for skip_init_type in config.SKIP_INIT_VALUE_TYPES_KEY_WORDS:
+        if skip_init_type in var_type.lower():
+            return True
+    return False
+
+
 class VariableValueSelector:
     def __init__(self, var_type1, attr1, var_type2, attr2, precondition):
         self.var_type1 = var_type1
@@ -176,9 +183,13 @@ class ConsistencyRelation(Relation):
                     if len(value.traces) == 0:
                         print(f"Warning: No traces found for {var_inst} {attr}")
 
-        ## 2. Hypothesis Generation Based on Liveness Overlapping  ## TODO: this part can be made more efficient by iterating over the types instead of the variables
+        ## 2. Hypothesis Generation Based on Liveness Overlapping
         hypothesis = set()  # (var_type1, attr1, var_type2, attr2)
-        for var_inst, other_var_inst in tqdm(combinations(var_inst_values, 2), desc="Generating Hypothesis", total=len(var_inst_values) * (len(var_inst_values) - 1) // 2):
+        for var_inst, other_var_inst in tqdm(
+            combinations(var_inst_values, 2),
+            desc="Generating Hypothesis",
+            total=len(var_inst_values) * (len(var_inst_values) - 1) // 2,
+        ):
             for attr in var_inst_values[var_inst]:
                 for other_attr in var_inst_values[other_var_inst]:
                     if var_inst == other_var_inst and attr == other_attr:
@@ -202,7 +213,10 @@ class ConsistencyRelation(Relation):
                     ) in hypothesis:
                         continue
 
-                    if trace.events[tracker_var_field_prefix + attr].dtype != trace.events[tracker_var_field_prefix + other_attr].dtype:
+                    if (
+                        trace.events[tracker_var_field_prefix + attr].dtype
+                        != trace.events[tracker_var_field_prefix + other_attr].dtype
+                    ):
                         continue
 
                     # for each pair of attributes, calculate the liveness overlapping
@@ -211,9 +225,7 @@ class ConsistencyRelation(Relation):
                         saw_overlap = False
                         if done_creating_hypothesis:
                             break
-                        for other_value in var_inst_values[other_var_inst][
-                            other_attr
-                        ]:
+                        for other_value in var_inst_values[other_var_inst][other_attr]:
                             overlap = calc_liveness_overlap(
                                 value.liveness, other_value.liveness
                             )
@@ -230,13 +242,14 @@ class ConsistencyRelation(Relation):
                                             other_attr,
                                         )
                                     )
-                                    print("Adding Hypothesis: ",
+                                    print(
+                                        "Adding Hypothesis: ",
                                         (
                                             var_inst.var_type,
                                             attr,
                                             other_var_inst.var_type,
                                             other_attr,
-                                        )
+                                        ),
                                     )
                                     done_creating_hypothesis = True
                                     break
@@ -274,9 +287,12 @@ class ConsistencyRelation(Relation):
 
             # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
             is_skipping_init_values = False
-            
+
             for skip_init_type in config.SKIP_INIT_VALUE_TYPES_KEY_WORDS:
-                if skip_init_type in var_type1.lower() and skip_init_type in var_type2.lower():
+                if (
+                    skip_init_type in var_type1.lower()
+                    and skip_init_type in var_type2.lower()
+                ):
                     is_skipping_init_values = True
                     print(f"Skipping init values for {var_type1} and {var_type2}")
                     break
@@ -297,7 +313,11 @@ class ConsistencyRelation(Relation):
                         for val_idx2, value2 in enumerate(
                             var_inst_values[var_inst2][attr2]
                         ):
-                            if is_skipping_init_values and val_idx1 == 0 and val_idx2 == 0:
+                            if (
+                                is_skipping_init_values
+                                and val_idx1 == 0
+                                and val_idx2 == 0
+                            ):
                                 # skipping the init values
                                 continue
 
@@ -344,7 +364,7 @@ class ConsistencyRelation(Relation):
 
             # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
             is_skipping_init_values = False
-            if "tensor" in var_type1.lower() and "tensor" in var_type2.lower():
+            if skip_init_values(var_type1) or skip_init_values(var_type2):
                 is_skipping_init_values = True
 
             # collect all variables that have the same types as var_type1 and var_type2
@@ -371,7 +391,9 @@ class ConsistencyRelation(Relation):
                         for val_idx2, value2 in enumerate(
                             var_inst_values[var_inst2][attr2]
                         ):
-                            if is_skipping_init_values and val_idx1 == 0 and val_idx2 == 0:
+                            if is_skipping_init_values and (
+                                val_idx1 == 0 or val_idx2 == 0
+                            ):
                                 # skipping the init values
                                 continue
 
