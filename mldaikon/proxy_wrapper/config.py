@@ -29,6 +29,7 @@ tensor_attribute_black_list = [
     "_backward_hooks",
     "_backward_hooks",
     "_version",
+    "real",
 ]
 attribute_black_list = tensor_attribute_black_list
 
