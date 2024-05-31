@@ -337,15 +337,6 @@ def find_precondition(
 
         local_cluases = _find_local_clauses(example, key_to_skip=keys_to_skip)
 
-        for clause in local_cluases:
-            if clause.prop_name in "var_name" and clause.type == PT.UNEQUAL:
-                print("no var_name example: \n", example)
-                print("clauses: ", local_cluases)
-                print("=====================================")
-                # raise ValueError(
-                #     "Variable name should not have unequal values in the example"
-                # )
-
         if len(local_cluases) == 0:
             print("example: ", example)
             raise ValueError(
