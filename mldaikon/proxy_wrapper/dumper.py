@@ -43,7 +43,7 @@ class json_dumper(metaclass=Singleton):
         ):
             return
         data = {
-            "value": var_value,
+            # "value": var_value,
             "var_name": variable_name,
             "var_type": var_type,
             "process_id": process_id,
@@ -70,21 +70,27 @@ class json_dumper(metaclass=Singleton):
 
 
 def dump_tensor(value):
-    result = None
-    if isinstance(value, torch.Tensor):
-        # dump the min, max, mean of the tensor to check whether the tensor is updated
-        min = float(value.min().item())
-        max = float(value.max().item())
-        mean = float(value.mean().item())
+    param_list = None
+    # if isinstance(value, torch.Tensor):
+    #     # dump the min, max, mean of the tensor to check whether the tensor is updated
+    #     min = float(value.min().item())
+    #     max = float(value.max().item())
+    #     mean = float(value.mean().item())
 
-        shape = tuple(int(x) for x in value.size())
-        result = {
-            "min": min,
-            "max": max,
-            "mean": mean,
-            "shape": shape,
-        }
-    return result
+    #     shape = tuple(int(x) for x in value.size())
+    #     result = {
+    #         "min": min,
+    #         "max": max,
+    #         "mean": mean,
+    #         "shape": shape,
+    #     }
+    if isinstance(value, torch.Tensor):
+        # dump out the tensor data to a list
+        param_list = value.detach().tolist()
+        # # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
+        if not isinstance(param_list[0], list):
+            param_list = [param_list]
+    return param_list
 
 
 def dump_attributes(obj):
