@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.3.1] - 2024-06-01
+ 
+The `DS-1801` precondition inference is fully supported in this version.
+
+### Changed
+ 
+ - dump whole tensor instead of {`min`, `max`, `shape`} attributes
+
+ - update meta_var dumper to filter out files inside the ml-daikon folder
+
+### Fixed
+
+ - maintain the block list for `meta_var` and `attributes`
+
 ## [0.2.4] - 2024-05-30
 
 ### Added
