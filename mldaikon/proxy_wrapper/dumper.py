@@ -2,7 +2,11 @@ import json
 import time
 import torch
 import inspect
-from mldaikon.proxy_wrapper.config import meta_var_black_list, attribute_black_list, exclude_file_names
+from mldaikon.proxy_wrapper.config import (
+    meta_var_black_list,
+    attribute_black_list,
+    exclude_file_names,
+)
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.instrumentor.tracer import meta_vars
 
@@ -144,15 +148,17 @@ def dump_meta_vars(level=8, proxy_file_path=""):
         or frame.f_code.co_filename == __file__
     ):
         frame = frame.f_back
-    frame_vars = frame.f_locals
+
     important_vars = {}
     # get the file name list inside the repo
-    i=0
+    i = 0
     while i < level and frame is not None:
         if frame.f_code.co_filename in exclude_file_names:
             frame = frame.f_back
             continue
-        
+
+        frame_vars = frame.f_locals
+
         important_vars.update(
             {
                 key: frame_vars[key]
