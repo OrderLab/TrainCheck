@@ -2,7 +2,11 @@ import json
 import time
 import torch
 import inspect
-from mldaikon.proxy_wrapper.config import meta_var_black_list, attribute_black_list
+from mldaikon.proxy_wrapper.config import (
+    meta_var_black_list,
+    attribute_black_list,
+    exclude_file_names,
+)
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.instrumentor.tracer import meta_vars
 
@@ -43,7 +47,7 @@ class json_dumper(metaclass=Singleton):
         ):
             return
         data = {
-            "value": var_value,
+            # "value": var_value,
             "var_name": variable_name,
             "var_type": var_type,
             "process_id": process_id,
@@ -70,21 +74,27 @@ class json_dumper(metaclass=Singleton):
 
 
 def dump_tensor(value):
-    result = None
-    if isinstance(value, torch.Tensor):
-        # dump the min, max, mean of the tensor to check whether the tensor is updated
-        min = float(value.min().item())
-        max = float(value.max().item())
-        mean = float(value.mean().item())
+    param_list = None
+    # if isinstance(value, torch.Tensor):
+    #     # dump the min, max, mean of the tensor to check whether the tensor is updated
+    #     min = float(value.min().item())
+    #     max = float(value.max().item())
+    #     mean = float(value.mean().item())
 
-        shape = tuple(int(x) for x in value.size())
-        result = {
-            "min": min,
-            "max": max,
-            "mean": mean,
-            "shape": shape,
-        }
-    return result
+    #     shape = tuple(int(x) for x in value.size())
+    #     result = {
+    #         "min": min,
+    #         "max": max,
+    #         "mean": mean,
+    #         "shape": shape,
+    #     }
+    if isinstance(value, torch.Tensor):
+        # dump out the tensor data to a list
+        param_list = value.detach().tolist()
+        # # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
+        if not isinstance(param_list[0], list):
+            param_list = [param_list]
+    return param_list
 
 
 def dump_attributes(obj):
@@ -138,9 +148,17 @@ def dump_meta_vars(level=8, proxy_file_path=""):
         or frame.f_code.co_filename == __file__
     ):
         frame = frame.f_back
-    frame_vars = frame.f_locals
+
     important_vars = {}
-    for i in range(level):
+    # get the file name list inside the repo
+    i = 0
+    while i < level and frame is not None:
+        if frame.f_code.co_filename in exclude_file_names:
+            frame = frame.f_back
+            continue
+
+        frame_vars = frame.f_locals
+
         important_vars.update(
             {
                 key: frame_vars[key]
@@ -156,6 +174,7 @@ def dump_meta_vars(level=8, proxy_file_path=""):
         if frame is None:
             break
         frame_vars = frame.f_locals
+        i += 1
     return concat_dicts(important_vars, meta_vars)
 
 
