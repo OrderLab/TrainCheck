@@ -183,8 +183,7 @@ def _find_local_clauses(
                     f"Property {prop} not found in example {example[i]}, precondition inference might not be correct if this prop is not a local attribute of the variable"
                 )
                 continue
-            if example[i][prop] is not None:
-                prop_values_seen.add(example[i][prop])
+            prop_values_seen.add(example[i][prop])
 
         # get the type of the property
         prop_type = None
@@ -199,11 +198,10 @@ def _find_local_clauses(
                 )
 
         if len(prop_values_seen) == 1 and prop_type is not None:
-            if prop_type is not None:
-                clauses.append(
-                    PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen)
-                )
-        elif len(prop_values_seen) == len(example):
+            clauses.append(
+                PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen)
+            )
+        elif len(prop_values_seen) == len(example) and not None in prop_values_seen:
             clauses.append(PreconditionClause(prop, prop_type, PT.UNEQUAL, None))
 
     return clauses
@@ -436,12 +434,19 @@ def find_precondition(
                 found_relevant = True
                 break
             if set_top_level_ids.issubset(set_exp_ids):
-                print("Replace top-level example ids from group", grouped_clauses[top_level_example_ids[ids]], "with", grouped_clauses[exp_ids])
+                print(
+                    "Replace top-level example ids from group",
+                    grouped_clauses[top_level_example_ids[ids]],
+                    "with",
+                    grouped_clauses[exp_ids],
+                )
                 top_level_example_ids[ids] = exp_ids
                 found_relevant = True
                 break
         if not found_relevant:
-            print("Adding new top-level example ids from group", grouped_clauses[exp_ids])
+            print(
+                "Adding new top-level example ids from group", grouped_clauses[exp_ids]
+            )
             top_level_example_ids.append(exp_ids)
 
     # construct the top-level preconditions
