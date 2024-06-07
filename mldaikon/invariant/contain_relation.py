@@ -106,18 +106,14 @@ class APIContainRelation(Relation):
 
         logger = logging.getLogger(__name__)
 
-        # if no API related traces (i.e. no 'function' in columns), let's return an empty list
-        if "function" not in trace.events.columns:
-            logger.warning(
-                "No API related traces found in the trace. Skipping the APIContainRelation inference."
-            )
-            return []
-
         # split the trace into groups based on (process_id and thread_id)
         hypothesis: dict[str, dict[str, Hypothesis]] = {}
-        func_names = (
-            trace.events.select("function").drop_nulls().unique().to_series().to_list()
-        )
+        func_names = trace.get_func_names()
+        if len(func_names) == 0:
+            logger.warning(
+                "No function calls found in the trace, skipping the analysis"
+            )
+            return []
 
         for parent in func_names:
             logger.debug(f"Starting the analysis for the parent function: {parent}")
@@ -180,11 +176,11 @@ class APIContainRelation(Relation):
                     if expected_child_func in child_func_names:
                         hypothesis[parent][
                             expected_child_func
-                        ].positive_examples.append(Trace([parent_pre_event]))
+                        ].positive_examples.append([parent_pre_event])
                     else:
                         hypothesis[parent][
                             expected_child_func
-                        ].negative_examples.append(Trace([parent_pre_event]))
+                        ].negative_examples.append([parent_pre_event])
 
         ## precondition inference
         for p, child_hypotheses in hypothesis.items():

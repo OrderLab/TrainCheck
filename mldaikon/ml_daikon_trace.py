@@ -31,6 +31,22 @@ class AttrState:
         self.traces = traces
 
 
+class VarChange:
+    def __init__(
+        self,
+        var_id: VarInstId,
+        attr_name: str,
+        change_time: int,
+        old_state: AttrState,
+        new_state: AttrState,
+    ):
+        self.var_id = var_id
+        self.attr_name = attr_name
+        self.change_time = change_time
+        self.old_state = old_state
+        self.new_state = new_state
+
+
 def _unnest_all(schema, separator):
     def _unnest(schema, path=[]):
         for name, dtype in schema.items():
@@ -71,6 +87,7 @@ class Trace:
         self.events = events
         self.var_ids = None
         self.var_insts = None
+        self.var_changes = None
 
         if isinstance(events, list) and all(
             [isinstance(e, pl.DataFrame) for e in events]
@@ -100,6 +117,17 @@ class Trace:
 
     def get_end_time(self) -> int:
         return self.events["time"].max()
+
+    def get_func_names(self) -> list[str]:
+        """Find all function names from the trace."""
+        if "function" not in self.events.columns:
+            logger.warning(
+                "function column not found in the events, no function related invariants will be extracted."
+            )
+            return []
+        return (
+            self.events.select("function").drop_nulls().unique().to_series().to_list()
+        )
 
     def get_var_ids(self) -> list[VarInstId]:
         """Find all variables (uniquely identified by name, type and process id) from the trace."""
@@ -203,6 +231,48 @@ class Trace:
                         print(f"Warning: No traces found for {var_id} {attr}")
         self.var_insts = var_insts
         return self.var_insts
+
+    def get_var_changes(self) -> list[VarChange]:
+        if self.var_changes is not None:
+            return self.var_changes
+
+        var_insts = self.get_var_insts()
+
+        self.var_changes = []
+        for var_id in var_insts:
+            for attr in var_insts[var_id]:
+                for i in range(1, len(var_insts[var_id][attr])):
+
+                    change_time = var_insts[var_id][attr][i].liveness.start_time
+                    old_state = var_insts[var_id][attr][i - 1]
+                    new_state = var_insts[var_id][attr][i]
+                    assert (
+                        change_time is not None
+                    ), f"Start time not found for {var_id} {attr} {var_insts[var_id][attr][i].value}"
+                    self.var_changes.append(
+                        VarChange(
+                            var_id=var_id,
+                            attr_name=attr,
+                            change_time=change_time,
+                            old_state=old_state,
+                            new_state=new_state,
+                        )
+                    )
+
+        return self.var_changes
+
+    def query_var_changes_within_time(
+        self, time_range: tuple[int, int]
+    ) -> list[VarChange]:
+        if self.var_changes is not None:
+            return self.var_changes
+
+        var_changes = self.get_var_changes()
+        return [
+            var_change
+            for var_change in var_changes
+            if time_range[0] <= var_change.change_time <= time_range[1]
+        ]
 
     def scan_to_groups(self, param_selectors: list):
         """Extract from trace, groups of events
