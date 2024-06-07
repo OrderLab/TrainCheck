@@ -1,6 +1,7 @@
 import re
 from typing import NamedTuple
 from itertools import combinations
+import logging
 
 import polars as pl
 from tqdm import tqdm
@@ -109,9 +110,14 @@ class ConsistencyRelation(Relation):
     def infer(trace: Trace) -> list[Invariant]:
         """Infer Invariants for the ConsistencyRelation."""
 
+        logger = logging.getLogger(__name__)
+
         ## 1. Pre-scanning: Collecting variable instances and their values from the trace
         # get identifiers of the variables, those variables can be used to query the actual values
         var_insts = trace.get_variable_insts()
+        if len(var_insts) == 0:
+            logger.warning("No variables found in the trace.")
+            return []
         var_inst_values = {}
         for var_inst in tqdm(var_insts, desc="Indexing Variable Instances"):
             var_inst_states = trace.events.filter(
