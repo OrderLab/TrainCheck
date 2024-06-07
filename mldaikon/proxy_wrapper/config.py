@@ -1,3 +1,5 @@
+import os
+
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: Currently disable proxy_class in default
 proxy_update_limit = 5
@@ -36,14 +38,13 @@ attribute_black_list = tensor_attribute_black_list
 
 profiling = False
 
-import os
 # ad-hoc: should be the super super foler of this file
 mldaikon_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 print(mldaikon_folder)
 exclude_file_names = []
 for root, dirs, files in os.walk(mldaikon_folder):
     for file in files:
-        if file.endswith('.py'):
+        if file.endswith(".py"):
             exclude_file_names.append(os.path.join(root, file))
-            
+
 print(exclude_file_names)

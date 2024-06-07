@@ -1,10 +1,34 @@
 import logging
+import re
+from typing import NamedTuple
 
 import polars as pl
+from tqdm import tqdm
+
+from mldaikon.config import config
 
 logger = logging.getLogger(__name__)
 
 # TODO: formalize the trace schema for efficient polars processing
+
+
+class VarInstId(NamedTuple):
+    process_id: int
+    var_name: str
+    var_type: str
+
+
+class Liveness:
+    def __init__(self, start_time: int | None, end_time: int | None):
+        self.start_time = start_time
+        self.end_time = end_time
+
+
+class AttrState:
+    def __init__(self, value: type, liveness: Liveness, traces: list[dict]):
+        self.value: type = value
+        self.liveness: Liveness = liveness
+        self.traces = traces
 
 
 def _unnest_all(schema, separator):
@@ -36,9 +60,17 @@ def unnest_all(df: pl.DataFrame, separator=".") -> pl.DataFrame:
     return df.select(_unnest_all(df.schema, separator))
 
 
+def get_attr_name(col_name: str) -> str:
+    if config.VAR_ATTR_PREFIX not in col_name:
+        raise ValueError(f"{col_name} does not contain the tracker_var_field_prefix.")
+    return col_name[len(config.VAR_ATTR_PREFIX) :]
+
+
 class Trace:
-    def __init__(self, events: pl.DataFrame | list[pl.DataFrame] | list[dict]):
+    def __init__(self, events):
         self.events = events
+        self.var_ids = None
+        self.var_insts = None
 
         if isinstance(events, list) and all(
             [isinstance(e, pl.DataFrame) for e in events]
@@ -62,7 +94,6 @@ class Trace:
     def filter(self, predicate):
         # TODO: need to think about how to implement this, as pre-conditions for bugs like DS-1801 needs to take multiple events into account
         raise NotImplementedError("filter method is not implemented yet.")
-        return Trace(self.events[self.events.apply(predicate, axis=1)])
 
     def get_start_time(self) -> int:
         return self.events["time"].min()
@@ -70,15 +101,99 @@ class Trace:
     def get_end_time(self) -> int:
         return self.events["time"].max()
 
-    def get_variable_insts(self) -> list[dict]:
+    def get_var_ids(self) -> list[VarInstId]:
         """Find all variables (uniquely identified by name, type and process id) from the trace."""
         # Identification of Variables --> (variable_name, process_id)
+        if self.var_ids is not None:
+            return self.var_ids
+
         variables = (
             self.events.select("var_name", "var_type", "process_id")
             .drop_nulls()
             .unique()
         )
-        return variables.rows(named=True)
+
+        self.var_ids = []
+        for var_id in variables.rows(named=True):
+            self.var_ids.append(
+                VarInstId(
+                    var_id["process_id"],
+                    var_id["var_name"],
+                    var_id["var_type"],
+                )
+            )
+        return self.var_ids
+
+    def get_var_insts(self) -> dict[VarInstId, dict[str, list[AttrState]]]:
+        if self.var_insts is not None:
+            return self.var_insts
+
+        var_ids = self.get_var_ids()
+        var_insts = {}
+        for var_id in tqdm(var_ids, desc="Indexing Variable Instances"):
+            var_inst_states = self.events.filter(
+                pl.col("process_id") == var_id.process_id,
+                pl.col("var_name") == var_id.var_name,
+                pl.col("var_type") == var_id.var_type,
+            )
+
+            state_changes = var_inst_states.filter(pl.col("type") == "state_change")
+
+            # init attribute values for this variable
+            attr_values = {}
+            for state_change in state_changes.rows(named=True):
+                for col in state_change:
+                    if col.startswith(config.VAR_ATTR_PREFIX):
+                        attr_name = get_attr_name(col)
+                        # pruning out the attributes that might be properties
+                        if any(
+                            [
+                                re.match(pattern, attr_name) is not None
+                                for pattern in config.PROP_ATTR_PATTERNS
+                            ]
+                        ) or any(
+                            [
+                                self.events[col].dtype == _type
+                                for _type in config.PROP_ATTR_TYPES
+                            ]
+                        ):
+                            continue
+
+                        if attr_name not in attr_values:
+                            attr_values[attr_name] = [
+                                AttrState(
+                                    state_change[col],
+                                    Liveness(state_change["time"], None),
+                                    [state_change],
+                                )
+                            ]
+                        else:
+                            if attr_values[attr_name][-1].value != state_change[col]:
+                                attr_values[attr_name][-1].liveness.end_time = (
+                                    state_change["time"]
+                                )
+                                attr_values[attr_name].append(
+                                    AttrState(
+                                        state_change[col],
+                                        Liveness(state_change["time"], None),
+                                        [state_change],
+                                    )
+                                )
+                            else:
+                                attr_values[attr_name][-1].traces.append(state_change)
+
+            # set end time for the last state change
+            for attr_name in attr_values:
+                if attr_values[attr_name][-1].liveness.end_time is None:
+                    attr_values[attr_name][-1].liveness.end_time = self.get_end_time()
+            var_insts[var_id] = attr_values
+        for var_id in var_insts:
+            for attr in var_insts[var_id]:
+                for value in var_insts[var_id][attr]:
+                    if len(value.traces) == 0:
+                        print(f"Warning: No traces found for {var_id} {attr}")
+        self.var_insts = var_insts
+        return self.var_insts
 
     def scan_to_groups(self, param_selectors: list):
         """Extract from trace, groups of events

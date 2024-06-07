@@ -1,7 +1,5 @@
 from .utils import print_debug
 
-from mldaikon.utils import typename
-
 
 def __delattr__(self, name):
     # Intercept attribute deletion

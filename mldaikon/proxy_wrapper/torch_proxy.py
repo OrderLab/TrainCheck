@@ -1,7 +1,7 @@
 import torch
-import logging
 import torch.distributed
 from torch._C._distributed_c10d import ReduceOp
+
 from .proxy import Proxy
 
 #################################################

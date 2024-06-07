@@ -10,7 +10,7 @@ class Invariant:
         self.param_selectors = param_selectors  ## Param selector
         self.precondition = precondition  # stateful preconditions
 
-    def param_selectors(self, trace: Trace) -> list:
+    def get_params(self, trace: Trace) -> list:
         """Given a trace, should return the values of the parameters
         that the invariant should be evaluated on.
 
@@ -18,7 +18,7 @@ class Invariant:
             trace: str
                 A trace to get the parameter values from.
         """
-        raise NotImplementedError("param_selectors method is not implemented yet.")
+        raise NotImplementedError("get_params method is not implemented yet.")
 
     def verify(self, trace) -> bool:
         """Given a trace, should return a boolean value indicating
@@ -44,8 +44,8 @@ class Hypothesis:
     def __init__(
         self,
         invariant: Invariant,
-        positive_examples: list[Trace],
-        negative_examples: list[Trace],
+        positive_examples: list[list[dict]],
+        negative_examples: list[list[dict]],
     ):
         self.invariant = invariant
         self.positive_examples = positive_examples
