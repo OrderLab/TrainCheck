@@ -107,6 +107,12 @@ class Trace:
         if self.var_ids is not None:
             return self.var_ids
 
+        if "var_name" not in self.events.columns:
+            logger.warning(
+                "var_name column not found in the events, no variable related invariants will be extracted."
+            )
+            return []
+
         variables = (
             self.events.select("var_name", "var_type", "process_id")
             .drop_nulls()
@@ -129,6 +135,9 @@ class Trace:
             return self.var_insts
 
         var_ids = self.get_var_ids()
+        if len(var_ids) == 0:
+            logger.warning("No variables found in the trace.")
+            return {}
         var_insts = {}
         for var_id in tqdm(var_ids, desc="Indexing Variable Instances"):
             var_inst_states = self.events.filter(
