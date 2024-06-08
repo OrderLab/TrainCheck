@@ -264,14 +264,22 @@ class Trace:
     def query_var_changes_within_time(
         self, time_range: tuple[int, int]
     ) -> list[VarChange]:
-        if self.var_changes is not None:
-            return self.var_changes
 
         var_changes = self.get_var_changes()
         return [
             var_change
             for var_change in var_changes
             if time_range[0] <= var_change.change_time <= time_range[1]
+        ]
+    
+    def query_var_changes_within_time_and_process(
+        self, time_range: tuple[int, int], process_id: int
+    ) -> list[VarChange]:
+        var_changes = self.get_var_changes()
+        return [
+            var_change
+            for var_change in var_changes
+            if time_range[0] <= var_change.change_time <= time_range[1] and var_change.var_id.process_id == process_id
         ]
 
     def scan_to_groups(self, param_selectors: list):

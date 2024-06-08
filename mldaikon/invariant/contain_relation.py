@@ -53,6 +53,8 @@ def events_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[str]
             )
             & (pl.col("function") == parent_func_name)
             & (pl.col("func_call_id") == func_call_id)
+            & (pl.col("process_id") == process_id)
+            & (pl.col("thread_id") == thread_id)
         )
     ).to_series()
 
@@ -68,10 +70,6 @@ def events_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[str]
     #     num_records == 1
     # ), "There should be only one post-event for the parent_func_name"
     post_idx = post_idx[0]  # the first post-event
-    post_event = events_slice.row(index=post_idx, named=True)
-    assert (
-        post_event["process_id"] == process_id and post_event["thread_id"] == thread_id
-    ), "The post-event of the parent_func_name should be on the same thread and process"
 
     # get the events that happened within the pre and post events of the parent_func_name
     func_names = (
@@ -136,6 +134,8 @@ def var_change_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[
             )
             & (pl.col("function") == parent_func_name)
             & (pl.col("func_call_id") == func_call_id)
+            & (pl.col("process_id") == process_id)
+            & (pl.col("thread_id") == thread_id)
         )
     ).to_series()
 
@@ -145,7 +145,7 @@ def var_change_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[
     # now query the variable change between the pre and post events
     pre_event = trace.events.row(index=offset, named=True)
     post_event = trace.events.row(index=post_idx, named=True)
-    var_changes = trace.query_var_changes_within_time(pre_event["time"], post_event["time"])
+    var_changes = trace.query_var_changes_within_time_and_process((pre_event["time"], post_event["time"]), process_id)
 
     return set(var_changes)
 
