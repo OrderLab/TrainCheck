@@ -7,7 +7,7 @@ from mldaikon.invariant.precondition import find_precondition
 from mldaikon.ml_daikon_trace import Trace
 
 
-def events_scanner(trace_df: pl.DataFrame, parent_func_name: str) -> set[str] | None:
+def events_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[str] | None:
     """Scan the trace, and return the first set of events that happened within the pre and post
     events of the parent_func_name.
 
@@ -24,8 +24,9 @@ def events_scanner(trace_df: pl.DataFrame, parent_func_name: str) -> set[str] | 
     """
     logger = logging.getLogger(__name__)
 
-    # get the first record of the trace
-    first_record = trace_df.row(index=0, named=True)
+    events_slice = trace.events.slice(offset, None)
+    # get the first record of the trace at the offset
+    first_record = events_slice.row(index=offset, named=True)
     if (
         first_record["function"] != parent_func_name
         or first_record["type"] != "function_call (pre)"
@@ -43,7 +44,7 @@ def events_scanner(trace_df: pl.DataFrame, parent_func_name: str) -> set[str] | 
     func_call_id = first_record["func_call_id"]
 
     # get the post-event of the parent_func_name, according to func_call_id
-    post_idx = trace_df.select(
+    post_idx = events_slice.select(
         pl.arg_where(
             (
                 pl.col("type").is_in(
@@ -67,14 +68,14 @@ def events_scanner(trace_df: pl.DataFrame, parent_func_name: str) -> set[str] | 
     #     num_records == 1
     # ), "There should be only one post-event for the parent_func_name"
     post_idx = post_idx[0]  # the first post-event
-    post_event = trace_df.row(index=post_idx, named=True)
+    post_event = events_slice.row(index=post_idx, named=True)
     assert (
         post_event["process_id"] == process_id and post_event["thread_id"] == thread_id
     ), "The post-event of the parent_func_name should be on the same thread and process"
 
     # get the events that happened within the pre and post events of the parent_func_name
     func_names = (
-        trace_df.slice(0, post_idx)
+        events_slice.slice(0, post_idx)
         .filter(
             (pl.col("process_id") == process_id) & (pl.col("thread_id") == thread_id)
         )
@@ -107,7 +108,8 @@ class APIContainRelation(Relation):
         logger = logging.getLogger(__name__)
 
         # split the trace into groups based on (process_id and thread_id)
-        hypothesis: dict[str, dict[str, Hypothesis]] = {}
+        hypothesis_api: dict[str, dict[str, Hypothesis]] = {}
+        hypothesis_var: dict[str, dict[str, Hypothesis]] = {}
         func_names = trace.get_func_names()
         if len(func_names) == 0:
             logger.warning(
@@ -131,7 +133,7 @@ class APIContainRelation(Relation):
             for idx in parent_pre_idx:
                 # get all child post events
                 child_func_names = events_scanner(
-                    trace_df=trace.events.slice(idx, None), parent_func_name=parent
+                    trace=trace, offset=idx, parent_func_name=parent
                 )
                 if child_func_names is None:
                     raise ValueError(
@@ -140,22 +142,23 @@ class APIContainRelation(Relation):
                 all_child_func_names.append(child_func_names)
 
             unique_seen_child_func_names = set(
-                [item for sublist in all_child_func_names for item in sublist]
+                item for sublist in all_child_func_names for item in sublist
             )
-            # create hypothesis for each child_func_name
-            hypothesis[parent] = {}
+            # create hypothesis_api for each child_func_name
+            hypothesis_api[parent] = {}
+            hypothesis_var[parent] = {}
             logger.debug(
                 f"Creating {len(unique_seen_child_func_names)} hypotheses for the parent function: {parent}"
             )
             for child_func_name in unique_seen_child_func_names:
                 param_selectors = [
                     child_func_name,
-                    lambda trace_df: events_scanner(
-                        trace_df=trace_df, parent_func_name=parent
+                    lambda offset: events_scanner(
+                        trace=trace, offset=offset, parent_func_name=parent
                     ),
                 ]
 
-                hypothesis[parent][child_func_name] = Hypothesis(
+                hypothesis_api[parent][child_func_name] = Hypothesis(
                     Invariant(
                         relation=APIContainRelation(),
                         param_selectors=param_selectors,
@@ -170,26 +173,26 @@ class APIContainRelation(Relation):
                 for expected_child_func in unique_seen_child_func_names:
                     parent_pre_event = trace.events.row(
                         index=idx, named=True
-                    )  # NOTE: for this specific analysis, the examples we use is just the pre-event, if in other cases we need to use other parts of the trace, we may collect them in the hypothesis construction phase
+                    )  # NOTE: for this specific analysis, the examples we use is just the pre-event, if in other cases we need to use other parts of the trace, we may collect them in the hypothesis_api construction phase
 
                     # assumption: the precondition can only resides in the parent pre-event
                     if expected_child_func in child_func_names:
-                        hypothesis[parent][
+                        hypothesis_api[parent][
                             expected_child_func
                         ].positive_examples.append([parent_pre_event])
                     else:
-                        hypothesis[parent][
+                        hypothesis_api[parent][
                             expected_child_func
                         ].negative_examples.append([parent_pre_event])
 
         ## precondition inference
-        for p, child_hypotheses in hypothesis.items():
+        for p, child_hypotheses in hypothesis_api.items():
             for k, h in child_hypotheses.items():
                 h.invariant.precondition = find_precondition(h)
 
         all_invariants: list[Invariant] = []
         all_hypotheses = []
-        for p, child_hypotheses in hypothesis.items():
+        for p, child_hypotheses in hypothesis_api.items():
             for k, h in child_hypotheses.items():
                 all_invariants.append(h.invariant)
                 all_hypotheses.append((h, f"{p} contains {k}"))
