@@ -23,6 +23,8 @@ Solves #26
 
 - function wrapping for a callale module attribute
 
+- wrap torch.optim.optimizer._default_to_fused_or_foreach for type() handling
+
 ### Changed
 
 - formalize the get_frame_array functionality
