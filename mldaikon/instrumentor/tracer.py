@@ -25,8 +25,10 @@ trace_API_loggers: dict[int, logging.Logger] = {}
 trace_VAR_loggers: dict[int, logging.Logger] = {}
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
-
 disable_proxy_class = disable_proxy_class
+
+
+_instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
 
 def get_trace_API_logger_for_process():
@@ -341,7 +343,7 @@ def get_all_subclasses(cls):
 
 instrumented_modules = set()
 skipped_modules: set[types.ModuleType | type | types.FunctionType] = set()
-skipped_functions = set()
+skipped_functions: set[str] = set()
 
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
 modules_to_skip = [
@@ -352,6 +354,14 @@ modules_to_skip = [
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
 ]
 
+def log_instrumentation_progress(depth: int, msg: str, attr: str|None, attr_name: str|None, pymodule: types.ModuleType | type):
+    if attr is None:
+        attr = ""
+    if attr_name is None:
+        attr_name = ""
+    get_instrumentation_logger_for_process().info(
+        f"Depth: {depth}, {msg}: {attr_name}, {typename(attr)}, {typename(pymodule)}"
+    )
 
 class Instrumentor:
     def __init__(
@@ -432,9 +442,7 @@ class Instrumentor:
         for attr_name in dir(pymodule):
             if not hasattr(pymodule, attr_name):
                 # handle __abstractmethods__ attribute
-                get_instrumentation_logger_for_process().info(
-                    f"Depth: {depth}, Skipping attribute as it does not exist: {attr_name}"
-                )
+                log_instrumentation_progress(depth, "Skipping attribute as it does not exist", None, attr_name, pymodule)
                 continue
 
             attr = pymodule.__dict__.get(
@@ -442,9 +450,7 @@ class Instrumentor:
             )  # getattr(pymodule, attr_name)
 
             if attr is None:
-                get_instrumentation_logger_for_process().info(
-                    f"Depth: {depth}, Skipping attribute as it is None: {attr_name}"
-                )
+                log_instrumentation_progress(depth, "Skipping attribute as it is None", attr, attr_name, pymodule)
                 """
                 TODO: From my observation, this is happening for the attributes that are implemented in C extension, which usually include math ops and other low level operations for tensors
                 , such as tensor.add_.
@@ -454,149 +460,64 @@ class Instrumentor:
 
             # TODO: fix the bug "TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method"
             if "getfile" in attr_name:
-                get_instrumentation_logger_for_process().info(
-                    f"Depth: {depth}, Skipping attribute as it is getfile: {attr_name}"
-                )
+                log_instrumentation_progress(depth, "Skipping attribute as it is getfile", attr, attr_name, pymodule)
                 continue
 
             # skip magic methods
-            if attr_name.startswith("__"):
-                get_instrumentation_logger_for_process().info(
-                    f"Depth: {depth}, Skipping magic functions: {attr_name}"
-                )
-                # if callable(attr): # TODO: understand why callable leads to issues
-                if isinstance(attr, types.FunctionType):
-                    skipped_functions.add(attr)
-                elif isinstance(attr, types.ModuleType):
-                    skipped_modules.add(attr)
+            if attr_name.startswith("__") and attr_name.endswith("__"):
+                log_instrumentation_progress(depth, "Skipping magic functions", None, attr_name, pymodule)
                 continue
-
-            """Current Issue with private attributes:
-
-            Background: 
-            
-                There are actually no *private* attributes in Python. 
-                The single underscore prefix is a *convention* that is used to indicate 
-                that the attribute should not be accessed directly. 
-            
-                The double underscore function names such as `__init__` are actually 
-                'magic' functions in Python. 
-                These functions are super useful and are used to control the behavior of the class. 
-                To know more, refer to this link: https://rszalski.github.io/magicmethods/    
-                A lot of these magic functions, if instrumented, can be helpful. For example,
-                arguments to __init__ can be printed to understand how the class is initialized.
-                Also, incepting `__setattr__` can keep track of variable (e.g. weights and gradients) 
-                changes in the class.
-
-            Issue:
-                The problem is that if we are to instrument all the magic functions, the `__repr__` 
-                is leading to some troubles. 
-
-                ```
-                Before calling __repr__
-                Exception in __repr__: maximum recursion depth exceeded
-                Exception in extra_repr: maximum recursion depth exceeded while getting the repr of an object
-                Before calling __repr__
-                Before calling extra_repr
-                ```
-                This is because `__repr__` is called by `extra_repr` and `extra_repr` is called by `__repr__`.
-
-
-            Plan for now:
-                This feature is being delayed for now. The original motivation for tracking the magic functions is to 
-                capture invalid configs when initialting the classes. For example, if a optimizer is intialized with
-                no learnable parameters, it is a sign of a bug. 
-                However, we plan to delay this feature for now. The reasons are two fold:
-                1. In most ML pipelines, the class initialization code are only run once. This means if we want to 
-                    infer invariants from these initializations, we need to combine trace from multiple pipelines. I think
-                    it is better to just focus on the main training loop for now as these are executed multiple times and 
-                    we can infer things from just one pipeline.
-                2. The second reason is these invalid initializations usually have symptoms during the training loop.
-                    If the optimizer is not passed with learnable parameters, we will observe that no updates are being performed
-                    to the model weights. This is a clear symptom that can be captured during the training loop.
-
-                So for now, we will skip the magic functions.
-            """
-
-            # if callable(attr):
-            """
-              File "/home/yuxuan/gitrepos/ml-daikon/src/instrumentor/tracer.py", line 243, in _instrument_module
-                if attr in skipped_functions:
-            TypeError: unhashable type: 'instancemethod'
-              File "/home/yuxuan/miniconda3/envs/PyTorch-FORUM84911/lib/python3.10/site-packages/torch/library.py", line 109, in impl
-                elif isinstance(op_name, OpOverload):
-            TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
-            """
 
             if self.check_if_to_skip(attr):
-                get_instrumentation_logger_for_process().info(
-                    f"Depth: {depth}, Skipping due to modules_to_skip: {typename(attr)}"
-                )
+                log_instrumentation_progress(depth, "Skipping due to modules_to_skip", attr, attr_name, pymodule)
                 continue
 
+            # isinstance(torch.Tensor.backward, types.FunctionType) is True
             if isinstance(attr, types.FunctionType) or isinstance(
                 attr, types.BuiltinFunctionType
-            ):
+            ) or isinstance(attr, _instancemethod_t):
                 # if isinstance(attr
                 try:
-                    if attr in skipped_functions:
-                        get_instrumentation_logger_for_process().info(
-                            f"Depth: {depth}, Skipping function: {typename(attr)}"
-                        )
+                    # instancemethod is not hashable and will lead to exceptions in this try block
+                    if not isinstance(attr, _instancemethod_t) and attr in skipped_functions: # instance method is not hashable
+                        log_instrumentation_progress(depth, "Skipping function due to skipped_functions", attr, attr_name, pymodule)
                         continue
 
                 except Exception as e:
-                    get_instrumentation_logger_for_process().fatal(
-                        f"Depth: {depth}, Error while checking if function {typename(attr)} is in skipped_functions: {e}"
-                    )
+                    log_instrumentation_progress(depth, "Error while checking if function is in skipped_functions", attr, attr_name, pymodule)
                     continue
-                get_instrumentation_logger_for_process().info(
-                    f"Instrumenting function: {typename(attr)}"
-                )
+
+                log_instrumentation_progress(depth, "Instrumenting function", attr, attr_name, pymodule)
                 wrapped = wrapper(attr)
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
                     # handling immutable types and attrs that have no setters
-                    get_instrumentation_logger_for_process().info(
-                        f"Depth: {depth}, Skipping function {typename(attr)} due to error: {e}"
-                    )
+                    log_instrumentation_progress(depth, "Skipping function due to error", attr, attr_name, pymodule)
                     continue
                 count_wrapped += 1
             elif isinstance(attr, types.ModuleType):
                 if attr in skipped_modules:
-                    get_instrumentation_logger_for_process().info(
-                        f"Depth: {depth}, Skipping module: {typename(attr)}"
-                    )
+                    log_instrumentation_progress(depth, "Skipping module due to skipped_modules", attr, attr_name, pymodule)
                     continue
                 if not typename(attr).startswith(
                     self.root_module
                 ):  # TODO: refine the logic of how to rule out irrelevant modules
-                    get_instrumentation_logger_for_process().info(
-                        f"Depth: {depth}, Skipping module due to irrelevant name:{typename(attr)}"
-                    )
+                    log_instrumentation_progress(depth, "Skipping module due to irrelevant module", attr, attr_name, pymodule)
                     skipped_modules.add(attr)
                     continue
 
-                get_instrumentation_logger_for_process().info(
-                    f"Depth: {depth}, Recursing into module: {typename(attr)}"
-                )
+                log_instrumentation_progress(depth, "Recursing into module", attr, attr_name, pymodule)
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
             elif inspect.isclass(attr):
-                get_instrumentation_logger_for_process().info(
-                    f"Depth: {depth}, Recursing into class: {typename(attr)}"
-                )
+                log_instrumentation_progress(depth, "Recursing into class", attr, attr_name, pymodule)
                 if not attr.__module__.startswith(self.root_module):
-                    get_instrumentation_logger_for_process().info(
-                        f"Depth: {depth}, Skipping class {typename(attr)} due to irrelevant module: {attr.__module__}"
-                    )
+                    log_instrumentation_progress(depth, "Skipping class due to irrelevant module", attr, attr_name, pymodule)
                     continue
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
-        get_instrumentation_logger_for_process().info(
-            f"Depth: {depth}, Wrapped {count_wrapped} functions in module {target_name}"
-        )
+        log_instrumentation_progress(depth, f"Finished instrumenting module with {count_wrapped} functions wrapped", None, None, pymodule)
         return count_wrapped
 
 
