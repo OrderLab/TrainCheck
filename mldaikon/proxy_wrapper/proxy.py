@@ -135,6 +135,25 @@ class Proxy:
             print("logger_proxy: " + f"Proxying parameter '{parent_name+name}'")
             parameter = Proxy(parameter, var_name = parent_name + name)
             module._parameters[name] = parameter
+            
+    @staticmethod
+    def get_frame_array(frame):
+        frame_array = []
+        while frame:
+            if frame.f_code.co_filename in exclude_file_names:
+                frame = frame.f_back
+                continue
+            
+            # fetch the frame info
+            frame_array.append(
+                (
+                    frame.f_code.co_filename,
+                    frame.f_lineno,
+                    get_line(frame.f_code.co_filename, frame.f_lineno),
+                )
+            )
+            frame = frame.f_back
+        return frame_array
     
     def dump_to_trace(self, obj, status = "update", dumped_frame_array=None):
         if not issubclass(type(obj), torch.nn.Module):
@@ -181,47 +200,10 @@ class Proxy:
 
         else:
             frame = inspect.currentframe()
-            var_list = []
-            frame_array = []
-            while frame:
-                if frame.f_code.co_filename in exclude_file_names:
-                    frame = frame.f_back
-                    continue
-                
-                # fetch the frame info
-                frame_array.append(
-                    (
-                        frame.f_code.co_filename,
-                        frame.f_lineno,
-                        get_line(frame.f_code.co_filename, frame.f_lineno),
-                    )
-                )
-
-                # fetch the var_name from the stack_frame
-                current_var_name = None
-                for var_name, var_val in frame.f_locals.items():
-                    if var_val is obj or (
-                        isinstance(var_val, Proxy) and var_val._obj is obj
-                    ):
-                        current_var_name = var_name
-                        break
-                if current_var_name is not None:
-                    print_debug(
-                        "logger_proxy: " + f"Variable name f{current_var_name}"
-                        "of the object is found in the current frame"
-                    )
-                    var_list.append(current_var_name)
-                frame = frame.f_back
-
+            frame_array = self.get_frame_array(frame)
             dumped_frame_array = json.dumps(frame_array)
 
             # print_debug the variable name list of the object
-            if len(var_list) == 0:
-                print_debug("logger_proxy: " + f"Empty variable name list")
-                Proxy.empty_name_counts += 1
-            else:
-                print_debug("logger_proxy: " + f"Variable name list: {var_list}")
-                Proxy.non_empty_name_counts += 1
             print_debug(
                 "logger_proxy: " + f"Empty name counts: {Proxy.empty_name_counts}"
             )
@@ -230,11 +212,6 @@ class Proxy:
                 + f"Non-empty name counts: {Proxy.non_empty_name_counts}"
             )
 
-            # dumped var_list
-            # if len(var_list) == 0:
-            #     current_var_name_list = "None"
-            # else:
-            #     current_var_name_list = json.dumps(var_list)
             if self.__dict__["var_name"] is not None:
                 current_var_name_list = self.__dict__["var_name"]
             else:
@@ -457,7 +434,11 @@ class Proxy:
             self.__dict__[name] = value  # Set the attribute directly
         else:
             print("logger_proxy: " + f"Setting attribute '{name}' to '{value}'")
-            self.dump_to_trace(self._obj, "update")
+            # dump frame array
+            frame = inspect.currentframe()
+            frame_array = self.get_frame_array(frame)
+            dumped_frame_array = json.dumps(frame_array)
+            self.dump_to_trace(self._obj, "update", dumped_frame_array)
             
             if self.__dict__["var_name"]=='':
                 var_name = name
