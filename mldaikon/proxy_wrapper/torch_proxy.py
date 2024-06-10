@@ -1,3 +1,4 @@
+import functools
 from typing import List, Tuple
 import torch
 import logging
@@ -8,7 +9,9 @@ from torch.optim.optimizer import (
     _get_foreach_kernels_supported_devices,
     _foreach_supported_types,
 )
-from torch._C._distributed_c10d import ReduceOp
+from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg, is_proxied
+from torch._C._distributed_c10d import ReduceOp, ProcessGroup
+from deepspeed.runtime.bf16_optimizer import BF16_Optimizer
 
 #################################################
 ###         Proxied Torch functions
@@ -47,3 +50,26 @@ def _default_to_fused_or_foreach(
 
 
 torch_optimizer._default_to_fused_or_foreach = _default_to_fused_or_foreach
+
+
+original_processgroup_broadcast = ProcessGroup.broadcast
+
+# unproxy the arguments before calling the original function
+@functools.wraps(original_processgroup_broadcast)
+def processgroup_broadcast(
+    *args, **kwargs
+) -> None:
+    args = [unproxy_arg(arg) for arg in args]
+    kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+    return original_processgroup_broadcast(*args, **kwargs)
+
+ProcessGroup.broadcast = processgroup_broadcast
+
+original_bf16_optimizer_flatten_dense_tensors_aligned =
+BF16_Optimizer._flatten_dense_tensors_aligned
+
+def _flatten_dense_tensors_aligned(self, tensor_list, alignment):
+    # Your code here
+    pass
+
+BF16Optimizer._flatten_dense_tensors_aligned = _flatten_dense_tensors_aligned
