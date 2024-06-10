@@ -133,7 +133,25 @@ def global_wrapper(original_function, *args, **kwargs):
         }
     )
     try:
-
+        # check if the original function is a builtin_function_or_method
+        if isinstance(original_function, types.BuiltinFunctionType):
+            from mldaikon.proxy_wrapper.proxy import Proxy
+            # print(f"Wrapping {original_function}")
+            def unproxy_arg(arg):
+                        
+                if type(arg) is Proxy:
+                    return unproxy_arg(arg._obj)
+                elif type(arg) in [list]:
+                    return [unproxy_arg(element) for element in arg]
+                elif type(arg) in [tuple]:
+                    return tuple(unproxy_arg(element) for element in arg)
+                else:
+                    return arg
+            args = [unproxy_arg(arg) for arg in args]
+            # args = unproxy_arg(args[0])
+            kwargs = {k: v._obj if type(v) is Proxy else v for k, v in kwargs.items()}
+            
+            
         # def unwrap_proxies(obj):
         #     if isinstance(obj, Proxy):
         #         return unwrap_proxies(obj._obj)
@@ -330,7 +348,7 @@ modules_to_skip = [
     "torch.fx",
     "torch.jit",
     "torch._jit",
-    "torch._C",
+    # "torch._C",
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
 ]
 
