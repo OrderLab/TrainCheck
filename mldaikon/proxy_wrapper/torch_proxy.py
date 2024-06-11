@@ -52,24 +52,27 @@ def _default_to_fused_or_foreach(
 torch_optimizer._default_to_fused_or_foreach = _default_to_fused_or_foreach
 
 
-original_processgroup_broadcast = ProcessGroup.broadcast
+def unproxy_func(func):
+    original_func = func
+    @functools.wraps(original_func)
+    def wrapper(*args, **kwargs):
+        args = [unproxy_arg(arg) for arg in args]
+        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+        return original_func(*args, **kwargs)
 
-# unproxy the arguments before calling the original function
-@functools.wraps(original_processgroup_broadcast)
-def processgroup_broadcast(
-    *args, **kwargs
-) -> None:
-    args = [unproxy_arg(arg) for arg in args]
-    kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
-    return original_processgroup_broadcast(*args, **kwargs)
+    return wrapper
 
-ProcessGroup.broadcast = processgroup_broadcast
 
-original_bf16_optimizer_flatten_dense_tensors_aligned =
-BF16_Optimizer._flatten_dense_tensors_aligned
+ProcessGroup.broadcast = unproxy_func(ProcessGroup.broadcast)
+ProcessGroup.allreduce = unproxy_func(ProcessGroup.allreduce)
+ProcessGroup.allgather = unproxy_func(ProcessGroup.allgather)
+BF16_Optimizer._flatten_dense_tensors_aligned = unproxy_func(
+    BF16_Optimizer._flatten_dense_tensors_aligned
+)
+BF16_Optimizer._update_storage_to_flattened_tensor = unproxy_func(
+    BF16_Optimizer._update_storage_to_flattened_tensor
+)
 
-def _flatten_dense_tensors_aligned(self, tensor_list, alignment):
-    # Your code here
-    pass
 
-BF16Optimizer._flatten_dense_tensors_aligned = _flatten_dense_tensors_aligned
+#################################################
+

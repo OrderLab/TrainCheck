@@ -133,8 +133,16 @@ def global_wrapper(original_function, *args, **kwargs):
         }
     )
     try:
+        C_level_call = False
+        try:
+            # check if the original function is a C level function
+            inspect.getsource(original_function)
+        except Exception as e:
+            C_level_call = True
+            
         # check if the original function is a builtin_function_or_method
-        if isinstance(original_function, types.BuiltinFunctionType):
+        # if isinstance(original_function, types.BuiltinFunctionType):
+        if C_level_call:
             from mldaikon.proxy_wrapper.proxy import Proxy
             # print(f"Wrapping {original_function}")
             def unproxy_arg(arg):
@@ -345,9 +353,9 @@ skipped_functions = set()
 
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
 modules_to_skip = [
-    "torch.fx",
-    "torch.jit",
-    "torch._jit",
+    # "torch.fx",
+    # "torch.jit",
+    # "torch._jit",
     # "torch._C",
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
 ]
