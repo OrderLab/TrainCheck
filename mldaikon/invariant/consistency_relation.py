@@ -239,8 +239,8 @@ class ConsistencyRelation(Relation):
                             )
                             if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
                                 if compare_with_fp_tolerance(
-                                    var_insts[var_inst1][attr1][0].value,
-                                    var_insts[var_inst2][attr2][0].value,
+                                    var_insts[var_inst1][attr1][val_idx1].value,
+                                    var_insts[var_inst2][attr2][val_idx2].value,
                                 ):
                                     positive_examples += 1
                                     found_positive_example = True
@@ -331,7 +331,7 @@ class ConsistencyRelation(Relation):
         ## 5. Precondition Inference
         hypos_to_delete = []
         for hypo in hypothesis_with_examples:
-            preconditions = find_precondition(hypothesis_with_examples[hypo])
+            preconditions = find_precondition(hypothesis_with_examples[hypo], keys_to_skip=[f"attributes.{hypo[1]}", f"attributes.{hypo[3]}"])
             print(f"Preconditions for {hypo}:")
             print(f"{str(preconditions)}")
             # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant
