@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.3.2] - 2024-06-09
+
+Main edits: support automated unproxy for C level API invocation and enhance the trace coverage
+
+Solves #26
+
+### Added
+
+- de-proxing args for C-level builtin function call
+
+- type-aware proxy_handler to decide whether an object should be proxied or not
+
+- function wrapping for a callale module attribute
+
+- wrap torch.optim.optimizer._default_to_fused_or_foreach for type() handling
+
+### Changed
+
+- formalize the get_frame_array functionality
+
+- support `torch._C` global wrapping for args de-proxing purpose
+
+### Removed
+
+- remove the var_list variable name tracing in Proxy v2
+
+### Fixed
+
+- pass the proxied object to the `_parameters` dict to solve the insufficient wrapping coverage in PT-84911
+
+
 ## [0.3.1] - 2024-06-01
  
 The `DS-1801` precondition inference is fully supported in this version.
