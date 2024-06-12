@@ -6,6 +6,8 @@ import os
 import threading
 import torch.nn.parameter
 import torch
+import json.encoder
+
 import torch.nn.functional as F
 import mldaikon.proxy_wrapper.torch_proxy
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg, is_proxied
@@ -73,10 +75,6 @@ def proxy_handler(obj, logdir, log_level, var_name):
 class Proxy:
     proxy_dict = {}
     frame_dict = {}  # Ziming: currently used together with var name based identifier
-    tensor_frame_dict = (
-        {}
-    )  # Ziming: currently used together with var name based identifier
-    tensor_var_dict = {}  # Ziming: deprecated
     var_dict = {}  # Ziming: deprecated
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
@@ -142,7 +140,21 @@ class Proxy:
             )
             frame = frame.f_back
         return frame_array
-
+    
+    def dump_trace(self, status):
+        if (
+                time.time()
+                - Proxy.var_dict[self.__dict__["var_name"]].__dict__[
+                    "last_update_timestamp"
+                ]
+                > proxy_update_limit
+            ):
+                frame = inspect.currentframe()
+                frame_array = self.get_frame_array(frame)
+                dumped_frame_array = json.dumps(frame_array)
+                self.dump_to_trace(self._obj, status, dumped_frame_array)
+                self.__dict__["last_update_timestamp"] = time.time()
+    
     def dump_to_trace(self, obj, status="update", dumped_frame_array=None):
         if not issubclass(type(obj), torch.nn.Module):
             dumped_val = str(torch_serialize(obj))
@@ -253,80 +265,42 @@ class Proxy:
                 else:
                     self.proxy_parameters(obj, current_var_name_list + ".")
 
-        if issubclass(type(obj), torch.Tensor):
-            # init tensor
-            tensor_shape = obj.shape.__str__()
-            current_var_name_list = current_var_name_list + tensor_shape
-            if Proxy.tensor_var_dict.get(current_var_name_list) is None:
-                self.__dict__["_obj"] = obj
-                Proxy.tensor_var_dict[current_var_name_list] = self
-                # if it is a method rather than an object, then we should not dump it
+        current_var_name_list = current_var_name_list
+        if Proxy.var_dict.get(current_var_name_list) is None:
 
-                self.dump_to_trace(obj, "new", dumped_frame_array)
-                self.__dict__["last_update_timestamp"] = time.time()
-            # update tensor
-            else:
+            self.__dict__["_obj"] = obj
+
+            
+            self.dump_to_trace(obj, "new", dumped_frame_array)
+            self.__dict__["last_update_timestamp"] = time.time()
+
+            Proxy.var_dict[current_var_name_list] = self
+        else:
+            if not type(obj) in [int, float, str, bool] and obj is not None:
                 print_debug(
                     "logger_proxy: "
-                    + f"Tensor name: '{current_var_name_list}' is already proxied"
+                    + f"Object '{obj.__class__.__name__}' is already proxied"
                 )
 
-                print_debug(
-                    f'Time elapse: {time.time() - Proxy.tensor_var_dict[current_var_name_list].__dict__["last_update_timestamp"]}'
-                )
-
-                if (
-                    time.time()
-                    - Proxy.tensor_var_dict[current_var_name_list].__dict__[
-                        "last_update_timestamp"
-                    ]
-                    < proxy_update_limit
-                ):
-                    self.__dict__["_obj"] = obj
-                    return
-
-                self.dump_to_trace(obj, "update", dumped_frame_array)
-
-                del Proxy.tensor_var_dict[current_var_name_list]
+            print_debug(
+                f'Time elapse: {time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"]}'
+            )
+            if (
+                time.time()
+                - Proxy.var_dict[current_var_name_list].__dict__[
+                    "last_update_timestamp"
+                ]
+                < proxy_update_limit
+            ):
                 self.__dict__["_obj"] = obj
-                self.__dict__["last_update_timestamp"] = time.time()
-                Proxy.tensor_var_dict[current_var_name_list] = self
-        else:
-            current_var_name_list = current_var_name_list
-            if Proxy.var_dict.get(current_var_name_list) is None:
+                return
 
-                self.__dict__["_obj"] = obj
+            self.dump_to_trace(obj, "update", dumped_frame_array)
 
-                self.__dict__["last_update_timestamp"] = time.time()
-                self.dump_to_trace(obj, "new", dumped_frame_array)
-
-                Proxy.var_dict[current_var_name_list] = self
-            else:
-                if not type(obj) in [int, float, str, bool] and obj is not None:
-                    print_debug(
-                        "logger_proxy: "
-                        + f"Object '{obj.__class__.__name__}' is already proxied"
-                    )
-
-                print_debug(
-                    f'Time elapse: {time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"]}'
-                )
-                if (
-                    time.time()
-                    - Proxy.var_dict[current_var_name_list].__dict__[
-                        "last_update_timestamp"
-                    ]
-                    < proxy_update_limit
-                ):
-                    self.__dict__["_obj"] = obj
-                    return
-
-                self.dump_to_trace(obj, "update", dumped_frame_array)
-
-                del Proxy.var_dict[current_var_name_list]
-                self.__dict__["_obj"] = obj
-                self.__dict__["last_update_timestamp"] = time.time()
-                Proxy.var_dict[current_var_name_list] = self
+            del Proxy.var_dict[current_var_name_list]
+            self.__dict__["_obj"] = obj
+            self.__dict__["last_update_timestamp"] = time.time()
+            Proxy.var_dict[current_var_name_list] = self
 
     @property
     def __class__(self):
@@ -336,31 +310,31 @@ class Proxy:
         print_debug(
             "logger_proxy: " + f"Go to __call__ for object '{self.__class__.__name__}'"
         )
-        # only pass down the torch.nn.Module here
-        args = tuple(
-            (
-                arg._obj
-                if (
-                    type(arg) is Proxy
-                    and not issubclass(arg._obj, torch.nn.Module)
-                    and not issubclass(args._obj, torch.nn.parameter.Parameter)
-                )
-                else arg
-            )
-            for arg in args
-        )
-        kwargs = {
-            k: (
-                v._obj
-                if (
-                    type(v) is Proxy
-                    and not issubclass(v._obj, torch.nn.Module)
-                    and not issubclass(v._obj, torch.nn.parameter.Parameter)
-                )
-                else v
-            )
-            for k, v in kwargs.items()
-        }
+        # # only pass down the torch.nn.Module here
+        # args = tuple(
+        #     (
+        #         arg._obj
+        #         if (
+        #             type(arg) is Proxy
+        #             and not issubclass(arg._obj, torch.nn.Module)
+        #             and not issubclass(args._obj, torch.nn.parameter.Parameter)
+        #         )
+        #         else arg
+        #     )
+        #     for arg in args
+        # )
+        # kwargs = {
+        #     k: (
+        #         v._obj
+        #         if (
+        #             type(v) is Proxy
+        #             and not issubclass(v._obj, torch.nn.Module)
+        #             and not issubclass(v._obj, torch.nn.parameter.Parameter)
+        #         )
+        #         else v
+        #     )
+        #     for k, v in kwargs.items()
+        # }
         print_debug(
             "logger_proxy: "
             + f"Calling '{self.__class__.__name__}' for obj: '{self.__dict__['var_name']}' (type '{typename(self._obj)}')"
@@ -387,34 +361,34 @@ class Proxy:
         else:
             var_name = self.__dict__["var_name"] + "." + name
 
-        if callable(attr):
-            # if attr is a built-in function, return a wrapper function
-            # return a wrapper function
-            if type(attr) is types.BuiltinFunctionType:
+        # if callable(attr):
+        #     # if attr is a built-in function, return a wrapper function
+        #     # return a wrapper function
+        #     if not hasattr(attr, "__code__"):
 
-                @functools.wraps(attr)
-                def wrapper(*args, **kwargs):
-                    print_debug(
-                        "logger_proxy: "
-                        + f"Calling torch.nn.functional method '{name}'"
-                    )
-                    # unproxy the arguments recursively (take care of tuple and list obj for arg in args)
-                    args = list(args)
-                    args = [unproxy_arg(arg) for arg in args]
+        #         @functools.wraps(attr)
+        #         def wrapper(*args, **kwargs):
+        #             print_debug(
+        #                 "logger_proxy: "
+        #                 + f"Calling torch.nn.functional method '{name}'"
+        #             )
+        #             # unproxy the arguments recursively (take care of tuple and list obj for arg in args)
+        #             args = list(args)
+        #             args = [unproxy_arg(arg) for arg in args]
 
-                    kwargs = {
-                        k: v._obj if type(v) is Proxy else v for k, v in kwargs.items()
-                    }
+        #             kwargs = {
+        #                 k: v._obj if type(v) is Proxy else v for k, v in kwargs.items()
+        #             }
 
-                    result = attr(*args, **kwargs)
-                    print_debug(f"Called method '{name}' with result {result}")
-                    return proxy_handler(result, self.logdir, self.log_level, var_name)
+        #             result = attr(*args, **kwargs)
+        #             print_debug(f"Called method '{name}' with result {result}")
+        #             return proxy_handler(result, self.logdir, self.log_level, var_name)
 
-                return wrapper
-            else:
-                attr = proxy_handler(
-                    attr, self.logdir, self.log_level, self.__dict__["var_name"]
-                )
+        #         return wrapper
+        #     else:
+        #         attr = proxy_handler(
+        #             attr, self.logdir, self.log_level, self.__dict__["var_name"]
+        #         )
         return proxy_handler(attr, self.logdir, self.log_level, var_name)
 
     def __setattr__(self, name, value):
@@ -425,19 +399,13 @@ class Proxy:
             if Proxy.var_dict.get(self.__dict__["var_name"]) is None:
                 self.__dict__["last_update_timestamp"] = 0
                 Proxy.var_dict[self.__dict__["var_name"]] = self
+            
+            print_debug(
+                f"Time elapse: {time.time() - Proxy.var_dict[self.__dict__['var_name']].__dict__['last_update_timestamp']}"
+            )
             # dump frame array
-            if (
-                time.time()
-                - Proxy.var_dict[self.__dict__["var_name"]].__dict__[
-                    "last_update_timestamp"
-                ]
-                > proxy_update_limit
-            ):
-                frame = inspect.currentframe()
-                frame_array = self.get_frame_array(frame)
-                dumped_frame_array = json.dumps(frame_array)
-                self.dump_to_trace(self._obj, "update", dumped_frame_array)
-                self.__dict__["last_update_timestamp"] = time.time()
+            self.dump_trace("update")
+            
 
             if self.__dict__["var_name"] == "":
                 var_name = name
@@ -499,9 +467,9 @@ class Proxy:
     __sub__ = proxy_methods.__sub__
     __truediv__ = proxy_methods.__truediv__
 
-    max = proxy_methods.max
-    min = proxy_methods.min
-    size = proxy_methods.size
+    # max = proxy_methods.max
+    # min = proxy_methods.min
+    # size = proxy_methods.size
 
     def print_proxy_dict(self, proxy_dict):
         # for debugging purpose: print the var_dict of the proxy object
