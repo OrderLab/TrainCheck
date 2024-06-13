@@ -148,12 +148,10 @@ def global_wrapper(original_function, *args, **kwargs):
         # Not Safe for wrapped functions: check if the original function is a builtin_function_or_method
         # if isinstance(original_function, types.BuiltinFunctionType):
         if C_level_call:
-            from mldaikon.proxy_wrapper.proxy import Proxy
-
             # print(f"Wrapping {original_function}")
             def unproxy_arg(arg):
 
-                if type(arg) is Proxy:
+                if hasattr(arg,"is_proxied_obj"):
                     return unproxy_arg(arg._obj)
                 elif type(arg) in [list]:
                     return [unproxy_arg(element) for element in arg]
@@ -164,7 +162,7 @@ def global_wrapper(original_function, *args, **kwargs):
 
             args = [unproxy_arg(arg) for arg in args]
             # args = unproxy_arg(args[0])
-            kwargs = {k: v._obj if type(v) is Proxy else v for k, v in kwargs.items()}
+            kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
 
         # def unwrap_proxies(obj):
         #     if isinstance(obj, Proxy):

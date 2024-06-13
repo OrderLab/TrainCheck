@@ -9,6 +9,7 @@ import torch
 import json.encoder
 
 import torch.nn.functional as F
+
 import mldaikon.proxy_wrapper.torch_proxy
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg, is_proxied
 import time
@@ -178,6 +179,7 @@ class Proxy:
         is_root=False,
         var_name="",
     ):
+        # Access proxy attribute: since we are wrapping the getattr method, we need to access the attribute directly
         self.__dict__["process_id"] = os.getpid()
         self.__dict__["thread_id"] = threading.current_thread().ident
         self.__dict__["logdir"] = logdir
@@ -235,7 +237,7 @@ class Proxy:
         # Ziming: here we still seperate the handling of tensor and other objects
         # however, despite the dumping logic these two are identical and could be merged
 
-        if issubclass(type(obj), torch.nn.Module):
+        if isinstance(type(obj), torch.nn.Module):
 
             if self.__dict__["is_root"] == True:
                 # proxy all of its parameters
@@ -249,7 +251,7 @@ class Proxy:
                     self.proxy_parameters(proxy_module, name + ".")
                     # TODO: improve the nn.Module tracing logic, currently we only trace two levels of submodules
                     # We could try to enforce a blacklist of modules that we can't trace (contain low level functions)
-                    if issubclass(type(module), torch.nn.Module):
+                    if isinstance(type(module), torch.nn.Module):
                         for subname, submodule in module.named_children():
                             proxy_submodule = Proxy(
                                 submodule, var_name=name + "." + subname
@@ -310,31 +312,6 @@ class Proxy:
         print_debug(
             "logger_proxy: " + f"Go to __call__ for object '{self.__class__.__name__}'"
         )
-        # # only pass down the torch.nn.Module here
-        # args = tuple(
-        #     (
-        #         arg._obj
-        #         if (
-        #             type(arg) is Proxy
-        #             and not issubclass(arg._obj, torch.nn.Module)
-        #             and not issubclass(args._obj, torch.nn.parameter.Parameter)
-        #         )
-        #         else arg
-        #     )
-        #     for arg in args
-        # )
-        # kwargs = {
-        #     k: (
-        #         v._obj
-        #         if (
-        #             type(v) is Proxy
-        #             and not issubclass(v._obj, torch.nn.Module)
-        #             and not issubclass(v._obj, torch.nn.parameter.Parameter)
-        #         )
-        #         else v
-        #     )
-        #     for k, v in kwargs.items()
-        # }
         print_debug(
             "logger_proxy: "
             + f"Calling '{self.__class__.__name__}' for obj: '{self.__dict__['var_name']}' (type '{typename(self._obj)}')"
@@ -360,35 +337,6 @@ class Proxy:
             var_name = name
         else:
             var_name = self.__dict__["var_name"] + "." + name
-
-        # if callable(attr):
-        #     # if attr is a built-in function, return a wrapper function
-        #     # return a wrapper function
-        #     if not hasattr(attr, "__code__"):
-
-        #         @functools.wraps(attr)
-        #         def wrapper(*args, **kwargs):
-        #             print_debug(
-        #                 "logger_proxy: "
-        #                 + f"Calling torch.nn.functional method '{name}'"
-        #             )
-        #             # unproxy the arguments recursively (take care of tuple and list obj for arg in args)
-        #             args = list(args)
-        #             args = [unproxy_arg(arg) for arg in args]
-
-        #             kwargs = {
-        #                 k: v._obj if type(v) is Proxy else v for k, v in kwargs.items()
-        #             }
-
-        #             result = attr(*args, **kwargs)
-        #             print_debug(f"Called method '{name}' with result {result}")
-        #             return proxy_handler(result, self.logdir, self.log_level, var_name)
-
-        #         return wrapper
-        #     else:
-        #         attr = proxy_handler(
-        #             attr, self.logdir, self.log_level, self.__dict__["var_name"]
-        #         )
         return proxy_handler(attr, self.logdir, self.log_level, var_name)
 
     def __setattr__(self, name, value):
