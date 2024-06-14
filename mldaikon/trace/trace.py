@@ -10,7 +10,6 @@ from mldaikon.trace.types import (
     AttrState,
     FuncCallEvent,
     FuncCallExceptionEvent,
-    HighLevelEvent,
     Liveness,
     VarChangeEvent,
     VarInstId,
@@ -335,7 +334,7 @@ class Trace:
         return func_post_call_idx
 
     def query_func_call_events_within_time(
-        self, time_range: tuple[int, int], process_id: int
+        self, time_range: tuple[int, int], process_id: int, thread_id: int
     ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
         """Extract all function call events from the trace."""
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
@@ -349,6 +348,7 @@ class Trace:
                         )
                     )
                     & (pl.col("process_id") == process_id)
+                    & (pl.col("thread_id") == thread_id)
                 )
             )
             .to_series()
@@ -372,10 +372,11 @@ class Trace:
         return func_call_events
 
     def query_high_level_events_within_time(
-        self, time_range: tuple[int, int], process_id: int
+        self, time_range: tuple[int, int], process_id: int, thread_id: int
     ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
+
         high_level_func_call_events = self.query_func_call_events_within_time(
-            time_range, process_id
+            time_range, process_id, thread_id
         )
         high_level_var_change_events = self.query_var_changes_within_time_and_process(
             time_range, process_id

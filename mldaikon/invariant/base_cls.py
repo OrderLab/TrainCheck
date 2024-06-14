@@ -4,11 +4,18 @@ from mldaikon.trace.trace import Trace
 
 
 class Invariant:
-    def __init__(self, relation, param_selectors: list, precondition: list | None):
+    def __init__(
+        self,
+        relation,
+        param_selectors: list,
+        precondition: list | None,
+        text_description: str | None = None,
+    ):
         # def __init__(self, relation: Relation, param_selectors: list[Predicate], precondition: Predicate):
         self.relation = relation
         self.param_selectors = param_selectors  ## Param selector
         self.precondition = precondition  # stateful preconditions
+        self.text_description = text_description
 
     def get_params(self, trace: Trace) -> list:
         """Given a trace, should return the values of the parameters
@@ -37,7 +44,7 @@ class Invariant:
         return True
 
     def __str__(self) -> str:
-        return f"""Relation: {self.relation}\nParam Selectors: {self.param_selectors}\nPrecondition: {self.precondition}"""
+        return f"""Relation: {self.relation}\nParam Selectors: {self.param_selectors}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
 
 
 class Hypothesis:

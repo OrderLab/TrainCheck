@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from typing import NamedTuple
 
 from mldaikon.instrumentor.tracer import TraceLineType
@@ -48,6 +49,10 @@ class HighLevelEvent(object):
     For example, a function call event is a high-level event that is extracted from the low-level trace events of 'function_call (pre)' and 'function_call (post)'.
     """
 
+    @abstractmethod
+    def get_traces(self):
+        pass
+
     def __hash__(self) -> int:
         # return hash value based on the fields of the class
         return hash(str(self.__dict__))
@@ -72,6 +77,9 @@ class FuncCallEvent(HighLevelEvent):
     def __str__(self):
         return f"FuncCallEvent: {self.func_name}"
 
+    def get_traces(self):
+        return [self.pre_record, self.post_record]
+
 
 class FuncCallExceptionEvent(HighLevelEvent):
     def __init__(self, func_name: str, pre_record: dict, post_record: dict):
@@ -82,6 +90,12 @@ class FuncCallExceptionEvent(HighLevelEvent):
             pre_record["type"] == TraceLineType.FUNC_CALL_PRE
             and post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION
         )
+
+    def __str__(self):
+        return f"FuncCallExceptionEvent: {self.func_name}"
+
+    def get_traces(self):
+        return [self.pre_record, self.post_record]
 
 
 class VarChangeEvent(HighLevelEvent):
@@ -98,3 +112,9 @@ class VarChangeEvent(HighLevelEvent):
         self.change_time = change_time
         self.old_state = old_state
         self.new_state = new_state
+
+    def __str__(self):
+        return f"VarChangeEvent: {self.var_id}, {self.attr_name}, {self.change_time}, {self.old_state}, {self.new_state}"
+
+    def get_traces(self):
+        return self.old_state.traces + self.new_state.traces
