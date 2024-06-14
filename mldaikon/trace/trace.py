@@ -1,51 +1,24 @@
 import logging
 import re
-from typing import NamedTuple
 
 import polars as pl
 from tqdm import tqdm
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
+from mldaikon.trace.types import (
+    AttrState,
+    FuncCallEvent,
+    FuncCallExceptionEvent,
+    HighLevelEvent,
+    Liveness,
+    VarChangeEvent,
+    VarInstId,
+)
 
 logger = logging.getLogger(__name__)
 
 # TODO: formalize the trace schema for efficient polars processing
-
-
-class VarInstId(NamedTuple):
-    process_id: int
-    var_name: str
-    var_type: str
-
-
-class Liveness:
-    def __init__(self, start_time: int | None, end_time: int | None):
-        self.start_time = start_time
-        self.end_time = end_time
-
-
-class AttrState:
-    def __init__(self, value: type, liveness: Liveness, traces: list[dict]):
-        self.value: type = value
-        self.liveness: Liveness = liveness
-        self.traces = traces
-
-
-class VarChange:
-    def __init__(
-        self,
-        var_id: VarInstId,
-        attr_name: str,
-        change_time: int,
-        old_state: AttrState,
-        new_state: AttrState,
-    ):
-        self.var_id = var_id
-        self.attr_name = attr_name
-        self.change_time = change_time
-        self.old_state = old_state
-        self.new_state = new_state
 
 
 def _unnest_all(schema, separator):
@@ -108,10 +81,6 @@ class Trace:
             raise ValueError(
                 "Failed to sort the events by time. Check if the time column is present in the events."
             )
-
-    def filter(self, predicate):
-        # TODO: need to think about how to implement this, as pre-conditions for bugs like DS-1801 needs to take multiple events into account
-        raise NotImplementedError("filter method is not implemented yet.")
 
     def get_start_time(self) -> int:
         return self.events["time"].min()
@@ -235,7 +204,7 @@ class Trace:
         self.var_insts = var_insts
         return self.var_insts
 
-    def get_var_changes(self) -> list[VarChange]:
+    def get_var_changes(self) -> list[VarChangeEvent]:
         if self.var_changes is not None:
             return self.var_changes
 
@@ -253,7 +222,7 @@ class Trace:
                         change_time is not None
                     ), f"Start time not found for {var_id} {attr} {var_insts[var_id][attr][i].value}"
                     self.var_changes.append(
-                        VarChange(
+                        VarChangeEvent(
                             var_id=var_id,
                             attr_name=attr,
                             change_time=change_time,
@@ -266,7 +235,7 @@ class Trace:
 
     def query_var_changes_within_time(
         self, time_range: tuple[int, int]
-    ) -> list[VarChange]:
+    ) -> list[VarChangeEvent]:
 
         var_changes = self.get_var_changes()
         return [
@@ -277,7 +246,7 @@ class Trace:
 
     def query_var_changes_within_time_and_process(
         self, time_range: tuple[int, int], process_id: int
-    ) -> list[VarChange]:
+    ) -> list[VarChangeEvent]:
         var_changes = self.get_var_changes()
         return [
             var_change
@@ -296,7 +265,7 @@ class Trace:
                 the number of variables in the relation.
         """
 
-        # raise NotImplementedError("group method is not implemented for pandas yet.")
+        raise NotImplementedError("group method is not implemented yet.")
 
         groups: list[list[object]] = []
         group: list[object] = []
@@ -364,6 +333,55 @@ class Trace:
             idx for idx in func_post_call_indices if idx > func_pre_call_idx
         ][0]
         return func_post_call_idx
+
+    def query_func_call_events_within_time(
+        self, time_range: tuple[int, int], process_id: int
+    ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
+        """Extract all function call events from the trace."""
+        func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
+        func_pre_call_event_indices = (
+            self.events.select(
+                pl.arg_where(
+                    (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
+                    & (
+                        pl.col("time").is_between(
+                            time_range[0], time_range[1], closed="none"
+                        )
+                    )
+                    & (pl.col("process_id") == process_id)
+                )
+            )
+            .to_series()
+            .to_list()
+        )
+
+        for func_pre_call_idx in func_pre_call_event_indices:
+            func_post_call_idx = self.get_func_post_call_idx(func_pre_call_idx)
+            pre_record = self.events.row(index=func_pre_call_idx, named=True)
+            post_record = self.events.row(index=func_post_call_idx, named=True)
+            assert (
+                post_record["time"] < time_range[1]
+            ), f"Post call event found after the time range {time_range}"
+            func_call_events.append(
+                FuncCallEvent(pre_record["function"], pre_record, post_record)
+                if post_record["type"] == TraceLineType.FUNC_CALL_POST
+                else FuncCallExceptionEvent(
+                    pre_record["function"], pre_record, post_record
+                )
+            )
+        return func_call_events
+
+    def query_high_level_events_within_time(
+        self, time_range: tuple[int, int], process_id: int
+    ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
+        high_level_func_call_events = self.query_func_call_events_within_time(
+            time_range, process_id
+        )
+        high_level_var_change_events = self.query_var_changes_within_time_and_process(
+            time_range, process_id
+        )
+
+        return high_level_func_call_events + high_level_var_change_events
 
 
 def read_trace_file(file_path: str | list[str]) -> Trace:
