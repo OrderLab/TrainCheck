@@ -271,7 +271,7 @@ class Trace:
             for var_change in var_changes
             if time_range[0] <= var_change.change_time <= time_range[1]
         ]
-    
+
     def query_var_changes_within_time_and_process(
         self, time_range: tuple[int, int], process_id: int
     ) -> list[VarChange]:
@@ -279,7 +279,8 @@ class Trace:
         return [
             var_change
             for var_change in var_changes
-            if time_range[0] <= var_change.change_time <= time_range[1] and var_change.var_id.process_id == process_id
+            if time_range[0] <= var_change.change_time <= time_range[1]
+            and var_change.var_id.process_id == process_id
         ]
 
     def scan_to_groups(self, param_selectors: list):
@@ -322,6 +323,41 @@ class Trace:
             )
 
         return groups
+
+    def get_func_post_call_idx(self, func_pre_call_idx: int) -> int:
+        """Get the post call index of a function given its pre-call index."""
+        # get the first record of the trace at the offset
+        pre_call_record = self.events.row(index=func_pre_call_idx, named=True)
+
+        assert (
+            pre_call_record["type"] == "function_call (pre)"
+        ), "The record at the given index is not a function call (pre) event."
+
+        function = pre_call_record["function"]
+        process_id = pre_call_record["process_id"]
+        thread_id = pre_call_record["thread_id"]
+        func_call_id = pre_call_record["func_call_id"]
+
+        # get the idx of the first post-event
+        func_post_call_indices = self.events.select(
+            pl.arg_where(
+                (
+                    pl.col("type").is_in(
+                        ["function_call (post)", "function_call (post) (exception)"]
+                    )
+                )
+                & (pl.col("function") == function)
+                & (pl.col("func_call_id") == func_call_id)
+                & (pl.col("process_id") == process_id)
+                & (pl.col("thread_id") == thread_id)
+            )
+        ).to_series()
+
+        # find the first post-idx > offset as there might be multiple calls with the same func_call_id
+        func_post_call_idx = [
+            idx for idx in func_post_call_indices if idx > func_pre_call_idx
+        ][0]
+        return func_post_call_idx
 
 
 def read_trace_file(file_path: str | list[str]) -> Trace:

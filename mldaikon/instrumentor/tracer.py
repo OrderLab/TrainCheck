@@ -138,9 +138,10 @@ def global_wrapper(original_function, *args, **kwargs):
         # check if the original function is a builtin_function_or_method
         if isinstance(original_function, types.BuiltinFunctionType):
             from mldaikon.proxy_wrapper.proxy import Proxy
+
             # print(f"Wrapping {original_function}")
             def unproxy_arg(arg):
-                        
+
                 if type(arg) is Proxy:
                     return unproxy_arg(arg._obj)
                 elif type(arg) in [list]:
@@ -149,11 +150,11 @@ def global_wrapper(original_function, *args, **kwargs):
                     return tuple(unproxy_arg(element) for element in arg)
                 else:
                     return arg
+
             args = [unproxy_arg(arg) for arg in args]
             # args = unproxy_arg(args[0])
             kwargs = {k: v._obj if type(v) is Proxy else v for k, v in kwargs.items()}
-            
-            
+
         # def unwrap_proxies(obj):
         #     if isinstance(obj, Proxy):
         #         return unwrap_proxies(obj._obj)
@@ -354,14 +355,20 @@ modules_to_skip = [
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
 ]
 
-def log_instrumentation_progress(depth: int, msg: str, attr: str|None, attr_name: str|None, pymodule: types.ModuleType | type):
-    if attr is None:
-        attr = ""
+
+def log_instrumentation_progress(
+    depth: int,
+    msg: str,
+    attr: object | None,
+    attr_name: str | None,
+    pymodule: types.ModuleType | type,
+):
     if attr_name is None:
         attr_name = ""
     get_instrumentation_logger_for_process().info(
-        f"Depth: {depth}, {msg}: {attr_name}, {typename(attr)}, {typename(pymodule)}"
+        f"Depth: {depth}, {msg}: {attr_name}, {typename(attr) if attr is not None else 'attr not provided'}, {typename(pymodule)}"
     )
+
 
 class Instrumentor:
     def __init__(
@@ -442,7 +449,13 @@ class Instrumentor:
         for attr_name in dir(pymodule):
             if not hasattr(pymodule, attr_name):
                 # handle __abstractmethods__ attribute
-                log_instrumentation_progress(depth, "Skipping attribute as it does not exist", None, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth,
+                    "Skipping attribute as it does not exist",
+                    None,
+                    attr_name,
+                    pymodule,
+                )
                 continue
 
             attr = pymodule.__dict__.get(
@@ -450,7 +463,9 @@ class Instrumentor:
             )  # getattr(pymodule, attr_name)
 
             if attr is None:
-                log_instrumentation_progress(depth, "Skipping attribute as it is None", attr, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth, "Skipping attribute as it is None", attr, attr_name, pymodule
+                )
                 """
                 TODO: From my observation, this is happening for the attributes that are implemented in C extension, which usually include math ops and other low level operations for tensors
                 , such as tensor.add_.
@@ -460,69 +475,131 @@ class Instrumentor:
 
             # TODO: fix the bug "TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method"
             if "getfile" in attr_name:
-                log_instrumentation_progress(depth, "Skipping attribute as it is getfile", attr, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth,
+                    "Skipping attribute as it is getfile",
+                    attr,
+                    attr_name,
+                    pymodule,
+                )
                 continue
 
             # skip magic methods
             if attr_name.startswith("__") and attr_name.endswith("__"):
-                log_instrumentation_progress(depth, "Skipping magic functions", None, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth, "Skipping magic functions", None, attr_name, pymodule
+                )
                 continue
 
             if self.check_if_to_skip(attr):
-                log_instrumentation_progress(depth, "Skipping due to modules_to_skip", attr, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth, "Skipping due to modules_to_skip", attr, attr_name, pymodule
+                )
                 continue
 
             # isinstance(torch.Tensor.backward, types.FunctionType) is True
-            if isinstance(attr, types.FunctionType) or isinstance(
-                attr, types.BuiltinFunctionType
-            ) or isinstance(attr, _instancemethod_t):
+            if (
+                isinstance(attr, types.FunctionType)
+                or isinstance(attr, types.BuiltinFunctionType)
+                or isinstance(attr, _instancemethod_t)
+            ):
                 # if isinstance(attr
                 try:
                     # instancemethod is not hashable and will lead to exceptions in this try block
-                    if not isinstance(attr, _instancemethod_t) and attr in skipped_functions: # instance method is not hashable
-                        log_instrumentation_progress(depth, "Skipping function due to skipped_functions", attr, attr_name, pymodule)
+                    if (
+                        not isinstance(attr, _instancemethod_t)
+                        and attr in skipped_functions
+                    ):  # instance method is not hashable
+                        log_instrumentation_progress(
+                            depth,
+                            "Skipping function due to skipped_functions",
+                            attr,
+                            attr_name,
+                            pymodule,
+                        )
                         continue
 
                 except Exception as e:
-                    log_instrumentation_progress(depth, "Error while checking if function is in skipped_functions", attr, attr_name, pymodule)
+                    log_instrumentation_progress(
+                        depth,
+                        f"Error while checking if function is in skipped_functions: {e}",
+                        attr,
+                        attr_name,
+                        pymodule,
+                    )
                     continue
 
-                log_instrumentation_progress(depth, "Instrumenting function", attr, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth, "Instrumenting function", attr, attr_name, pymodule
+                )
                 wrapped = wrapper(attr)
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
                     # handling immutable types and attrs that have no setters
-                    log_instrumentation_progress(depth, "Skipping function due to error", attr, attr_name, pymodule)
+                    log_instrumentation_progress(
+                        depth,
+                        f"Skipping function due to error: {e}",
+                        attr,
+                        attr_name,
+                        pymodule,
+                    )
                     continue
                 count_wrapped += 1
             elif isinstance(attr, types.ModuleType):
                 if attr in skipped_modules:
-                    log_instrumentation_progress(depth, "Skipping module due to skipped_modules", attr, attr_name, pymodule)
+                    log_instrumentation_progress(
+                        depth,
+                        "Skipping module due to skipped_modules",
+                        attr,
+                        attr_name,
+                        pymodule,
+                    )
                     continue
                 if not typename(attr).startswith(
                     self.root_module
                 ):  # TODO: refine the logic of how to rule out irrelevant modules
-                    log_instrumentation_progress(depth, "Skipping module due to irrelevant module", attr, attr_name, pymodule)
+                    log_instrumentation_progress(
+                        depth,
+                        "Skipping module due to irrelevant module",
+                        attr,
+                        attr_name,
+                        pymodule,
+                    )
                     skipped_modules.add(attr)
                     continue
 
-                log_instrumentation_progress(depth, "Recursing into module", attr, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth, "Recursing into module", attr, attr_name, pymodule
+                )
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
             elif inspect.isclass(attr):
-                log_instrumentation_progress(depth, "Recursing into class", attr, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth, "Recursing into class", attr, attr_name, pymodule
+                )
                 if not attr.__module__.startswith(self.root_module):
-                    log_instrumentation_progress(depth, "Skipping class due to irrelevant module", attr, attr_name, pymodule)
+                    log_instrumentation_progress(
+                        depth,
+                        "Skipping class due to irrelevant module",
+                        attr,
+                        attr_name,
+                        pymodule,
+                    )
                     continue
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
-        log_instrumentation_progress(depth, f"Finished instrumenting module with {count_wrapped} functions wrapped", None, None, pymodule)
+        log_instrumentation_progress(
+            depth,
+            f"Finished instrumenting module with {count_wrapped} functions wrapped",
+            None,
+            None,
+            pymodule,
+        )
         return count_wrapped
 
 
-
-class StatelessVarObserver(StatefulVarObserver):
+class StatelessVarObserver:
     """
     Tracker for the state of a variable. This variable itself cannot be reassigned, i.e. var.attr = new_value is allowed but not var = new_var.
 
@@ -561,7 +638,7 @@ class StatelessVarObserver(StatefulVarObserver):
                     "time": timestamp,
                 }
             )
-            
+
     def _get_state_copy(self):
         def is_safe_getattr(obj, attr):
             try:

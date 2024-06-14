@@ -331,7 +331,10 @@ class ConsistencyRelation(Relation):
         ## 5. Precondition Inference
         hypos_to_delete = []
         for hypo in hypothesis_with_examples:
-            preconditions = find_precondition(hypothesis_with_examples[hypo], keys_to_skip=[f"attributes.{hypo[1]}", f"attributes.{hypo[3]}"])
+            preconditions = find_precondition(
+                hypothesis_with_examples[hypo],
+                keys_to_skip=[f"attributes.{hypo[1]}", f"attributes.{hypo[3]}"],
+            )
             print(f"Preconditions for {hypo}:")
             print(f"{str(preconditions)}")
             # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant

@@ -4,10 +4,12 @@ import polars as pl
 
 from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.ml_daikon_trace import Trace
+from mldaikon.ml_daikon_trace import Trace, VarChange
 
 
-def events_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[str] | None:
+def events_scanner(
+    trace: Trace, func_pre_call_idx: int, parent_func_name: str
+) -> set[str] | None:
     """Scan the trace, and return the first set of events that happened within the pre and post
     events of the parent_func_name.
 
@@ -22,58 +24,22 @@ def events_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[str]
     set of events that happened within the first post-event of the parent_func_name on the same
     thread and process.
     """
-    logger = logging.getLogger(__name__)
+    pre_call_record = trace.events.row(index=func_pre_call_idx, named=True)
+    assert (
+        trace.events.row(index=func_pre_call_idx, named=True)["function"]
+        == parent_func_name
+    ), "The func_pre_call_idx should be the pre-event of the parent function"
 
-    events_slice = trace.events.slice(offset, None)
-    # get the first record of the trace at the offset
-    first_record = events_slice.row(index=0, named=True)
-    if (
-        first_record["function"] != parent_func_name
-        or first_record["type"] != "function_call (pre)"
-    ):
-        logger.error(
-            f"The first record of the trace is not the pre-event of the parent_func_name: {parent_func_name}"
-        )
-        return None
+    func_post_call_idx = trace.get_func_post_call_idx(func_pre_call_idx)
 
-    # adding a index column to the trace_df as polars does not have a built-in function to get the index of a row
-
-    # get the process_id and thread_id of the first record
-    process_id = first_record["process_id"]
-    thread_id = first_record["thread_id"]
-    func_call_id = first_record["func_call_id"]
-
-    # get the post-event of the parent_func_name, according to func_call_id
-    post_idx = events_slice.select(
-        pl.arg_where(
-            (
-                pl.col("type").is_in(
-                    ["function_call (post)", "function_call (post) (exception)"]
-                )
-            )
-            & (pl.col("function") == parent_func_name)
-            & (pl.col("func_call_id") == func_call_id)
-            & (pl.col("process_id") == process_id)
-            & (pl.col("thread_id") == thread_id)
-        )
-    ).to_series()
-
-    num_records = len(post_idx)
-    if num_records == 0:
-        logger.error(
-            f"No post-event found for the parent_func_name: {parent_func_name}"
-        )
-        return None
-
-    # This assert no longer holds as we do not use UUIDs for func_call_id
-    # assert (
-    #     num_records == 1
-    # ), "There should be only one post-event for the parent_func_name"
-    post_idx = post_idx[0]  # the first post-event
+    process_id = pre_call_record["process_id"]
+    thread_id = pre_call_record["thread_id"]
 
     # get the events that happened within the pre and post events of the parent_func_name
     func_names = (
-        events_slice.slice(0, post_idx)
+        trace.events.slice(
+            func_pre_call_idx + 1, length=func_post_call_idx - func_pre_call_idx - 1
+        )
         .filter(
             (pl.col("process_id") == process_id) & (pl.col("thread_id") == thread_id)
         )
@@ -90,7 +56,10 @@ def events_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[str]
     # logger.debug(f"Found {len(func_names)} events between the pre and post events of the parent_func_name: {parent_func_name}")
     return set(func_names)
 
-def var_change_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[str] | None:
+
+def var_change_scanner(
+    trace: Trace, func_pre_call_idx: int, parent_func_name: str
+) -> set[VarChange] | None:
     """Scan the trace, and return the first set of events that happened within the pre and post
     events of the parent_func_name.
 
@@ -105,49 +74,23 @@ def var_change_scanner(trace: Trace, offset: int, parent_func_name: str) -> set[
     set of events that happened within the first post-event of the parent_func_name on the same
     thread and process.
     """
-    logger = logging.getLogger(__name__)
+    pre_call_record = trace.events.row(index=func_pre_call_idx, named=True)
+    assert (
+        trace.events.row(index=func_pre_call_idx, named=True)["function"]
+        == parent_func_name
+    ), "The func_pre_call_idx should be the pre-event of the parent function"
 
-    # get the first record of the trace at the offset
-    first_record = trace.events.row(index=offset, named=True)
-    if (
-        first_record["function"] != parent_func_name
-        or first_record["type"] != "function_call (pre)"
-    ):
-        logger.error(
-            f"The first record of the trace is not the pre-event of the parent_func_name: {parent_func_name}"
-        )
-        return None
-    
+    func_post_call_idx = trace.get_func_post_call_idx(func_pre_call_idx)
+    post_call_record = trace.events.row(index=func_post_call_idx, named=True)
 
-    # get the process_id and thread_id of the first record
-    process_id = first_record["process_id"]
-    thread_id = first_record["thread_id"]
-    func_call_id = first_record["func_call_id"]
+    process_id = pre_call_record["process_id"]
 
-    # get the post-event of the parent_func_name, according to func_call_id
-    post_idx = trace.events.select(
-        pl.arg_where(
-            (
-                pl.col("type").is_in(
-                    ["function_call (post)", "function_call (post) (exception)"]
-                )
-            )
-            & (pl.col("function") == parent_func_name)
-            & (pl.col("func_call_id") == func_call_id)
-            & (pl.col("process_id") == process_id)
-            & (pl.col("thread_id") == thread_id)
-        )
-    ).to_series()
-
-    # find the first post-idx > offset
-    post_idx = [idx for idx in post_idx if idx > offset][0]
-
-    # now query the variable change between the pre and post events
-    pre_event = trace.events.row(index=offset, named=True)
-    post_event = trace.events.row(index=post_idx, named=True)
-    var_changes = trace.query_var_changes_within_time_and_process((pre_event["time"], post_event["time"]), process_id)
+    var_changes = trace.query_var_changes_within_time_and_process(
+        (pre_call_record["time"], post_call_record["time"]), process_id
+    )
 
     return set(var_changes)
+
 
 class APIContainRelation(Relation):
     """Relation that checks if the API contain relation holds.
@@ -173,6 +116,9 @@ class APIContainRelation(Relation):
             )
             return []
 
+        # sort the function names for to put adam.step at the front
+        func_names.sort(key=lambda x: "adam.step" in x, reverse=True)
+
         for parent in func_names:
             logger.debug(f"Starting the analysis for the parent function: {parent}")
             # get all parent pre event indexes
@@ -190,7 +136,7 @@ class APIContainRelation(Relation):
             for idx in parent_pre_idx:
                 # get all child post events
                 child_func_names = events_scanner(
-                    trace=trace, offset=idx, parent_func_name=parent
+                    trace=trace, func_pre_call_idx=idx, parent_func_name=parent
                 )
                 if child_func_names is None:
                     raise ValueError(
@@ -200,7 +146,7 @@ class APIContainRelation(Relation):
 
                 # get all variable changes
                 var_changes = var_change_scanner(
-                    trace=trace, offset=idx, parent_func_name=parent
+                    trace=trace, func_pre_call_idx=idx, parent_func_name=parent
                 )
                 if var_changes is None:
                     raise ValueError(
@@ -209,7 +155,7 @@ class APIContainRelation(Relation):
                 all_var_changes.append(var_changes)
 
             # get the unique child_func_names
-            
+
             unique_seen_child_func_names = set(
                 item for sublist in all_child_func_names for item in sublist
             )
@@ -222,8 +168,10 @@ class APIContainRelation(Relation):
             for child_func_name in unique_seen_child_func_names:
                 param_selectors = [
                     child_func_name,
-                    lambda offset: events_scanner(
-                        trace=trace, offset=offset, parent_func_name=parent
+                    lambda func_pre_call_idx: events_scanner(
+                        trace=trace,
+                        func_pre_call_idx=func_pre_call_idx,
+                        parent_func_name=parent,
                     ),
                 ]
 
