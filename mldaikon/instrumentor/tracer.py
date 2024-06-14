@@ -521,165 +521,6 @@ class Instrumentor:
         return count_wrapped
 
 
-class StatefulVarObserver:
-    """
-    Tracker for the state of a variable. This variable itself cannot be reassigned, i.e. var.attr = new_value is allowed but not var = new_var.
-
-    Currently only suports torch models.
-
-    The difference of this class with StatelessVarObserver is that this class keeps track of the previous state of the variable.
-    During each observation, the current state is compared with the previous state and the differences are dumped.
-    """
-
-    def __init__(self, var):
-        self.step = (
-            0  # HACK: this is a hack to get the step number as we observe every step
-        )
-        meta_vars.update({"step": self.step})
-        # Get the current thread object
-        if isinstance(var, list):
-            assert (
-                len(var) == 1
-            ), "Currently only supports single variable, please use multiple observers for multiple variables."
-            var = var[0]
-        assert isinstance(var, torch.nn.Module), "Currently only supports torch models."
-        self.var = var
-
-        timestamp = datetime.datetime.now().timestamp()
-        self.current_state = self._get_state_copy()
-
-        for param in self.current_state:
-            dump_trace_VAR(
-                {
-                    "process_id": os.getpid(),
-                    "thread_id": threading.current_thread().ident,
-                    "meta_vars": meta_vars,
-                    "type": "state_change",
-                    "var_type": param["type"],
-                    "var_name": param["name"],
-                    "change": {
-                        "value": {
-                            "old": param[
-                                "param"
-                            ],  # HACK: this is a hack for polars to get consistent schemas
-                            "new": param[
-                                "param"
-                            ],  # HACK: this is a hack for polars to get consistent schemas
-                        },
-                        "attributes": {
-                            "old": param[
-                                "attributes"
-                            ],  # HACK: this is a hack for polars to get consistent schemas
-                            "new": param[
-                                "attributes"
-                            ],  # HACK: this is a hack for polars to get consistent schemas
-                        },
-                    },
-                    "time": timestamp,
-                }
-            )
-
-    def _get_state_copy(self):
-        def is_safe_getattr(obj, attr):
-            try:
-                getattr(obj, attr)
-                return True
-            except Exception as e:
-                get_instrumentation_logger_for_process().warn(
-                    f"Failed to get attribute {attr} of parameter {name}, skipping it. Error: {e}"
-                )
-                return False
-
-        state_copy = []
-        for name, param in self.var.named_parameters():
-            param_list = param.clone().detach().tolist()
-
-            # # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
-            if not isinstance(param_list[0], list):
-                param_list = [param_list]
-
-            state_copy.append(
-                {
-                    "name": name,
-                    "type": typename(param),
-                    "attributes": {
-                        "param_value": param_list,
-                    },
-                }
-            )
-            # only get the attributes that are actual values
-            for attr_name in dir(param):
-                if attr_name.startswith("__") or not is_safe_getattr(param, attr_name):
-                    continue
-                attr = getattr(param, attr_name)
-
-                if callable(attr):
-                    continue
-
-                if isinstance(attr, torch.Tensor):
-                    # skipping the tensor values as we should have already captured them
-                    # also, the fields in tensor such as `H` and `T` are just views of the same tensor`
-                    continue
-
-                # try to serialize the attribute, if it fails, then skip it
-                try:
-                    json.dumps(attr)
-                except Exception as e:
-                    get_instrumentation_logger_for_process().warn(
-                        f"Failed to serialize attribute {attr_name} of parameter {name}, skipping it. Error: {e}"
-                    )
-                    continue
-
-                state_copy[-1]["attributes"][attr_name] = attr
-
-        return state_copy
-
-    def observe(self):
-        """The function is called to observe the state of the model. Each call to this function will
-        1. Get the current state of the model
-        2. Compare it with the previous state
-        3. Log the differences
-            The differences are computed by comparing the below values:
-                - The value of the tensor.
-                - The attributes of the tensor, such as requires_grad, device, tensor_model_parallel, etc.
-        """
-        self.step += 1
-        meta_vars.update({"step": self.step})
-
-        timestamp = datetime.datetime.now().timestamp()
-
-        state_copy = self._get_state_copy()
-        for old_param, new_param in zip(self.current_state, state_copy):
-            # three types of changes: value, attributes, and both
-            msg_dict = {
-                "process_id": os.getpid(),
-                "thread_id": threading.current_thread().ident,
-                "meta_vars": meta_vars,
-                "type": "state_change",
-                # "var": self.var.__class__.__name__,
-                "var_type": old_param["type"],  # FIXME: hardcoding the type for now
-                "var_name": old_param["name"],
-                "time": timestamp,
-            }
-            if old_param["param"] != new_param["param"]:
-                if "change" not in msg_dict:
-                    msg_dict["change"] = {}
-                msg_dict["change"]["value"] = {
-                    "old": old_param["param"],
-                    "new": new_param["param"],
-                }
-            if old_param["attributes"] != new_param["attributes"]:
-                if "change" not in msg_dict:
-                    msg_dict["change"] = {}
-                msg_dict["change"]["attributes"] = {
-                    "old": old_param["attributes"],
-                    "new": new_param["attributes"],
-                }
-            if "change" in msg_dict:
-                dump_trace_VAR(msg_dict, logging.INFO)
-
-        self.current_state = state_copy
-
 
 class StatelessVarObserver(StatefulVarObserver):
     """
@@ -720,6 +561,57 @@ class StatelessVarObserver(StatefulVarObserver):
                     "time": timestamp,
                 }
             )
+            
+    def _get_state_copy(self):
+        def is_safe_getattr(obj, attr):
+            try:
+                getattr(obj, attr)
+                return True
+            except Exception as e:
+                get_instrumentation_logger_for_process().warn(
+                    f"Failed to get attribute {attr} of parameter {name}, skipping it. Error: {e}"
+                )
+                return False
+
+        state_copy = []
+        for name, param in self.var.named_parameters():
+            param_list = param.view(-1).tolist()
+
+            state_copy.append(
+                {
+                    "name": name,
+                    "type": typename(param),
+                    "attributes": {
+                        "data": param_list,
+                    },
+                }
+            )
+            # only get the attributes that are actual values
+            for attr_name in dir(param):
+                if attr_name.startswith("__") or not is_safe_getattr(param, attr_name):
+                    continue
+                attr = getattr(param, attr_name)
+
+                if callable(attr):
+                    continue
+
+                if isinstance(attr, torch.Tensor):
+                    # skipping the tensor values as we should have already captured them
+                    # also, the fields in tensor such as `H` and `T` are just views of the same tensor`
+                    continue
+
+                # try to serialize the attribute, if it fails, then skip it
+                try:
+                    json.dumps(attr)
+                except Exception as e:
+                    get_instrumentation_logger_for_process().warn(
+                        f"Failed to serialize attribute {attr_name} of parameter {name}, skipping it. Error: {e}"
+                    )
+                    continue
+
+                state_copy[-1]["attributes"][attr_name] = attr
+
+        return state_copy
 
     def observe(self):
         """The function is called to observe the state of the model. Each call to this function will
