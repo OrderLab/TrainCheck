@@ -6,7 +6,7 @@ from tqdm import tqdm
 from mldaikon.config import config
 from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.ml_daikon_trace import Liveness, Trace
+from mldaikon.trace.trace import Liveness, Trace
 
 tracker_var_field_prefix = "attributes."
 

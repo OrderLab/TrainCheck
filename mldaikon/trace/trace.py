@@ -6,6 +6,7 @@ import polars as pl
 from tqdm import tqdm
 
 from mldaikon.config import config
+from mldaikon.instrumentor.tracer import TraceLineType
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +175,9 @@ class Trace:
                 pl.col("var_type") == var_id.var_type,
             )
 
-            state_changes = var_inst_states.filter(pl.col("type") == "state_change")
+            state_changes = var_inst_states.filter(
+                pl.col("type") == TraceLineType.STATE_CHANGE
+            )
 
             # init attribute values for this variable
             attr_values = {}
@@ -330,7 +333,7 @@ class Trace:
         pre_call_record = self.events.row(index=func_pre_call_idx, named=True)
 
         assert (
-            pre_call_record["type"] == "function_call (pre)"
+            pre_call_record["type"] == TraceLineType.FUNC_CALL_PRE
         ), "The record at the given index is not a function call (pre) event."
 
         function = pre_call_record["function"]
@@ -343,7 +346,10 @@ class Trace:
             pl.arg_where(
                 (
                     pl.col("type").is_in(
-                        ["function_call (post)", "function_call (post) (exception)"]
+                        [
+                            TraceLineType.FUNC_CALL_POST,
+                            TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                        ]
                     )
                 )
                 & (pl.col("function") == function)

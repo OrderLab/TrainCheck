@@ -31,6 +31,13 @@ disable_proxy_class = disable_proxy_class
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
 
+class TraceLineType:
+    FUNC_CALL_PRE = "function_call (pre)"
+    FUNC_CALL_POST = "function_call (post)"
+    FUNC_CALL_POST_EXCEPTION = "function_call (post) (exception)"
+    STATE_CHANGE = "state_change"
+
+
 def get_trace_API_logger_for_process():
     pid = os.getpid()
     script_name = os.getenv("MAIN_SCRIPT_NAME")
@@ -130,7 +137,7 @@ def global_wrapper(original_function, *args, **kwargs):
             "thread_id": thread_id,
             "process_id": process_id,
             "meta_vars": meta_vars,
-            "type": "function_call (pre)",
+            "type": TraceLineType.FUNC_CALL_PRE,
             "function": func_name,
         }
     )
@@ -155,30 +162,6 @@ def global_wrapper(original_function, *args, **kwargs):
             # args = unproxy_arg(args[0])
             kwargs = {k: v._obj if type(v) is Proxy else v for k, v in kwargs.items()}
 
-        # def unwrap_proxies(obj):
-        #     if isinstance(obj, Proxy):
-        #         return unwrap_proxies(obj._obj)
-        #     elif isinstance(obj, list):
-        #         for i in range(len(obj)):
-        #             obj[i] = unwrap_proxies(obj[i])
-        #         return obj
-        # Ziming: comment out the dict unwrapping here, it would interfere
-        # with the _try_get_data functionality in dataloader
-        # elif isinstance(obj, dict):
-        #     for key in obj:
-        #         obj[key] = unwrap_proxies(obj[key], level+1)
-        #     return obj
-        # elif isinstance(obj, tuple):
-        #     obj = tuple(unwrap_proxies(item) for item in obj)
-        #     return obj
-        # elif isinstance(obj, types.ModuleType):
-        #     return obj
-        # else:
-        #     return obj
-
-        # if not disable_proxy_class:
-        #     args = [unwrap_proxies(arg) for arg in args]
-        #     kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
@@ -187,7 +170,7 @@ def global_wrapper(original_function, *args, **kwargs):
                 "thread_id": thread_id,
                 "process_id": process_id,
                 "meta_vars": meta_vars,
-                "type": "function_call (post) (exception)",
+                "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": func_name,
                 "args": [f"{arg}" for arg in args],
                 "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
@@ -204,7 +187,7 @@ def global_wrapper(original_function, *args, **kwargs):
             "thread_id": thread_id,
             "process_id": process_id,
             "meta_vars": meta_vars,
-            "type": "function_call (post)",
+            "type": TraceLineType.FUNC_CALL_POST,
             "function": func_name,
         },
         logging.INFO,
@@ -241,105 +224,6 @@ def get_all_subclasses(cls):
 
     recurse(cls)
     return set(subclass_list)
-
-
-# def init_wrapper(original_init):
-#     @functools.wraps(original_init)
-#     def wrapped_init(self, *args, **kwargs):
-#         print(f"wrapped_init for {self.__class__.__name__}")
-#         if isinstance(self, torch._ops._OpNamespace):
-#             result = original_init(self, *args) if args else None
-#         else:
-#             try:
-#                 result = original_init(self, *args, **kwargs)
-#             except Exception as e:
-#                 get_instrumentation_logger_for_process().error(f"Error in __init__ of {self.__class__.__name__}: {e}")
-#                 print(f"Error in __init__ of {self.__class__.__name__}: {e}")
-#                 return None
-
-#         serialized_args = [safe_serialize(arg) for arg in args]
-#         serialized_kwargs = {k: safe_serialize(v) for k, v in kwargs.items()}
-#         print(
-#             f"Initialized {self.__class__.__name__} with args: {serialized_args} and kwargs: {serialized_kwargs}"
-#         )
-#         logger_trace.info(
-#             json.dumps(
-#                 {
-#                     "thread_id": threading.current_thread().ident,
-#                     "process_id": os.getpid(),
-#                     "type": "class_init",
-#                     "class": self.__class__.__name__,
-#                     "args": serialized_args,
-#                     "kwargs": serialized_kwargs,
-#                 }
-#             )
-#         )
-
-#         self = Proxy(self, log_level=logging.INFO, logdir="proxy_logs.log")
-
-#         return result
-
-#     return wrapped_init
-
-# Ziming: temporarily disable the new_wrapper because it is relatively unstable
-
-# def new_wrapper(original_new_func):
-#     if getattr(original_new_func, "_is_wrapped", False):
-#         get_instrumentation_logger_for_process().warning(
-#             f"__new__ of {original_new_func.__name__} is already wrapped"
-#         )
-#         print(f"__new__ of {original_new_func.__name__} is already wrapped")
-#         return original_new_func
-
-#     @functools.wraps(original_new_func)
-#     def wrapped_new(cls, *args, **kwargs):
-#         import random
-
-#         # generate a random id for the function call
-#         func_id = str(random.randint(0, 10))
-
-#         print(f"idx: {func_id} wrapped_new for {cls.__name__}")
-#         if isinstance(cls, torch._ops._OpNamespace):
-#             print(f"idx: {func_id} CALLing original_new_func")
-#             result = original_new_func(cls)
-#             print(f"idx: {func_id} EXITing original_new_func")
-#         else:
-#             try:
-#                 print(f"idx: {func_id} CALLing original_new_func")
-#                 result = original_new_func(cls)
-#                 print(f"idx: {func_id} EXITing original_new_func")
-#             except Exception as e:
-#                 print(f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}")
-#                 get_instrumentation_logger_for_process().error(
-#                     f"idx: {func_id} Error in __new__ of {cls.__name__}: {e}"
-#                 )
-#                 return None
-#         try:
-#             print(
-#                 f"idx: {func_id} Initializing {cls.__name__} with Args: {args}, Kwargs: {kwargs}"
-#             )
-#             result.__init__(*args, **kwargs)
-#         except Exception as e:
-#             print(f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}")
-#             get_instrumentation_logger_for_process().error(
-#                 f"idx: {func_id} Error in __init__ of {cls.__name__}: {e}"
-#             )
-#             return None
-
-#         if cls.__name__ in INCLUDED_WRAP_LIST:
-#             print(
-#                 f"idx: {func_id} Initalized {cls.__name__} , now creating the proxy class"
-#             )
-#             result = Proxy(
-#                 result, log_level=logging.INFO, logdir=proxy_log_dir
-#             )
-
-#         return result
-
-#     # Mark this function as wrapped
-#     wrapped_new._is_wrapped = True
-
-#     return wrapped_new
 
 
 instrumented_modules = set()
@@ -631,7 +515,7 @@ class StatelessVarObserver:
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
                     "meta_vars": meta_vars,
-                    "type": "state_change",
+                    "type": TraceLineType.STATE_CHANGE,
                     "var_type": param["type"],
                     "var_name": param["name"],
                     "attributes": param["attributes"],
@@ -706,7 +590,7 @@ class StatelessVarObserver:
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
                     "meta_vars": meta_vars,
-                    "type": "state_change",
+                    "type": TraceLineType.STATE_CHANGE,
                     # "var": self.var.__class__.__name__,
                     "var_type": param["type"],  # FIXME: hardcoding the type for now
                     "var_name": param["name"],

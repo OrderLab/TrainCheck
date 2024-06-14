@@ -1,6 +1,6 @@
 import abc
 
-from mldaikon.ml_daikon_trace import Trace
+from mldaikon.trace.trace import Trace
 
 
 class Invariant:

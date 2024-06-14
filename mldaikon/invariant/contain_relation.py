@@ -2,9 +2,10 @@ import logging
 
 import polars as pl
 
+from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.ml_daikon_trace import Trace, VarChange
+from mldaikon.trace.trace import Trace, VarChange
 
 
 def events_scanner(
@@ -124,7 +125,7 @@ class APIContainRelation(Relation):
             # get all parent pre event indexes
             parent_pre_idx = trace.events.select(
                 pl.arg_where(
-                    (pl.col("type") == "function_call (pre)")
+                    (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
                     & (pl.col("function") == parent)
                 )
             ).to_series()
