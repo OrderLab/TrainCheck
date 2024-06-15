@@ -115,7 +115,12 @@ def get_instrumentation_logger_for_process():
 
 
 def global_wrapper(original_function, *args, **kwargs):
-    func_call_id = random.randint(0, 1000)
+    # func_call_id = random.randint(0, 1000)
+    # use the current timestamp as the function call id
+    # func_call_id = hash(datetime.datetime.now().timestamp())
+    import uuid
+
+    func_call_id = uuid.uuid4().hex
 
     # Get the current thread object
     current_thread = threading.current_thread()
