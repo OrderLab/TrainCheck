@@ -75,6 +75,7 @@ class APIContainRelation(Relation):
 
         # DEBUG: sort the function names for to put adam.step at the front
         func_names.sort(key=lambda x: "adam.step" in x, reverse=True)
+        # func_names.sort(key=lambda x: "torch_typed_storage" in x, reverse=True)
 
         for parent in func_names:
             logger.debug(f"Starting the analysis for the parent function: {parent}")
@@ -106,7 +107,7 @@ class APIContainRelation(Relation):
                     target = (
                         event.func_name
                         if isinstance(event, (FuncCallEvent, FuncCallExceptionEvent))
-                        else event.var_id.var_type
+                        else f"{event.var_id.var_type}.{event.attr_name}"
                     )
                     param_selectors = [
                         target,  # TODO: refactor the relation evaluate logic to be specific-trace-agnotic
@@ -144,7 +145,7 @@ class APIContainRelation(Relation):
                             if isinstance(
                                 event, (FuncCallEvent, FuncCallExceptionEvent)
                             )
-                            else event.var_id.var_type
+                            else f"{event.var_id.var_type}.{event.attr_name}"
                         )
                         if target in hypothesis[parent][high_level_event_type]:
                             hypothesis[parent][high_level_event_type][
@@ -159,7 +160,11 @@ class APIContainRelation(Relation):
 
                 for high_level_event_type in hypothesis[parent]:
                     for target in hypothesis[parent][high_level_event_type]:
-                        if target not in touched[high_level_event_type]:
+                        # if we haven't seen the target in the current trace, add this API invocation as a negative example
+                        if (
+                            high_level_event_type not in touched
+                            or target not in touched[high_level_event_type]
+                        ):
                             hypothesis[parent][high_level_event_type][
                                 target
                             ].negative_examples.append(
