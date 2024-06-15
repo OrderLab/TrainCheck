@@ -22,7 +22,6 @@ jobs:
           pip install mypy==1.9.0
           pip install isort
           pip install ruff==0.3.3
-          mypy --install-types
 
       - name: Run black
         id: black
