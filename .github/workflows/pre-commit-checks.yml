@@ -4,11 +4,11 @@ on: [push, pull_request]
 
 jobs:
   pre-commit:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -26,22 +26,18 @@ jobs:
       - name: Run black
         id: black
         run: black --check .
-        continue-on-error: true
 
       - name: Run mypy
         id: mypy
         run: mypy .
-        continue-on-error: true
 
       - name: Run isort
         id: isort
         run: isort --check --profile=black .
-        continue-on-error: true
 
       - name: Run ruff
         id: ruff
         run: ruff .
-        continue-on-error: true
 
       - name: Check if any checks failed
         if: failure()
@@ -50,7 +46,3 @@ jobs:
       - name: Set job status
         if: failure()
         run: exit 1
-
-      - name: Final status check
-        if: success()
-        run: echo "All pre-commit checks passed successfully."
