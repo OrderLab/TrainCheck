@@ -1,15 +1,17 @@
+import inspect
 import json
 import time
+
 import torch
-import inspect
+
+from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.config import (
-    meta_var_black_list,
     attribute_black_list,
     exclude_file_names,
-    dump_tensor_version
+    dump_tensor_version,
+    meta_var_black_list,
 )
 from mldaikon.proxy_wrapper.utils import print_debug
-from mldaikon.instrumentor.tracer import meta_vars
 
 
 class Singleton(type):

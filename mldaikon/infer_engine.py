@@ -3,13 +3,13 @@ import logging
 import time
 
 from mldaikon.invariant.relation_pool import relation_pool
-from mldaikon.ml_daikon_trace import read_trace_file
+from mldaikon.trace.trace import Trace, read_trace_file
 
 logger = logging.getLogger(__name__)
 
 
 class InferEngine:
-    def __init__(self, traces: list[str]):
+    def __init__(self, traces: list[Trace]):
         self.traces = traces
         pass
 
