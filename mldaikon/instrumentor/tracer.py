@@ -107,6 +107,10 @@ def get_instrumentation_logger_for_process():
     return logger
 
 
+def is_c_level_function(original_function):
+    return not hasattr(original_function, "__code__")
+
+
 def global_wrapper(original_function, *args, **kwargs):
     func_call_id = random.randint(0, 1000)
 
@@ -135,13 +139,21 @@ def global_wrapper(original_function, *args, **kwargs):
         }
     )
     try:
-        # check if the original function is a builtin_function_or_method
-        if isinstance(original_function, types.BuiltinFunctionType):
-            from mldaikon.proxy_wrapper.proxy import Proxy
+        ### Safe but inefficient: use inspect.getsource to check if the function is a C level function
+        # C_level_call = False
+        # try:
+        #     # check if the original function is a C level function
+        #     inspect.getsource(original_function)
+        # except Exception as e:
+        #     C_level_call = True
+        C_level_call = is_c_level_function(original_function)
+        # Not Safe for wrapped functions: check if the original function is a builtin_function_or_method
+        # if isinstance(original_function, types.BuiltinFunctionType):
+        if C_level_call:
             # print(f"Wrapping {original_function}")
             def unproxy_arg(arg):
-                        
-                if type(arg) is Proxy:
+
+                if hasattr(arg,"is_proxied_obj"):
                     return unproxy_arg(arg._obj)
                 elif type(arg) in [list]:
                     return [unproxy_arg(element) for element in arg]
@@ -149,11 +161,11 @@ def global_wrapper(original_function, *args, **kwargs):
                     return tuple(unproxy_arg(element) for element in arg)
                 else:
                     return arg
+
             args = [unproxy_arg(arg) for arg in args]
             # args = unproxy_arg(args[0])
-            kwargs = {k: v._obj if type(v) is Proxy else v for k, v in kwargs.items()}
-            
-            
+            kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+
         # def unwrap_proxies(obj):
         #     if isinstance(obj, Proxy):
         #         return unwrap_proxies(obj._obj)
@@ -348,8 +360,8 @@ skipped_functions: set[str] = set()
 # there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
 modules_to_skip = [
     "torch.fx",
-    "torch.jit",
-    "torch._jit",
+    # "torch.jit",
+    # "torch._jit",
     # "torch._C",
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
 ]

@@ -1,3 +1,3 @@
 import torch
-handled_obj_type = [torch.nn.parameter.Parameter, torch.nn.Module]
+handled_obj_type = [torch.Tensor, torch.nn.Module]
 
