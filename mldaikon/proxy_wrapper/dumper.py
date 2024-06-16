@@ -6,6 +6,7 @@ from mldaikon.proxy_wrapper.config import (
     meta_var_black_list,
     attribute_black_list,
     exclude_file_names,
+    dump_tensor_version
 )
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.instrumentor.tracer import meta_vars
@@ -89,11 +90,13 @@ def dump_tensor(value):
     #         "shape": shape,
     #     }
     if isinstance(value, torch.Tensor):
-        # dump out the tensor data to a list
-        param_list = value.detach().tolist()
-        # # HACK: if the param_list is 2 dimensional, then add a dummy dimension to make it 2D
-        if not isinstance(param_list[0], list):
-            param_list = [param_list]
+        if dump_tensor_version:
+            # import pdb; pdb.set_trace()
+            param_list = value._version
+        # dump out the tensor data to a list and flatten it to a 1D list
+        else:
+            param_list = value.detach().flatten().tolist()
+        
     return param_list
 
 
@@ -110,6 +113,9 @@ def dump_attributes(obj):
     # currently only dump primitive types, tensors and nn.Module
     primitive_types = {int, float, str, bool}
     attr_names = [name for name in dir(obj) if not name.startswith("__")]
+    if isinstance(obj, torch.nn.parameter.Parameter):
+        result = obj._version
+        return result
 
     for attr_name in attr_names:
         # don't track the attr_name starts with a _ (private variable)

@@ -53,23 +53,23 @@ import linecache
 def get_line(filename, lineno):
     return linecache.getline(filename, lineno).strip()
 
-def proxy_handler(obj, logdir, log_level, var_name):
+def proxy_handler(obj, logdir, log_level, var_name, no_init_dump=False):
     # if list or tuple, do the same thing for each element
     if isinstance(obj, (list, tuple)):
         for element in obj:
-            element = proxy_handler(element, logdir, log_level, var_name)
+            element = proxy_handler(element, logdir, log_level, var_name, no_init_dump=no_init_dump)
     if isinstance(obj, types.GeneratorType):
 
         def generator_proxy_handler():
             for element in obj:
-                yield proxy_handler(element, logdir, log_level, var_name)
+                yield proxy_handler(element, logdir, log_level, var_name, no_init_dump=no_init_dump)
 
         obj = generator_proxy_handler()
     if typename(obj).startswith("torch.distributed"):
         return obj
     for obj_type in handled_obj_type:
         if issubclass(type(obj), obj_type):
-            return Proxy(obj, logdir=logdir, log_level=log_level, var_name=var_name)
+            return Proxy(obj, logdir=logdir, log_level=log_level, var_name=var_name, dump_trace=not no_init_dump)
     return obj
 
 
@@ -143,6 +143,12 @@ class Proxy:
         return frame_array
     
     def dump_trace(self, status):
+        if Proxy.var_dict.get(self.__dict__["var_name"]) is None:
+            # create
+            self.__dict__["last_update_timestamp"] = 0
+            Proxy.var_dict[self.__dict__["var_name"]] = self
+            
+            
         if (
                 time.time()
                 - Proxy.var_dict[self.__dict__["var_name"]].__dict__[
@@ -178,6 +184,7 @@ class Proxy:
         log_level=logging.INFO,
         is_root=False,
         var_name="",
+        dump_trace=True,
     ):
         # Access proxy attribute: since we are wrapping the getattr method, we need to access the attribute directly
         self.__dict__["process_id"] = os.getpid()
@@ -237,7 +244,7 @@ class Proxy:
         # Ziming: here we still seperate the handling of tensor and other objects
         # however, despite the dumping logic these two are identical and could be merged
 
-        if isinstance(type(obj), torch.nn.Module):
+        if isinstance(obj, torch.nn.Module):
 
             if self.__dict__["is_root"] == True:
                 # proxy all of its parameters
@@ -271,12 +278,11 @@ class Proxy:
         if Proxy.var_dict.get(current_var_name_list) is None:
 
             self.__dict__["_obj"] = obj
-
-            
-            self.dump_to_trace(obj, "new", dumped_frame_array)
-            self.__dict__["last_update_timestamp"] = time.time()
-
-            Proxy.var_dict[current_var_name_list] = self
+            if dump_trace:
+                # if the object is generated from getattr, then do not dump it
+                self.dump_to_trace(obj, "new", dumped_frame_array)
+                self.__dict__["last_update_timestamp"] = time.time()
+                Proxy.var_dict[current_var_name_list] = self
         else:
             if not type(obj) in [int, float, str, bool] and obj is not None:
                 print_debug(
@@ -337,7 +343,7 @@ class Proxy:
             var_name = name
         else:
             var_name = self.__dict__["var_name"] + "." + name
-        return proxy_handler(attr, self.logdir, self.log_level, var_name)
+        return proxy_handler(attr, self.logdir, self.log_level, var_name, no_init_dump = True)
 
     def __setattr__(self, name, value):
 
