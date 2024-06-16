@@ -165,7 +165,7 @@ def global_wrapper(original_function, *args, **kwargs):
             # print(f"Wrapping {original_function}")
             def unproxy_arg(arg):
 
-                if hasattr(arg,"is_proxied_obj"):
+                if hasattr(arg, "is_proxied_obj"):
                     return unproxy_arg(arg._obj)
                 elif type(arg) in [list]:
                     return [unproxy_arg(element) for element in arg]

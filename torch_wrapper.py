@@ -1,10 +1,11 @@
-import torch
+import csv
 import inspect
 import re
-import csv
-from collections import deque, defaultdict
-from tqdm import tqdm
+from collections import defaultdict, deque
+
+import torch
 import torch.nn.modules.conv
+from tqdm import tqdm
 
 
 # Helper function to check if a function is a C-level function

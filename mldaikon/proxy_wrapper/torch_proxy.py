@@ -1,19 +1,23 @@
 import functools
+import inspect
+import json
+import tokenize as tokenize
 from typing import List, Tuple
+
 import torch
 import torch.distributed
-import torch.optim.optimizer as torch_optimizer
-from torch.optim.optimizer import (
-    _get_fused_kernels_supported_devices,
-    _get_foreach_kernels_supported_devices,
-    _foreach_supported_types,
-)
-from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg, is_proxied
-from torch._C._distributed_c10d import ReduceOp, ProcessGroup
-from deepspeed.runtime.bf16_optimizer import BF16_Optimizer
-import tokenize as tokenize
 import torch.optim.adam as adam
-import inspect, json
+import torch.optim.optimizer as torch_optimizer
+from deepspeed.runtime.bf16_optimizer import BF16_Optimizer
+from torch._C._distributed_c10d import ProcessGroup, ReduceOp
+from torch.optim.optimizer import (
+    _foreach_supported_types,
+    _get_foreach_kernels_supported_devices,
+    _get_fused_kernels_supported_devices,
+)
+
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
+
 #################################################
 ###         Proxied Torch functions
 
@@ -55,6 +59,7 @@ torch_optimizer._default_to_fused_or_foreach = _default_to_fused_or_foreach
 
 def unproxy_func(func):
     original_func = func
+
     @functools.wraps(original_func)
     def wrapper(*args, **kwargs):
         args = [unproxy_arg(arg) for arg in args]
@@ -77,15 +82,17 @@ BF16_Optimizer._update_storage_to_flattened_tensor = unproxy_func(
 
 #################################################
 
+
 def observe_proxy_var(var, phase):
     if hasattr(var, "is_proxied_obj"):
         var.dump_trace(phase)
     else:
         NotImplementedError(f"observe method not implemented for {var}")
-    
+
 
 def add_observer_to_func(func):
     original_func = func
+
     @functools.wraps(original_func)
     def wrapper(*args, **kwargs):
         observe_var = []
@@ -100,7 +107,7 @@ def add_observer_to_func(func):
         # pre observe
         for var in observe_var:
             observe_proxy_var(var, "pre_observe")
-        result =  original_func(*args, **kwargs)
+        result = original_func(*args, **kwargs)
         # post observe
         for var in observe_var:
             observe_proxy_var(var, "post_observe")
@@ -108,7 +115,7 @@ def add_observer_to_func(func):
 
     return wrapper
 
+
 #################################################
 
 adam.adam = add_observer_to_func(adam.__dict__.get("adam"))
-

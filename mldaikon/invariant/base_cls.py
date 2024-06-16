@@ -49,7 +49,7 @@ class Invariant:
 
 
 class Example:
-    def __init__(self, trace_groups: dict[str, list[dict]]|None = None):
+    def __init__(self, trace_groups: dict[str, list[dict]] | None = None):
         self.trace_groups: dict[str, list[dict]] = trace_groups or {}
 
     def add_group(self, group_name: str, trace: list):
