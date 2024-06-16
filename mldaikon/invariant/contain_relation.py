@@ -3,7 +3,13 @@ import logging
 import polars as pl
 
 from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
+from mldaikon.invariant.base_cls import (
+    Example,
+    ExampleList,
+    Hypothesis,
+    Invariant,
+    Relation,
+)
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
@@ -121,6 +127,7 @@ class APIContainRelation(Relation):
                         hypothesis[parent][typename(event)] = {}
 
                     if target not in hypothesis[parent][typename(event)]:
+                        group_names = {"parent_func_call_pre", "child_events"}
                         hypothesis[parent][typename(event)][target] = Hypothesis(
                             Invariant(
                                 relation=APIContainRelation(),
@@ -128,8 +135,8 @@ class APIContainRelation(Relation):
                                 precondition=None,
                                 text_description=f"{parent} contains {target} of type {typename(event)}",
                             ),
-                            positive_examples=[],
-                            negative_examples=[],
+                            positive_examples=ExampleList(group_names),
+                            negative_examples=ExampleList(group_names),
                         )
 
             # scan the child_func_names for positive and negative examples
@@ -148,11 +155,12 @@ class APIContainRelation(Relation):
                             else f"{event.var_id.var_type}.{event.attr_name}"
                         )
                         if target in hypothesis[parent][high_level_event_type]:
+                            example = Example()
+                            example.add_group("parent_func_call_pre", [pre_record])
+                            example.add_group("child_events", event.get_traces())
                             hypothesis[parent][high_level_event_type][
                                 target
-                            ].positive_examples.append(
-                                [pre_record] + event.get_traces()
-                            )
+                            ].positive_examples.add_example(example)
 
                         if high_level_event_type not in touched:
                             touched[high_level_event_type] = set()
@@ -165,11 +173,14 @@ class APIContainRelation(Relation):
                             high_level_event_type not in touched
                             or target not in touched[high_level_event_type]
                         ):
+                            example = Example()
+                            example.add_group("parent_func_call_pre", [pre_record])
+                            example.add_group(
+                                "child_events", []
+                            )  # TODO: for variable change events, there might need to be negative examples
                             hypothesis[parent][high_level_event_type][
                                 target
-                            ].negative_examples.append(
-                                [pre_record]
-                            )  # TODO: for precondition inference on the variable change events, the variable traces that are not changed also needs to be included, static analysis can help here
+                            ].negative_examples.add_example(example)
 
         all_invariants: list[Invariant] = []
         all_hypotheses = []
@@ -178,8 +189,13 @@ class APIContainRelation(Relation):
                 for target in hypothesis[parent][high_level_event_type]:
                     h = hypothesis[parent][high_level_event_type][target]
                     h.invariant.precondition = find_precondition(h)
-                    all_invariants.append(h.invariant)
-                    all_hypotheses.append((h, f"{high_level_event_type}"))
+                    if (
+                        h.invariant.precondition is not None
+                    ):  # TODO: abstract this precondition inference part to a function
+                        all_invariants.append(h.invariant)
+                        all_hypotheses.append((h, f"{high_level_event_type}"))
+                    else:
+                        logger.debug(f"Precondition not found for the hypothesis: {h}")
 
         # sort the hypotheses for debugging purposes
         all_hypotheses.sort(key=lambda h: len(h[0].positive_examples), reverse=True)

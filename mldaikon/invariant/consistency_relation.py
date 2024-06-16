@@ -4,7 +4,13 @@ from itertools import combinations
 from tqdm import tqdm
 
 from mldaikon.config import config
-from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
+from mldaikon.invariant.base_cls import (
+    Example,
+    ExampleList,
+    Hypothesis,
+    Invariant,
+    Relation,
+)
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Liveness, Trace
 
@@ -265,8 +271,13 @@ class ConsistencyRelation(Relation):
         print(f"Filtered Hypothesis: {filtered_hypothesis}")
 
         ## 4.  Positive Examples and Negative Examples Collection
+        group_name = "var"  # TODO: hacky, need to fix this
         hypothesis_with_examples = {
-            key: Hypothesis(Invariant(None, [], None), [], [])
+            key: Hypothesis(
+                invariant=Invariant(ConsistencyRelation, [], None),
+                positive_examples=ExampleList({group_name}),
+                negative_examples=ExampleList({group_name}),
+            )
             for key in filtered_hypothesis
         }
         for hypo in hypothesis_with_examples:
@@ -312,23 +323,31 @@ class ConsistencyRelation(Relation):
                                 ):
                                     hypothesis_with_examples[
                                         hypo
-                                    ].positive_examples.append(
-                                        [
-                                            value1.traces[0],
-                                            value2.traces[0],
-                                        ]  ## HACK to make preconditions inference work for `step`
+                                    ].positive_examples.add_example(
+                                        Example(
+                                            {
+                                                group_name: [
+                                                    value1.traces[0],
+                                                    value2.traces[0],
+                                                ]
+                                            }  ## HACK to make preconditions inference work for `step`
+                                        )
                                     )
                                 else:
                                     hypothesis_with_examples[
                                         hypo
-                                    ].negative_examples.append(
-                                        [
-                                            value1.traces[0],
-                                            value2.traces[0],
-                                        ]  ## HACK to make preconditions inference work for `step`
+                                    ].negative_examples.add_example(
+                                        Example(
+                                            {
+                                                group_name: [
+                                                    value1.traces[0],
+                                                    value2.traces[0],
+                                                ]
+                                            }  ## HACK to make preconditions inference work for `step`
+                                        )
                                     )
 
-        ## 5. Precondition Inference
+        ## 5. Precondition Inference TODO: this can be abstracted into a separate function that takes a list of hypothesis and returns those with preconditions
         hypos_to_delete = []
         for hypo in hypothesis_with_examples:
             preconditions = find_precondition(
@@ -337,27 +356,12 @@ class ConsistencyRelation(Relation):
             )
             print(f"Preconditions for {hypo}:")
             print(f"{str(preconditions)}")
-            # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant
-            if (
-                len(preconditions) == 0
-                and len(hypothesis_with_examples[hypo].negative_examples) == 0
-            ):
-                hypothesis_with_examples[hypo].invariant.precondition = (
-                    None  # Unconditional
-                )
-            elif (
-                len(preconditions) == 0
-                and len(hypothesis_with_examples[hypo].negative_examples) > 0
-            ):
-                # delete the hypothesis
-                """TODO: even if we cannot find any precondition, it might be possible that the invariant holds, but its just that our tracer didn't capture the necessary information.
-                Thus, we might still want to evaluate the invariant's statistical likelihood instead of just deleting it.
-                """
-                hypos_to_delete.append(hypo)
-            else:
-                hypothesis_with_examples[hypo].invariant.precondition = preconditions
 
-            """NOTE: If a hypo have no negative examples, potentially there might be noises in the preconditions inferred."""
+            if preconditions is not None:
+                hypothesis_with_examples[hypo].invariant.precondition = preconditions
+            else:
+                print(f"Precondition not found for {hypo}")
+                hypos_to_delete.append(hypo)
 
         for hypo in hypos_to_delete:
             del hypothesis_with_examples[hypo]

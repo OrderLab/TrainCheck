@@ -325,7 +325,9 @@ def _merge_clauses(
 def find_precondition(
     hypothesis: Hypothesis,
     keys_to_skip: list[str] = [],
-) -> dict[str, list[Precondition]]:
+) -> dict[str, list[Precondition]] | None:
+    """When None is returned, it means that we cannot find a precondition that is safe to use for the hypothesis."""
+
     # postive examples and negative examples should have the same group names
     group_names = hypothesis.positive_examples.group_names
     assert group_names == hypothesis.negative_examples.group_names
@@ -342,6 +344,10 @@ def find_precondition(
         preconditions[group_name] = find_precondition_from_single_group(
             positive_examples, negative_examples, keys_to_skip
         )
+
+    # if every group's precondition is of length 0, return None
+    if all(len(preconditions[group_name]) == 0 for group_name in preconditions):
+        return None
 
     return preconditions
 

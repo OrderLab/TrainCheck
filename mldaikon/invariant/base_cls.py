@@ -9,7 +9,7 @@ class Invariant:
         self,
         relation,
         param_selectors: list,
-        precondition: list | None,
+        precondition: dict[str, list] | None = None,
         text_description: str | None = None,
     ):
         # def __init__(self, relation: Relation, param_selectors: list[Predicate], precondition: Predicate):
@@ -49,8 +49,8 @@ class Invariant:
 
 
 class Example:
-    def __init__(self):
-        self.trace_groups: dict[str, list[dict]] = {}
+    def __init__(self, trace_groups: dict[str, list[dict]]|None = None):
+        self.trace_groups: dict[str, list[dict]] = trace_groups or {}
 
     def add_group(self, group_name: str, trace: list):
         assert group_name not in self.trace_groups, f"Group {group_name} already exists"
