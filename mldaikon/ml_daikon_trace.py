@@ -73,6 +73,9 @@ class Trace:
     def get_variable_insts(self) -> list[dict]:
         """Find all variables (uniquely identified by name, type and process id) from the trace."""
         # Identification of Variables --> (variable_name, process_id)
+        if "var_name" not in self.events.columns:
+            return []
+        
         variables = (
             self.events.select("var_name", "var_type", "process_id")
             .drop_nulls()

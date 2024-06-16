@@ -155,7 +155,7 @@ def is_statistical_significant(positive_examples: list) -> bool:
 
 def _find_local_clauses(
     example: list, key_to_skip: str | list[str] = "param_value"
-) -> dict:
+) -> list[PreconditionClause]:
     """A list of traces to find common properties from. The property should hold locally within the example."""
 
     clauses = []
@@ -183,8 +183,7 @@ def _find_local_clauses(
                     f"Property {prop} not found in example {example[i]}, precondition inference might not be correct if this prop is not a local attribute of the variable"
                 )
                 continue
-            if example[i][prop] is not None:
-                prop_values_seen.add(example[i][prop])
+            prop_values_seen.add(example[i][prop])
 
         # get the type of the property
         prop_type = None
@@ -199,11 +198,10 @@ def _find_local_clauses(
                 )
 
         if len(prop_values_seen) == 1 and prop_type is not None:
-            if prop_type is not None:
-                clauses.append(
-                    PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen)
-                )
-        elif len(prop_values_seen) == len(example):
+            clauses.append(
+                PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen)
+            )
+        elif len(prop_values_seen) == len(example) and not None in prop_values_seen:
             clauses.append(PreconditionClause(prop, prop_type, PT.UNEQUAL, None))
 
     return clauses
@@ -335,15 +333,15 @@ def find_precondition(
             print("Warning: empty examples found in positive examples")
             continue
 
-        local_cluases = _find_local_clauses(example, key_to_skip=keys_to_skip)
+        local_clauses = _find_local_clauses(example, key_to_skip=keys_to_skip)
 
-        if len(local_cluases) == 0:
+        if len(local_clauses) == 0:
             print("example: ", example)
             raise ValueError(
                 "No clauses can be found in the example, precondition will be empty."
             )
 
-        all_local_clauses.append(local_cluases)
+        all_local_clauses.append(local_clauses)
 
     ## merge the local clauses: 1) group by the clause target and 2) merge into consistent if too many values are found
     clauses_and_example_ids = _merge_clauses(all_local_clauses)
@@ -361,9 +359,6 @@ def find_precondition(
         for clause in clauses_and_example_ids
         if len(clauses_and_example_ids[clause]) == len(hypothesis.positive_examples)
     }
-
-    print("Base Precondition Clauses")
-    pprint_preconds(base_precond_clauses)
 
     clause_ever_false_in_neg = {clause: False for clause in clauses_and_example_ids}
     passing_neg_exps = []
@@ -402,6 +397,8 @@ def find_precondition(
                 if not clause_ever_false_in_neg[clause]
             }
         )
+        print("Base Precondition Clauses After Pruning")
+        pprint_preconds(base_precond_clauses)
     else:
         # skip pruning is necessary when we are inferring on a reduced set of negative examples as many clauses may not be violated and thus pruned unnecessarily
         assert (
@@ -437,10 +434,19 @@ def find_precondition(
                 found_relevant = True
                 break
             if set_top_level_ids.issubset(set_exp_ids):
+                print(
+                    "Replace top-level example ids from group",
+                    grouped_clauses[top_level_example_ids[ids]],
+                    "with",
+                    grouped_clauses[exp_ids],
+                )
                 top_level_example_ids[ids] = exp_ids
                 found_relevant = True
                 break
         if not found_relevant:
+            print(
+                "Adding new top-level example ids from group", grouped_clauses[exp_ids]
+            )
             top_level_example_ids.append(exp_ids)
 
     # construct the top-level preconditions
@@ -455,6 +461,7 @@ def find_precondition(
         print("values", clause.values)
         print("type", clause.type)
         print("target", clause.prop_name)
+        print("Examples", len(partial_clauses_and_example_ids[clause]))
         print(
             "%examples",
             len(partial_clauses_and_example_ids[clause])
