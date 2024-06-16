@@ -5,7 +5,10 @@ from typing import Hashable, Iterable
 
 from tqdm import tqdm
 
-from mldaikon.config.config import CONST_CLAUSE_NUM_VALUES_THRESHOLD
+from mldaikon.config.config import (
+    CONST_CLAUSE_NUM_VALUES_THRESHOLD,
+    NOT_USE_AS_CLAUSE_FIELDS,
+)
 from mldaikon.invariant.base_cls import Hypothesis
 
 logger = logging.getLogger("Precondition")
@@ -179,7 +182,7 @@ def _find_local_clauses(
     clauses = []
     # find properties that have only one value in the example
     for prop in example[0]:
-        if prop in ["process_id", "thread_id", "time", "type"]:
+        if prop in NOT_USE_AS_CLAUSE_FIELDS:
             # skip meta_info about each event
             continue
 
@@ -330,16 +333,27 @@ def find_precondition(
 
     # postive examples and negative examples should have the same group names
     group_names = hypothesis.positive_examples.group_names
-    assert group_names == hypothesis.negative_examples.group_names
+    # assert group_names == hypothesis.negative_examples.group_names
+    if group_names != hypothesis.negative_examples.group_names:
+        logger.warning(
+            f"Group names in positive and negative examples do not match in the hypothesis. This might lead to unexpected results.\n Positive Examples: {hypothesis.positive_examples.group_names}\n Negative Examples: {hypothesis.negative_examples.group_names}"
+        )
 
     preconditions = {}
     for group_name in group_names:
         positive_examples = hypothesis.positive_examples.get_group_from_examples(
             group_name
         )
-        negative_examples = hypothesis.negative_examples.get_group_from_examples(
-            group_name
-        )
+        try:
+            negative_examples = hypothesis.negative_examples.get_group_from_examples(
+                group_name
+            )
+        except KeyError:
+            logger.warning(
+                f"Negative examples not found for group {group_name}, assigning this group an unconditional precondition."
+            )
+            # the negative examples are not found, assign an unconditional precondition (to be handled in find_precondition_from_single_group)
+            negative_examples = []
 
         preconditions[group_name] = find_precondition_from_single_group(
             positive_examples, negative_examples, keys_to_skip
@@ -376,10 +390,7 @@ def find_precondition_from_single_group(
     To implement the invariant split OP. We need to determine how this verification / pruning process should be done, because now all the `Precondition` objects have to be violated in the negative examples.
     """
     logger.debug(
-        "Calling precondition inference with # positive examples: ",
-        len(positive_examples),
-        " # negative examples: ",
-        len(negative_examples),
+        f"Calling precondition inference with \n# positive examples: {len(positive_examples)}, \n# negative examples: {len(negative_examples)}"
     )
 
     if len(negative_examples) == 0:

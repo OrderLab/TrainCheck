@@ -79,10 +79,6 @@ class APIContainRelation(Relation):
             )
             return []
 
-        # DEBUG: sort the function names for to put adam.step at the front
-        func_names.sort(key=lambda x: "adam.step" in x, reverse=True)
-        # func_names.sort(key=lambda x: "torch_typed_storage" in x, reverse=True)
-
         for parent in func_names:
             logger.debug(f"Starting the analysis for the parent function: {parent}")
             # get all parent pre event indexes
@@ -127,7 +123,11 @@ class APIContainRelation(Relation):
                         hypothesis[parent][typename(event)] = {}
 
                     if target not in hypothesis[parent][typename(event)]:
-                        group_names = {"parent_func_call_pre", "child_events"}
+                        group_names = (
+                            {"parent_func_call_pre", "child_events"}
+                            if isinstance(event, VarChangeEvent)
+                            else {"parent_func_call_pre"}
+                        )
                         hypothesis[parent][typename(event)][target] = Hypothesis(
                             Invariant(
                                 relation=APIContainRelation(),
@@ -136,7 +136,7 @@ class APIContainRelation(Relation):
                                 text_description=f"{parent} contains {target} of type {typename(event)}",
                             ),
                             positive_examples=ExampleList(group_names),
-                            negative_examples=ExampleList(group_names),
+                            negative_examples=ExampleList({"parent_func_call_pre"}),
                         )
 
             # scan the child_func_names for positive and negative examples
@@ -157,7 +157,8 @@ class APIContainRelation(Relation):
                         if target in hypothesis[parent][high_level_event_type]:
                             example = Example()
                             example.add_group("parent_func_call_pre", [pre_record])
-                            example.add_group("child_events", event.get_traces())
+                            if isinstance(event, VarChangeEvent):
+                                example.add_group("child_events", event.get_traces())
                             hypothesis[parent][high_level_event_type][
                                 target
                             ].positive_examples.add_example(example)
@@ -175,9 +176,6 @@ class APIContainRelation(Relation):
                         ):
                             example = Example()
                             example.add_group("parent_func_call_pre", [pre_record])
-                            example.add_group(
-                                "child_events", []
-                            )  # TODO: for variable change events, there might need to be negative examples
                             hypothesis[parent][high_level_event_type][
                                 target
                             ].negative_examples.add_example(example)
