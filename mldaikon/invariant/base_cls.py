@@ -1,16 +1,24 @@
 import abc
+from typing import Iterator
 
-from mldaikon.ml_daikon_trace import Trace
+from mldaikon.trace.trace import Trace
 
 
 class Invariant:
-    def __init__(self, relation, param_selectors: list, precondition: list | None):
+    def __init__(
+        self,
+        relation,
+        param_selectors: list,
+        precondition: dict[str, list] | None = None,
+        text_description: str | None = None,
+    ):
         # def __init__(self, relation: Relation, param_selectors: list[Predicate], precondition: Predicate):
         self.relation = relation
         self.param_selectors = param_selectors  ## Param selector
         self.precondition = precondition  # stateful preconditions
+        self.text_description = text_description
 
-    def param_selectors(self, trace: Trace) -> list:
+    def get_params(self, trace: Trace) -> list:
         """Given a trace, should return the values of the parameters
         that the invariant should be evaluated on.
 
@@ -18,7 +26,7 @@ class Invariant:
             trace: str
                 A trace to get the parameter values from.
         """
-        raise NotImplementedError("param_selectors method is not implemented yet.")
+        raise NotImplementedError("get_params method is not implemented yet.")
 
     def verify(self, trace) -> bool:
         """Given a trace, should return a boolean value indicating
@@ -37,15 +45,57 @@ class Invariant:
         return True
 
     def __str__(self) -> str:
-        return f"""Relation: {self.relation}\nParam Selectors: {self.param_selectors}\nPrecondition: {self.precondition}"""
+        return f"""Relation: {self.relation}\nParam Selectors: {self.param_selectors}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
+
+
+class Example:
+    def __init__(self, trace_groups: dict[str, list[dict]] | None = None):
+        self.trace_groups: dict[str, list[dict]] = trace_groups or {}
+
+    def add_group(self, group_name: str, trace: list):
+        assert group_name not in self.trace_groups, f"Group {group_name} already exists"
+        self.trace_groups[group_name] = trace
+
+    def get_group(self, group_name: str) -> list[dict]:
+        return self.trace_groups[group_name]
+
+    def __iter__(self):
+        return iter(self.trace_groups)
+
+    def __str__(self):
+        return f"Example with Groups: {self.trace_groups.keys()}"
+
+    def __repr__(self):
+        return f"Example with Groups: {self.trace_groups.keys()}"
+
+
+class ExampleList:
+    def __init__(self, group_names: set[str]):
+        self.group_names = group_names
+        self.examples: list[Example] = []
+
+    def add_example(self, example: Example):
+        assert (
+            set(example.trace_groups.keys()) == self.group_names
+        ), f"Example groups do not match the expected group names"
+        self.examples.append(example)
+
+    def get_group_from_examples(self, group_name: str) -> list[list[dict]]:
+        return [example.get_group(group_name) for example in self.examples]
+
+    def get_group_names(self) -> set[str]:
+        return self.group_names
+
+    def __len__(self):
+        return len(self.examples)
 
 
 class Hypothesis:
     def __init__(
         self,
         invariant: Invariant,
-        positive_examples: list[Trace],
-        negative_examples: list[Trace],
+        positive_examples: ExampleList,
+        negative_examples: ExampleList,
     ):
         self.invariant = invariant
         self.positive_examples = positive_examples

@@ -2,8 +2,8 @@ import argparse
 import logging
 
 import mldaikon.config.config as config
-import mldaikon.proxy_wrapper.config as proxy_config
 import mldaikon.instrumentor as instrumentor
+import mldaikon.proxy_wrapper.config as proxy_config
 import mldaikon.runner as runner
 
 if __name__ == "__main__":

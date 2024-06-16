@@ -1,39 +1,30 @@
-import re
-from typing import NamedTuple
-from itertools import combinations
 import logging
+from itertools import combinations
 
-import polars as pl
 from tqdm import tqdm
 
 from mldaikon.config import config
-from mldaikon.invariant.base_cls import Hypothesis, Invariant, Relation
+from mldaikon.invariant.base_cls import (
+    Example,
+    ExampleList,
+    Hypothesis,
+    Invariant,
+    Relation,
+)
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.ml_daikon_trace import Trace
+from mldaikon.trace.trace import Liveness, Trace
 
 tracker_var_field_prefix = "attributes."
 
 
-class VarInstId(NamedTuple):
-    process_id: int
-    var_name: str
-    var_type: str
+def calc_liveness_overlap(liveness1: Liveness, liveness2: Liveness) -> float:
+    assert (
+        liveness1.start_time is not None
+        and liveness1.end_time is not None
+        and liveness2.start_time is not None
+        and liveness2.end_time is not None
+    ), "Liveness should have both start_time and end_time."
 
-
-class Liveness:
-    def __init__(self, start_time: int, end_time: int):
-        self.start_time = start_time
-        self.end_time = end_time
-
-
-class AttrState:
-    def __init__(self, value: type, liveness: Liveness, traces: list[dict]):
-        self.value: type = value
-        self.liveness: Liveness = liveness
-        self.traces = traces
-
-
-def calc_liveness_overlap(liveness1: Liveness, liveness2: Liveness) -> int:
     if (
         liveness1.start_time >= liveness2.end_time
         or liveness1.end_time <= liveness2.start_time
@@ -114,90 +105,20 @@ class ConsistencyRelation(Relation):
 
         ## 1. Pre-scanning: Collecting variable instances and their values from the trace
         # get identifiers of the variables, those variables can be used to query the actual values
-        var_insts = trace.get_variable_insts()
+        var_insts = trace.get_var_insts()
         if len(var_insts) == 0:
             logger.warning("No variables found in the trace.")
             return []
-        var_inst_values = {}
-        for var_inst in tqdm(var_insts, desc="Indexing Variable Instances"):
-            var_inst_states = trace.events.filter(
-                pl.col("process_id") == var_inst["process_id"],
-                pl.col("var_name") == var_inst["var_name"],
-                pl.col("var_type") == var_inst["var_type"],
-            )
-
-            state_changes = var_inst_states.filter(pl.col("type") == "state_change")
-
-            # init attribute values for this variable
-            attr_values = {}
-            for state_change in state_changes.rows(named=True):
-                for col in state_change:
-                    if col.startswith(tracker_var_field_prefix):
-                        attr_name = get_attr_name(col)
-                        # pruning out the attributes that might be properties
-                        if any(
-                            [
-                                re.match(pattern, attr_name) is not None
-                                for pattern in config.PROP_ATTR_PATTERNS
-                            ]
-                        ) or any(
-                            [
-                                trace.events[col].dtype == _type
-                                for _type in config.PROP_ATTR_TYPES
-                            ]
-                        ):
-                            continue
-
-                        if attr_name not in attr_values:
-                            attr_values[attr_name] = [
-                                AttrState(
-                                    state_change[col],
-                                    Liveness(state_change["time"], None),
-                                    [state_change],
-                                )
-                            ]
-                        else:
-                            if attr_values[attr_name][-1].value != state_change[col]:
-                                attr_values[attr_name][-1].liveness.end_time = (
-                                    state_change["time"]
-                                )
-                                attr_values[attr_name].append(
-                                    AttrState(
-                                        state_change[col],
-                                        Liveness(state_change["time"], None),
-                                        [state_change],
-                                    )
-                                )
-                            else:
-                                attr_values[attr_name][-1].traces.append(state_change)
-
-            # set end time for the last state change
-            for attr_name in attr_values:
-                if attr_values[attr_name][-1].liveness.end_time is None:
-                    attr_values[attr_name][-1].liveness.end_time = trace.get_end_time()
-
-            var_inst_values[
-                VarInstId(
-                    var_inst["process_id"], var_inst["var_name"], var_inst["var_type"]
-                )
-            ] = attr_values
-
-        ## CHECK EVERY VALUE SHOULD HAVE A NON-EMPTY TRACES FIELD
-        for var_inst in var_inst_values:
-            for attr in var_inst_values[var_inst]:
-                for value in var_inst_values[var_inst][attr]:
-                    if len(value.traces) == 0:
-                        print(f"Warning: No traces found for {var_inst} {attr}")
 
         ## 2. Hypothesis Generation Based on Liveness Overlapping
         hypothesis = set()  # (var_type1, attr1, var_type2, attr2)
         for var_inst, other_var_inst in tqdm(
-            combinations(var_inst_values, 2),
+            combinations(var_insts, 2),
             desc="Generating Hypothesis",
-            total=len(var_inst_values) * (len(var_inst_values) - 1) // 2,
+            total=len(var_insts) * (len(var_insts) - 1) // 2,
         ):
-            for attr in var_inst_values[var_inst]:
-                for other_attr in var_inst_values[other_var_inst]:
+            for attr in var_insts[var_inst]:
+                for other_attr in var_insts[other_var_inst]:
                     if var_inst == other_var_inst and attr == other_attr:
                         # skipping the same variable instance's same attribute
                         continue
@@ -227,11 +148,11 @@ class ConsistencyRelation(Relation):
 
                     # for each pair of attributes, calculate the liveness overlapping
                     done_creating_hypothesis = False
-                    for value in var_inst_values[var_inst][attr]:
+                    for value in var_insts[var_inst][attr]:
                         saw_overlap = False
                         if done_creating_hypothesis:
                             break
-                        for other_value in var_inst_values[other_var_inst][other_attr]:
+                        for other_value in var_insts[other_var_inst][other_attr]:
                             overlap = calc_liveness_overlap(
                                 value.liveness, other_value.liveness
                             )
@@ -278,14 +199,10 @@ class ConsistencyRelation(Relation):
 
             # collect all variables that have the same types as var_type1 and var_type2
             var_type1_vars = [
-                var_inst
-                for var_inst in var_inst_values
-                if var_inst.var_type == var_type1
+                var_inst for var_inst in var_insts if var_inst.var_type == var_type1
             ]
             var_type2_vars = [
-                var_inst
-                for var_inst in var_inst_values
-                if var_inst.var_type == var_type2
+                var_inst for var_inst in var_insts if var_inst.var_type == var_type2
             ]
 
             positive_examples = 0
@@ -313,12 +230,8 @@ class ConsistencyRelation(Relation):
                     if var_inst1 == var_inst2:
                         continue
 
-                    for val_idx1, value1 in enumerate(
-                        var_inst_values[var_inst1][attr1]
-                    ):
-                        for val_idx2, value2 in enumerate(
-                            var_inst_values[var_inst2][attr2]
-                        ):
+                    for val_idx1, value1 in enumerate(var_insts[var_inst1][attr1]):
+                        for val_idx2, value2 in enumerate(var_insts[var_inst2][attr2]):
                             if (
                                 is_skipping_init_values
                                 and val_idx1 == 0
@@ -332,8 +245,8 @@ class ConsistencyRelation(Relation):
                             )
                             if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
                                 if compare_with_fp_tolerance(
-                                    var_inst_values[var_inst1][attr1][0].value,
-                                    var_inst_values[var_inst2][attr2][0].value,
+                                    var_insts[var_inst1][attr1][val_idx1].value,
+                                    var_insts[var_inst2][attr2][val_idx2].value,
                                 ):
                                     positive_examples += 1
                                     found_positive_example = True
@@ -358,8 +271,13 @@ class ConsistencyRelation(Relation):
         print(f"Filtered Hypothesis: {filtered_hypothesis}")
 
         ## 4.  Positive Examples and Negative Examples Collection
+        group_name = "var"  # TODO: hacky, need to fix this
         hypothesis_with_examples = {
-            key: Hypothesis(Invariant(None, None, None), [], [])
+            key: Hypothesis(
+                invariant=Invariant(ConsistencyRelation, [], None),
+                positive_examples=ExampleList({group_name}),
+                negative_examples=ExampleList({group_name}),
+            )
             for key in filtered_hypothesis
         }
         for hypo in hypothesis_with_examples:
@@ -375,14 +293,10 @@ class ConsistencyRelation(Relation):
 
             # collect all variables that have the same types as var_type1 and var_type2
             var_type1_vars = [
-                var_inst
-                for var_inst in var_inst_values
-                if var_inst.var_type == var_type1
+                var_inst for var_inst in var_insts if var_inst.var_type == var_type1
             ]
             var_type2_vars = [
-                var_inst
-                for var_inst in var_inst_values
-                if var_inst.var_type == var_type2
+                var_inst for var_inst in var_insts if var_inst.var_type == var_type2
             ]
 
             for var_inst1 in tqdm(
@@ -391,12 +305,8 @@ class ConsistencyRelation(Relation):
                 for var_inst2 in var_type2_vars:
                     if var_inst1 == var_inst2:
                         continue
-                    for val_idx1, value1 in enumerate(
-                        var_inst_values[var_inst1][attr1]
-                    ):
-                        for val_idx2, value2 in enumerate(
-                            var_inst_values[var_inst2][attr2]
-                        ):
+                    for val_idx1, value1 in enumerate(var_insts[var_inst1][attr1]):
+                        for val_idx2, value2 in enumerate(var_insts[var_inst2][attr2]):
                             if is_skipping_init_values and (
                                 val_idx1 == 0 or val_idx2 == 0
                             ):
@@ -413,49 +323,45 @@ class ConsistencyRelation(Relation):
                                 ):
                                     hypothesis_with_examples[
                                         hypo
-                                    ].positive_examples.append(
-                                        [
-                                            value1.traces[0],
-                                            value2.traces[0],
-                                        ]  ## HACK to make preconditions inference work for `step`
+                                    ].positive_examples.add_example(
+                                        Example(
+                                            {
+                                                group_name: [
+                                                    value1.traces[0],
+                                                    value2.traces[0],
+                                                ]
+                                            }  ## HACK to make preconditions inference work for `step`
+                                        )
                                     )
                                 else:
                                     hypothesis_with_examples[
                                         hypo
-                                    ].negative_examples.append(
-                                        [
-                                            value1.traces[0],
-                                            value2.traces[0],
-                                        ]  ## HACK to make preconditions inference work for `step`
+                                    ].negative_examples.add_example(
+                                        Example(
+                                            {
+                                                group_name: [
+                                                    value1.traces[0],
+                                                    value2.traces[0],
+                                                ]
+                                            }  ## HACK to make preconditions inference work for `step`
+                                        )
                                     )
 
-        ## 5. Precondition Inference
+        ## 5. Precondition Inference TODO: this can be abstracted into a separate function that takes a list of hypothesis and returns those with preconditions
         hypos_to_delete = []
         for hypo in hypothesis_with_examples:
-            preconditions = find_precondition(hypothesis_with_examples[hypo])
+            preconditions = find_precondition(
+                hypothesis_with_examples[hypo],
+                keys_to_skip=[f"attributes.{hypo[1]}", f"attributes.{hypo[3]}"],
+            )
             print(f"Preconditions for {hypo}:")
             print(f"{str(preconditions)}")
-            # if we cannot find any preconditions, and there are no negative examples, we can infer the invariant
-            if (
-                len(preconditions) == 0
-                and len(hypothesis_with_examples[hypo].negative_examples) == 0
-            ):
-                hypothesis_with_examples[hypo].invariant.precondition = (
-                    None  # Unconditional
-                )
-            elif (
-                len(preconditions) == 0
-                and len(hypothesis_with_examples[hypo].negative_examples) > 0
-            ):
-                # delete the hypothesis
-                """TODO: even if we cannot find any precondition, it might be possible that the invariant holds, but its just that our tracer didn't capture the necessary information.
-                Thus, we might still want to evaluate the invariant's statistical likelihood instead of just deleting it.
-                """
-                hypos_to_delete.append(hypo)
-            else:
-                hypothesis_with_examples[hypo].invariant.precondition = preconditions
 
-            """NOTE: If a hypo have no negative examples, potentially there might be noises in the preconditions inferred."""
+            if preconditions is not None:
+                hypothesis_with_examples[hypo].invariant.precondition = preconditions
+            else:
+                print(f"Precondition not found for {hypo}")
+                hypos_to_delete.append(hypo)
 
         for hypo in hypos_to_delete:
             del hypothesis_with_examples[hypo]
@@ -463,7 +369,7 @@ class ConsistencyRelation(Relation):
         ## 6. TODO: Invariant Construction
         ## NEED TO THINK ABOUT HOW TO EXPRESS THIS INVARIANT
         print(f"Hypothesis Passed: {hypothesis_with_examples.keys()}")
-        return list(hypothesis_with_examples.values())
+        return list([hypo.invariant for hypo in hypothesis_with_examples.values()])
 
     @staticmethod
     def evaluate(value_group: list) -> bool:

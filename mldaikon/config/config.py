@@ -20,4 +20,9 @@ SKIP_INIT_VALUE_TYPES_KEY_WORDS = [  ## Types that should be skipped for initial
     "parameter",
 ]
 
+NOT_USE_AS_CLAUSE_FIELDS = ["func_call_id", "process_id", "thread_id", "time", "type"]
+
+
+VAR_ATTR_PREFIX = "attributes."
+
 CONST_CLAUSE_NUM_VALUES_THRESHOLD = 1  # FIXME: ad-hoc
