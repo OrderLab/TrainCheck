@@ -1,4 +1,5 @@
 import abc
+from typing import Iterator
 
 from mldaikon.trace.trace import Trace
 
@@ -47,12 +48,54 @@ class Invariant:
         return f"""Relation: {self.relation}\nParam Selectors: {self.param_selectors}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
 
 
+class Example:
+    def __init__(self):
+        self.trace_groups: dict[str, list[dict]] = {}
+
+    def add_group(self, group_name: str, trace: list):
+        assert group_name not in self.trace_groups, f"Group {group_name} already exists"
+        self.trace_groups[group_name] = trace
+
+    def get_group(self, group_name: str) -> list[dict]:
+        return self.trace_groups[group_name]
+
+    def __iter__(self):
+        return iter(self.trace_groups)
+
+    def __str__(self):
+        return f"Example with Groups: {self.trace_groups.keys()}"
+
+    def __repr__(self):
+        return f"Example with Groups: {self.trace_groups.keys()}"
+
+
+class ExampleList:
+    def __init__(self, group_names: set[str]):
+        self.group_names = group_names
+        self.examples: list[Example] = []
+
+    def add_example(self, example: Example):
+        assert (
+            set(example.trace_groups.keys()) == self.group_names
+        ), f"Example groups do not match the expected group names"
+        self.examples.append(example)
+
+    def get_group_from_examples(self, group_name: str) -> list[list[dict]]:
+        return [example.get_group(group_name) for example in self.examples]
+
+    def get_group_names(self) -> set[str]:
+        return self.group_names
+
+    def __len__(self):
+        return len(self.examples)
+
+
 class Hypothesis:
     def __init__(
         self,
         invariant: Invariant,
-        positive_examples: list[list[dict]],
-        negative_examples: list[list[dict]],
+        positive_examples: ExampleList,
+        negative_examples: ExampleList,
     ):
         self.invariant = invariant
         self.positive_examples = positive_examples

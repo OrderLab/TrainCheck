@@ -140,6 +140,24 @@ class Precondition:
         return True
 
 
+class UnconditionalPrecondition(Precondition):
+    def __init__(self):
+        super().__init__([])
+
+    def verify(self, example: list) -> bool:
+        return True
+
+    def __repr__(self) -> str:
+        return "Unconditional Precondition"
+
+    def __str__(self) -> str:
+        return "Unconditional Precondition"
+
+    def implies(self, other) -> bool:
+        # Unconditional Precondition cannot imply any other preconditions as it is always True
+        return False
+
+
 def pprint_preconds(clauses: Iterable[PreconditionClause]):
     for clause in clauses:
         print("==============================")
@@ -307,6 +325,31 @@ def _merge_clauses(
 def find_precondition(
     hypothesis: Hypothesis,
     keys_to_skip: list[str] = [],
+) -> dict[str, list[Precondition]]:
+    # postive examples and negative examples should have the same group names
+    group_names = hypothesis.positive_examples.group_names
+    assert group_names == hypothesis.negative_examples.group_names
+
+    preconditions = {}
+    for group_name in group_names:
+        positive_examples = hypothesis.positive_examples.get_group_from_examples(
+            group_name
+        )
+        negative_examples = hypothesis.negative_examples.get_group_from_examples(
+            group_name
+        )
+
+        preconditions[group_name] = find_precondition_from_single_group(
+            positive_examples, negative_examples, keys_to_skip
+        )
+
+    return preconditions
+
+
+def find_precondition_from_single_group(
+    positive_examples: list[list[dict]],
+    negative_examples: list[list[dict]],
+    keys_to_skip: list[str] = [],
     _pruned_clauses: set[PreconditionClause] = set(),
     _skip_pruning: bool = False,
 ) -> list[Precondition]:
@@ -326,24 +369,31 @@ def find_precondition(
 
     To implement the invariant split OP. We need to determine how this verification / pruning process should be done, because now all the `Precondition` objects have to be violated in the negative examples.
     """
-    print(
+    logger.debug(
         "Calling precondition inference with # positive examples: ",
-        len(hypothesis.positive_examples),
+        len(positive_examples),
         " # negative examples: ",
-        len(hypothesis.negative_examples),
+        len(negative_examples),
     )
-    ## 1. Find the properties (meta_vars and variable local attributes) that are consistently shows up positive examples
+
+    if len(negative_examples) == 0:
+        logger.warning(
+            "No negative examples found, assigning unconditional precondition"
+        )
+        return [UnconditionalPrecondition()]
+
+    ## 1. Find the properties (meta_vars and variable local attributes) that consistently shows up positive examples
     all_local_clauses = []
 
-    for example in tqdm(hypothesis.positive_examples):
+    for example in tqdm(positive_examples):
         if len(example) == 0:
-            # raise ValueError("Empty example found in positive examples")
-            print("Warning: empty examples found in positive examples")
-            continue
+            raise ValueError("Empty example found in positive examples")
 
+        # HACK: in ConsistencyRelation in order to avoid the field used in the invariant, we need to skip the field in the precondition. It is up to the caller to provide the keys to skip. We should try to refactor this to have a more generic solution.
         local_clauses = _find_local_clauses(example, key_to_skip=keys_to_skip)
 
         if len(local_clauses) == 0:
+            # NOTE: this would also happen under the unconditional case, but since the unconditional case is handled separately, we should not reach here
             print("example: ", example)
             raise ValueError(
                 "No clauses can be found in the example, precondition will be empty."
@@ -365,14 +415,14 @@ def find_precondition(
     base_precond_clauses = {
         clause
         for clause in merged_clauses_and_exp_ids
-        if len(merged_clauses_and_exp_ids[clause]) == len(hypothesis.positive_examples)
+        if len(merged_clauses_and_exp_ids[clause]) == len(positive_examples)
     }
 
     clause_ever_false_in_neg = {clause: False for clause in merged_clauses_and_exp_ids}
     passing_neg_exps = []
 
     for neg_example in tqdm(
-        hypothesis.negative_examples,
+        negative_examples,
         desc="Scanning Base Precondition on All Negative Examples",
     ):
         whether_precondition_holds = True
@@ -462,7 +512,7 @@ def find_precondition(
     print(f"Splitting into {len(top_level_exp_ids)} sub-hypotheses")
     print("Length of the top-level examples")
     for exp_ids in top_level_exp_ids:
-        print(len(exp_ids), len(exp_ids) / len(hypothesis.positive_examples))
+        print(len(exp_ids), len(exp_ids) / len(positive_examples))
 
     print("Partial Clauses")
     for clause in partial_merged_clauses_and_exp_ids:
@@ -473,21 +523,17 @@ def find_precondition(
         print("Examples", len(partial_merged_clauses_and_exp_ids[clause]))
         print(
             "%examples",
-            len(partial_merged_clauses_and_exp_ids[clause])
-            / len(hypothesis.positive_examples),
+            len(partial_merged_clauses_and_exp_ids[clause]) / len(positive_examples),
         )
     print("==============================")
 
     # construct the sub-hypothesis with the top-level partial examples
     preconditions: list[Precondition] = []
     for exp_ids in top_level_exp_ids:
-        sub_hypothesis = Hypothesis(
-            hypothesis.invariant,
-            [hypothesis.positive_examples[i] for i in exp_ids],
+        sub_positive_examples = [positive_examples[i] for i in exp_ids]
+        sub_preconditions = find_precondition_from_single_group(
+            sub_positive_examples,
             passing_neg_exps,
-        )
-        sub_preconditions = find_precondition(
-            sub_hypothesis,
             keys_to_skip=keys_to_skip,
             _pruned_clauses=_pruned_clauses,
             _skip_pruning=True,
@@ -512,11 +558,11 @@ def find_precondition(
         preconditions.remove(child_precond)
 
     # verify that the sub-preconditions covers all the positive examples
-    for exp in hypothesis.positive_examples:
+    for exp in positive_examples:
         if not any(precond.verify(exp) for precond in preconditions):
             print(
                 "Warning: sub-preconditions do not cover all the positive examples",
-                len(hypothesis.positive_examples),
+                len(positive_examples),
             )
             print("No precondition found for this sub-hypothesis")
             print("Sub-preconditions")
