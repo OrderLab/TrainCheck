@@ -52,13 +52,13 @@ class json_dumper(metaclass=Singleton):
             # "value": var_value,
             "var_name": variable_name,
             "var_type": var_type,
+            "mode": change_type,  # "new", "update"
+            "stack_trace": stack_trace,
             "process_id": process_id,
             "thread_id": thread_id,
             "time": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
             "attributes": var_attributes,
-            "mode": change_type,  # "new", "update"
-            "stack_trace": stack_trace,
         }
         json_data = json.dumps(data)
 

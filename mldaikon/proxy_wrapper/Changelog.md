@@ -9,6 +9,29 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.3.3] - 2024-06-12
+
+support manual func_observer, trace supports PT-84911
+
+Solves: #22
+
+### Added
+
+- customizing the proxy_wrapped_modules (initially have to be torch.nn.Modules and torch.nn.Parameters but now could basically be every type)
+
+- realize func_observer to dump the changes in proxied object before and after the function call
+ 
+- generate a depth dict for every functions inside torch library by establish torch function call graph (the depth denotes the shortest number of calls a function would take to trigger a C level function)
+
+### Changed
+
+- integrate the sparse type check together to handled_obj_type in `proxy_handler.py`
+
+### Removed
+
+- remove the deprecated torch.Tensor handling logic from `mldaikon/proxy_wrapper/proxy.py:#L231-L295`, since the handling logic for Tensor type is basically the same compared with other types after redesign
+
+
 ## [0.3.2] - 2024-06-09
 
 Main edits: support automated unproxy for C level API invocation and enhance the trace coverage
