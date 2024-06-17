@@ -52,6 +52,7 @@ class json_dumper(metaclass=Singleton):
             or var_type in primitive_types
         ):
             return
+
         data = {
             # "value": var_value,
             "var_name": variable_name,
