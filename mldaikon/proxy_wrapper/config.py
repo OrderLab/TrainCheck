@@ -1,9 +1,12 @@
 import os
 
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
-disable_proxy_class = False  # Ziming: Currently disable proxy_class in default
-proxy_update_limit = 15
+disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace would work only when you manually add Proxy()
+proxy_update_limit = 1
 debug_mode = False
+
+dump_tensor_version = True
+
 meta_var_black_list = [
     "pre_process",
     "post_process",
