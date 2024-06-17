@@ -6,7 +6,10 @@ from mldaikon.proxy_wrapper.config import (
     meta_var_black_list,
     attribute_black_list,
     exclude_file_names,
-    dump_tensor_version
+    dump_tensor_version,
+    dump_tensor_statistics,
+    filter_by_tensor_version,
+    primitive_types,
 )
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.instrumentor.tracer import meta_vars
@@ -40,7 +43,7 @@ class json_dumper(metaclass=Singleton):
         var_attributes,
         stack_trace=None,
     ):
-        primitive_types = {int, float, str, bool}
+        
         if (
             var_type == "method"
             or var_type == "function"
@@ -76,24 +79,22 @@ class json_dumper(metaclass=Singleton):
 
 def dump_tensor(value):
     param_list = None
-    # if isinstance(value, torch.Tensor):
-    #     # dump the min, max, mean of the tensor to check whether the tensor is updated
-    #     min = float(value.min().item())
-    #     max = float(value.max().item())
-    #     mean = float(value.mean().item())
-
-    #     shape = tuple(int(x) for x in value.size())
-    #     result = {
-    #         "min": min,
-    #         "max": max,
-    #         "mean": mean,
-    #         "shape": shape,
-    #     }
     if isinstance(value, torch.Tensor):
         if dump_tensor_version:
             # import pdb; pdb.set_trace()
             param_list = value._version
         # dump out the tensor data to a list and flatten it to a 1D list
+        if dump_tensor_statistics:
+            min = float(value.min().item())
+            max = float(value.max().item())
+            mean = float(value.mean().item())
+            shape = tuple(int(x) for x in value.size())
+            param_list = {
+                "min": min,
+                "max": max,
+                "mean": mean,
+                "shape": shape,
+            }
         else:
             param_list = value.detach().flatten().tolist()
         
@@ -111,7 +112,6 @@ def dump_attributes(obj):
         obj = obj_dict["_obj"]._obj
 
     # currently only dump primitive types, tensors and nn.Module
-    primitive_types = {int, float, str, bool}
     attr_names = [name for name in dir(obj) if not name.startswith("__")]
     if isinstance(obj, torch.nn.parameter.Parameter):
         result = obj._version
