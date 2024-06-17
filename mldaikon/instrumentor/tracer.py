@@ -4,7 +4,6 @@ import inspect
 import json
 import logging
 import os
-import random
 import threading
 import traceback
 import types
@@ -119,12 +118,11 @@ def is_c_level_function(original_function):
 
 
 def global_wrapper(original_function, *args, **kwargs):
-    # func_call_id = random.randint(0, 1000)
-    # use the current timestamp as the function call id
-    # func_call_id = hash(datetime.datetime.now().timestamp())
     import uuid
 
     func_call_id = uuid.uuid4().hex
+
+    logger = logging.getLogger(__name__)
 
     # Get the current thread object
     current_thread = threading.current_thread()
@@ -219,7 +217,7 @@ def global_wrapper(original_function, *args, **kwargs):
             },
             logging.ERROR,
         )
-        print(f"Error in {func_name}: {e}")
+        logger.error(f"Error in {func_name}: {e}")
         raise e
     dump_trace_API(
         {
