@@ -31,12 +31,6 @@ if __name__ == "__main__":
         help="Only instrument and dump the modified file",
     )
     parser.add_argument(
-        "-r",
-        "--run-without-analysis",
-        action="store_true",
-        help="Run the program without analysis",
-    )
-    parser.add_argument(
         "--skip-api", action="store_true", help="Skip API invariant analysis"
     )
     parser.add_argument(
@@ -97,7 +91,12 @@ if __name__ == "__main__":
     proxy_config.debug_mode = args.debug_mode
 
     # set up logging
-    logging.basicConfig(level=logging.INFO)
+    if args.debug_mode:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    logger = logging.getLogger(__name__)
 
     # call into the instrumentor
     source_code = instrumentor.instrument_file(
@@ -118,11 +117,4 @@ if __name__ == "__main__":
         logging.error(f"Program exited with code {return_code}, skipping analysis.")
         exit()
 
-    if args.run_without_analysis:
-        logging.info("Skipping analysis as requested.")
-        exit()
-
-    print(
-        "We do not run analysis anymore in a single program run due to the need to analyze multiple traces."
-    )
-    print("Please run the analysis script separately.")
+    logger.info("Trace collection done.")

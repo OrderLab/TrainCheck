@@ -4,7 +4,6 @@ import inspect
 import json
 import logging
 import os
-import random
 import threading
 import traceback
 import types
@@ -119,12 +118,11 @@ def is_c_level_function(original_function):
 
 
 def global_wrapper(original_function, *args, **kwargs):
-    # func_call_id = random.randint(0, 1000)
-    # use the current timestamp as the function call id
-    # func_call_id = hash(datetime.datetime.now().timestamp())
     import uuid
 
     func_call_id = uuid.uuid4().hex
+
+    logger = logging.getLogger(__name__)
 
     # Get the current thread object
     current_thread = threading.current_thread()
@@ -219,7 +217,7 @@ def global_wrapper(original_function, *args, **kwargs):
             },
             logging.ERROR,
         )
-        print(f"Error in {func_name}: {e}")
+        logger.error(f"Error in {func_name}: {e}")
         raise e
     dump_trace_API(
         {
@@ -547,6 +545,16 @@ class StatelessVarObserver:
         assert isinstance(var, torch.nn.Module), "Currently only supports torch models."
         self.var = var
 
+        """DANGEROUS: This param_version tracking is used to track the version of the parameters, so that we can skip the parameters that have not changed.
+            However, the `_version` attribute is only bumped when inplace ops (ones with a `_` suffix) like `add_` are called. This means this trick only
+            applies to model parameters which should be updated inplace for memory efficiency. 
+
+            However, this trick will not apply to any other variables that are not updated inplace. For example, if you have a variable `x` and you do `x = x + 1`,
+            the `_version` of `x` will not be updated and the observer will not be able to detect the change.
+
+            **Many of the activations and intermediate tensors are not updated inplace, so this observer will not be able to detect the changes in those tensors.**
+        """
+        self.param_versions = {}
         timestamp = datetime.datetime.now().timestamp()
 
         for param in self._get_state_copy():
@@ -577,7 +585,12 @@ class StatelessVarObserver:
         state_copy = []
         for name, param in self.var.named_parameters():
             param_list = param.view(-1).tolist()
-
+            if name in self.param_versions:
+                if param._version == self.param_versions[name]:
+                    # the parameter has not changed, so skip it
+                    print(f"Skipping {name} as it has not changed in step {self.step}")
+                    continue
+            self.param_versions[name] = param._version
             state_copy.append(
                 {
                     "name": name,

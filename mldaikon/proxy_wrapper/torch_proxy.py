@@ -1,6 +1,4 @@
 import functools
-import inspect
-import json
 import tokenize as tokenize
 from typing import List, Tuple
 
@@ -8,8 +6,12 @@ import torch
 import torch.distributed
 import torch.optim.adam as adam
 import torch.optim.optimizer as torch_optimizer
-from deepspeed.runtime.bf16_optimizer import BF16_Optimizer
-from torch._C._distributed_c10d import ProcessGroup, ReduceOp
+
+try:
+    from deepspeed.runtime.bf16_optimizer import BF16_Optimizer
+except ImportError:
+    pass
+from torch._C._distributed_c10d import ProcessGroup
 from torch.optim.optimizer import (
     _foreach_supported_types,
     _get_foreach_kernels_supported_devices,
@@ -72,13 +74,14 @@ def unproxy_func(func):
 ProcessGroup.broadcast = unproxy_func(ProcessGroup.__dict__.get("broadcast"))
 ProcessGroup.allreduce = unproxy_func(ProcessGroup.__dict__.get("allreduce"))
 ProcessGroup.allgather = unproxy_func(ProcessGroup.__dict__.get("allgather"))
-tokenize._tokenize = unproxy_func(tokenize.__dict__.get("_tokenize"))
-BF16_Optimizer._flatten_dense_tensors_aligned = unproxy_func(
-    BF16_Optimizer.__dict__.get("_flatten_dense_tensors_aligned")
-)
-BF16_Optimizer._update_storage_to_flattened_tensor = unproxy_func(
-    BF16_Optimizer.__dict__.get("_update_storage_to_flattened_tensor")
-)
+tokenize._tokenize = unproxy_func(tokenize.__dict__.get("_tokenize"))  # type: ignore
+if "BF16_Optimizer" in globals():
+    BF16_Optimizer._flatten_dense_tensors_aligned = unproxy_func(
+        BF16_Optimizer.__dict__.get("_flatten_dense_tensors_aligned")
+    )
+    BF16_Optimizer._update_storage_to_flattened_tensor = unproxy_func(
+        BF16_Optimizer.__dict__.get("_update_storage_to_flattened_tensor")
+    )
 
 #################################################
 

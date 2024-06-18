@@ -169,7 +169,7 @@ class ConsistencyRelation(Relation):
                                             other_attr,
                                         )
                                     )
-                                    print(
+                                    logger.debug(
                                         "Adding Hypothesis: ",
                                         (
                                             var_inst.var_type,
@@ -186,8 +186,8 @@ class ConsistencyRelation(Relation):
                                     break
 
         ## 3. Hypothesis Pruning
-        print(f"Hypothesis: {hypothesis}")
-        print(f"Number of Hypothesis: {len(hypothesis)}")
+        logger.debug(f"Hypothesis: {hypothesis}")
+        logger.debug(f"Number of Hypothesis: {len(hypothesis)}")
 
         # for each hypothesis, collect number of positive examples seen, if it is below a threshold, prune it
         filtered_hypothesis = []
@@ -217,7 +217,9 @@ class ConsistencyRelation(Relation):
                     and skip_init_type in var_type2.lower()
                 ):
                     is_skipping_init_values = True
-                    print(f"Skipping init values for {var_type1} and {var_type2}")
+                    logger.debug(
+                        f"Skipping init values for {var_type1} and {var_type2}"
+                    )
                     break
 
             for idx1, var_inst1 in enumerate(
@@ -255,20 +257,20 @@ class ConsistencyRelation(Relation):
 
             if is_skipping_init_values and positive_examples > 0:
                 filtered_hypothesis.append(hypo)
-                print(
+                logger.debug(
                     f"Keeping hypothesis (INIT VALUEs SKIPPED): {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
                 )
             elif positive_examples > positive_examples_threshold:
                 filtered_hypothesis.append(hypo)
-                print(
+                logger.debug(
                     f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
                 )
             else:
-                print(
+                logger.debug(
                     f"Filtering out hypothesis: {hypo} with num positive examples: {positive_examples}, expected threshold: {positive_examples_threshold}"
                 )
 
-        print(f"Filtered Hypothesis: {filtered_hypothesis}")
+        logger.debug(f"Filtered Hypothesis: {filtered_hypothesis}")
 
         ## 4.  Positive Examples and Negative Examples Collection
         group_name = "var"  # TODO: hacky, need to fix this
@@ -354,13 +356,12 @@ class ConsistencyRelation(Relation):
                 hypothesis_with_examples[hypo],
                 keys_to_skip=[f"attributes.{hypo[1]}", f"attributes.{hypo[3]}"],
             )
-            print(f"Preconditions for {hypo}:")
-            print(f"{str(preconditions)}")
+            logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
 
             if preconditions is not None:
                 hypothesis_with_examples[hypo].invariant.precondition = preconditions
             else:
-                print(f"Precondition not found for {hypo}")
+                logger.debug(f"Precondition not found for {hypo}")
                 hypos_to_delete.append(hypo)
 
         for hypo in hypos_to_delete:
@@ -368,7 +369,7 @@ class ConsistencyRelation(Relation):
 
         ## 6. TODO: Invariant Construction
         ## NEED TO THINK ABOUT HOW TO EXPRESS THIS INVARIANT
-        print(f"Hypothesis Passed: {hypothesis_with_examples.keys()}")
+        logger.debug(f"Hypothesis with a found : {hypothesis_with_examples.keys()}")
         return list([hypo.invariant for hypo in hypothesis_with_examples.values()])
 
     @staticmethod
