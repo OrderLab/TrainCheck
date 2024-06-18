@@ -218,7 +218,7 @@ def global_wrapper(original_function, *args, **kwargs):
             },
             logging.ERROR,
         )
-        logger.error(f"Error in {func_name}: {e}")
+        logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
     dump_trace_API(
         {
