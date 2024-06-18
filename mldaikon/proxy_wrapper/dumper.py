@@ -116,7 +116,7 @@ def dump_attributes(obj):
 
     # currently only dump primitive types, tensors and nn.Module
     attr_names = [name for name in dir(obj) if not name.startswith("__")]
-    if isinstance(obj, torch.nn.parameter.Parameter):
+    if dump_tensor_version and isinstance(obj, torch.nn.parameter.Parameter):
         result = obj._version
         return result
 

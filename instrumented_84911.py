@@ -77,10 +77,10 @@ valid_set = datasets.CIFAR100(
 
 batch_size = 64
 train_loader = torch.utils.data.DataLoader(
-    train_set, batch_size=batch_size, pin_memory=False, num_workers=1, shuffle=False
+    train_set, batch_size=batch_size, pin_memory=False, num_workers=0, shuffle=False
 )
 valid_loader = torch.utils.data.DataLoader(
-    valid_set, batch_size=1, pin_memory=False, num_workers=1, shuffle=False
+    valid_set, batch_size=1, pin_memory=False, num_workers=0, shuffle=False
 )
 
 
