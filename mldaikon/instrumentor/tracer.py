@@ -213,11 +213,12 @@ def global_wrapper(original_function, *args, **kwargs):
                 "args": [f"{arg}" for arg in args],
                 "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
                 "exception": str(e),
+                "exception_type": f"{type(e)}",
                 "traceback": traceback.format_exc(),
             },
             logging.ERROR,
         )
-        logger.error(f"Error in {func_name}: {e}")
+        logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
     dump_trace_API(
         {
