@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.3.4] - 2024-06-19
+
+support `._version` based var update filtering, disable `__call__` value dumping in default
+
+Use with caution (from Yuxuan): 
+- This _version thing is only bumped with in-place ops, such as .add_, ._foreach_add_. Doing things like tensor.data = new_tensor won't bump the version counter.
+- This means that doing this _version trick will cause us to lose all not-in-place var updates.
+- This behavior is perfectly fine for model parameters as updates to model parameters have to be in-place for memory preservation purposes. 
+- For those tensor updates that are not done in an in-place way, they are probably intermediate activations (torch.Tensor types) and thus it indeed might not make sense to keep track of them.
+
+Reason to disable default `__call__` value dumping:
+- those are mostly the intermediate results during forward propagation process (data related), would only be of interest if we target numerical issues from the data input side
+- the dumping is quite costly as those data tensors are usually quite large
+
+### Added
+
+- Add version based var update filtering, default as follows:
+
+```python
+filter_by_tensor_version = True  # only dump the tensor when the version is changed
+```
+
+- Add different form of tensor dumping (statistics based dumping), default as follows:
+
+```python
+dump_tensor_version = False  # only dump the _version attribute of tensor
+dump_tensor_statistics = False  # dump the statistics of tensor {min, max, mean, shape}
+```
+
+- Add switch to determine whether or not to dump return value from function call, default as follows:
+
+```python
+dump_call_return = False  # dump the return value of the function call
+```
+
+
 ## [0.3.3] - 2024-06-12
 
 support manual func_observer, trace supports PT-84911
