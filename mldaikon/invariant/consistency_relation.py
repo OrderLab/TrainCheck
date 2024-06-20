@@ -170,13 +170,7 @@ class ConsistencyRelation(Relation):
                                         )
                                     )
                                     logger.debug(
-                                        "Adding Hypothesis: ",
-                                        (
-                                            var_inst.var_type,
-                                            attr,
-                                            other_var_inst.var_type,
-                                            other_attr,
-                                        ),
+                                        f"Adding Hypothesis: ({var_inst.var_type}, {attr}, {other_var_inst.var_type}, {other_attr})"
                                     )
                                     done_creating_hypothesis = True
                                     break

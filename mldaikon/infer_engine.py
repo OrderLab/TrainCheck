@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import logging
 import time
 
@@ -36,14 +37,27 @@ if __name__ == "__main__":
         required=True,
         help="Traces files to infer invariants on",
     )
-
-    logging.basicConfig(level=logging.DEBUG)
-
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
     args = parser.parse_args()
 
-    # traces = [read_trace_file(t) for t in args.traces]
+    if args.debug:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
+
+    # set logging to a file
+    logging.basicConfig(
+        filename=f'mldaikon_infer_engine_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log',
+        level=log_level,
+    )
+
     time_start = time.time()
-    logger.info(f"Reading traces from {args.traces}")
+    logger.info("Reading traces from %s", "\n".join(args.traces))
     traces = [read_trace_file(args.traces)]
     time_end = time.time()
     logger.info(f"Traces read successfully in {time_end - time_start} seconds.")

@@ -1,6 +1,7 @@
 import logging
 
 import polars as pl
+from tqdm import tqdm
 
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import (
@@ -79,7 +80,9 @@ class APIContainRelation(Relation):
             )
             return []
 
-        for parent in func_names:
+        for parent in tqdm(
+            func_names, desc="Scanning through function calls to generate hypotheses"
+        ):
             logger.debug(f"Starting the analysis for the parent function: {parent}")
             # get all parent pre event indexes
             parent_pre_call_indices = trace.events.select(
@@ -180,11 +183,25 @@ class APIContainRelation(Relation):
                                 target
                             ].negative_examples.add_example(example)
 
+        logging.debug("Starting the inference of preconditions for the hypothesis")
+
+        pbar = tqdm(
+            total=len(
+                [
+                    hypothesis[parent][event_type][target]
+                    for parent in hypothesis
+                    for event_type in hypothesis[parent]
+                    for target in hypothesis[parent][event_type]
+                ]
+            ),
+            desc="Infering preconditions",
+        )
         all_invariants: list[Invariant] = []
         all_hypotheses = []
         for parent in hypothesis:
             for high_level_event_type in hypothesis[parent]:
                 for target in hypothesis[parent][high_level_event_type]:
+                    pbar.update(1)
                     h = hypothesis[parent][high_level_event_type][target]
                     h.invariant.precondition = find_precondition(h)
                     if (
