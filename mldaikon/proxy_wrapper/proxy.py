@@ -35,6 +35,8 @@ from mldaikon.proxy_wrapper.config import (
     exclude_file_names,
     proxy_log_dir,
     proxy_update_limit,
+    filter_by_tensor_version,
+    dump_call_return,
 )
 from mldaikon.proxy_wrapper.dumper import dump_attributes, dump_meta_vars, dump_tensor
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
@@ -48,23 +50,23 @@ from mldaikon.utils import typename
 def get_line(filename, lineno):
     return linecache.getline(filename, lineno).strip()
 
-def proxy_handler(obj, logdir, log_level, var_name, no_init_dump=False):
+def proxy_handler(obj, logdir, log_level, var_name, no_init_dump=False, from_call=False):
     # if list or tuple, do the same thing for each element
     if isinstance(obj, (list, tuple)):
         for element in obj:
-            element = proxy_handler(element, logdir, log_level, var_name, no_init_dump=no_init_dump)
+            element = proxy_handler(element, logdir, log_level, var_name, no_init_dump=no_init_dump, from_call=from_call)
     if isinstance(obj, types.GeneratorType):
 
         def generator_proxy_handler():
             for element in obj:
-                yield proxy_handler(element, logdir, log_level, var_name, no_init_dump=no_init_dump)
+                yield proxy_handler(element, logdir, log_level, var_name, no_init_dump=no_init_dump, from_call=from_call)
 
         obj = generator_proxy_handler()
     if typename(obj).startswith("torch.distributed"):
         return obj
     for obj_type in handled_obj_type:
         if issubclass(type(obj), obj_type):
-            return Proxy(obj, logdir=logdir, log_level=log_level, var_name=var_name, dump_trace=not no_init_dump)
+            return Proxy(obj, logdir=logdir, log_level=log_level, var_name=var_name, dump_trace=not no_init_dump, from_call=from_call)
     return obj
 
 
@@ -158,6 +160,11 @@ class Proxy:
             self.__dict__["last_update_timestamp"] = time.time()
 
     def dump_to_trace(self, obj, status="update", dumped_frame_array=None):
+        # version based filtering
+        if filter_by_tensor_version and status == "update":
+            if hasattr(obj, "_version"):
+                if obj._version == Proxy.var_dict[self.__dict__["var_name"]]._obj._version:
+                    return
         if not issubclass(type(obj), torch.nn.Module):
             dumped_val = str(torch_serialize(obj))
             self.jsondumper.dump_json(
@@ -180,6 +187,7 @@ class Proxy:
         is_root=False,
         var_name="",
         dump_trace=True,
+        from_call=False,
     ):
         # Access proxy attribute: since we are wrapping the getattr method, we need to access the attribute directly
         self.__dict__["process_id"] = os.getpid()
@@ -239,6 +247,7 @@ class Proxy:
 
             if self.__dict__["is_root"] == True:
                 # proxy all of its parameters
+                assert(from_call == False)
 
                 self.proxy_parameters(obj)
                 for name, module in obj.named_children():
@@ -269,10 +278,15 @@ class Proxy:
         if Proxy.var_dict.get(current_var_name_list) is None:
 
             self.__dict__["_obj"] = obj
+            if not dump_call_return and from_call:
+                return
 
             if dump_trace:
+                if from_call:
+                    self.dump_to_trace(obj, "call", dumped_frame_array)
                 # if the object is generated from getattr, then do not dump it
-                self.dump_to_trace(obj, "new", dumped_frame_array)
+                else:
+                    self.dump_to_trace(obj, "new", dumped_frame_array)
                 self.__dict__["last_update_timestamp"] = time.time()
                 Proxy.var_dict[current_var_name_list] = self
 
@@ -286,6 +300,7 @@ class Proxy:
             print_debug(
                 f'Time elapse: {time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"]}'
             )
+            self.__dict__["_obj"] = obj
             if (
                 time.time()
                 - Proxy.var_dict[current_var_name_list].__dict__[
@@ -293,13 +308,17 @@ class Proxy:
                 ]
                 < proxy_update_limit
             ):
-                self.__dict__["_obj"] = obj
                 return
-
-            self.dump_to_trace(obj, "update", dumped_frame_array)
+            
+            if not dump_call_return and from_call:
+                return
+            
+            if from_call:
+                self.dump_to_trace(obj, "call", dumped_frame_array)
+            else:
+                self.dump_to_trace(obj, "update", dumped_frame_array)
 
             del Proxy.var_dict[current_var_name_list]
-            self.__dict__["_obj"] = obj
             self.__dict__["last_update_timestamp"] = time.time()
             Proxy.var_dict[current_var_name_list] = self
 
@@ -321,7 +340,7 @@ class Proxy:
         )
 
         return proxy_handler(
-            result, self.logdir, self.log_level, self.__dict__["var_name"]
+            result, self.logdir, self.log_level, self.__dict__["var_name"], from_call = True
         )
 
     def __getattr__(self, name):

@@ -5,6 +5,7 @@ from typing import List, Tuple
 import torch
 import torch.distributed
 import torch.optim.adam as adam
+import torch.optim.sgd as sgd
 import torch.optim.optimizer as torch_optimizer
 
 try:
@@ -26,9 +27,11 @@ from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 original_default_to_fused_or_foreach = torch_optimizer._default_to_fused_or_foreach
 
 
+
 def _default_to_fused_or_foreach(
     params: List[torch.Tensor], differentiable: bool, use_fused: bool = False
 ) -> Tuple[bool, bool]:
+    print("_default_to_fused_or_foreach_function wrapped")
     if torch.jit.is_scripting() or differentiable:
         return False, False
 
@@ -122,3 +125,4 @@ def add_observer_to_func(func):
 #################################################
 
 adam.adam = add_observer_to_func(adam.__dict__.get("adam"))
+sgd.sgd = add_observer_to_func(sgd.__dict__.get("sgd"))

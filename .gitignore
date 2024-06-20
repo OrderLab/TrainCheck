@@ -27,8 +27,16 @@ experiments/*
 _ml_daikon_*
 test_meta_hypothesis_combination.py
 !call_graph.json
+
+
+# local dummy info from ziming's repo, please get rid of them after initial release
+instrumented_84911.py
+myuses.svg
+process_call_graph.ipynb
+pycallgraph.png
 torch_function_distances_1.csv
 torch_function_distances_2.csv
 torch_function_distances_3.csv
 torch_function_distances.csv
-process_call_graph.ipynb
+torch_wrapper.py
+trace-analyzer.ipynb

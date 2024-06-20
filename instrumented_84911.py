@@ -7,6 +7,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
+import inspect
 
 # %%
 from efficientnet_pytorch import EfficientNet
@@ -76,10 +77,10 @@ valid_set = datasets.CIFAR100(
 
 batch_size = 64
 train_loader = torch.utils.data.DataLoader(
-    train_set, batch_size=batch_size, pin_memory=False, num_workers=1, shuffle=False
+    train_set, batch_size=batch_size, pin_memory=False, num_workers=0, shuffle=False
 )
 valid_loader = torch.utils.data.DataLoader(
-    valid_set, batch_size=1, pin_memory=False, num_workers=1, shuffle=False
+    valid_set, batch_size=1, pin_memory=False, num_workers=0, shuffle=False
 )
 
 
@@ -144,7 +145,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["train"], desc="Training")
         ):
             iters += 1
-            if iters > 10:
+            if iters > 5:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -191,7 +192,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["valid"], desc="Validation")
         ):
             iters += 1
-            if iters > 10:
+            if iters > 5:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU

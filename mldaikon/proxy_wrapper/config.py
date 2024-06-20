@@ -2,10 +2,20 @@ import os
 
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace would work only when you manually add Proxy()
-proxy_update_limit = 1
+proxy_update_limit = 0
 debug_mode = False
 
-dump_tensor_version = True
+dump_tensor_version = False  # only dump the _version attribute of tensor
+dump_tensor_statistics = False  # dump the statistics of tensor {min, max, mean, shape}
+dump_call_return = False  # dump the return value of the function call
+filter_by_tensor_version = True  # only dump the tensor when the version is changed
+
+primitive_types = {
+    int,
+    float,
+    str,
+    bool,
+}  # the primitive types that we want to filter out
 
 meta_var_black_list = [
     "pre_process",
