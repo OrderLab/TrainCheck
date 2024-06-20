@@ -56,7 +56,7 @@ def get_attr_name(col_name: str) -> str:
 
 
 class Trace:
-    def __init__(self, events):
+    def __init__(self, events, truncate_incomplete_func_calls=True):
         self.events = events
         self.var_ids = None
         self.var_insts = None
@@ -80,6 +80,62 @@ class Trace:
             raise ValueError(
                 "Failed to sort the events by time. Check if the time column is present in the events."
             )
+
+        if truncate_incomplete_func_calls:
+            self._rm_incomplete_trailing_func_calls()
+
+    def _rm_incomplete_trailing_func_calls(self):
+        """Remove incomplete trailing function calls from the trace. https://github.com/OrderLab/ml-daikon/issues/31"""
+        logger = logging.getLogger(__name__)
+
+        # group function calls by func_call_id ## NOTE: BREAKING BEHAVIOR IF FUNC_CALL_ID IS NOT UNIQUE
+        func_call_groups = self.events.groupby("func_call_id").count()
+        # find the func_call_ids that have only one record
+        incomplete_func_call_ids = func_call_groups.filter(pl.col("count") == 1)[
+            "func_call_id"
+        ]
+
+        # retrieve the traces of the incomplete function calls
+        func_call_records = self.events.filter(
+            pl.col("func_call_id").is_in(incomplete_func_call_ids)
+        )
+        for record in func_call_records.rows(named=True):
+            assert (
+                record["type"] == TraceLineType.FUNC_CALL_PRE
+            ), "Incomplete function call is not a pre-call event."
+            logger.warning(f"Incomplete function call detected: {record}")
+            process_id = record["process_id"]
+            thread_id = record["thread_id"]
+
+            # assert the incomplete function call happens after or before  the outermost function call on that process
+            outermost_func_call_pre = self.events.filter(
+                pl.col("type") == TraceLineType.FUNC_CALL_PRE,
+                pl.col("process_id") == process_id,
+            ).row(
+                0, named=True
+            )  # events is pre-sorted by time, so no need to sort again
+
+            assert (
+                thread_id != outermost_func_call_pre["thread_id"]
+            ), "Incomplete function call is not on a different thread. Please Investigate."
+
+            outermost_func_call_post = self.events.filter(
+                pl.col("func_call_id") == outermost_func_call_pre["func_call_id"],
+            ).row(1, named=True)
+
+            if (
+                record["time"]
+                > outermost_func_call_post["time"]
+                - config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST
+            ):
+                logger.warning(f"Removing incomplete function call: {record}")
+                self.events = self.events.filter(
+                    pl.col("func_call_id") != record["func_call_id"]
+                )
+            else:
+                raise ValueError(
+                    f"Incomplete function call is not close enough to the outermost function call post event: {record}"
+                )
 
     def get_start_time(self) -> int:
         return self.events["time"].min()
@@ -385,7 +441,9 @@ class Trace:
         return high_level_func_call_events + high_level_var_change_events
 
 
-def read_trace_file(file_path: str | list[str]) -> Trace:
+def read_trace_file(
+    file_path: str | list[str], truncate_incomplete_func_calls=True
+) -> Trace:
     """Reads the trace file and returns the trace instance."""
     if isinstance(file_path, list):
         events = pl.concat(
@@ -393,4 +451,7 @@ def read_trace_file(file_path: str | list[str]) -> Trace:
         )
     else:
         events = pl.read_ndjson(file_path)
-    return Trace(unnest_all(events))
+    return Trace(
+        unnest_all(events),
+        truncate_incomplete_func_calls=truncate_incomplete_func_calls,
+    )
