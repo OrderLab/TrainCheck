@@ -12,20 +12,19 @@ import torch
 import torch.utils
 
 # from mldaikon.proxy_wrapper.proxy import Proxy
+from mldaikon.config.config import INSTR_MODULES_TO_SKIP
 from mldaikon.proxy_wrapper.config import disable_proxy_class
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 meta_vars: dict[str, object] = {}
-# TODO: refactor the skipped_modules logic. Use an attribute to mark if the module is wrapped or skipped or not.
 
 trace_API_loggers: dict[int, logging.Logger] = {}
 trace_VAR_loggers: dict[int, logging.Logger] = {}
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
 disable_proxy_class = disable_proxy_class
-
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
@@ -239,6 +238,8 @@ def wrapper(original_function):
     def wrapped(*args, **kwargs):
         return global_wrapper(original_function, *args, **kwargs)
 
+    wrapped._ml_daikon_original_function = original_function
+    wrapped._ml_daikon_instrumented = True
     return wrapped
 
 
@@ -265,20 +266,6 @@ def get_all_subclasses(cls):
     return set(subclass_list)
 
 
-instrumented_modules = set()
-skipped_modules: set[types.ModuleType | type | types.FunctionType] = set()
-skipped_functions: set[str] = set()
-
-# there are certain modules that we don't want to instrument (for example, download(), tqdm, etc.)
-modules_to_skip = [
-    "torch.fx",
-    # "torch.jit",
-    # "torch._jit",
-    # "torch._C",
-    "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
-]
-
-
 def log_instrumentation_progress(
     depth: int,
     msg: str,
@@ -291,6 +278,29 @@ def log_instrumentation_progress(
     get_instrumentation_logger_for_process().info(
         f"Depth: {depth}, {msg}: {attr_name}, {typename(attr) if attr is not None else 'attr not provided'}, {typename(pymodule)}"
     )
+
+
+modules_or_cls_id_instrumented = set()
+
+
+def mark_module_or_cls_as_visited(module: object):
+    # not using a flag here as some classes do not allow setting attributes or flags
+    # the goal of marking the module as visited is to avoid cycles in the module graph
+    modules_or_cls_id_instrumented.add(id(module))
+
+
+def is_module_or_cls_instrumented(module: object) -> bool:
+    return id(module) in modules_or_cls_id_instrumented
+
+
+def is_API_instrumented(obj: object) -> bool:
+    # APIs has to be marked with a flag as ids will be changed after instrumentation, and also having the same id would mean that the object is not instrumented (e.g. multiple references to the same object)
+    try:
+        # we cannot use hasattr as it would trigger the __getattr__ method of the object, and can lead to exceptions at https://github.com/pytorch/pytorch/blob/main/torch/_ops.py#L1029-L1031
+        return obj.__dict__.get("_ml_daikon_instrumented", False)
+    except Exception:
+        # a wrapped API would have __dict__ and have the flag
+        return False
 
 
 class Instrumentor:
@@ -327,131 +337,97 @@ class Instrumentor:
         self.instrumented_count = 0
         self.target = target
 
-        # TODO: check if self.target or self.root_module is in the modules_to_skip list
-
-        # remove the target from the skipped_modules set
-        if target in skipped_modules and self.instrumenting:
-            assert not callable(target), f"Skipping callable {target} is not supported"
-            skipped_modules.remove(target)
-
-    def check_if_to_skip(self, attr: type):
-        if typename(attr) in modules_to_skip:
-            return True
-
-        for modules_to_skip_prefix in modules_to_skip:
-            if typename(attr).startswith(modules_to_skip_prefix):
-                return True
-
-        # attr should also be skipped if the attr does belong to the target
-        if not typename(attr).startswith(typename(self.target)):
-            return True
-
-        return False
-
     def instrument(self):
         if self.instrumenting:
             self.instrumented_count = self._instrument_module(self.target)
             return self.instrumented_count
         return 0
 
+    def _should_skip_module_or_cls(self, pymodule: object) -> str | None:
+        module_or_cls = "class" if inspect.isclass(pymodule) else "module"
+
+        if is_module_or_cls_instrumented(pymodule):
+            return f"Skipping {module_or_cls} as it is already instrumented"
+
+        if typename(pymodule) in INSTR_MODULES_TO_SKIP:
+            return f"Skipping {module_or_cls} as it is in INSTR_MODULES_TO_SKIP"
+
+        for modules_to_skip_prefix in INSTR_MODULES_TO_SKIP:
+            if typename(pymodule).startswith(modules_to_skip_prefix):
+                return f"Skipping {module_or_cls} as it is in INSTR_MODULES_TO_SKIP"
+
+        if not typename(pymodule).startswith(self.root_module):
+            return f"Skipping {module_or_cls} as it does not belong to the target"
+
+        return None
+
+    def _should_skip_instr_attr(self, attr_name: str, pymodule: object) -> str | None:
+        # 1. skip attrs with no objects (e.g. __abstractmethods__ and C extension functions)
+        attr = pymodule.__dict__.get(attr_name, None)
+        if attr is None:
+            return "Skipping attribute as it is None"
+
+        # 2. Skip if the attribute is already instrumented
+        if is_API_instrumented(attr):
+            return "Skipping attribute as it is already instrumented"
+
+        # 3. Instrumenting inspect.getfile lead to --> TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method"
+        if "getfile" in attr_name:  # cannot handle getfile correctly
+            return "Skipping attribute as it is getfile"
+
+        # 3. Skip magic methods except __init__ and __call__ # TODO: try if __init__ and __call__ can be instrumented
+        if (
+            attr_name.startswith("__")
+            and attr_name.endswith("__")
+            and attr_name not in ["__init__", "__call__"]
+        ):
+            return "Skipping magic functions"
+
+        # 4. Skip if the attribute is in INSTR_MODULES_TO_SKIP | MANUAL CONFIG
+        if typename(attr) in INSTR_MODULES_TO_SKIP:
+            return "Skipping attribute as it is one of INSTR_MODULES_TO_SKIP"
+
+        # 5. Skip if the attribute is in modules_to_skip_prefix | MANUAL CONFIG
+        for modules_to_skip_prefix in INSTR_MODULES_TO_SKIP:
+            if typename(attr).startswith(modules_to_skip_prefix):
+                return "Skipping attribute as it is in INSTR_MODULES_TO_SKIP"
+
+        # 6. Skip if the attribute does not belong to the target root module
+        if not typename(attr).startswith(self.root_module):
+            return "Skipping attribute as it does not belong to the root module"
+
+        return None
+
     def _instrument_module(self, pymodule: types.ModuleType | type, depth=0):
         target_name = pymodule.__name__
 
-        if pymodule in instrumented_modules or pymodule in skipped_modules:
+        # if pymodule in instrumented_modules or pymodule in skipped_modules:
+        if reason := self._should_skip_module_or_cls(pymodule):
             get_instrumentation_logger_for_process().info(
-                f"Depth: {depth}, Skipping module: {target_name}"
+                f"Depth: {depth}, Skipping module: {target_name}, Reason: {reason}"
             )
             return 0
 
         get_instrumentation_logger_for_process().info(
             f"Depth: {depth}, Instrumenting module: {target_name}"
         )
-        instrumented_modules.add(pymodule)
+
+        mark_module_or_cls_as_visited(pymodule)
 
         count_wrapped = 0
         for attr_name in dir(pymodule):
-            if not hasattr(pymodule, attr_name):
-                # handle __abstractmethods__ attribute
-                log_instrumentation_progress(
-                    depth,
-                    "Skipping attribute as it does not exist",
-                    None,
-                    attr_name,
-                    pymodule,
-                )
-                continue
-
-            attr = pymodule.__dict__.get(
-                attr_name, None
-            )  # getattr(pymodule, attr_name)
-
-            if attr is None:
-                log_instrumentation_progress(
-                    depth, "Skipping attribute as it is None", attr, attr_name, pymodule
-                )
-                """
-                TODO: From my observation, this is happening for the attributes that are implemented in C extension, which usually include math ops and other low level operations for tensors
-                , such as tensor.add_.
-                We should support these operations as well. Reason is in PyTorch-FORUM84911.
-                """
-                continue
-
-            # TODO: fix the bug "TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method"
-            if "getfile" in attr_name:
-                log_instrumentation_progress(
-                    depth,
-                    "Skipping attribute as it is getfile",
-                    attr,
-                    attr_name,
-                    pymodule,
-                )
-                continue
-
-            # skip magic methods
-            if attr_name.startswith("__") and attr_name.endswith("__"):
-                log_instrumentation_progress(
-                    depth, "Skipping magic functions", None, attr_name, pymodule
-                )
-                continue
-
-            if self.check_if_to_skip(attr):
-                log_instrumentation_progress(
-                    depth, "Skipping due to modules_to_skip", attr, attr_name, pymodule
+            attr = pymodule.__dict__.get(attr_name)
+            if reason := self._should_skip_instr_attr(attr_name, pymodule):
+                get_instrumentation_logger_for_process().debug(
+                    f"Depth: {depth}, Skipping attribute: {attr_name}, Reason: {reason}, Module: {target_name}, Type: {typename(attr)}"
                 )
                 continue
 
             # isinstance(torch.Tensor.backward, types.FunctionType) is True
-            if (
-                isinstance(attr, types.FunctionType)
-                or isinstance(attr, types.BuiltinFunctionType)
-                or isinstance(attr, _instancemethod_t)
+            if isinstance(
+                attr, (types.FunctionType, types.BuiltinFunctionType, _instancemethod_t)
             ):
-                # if isinstance(attr
-                try:
-                    # instancemethod is not hashable and will lead to exceptions in this try block
-                    if (
-                        not isinstance(attr, _instancemethod_t)
-                        and attr in skipped_functions
-                    ):  # instance method is not hashable
-                        log_instrumentation_progress(
-                            depth,
-                            "Skipping function due to skipped_functions",
-                            attr,
-                            attr_name,
-                            pymodule,
-                        )
-                        continue
-
-                except Exception as e:
-                    log_instrumentation_progress(
-                        depth,
-                        f"Error while checking if function is in skipped_functions: {e}",
-                        attr,
-                        attr_name,
-                        pymodule,
-                    )
-                    continue
-
+                assert not is_API_instrumented(attr), f"{attr} is already instrumented"
                 log_instrumentation_progress(
                     depth, "Instrumenting function", attr, attr_name, pymodule
                 )
@@ -469,48 +445,17 @@ class Instrumentor:
                     )
                     continue
                 count_wrapped += 1
-            elif isinstance(attr, types.ModuleType):
-                if attr in skipped_modules:
-                    log_instrumentation_progress(
-                        depth,
-                        "Skipping module due to skipped_modules",
-                        attr,
-                        attr_name,
-                        pymodule,
-                    )
-                    continue
-                if not typename(attr).startswith(
-                    self.root_module
-                ):  # TODO: refine the logic of how to rule out irrelevant modules
-                    log_instrumentation_progress(
-                        depth,
-                        "Skipping module due to irrelevant module",
-                        attr,
-                        attr_name,
-                        pymodule,
-                    )
-                    skipped_modules.add(attr)
-                    continue
-
+            elif isinstance(attr, types.ModuleType) or inspect.isclass(attr):
+                module_or_cls = "class" if inspect.isclass(attr) else "module"
                 log_instrumentation_progress(
-                    depth, "Recursing into module", attr, attr_name, pymodule
+                    depth, f"Recursing into {module_or_cls}", attr, attr_name, pymodule
                 )
                 count_wrapped += self._instrument_module(attr, depth + 1)
 
-            elif inspect.isclass(attr):
+            else:
                 log_instrumentation_progress(
-                    depth, "Recursing into class", attr, attr_name, pymodule
+                    depth, "Not instrumenting", attr, attr_name, pymodule
                 )
-                if not attr.__module__.startswith(self.root_module):
-                    log_instrumentation_progress(
-                        depth,
-                        "Skipping class due to irrelevant module",
-                        attr,
-                        attr_name,
-                        pymodule,
-                    )
-                    continue
-                count_wrapped += self._instrument_module(attr, depth + 1)
 
         log_instrumentation_progress(
             depth,
