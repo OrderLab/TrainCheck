@@ -111,7 +111,7 @@ def dump_attributes(obj):
 
     # if the object is a proxy object, get the original object
     obj_dict = obj.__dict__
-    if "is_proxied_obj" in obj_dict:
+    if "is_ml_daikon_proxied_obj" in obj_dict:
         obj = obj_dict["_obj"]._obj
 
     # currently only dump primitive types, tensors and nn.Module

@@ -196,7 +196,7 @@ class Proxy:
         self.__dict__["log_level"] = log_level
         self.__dict__["meta_vars"] = {}
         self.__dict__["last_update_timestamp"] = 0
-        self.__dict__["is_proxied_obj"] = True
+        self.__dict__["is_ml_daikon_proxied_obj"] = True
         self.__dict__["is_root"] = is_root
         self.__dict__["var_name"] = var_name
 
@@ -212,7 +212,7 @@ class Proxy:
             self.__dict__["last_update_timestamp"] = obj.__dict__[
                 "last_update_timestamp"
             ]
-            self.__dict__["is_proxied_obj"] = obj.__dict__["is_proxied_obj"]
+            self.__dict__["is_ml_daikon_proxied_obj"] = obj.__dict__["is_ml_daikon_proxied_obj"]
             self.__dict__["is_root"] = obj.__dict__["is_root"]
             self.__dict__["var_name"] = obj.__dict__["var_name"]
             self.__dict__["logdir"] = obj.__dict__["logdir"]

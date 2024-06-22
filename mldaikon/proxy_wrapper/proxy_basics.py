@@ -1,5 +1,5 @@
 def is_proxied(obj):
-    if hasattr(obj, "is_proxied_obj"):
+    if hasattr(obj, "is_ml_daikon_proxied_obj"):
         return True
     return False
 

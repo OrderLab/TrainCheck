@@ -41,7 +41,7 @@ def _default_to_fused_or_foreach(
         p is None
         or (
             type(p) in _foreach_supported_types
-            or hasattr(p, "is_proxied_obj")
+            or hasattr(p, "is_ml_daikon_proxied_obj")
             and p.device.type in fused_supported_devices
             and torch.is_floating_point(p)
         )
@@ -51,7 +51,7 @@ def _default_to_fused_or_foreach(
         p is None
         or (
             type(p) in _foreach_supported_types
-            or hasattr(p, "is_proxied_obj")
+            or hasattr(p, "is_ml_daikon_proxied_obj")
             and p.device.type in foreach_supported_devices
         )
         for p in params
@@ -90,7 +90,7 @@ if "BF16_Optimizer" in globals():
 
 
 def observe_proxy_var(var, phase):
-    if hasattr(var, "is_proxied_obj"):
+    if hasattr(var, "is_ml_daikon_proxied_obj"):
         var.dump_trace(phase)
     else:
         NotImplementedError(f"observe method not implemented for {var}")
