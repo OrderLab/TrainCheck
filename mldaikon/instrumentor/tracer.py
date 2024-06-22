@@ -585,7 +585,6 @@ class StatelessVarObserver:
 
         state_copy = []
         for name, param in self.var.named_parameters():
-            param_list = param.view(-1).tolist()
             if name in self.param_versions:
                 if param._version == self.param_versions[name]:
                     # the parameter has not changed, so skip it
@@ -596,9 +595,7 @@ class StatelessVarObserver:
                 {
                     "name": name,
                     "type": typename(param),
-                    "attributes": {
-                        "data": param_list,
-                    },
+                    "attributes": {},
                 }
             )
             # only get the attributes that are actual values
@@ -610,11 +607,16 @@ class StatelessVarObserver:
                 if callable(attr):
                     continue
 
-                if isinstance(attr, torch.Tensor):
-                    # skipping the tensor values as we should have already captured them
-                    # also, the fields in tensor such as `H` and `T` are just views of the same tensor`
-                    continue
-
+                if isinstance(attr, torch.Tensor) or attr is None:
+                    if attr_name in ["data", "grad"]:
+                        if attr is not None:
+                            attr = attr.view(-1).tolist()
+                        else:
+                            attr = (
+                                []
+                            )  # for polars binding, having too many nones would cause error
+                    else:
+                        continue
                 # try to serialize the attribute, if it fails, then skip it
                 try:
                     json.dumps(attr)
