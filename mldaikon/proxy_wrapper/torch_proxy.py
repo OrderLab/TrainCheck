@@ -5,8 +5,8 @@ from typing import List, Tuple
 import torch
 import torch.distributed
 import torch.optim.adam as adam
-import torch.optim.sgd as sgd
 import torch.optim.optimizer as torch_optimizer
+import torch.optim.sgd as sgd
 
 try:
     from deepspeed.runtime.bf16_optimizer import BF16_Optimizer
@@ -25,7 +25,6 @@ from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 ###         Proxied Torch functions
 
 original_default_to_fused_or_foreach = torch_optimizer._default_to_fused_or_foreach
-
 
 
 def _default_to_fused_or_foreach(

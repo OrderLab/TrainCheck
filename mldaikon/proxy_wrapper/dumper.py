@@ -1,24 +1,25 @@
 import inspect
 import json
 import time
+from typing import Dict
 
 import torch
 
 from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.config import (
     attribute_black_list,
-    exclude_file_names,
-    dump_tensor_version,
     dump_tensor_statistics,
-    filter_by_tensor_version,
-    primitive_types,
+    dump_tensor_version,
+    exclude_file_names,
     meta_var_black_list,
+    primitive_types,
 )
 from mldaikon.proxy_wrapper.utils import print_debug
 
 
 class Singleton(type):
-    _instances = {}
+
+    _instances: Dict[type, type] = {}
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
