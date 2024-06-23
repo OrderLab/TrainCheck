@@ -79,6 +79,7 @@ def proxy_handler(
 
 
 class Proxy:
+    var_and_causally_related_obj_ids: Dict[str, set[int]] = {}
     var_dict: Dict[str, typing.Any] = {}
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
@@ -173,6 +174,11 @@ class Proxy:
                     == Proxy.var_dict[self.__dict__["var_name"]]._obj._version
                 ):
                     return
+
+        var_name = self.__dict__["var_name"]
+        assert var_name is not None  # '' is allowed as a var_name (root object)
+        obj_ids = list(Proxy.var_and_causally_related_obj_ids.get(var_name, []))
+
         if not issubclass(type(obj), torch.nn.Module):
             dumped_val = str(torch_serialize(obj))
             self.jsondumper.dump_json(
@@ -185,6 +191,7 @@ class Proxy:
                 status,
                 dump_attributes(obj),
                 dumped_frame_array,
+                obj_ids,
             )
 
     def __init__(
