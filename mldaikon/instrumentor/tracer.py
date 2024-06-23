@@ -7,6 +7,7 @@ import os
 import threading
 import traceback
 import types
+from typing import Callable
 
 import torch
 import torch.utils
@@ -14,6 +15,7 @@ import torch.utils
 # from mldaikon.proxy_wrapper.proxy import Proxy
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP
 from mldaikon.proxy_wrapper.config import disable_proxy_class
+from mldaikon.proxy_wrapper.proxy import Proxy
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -116,7 +118,7 @@ def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
 
-def global_wrapper(original_function, *args, **kwargs):
+def global_wrapper(original_function, is_bound_method, *args, **kwargs):
     import uuid
 
     func_call_id = uuid.uuid4().hex
@@ -129,24 +131,19 @@ def global_wrapper(original_function, *args, **kwargs):
     thread_id = current_thread.ident
     process_id = os.getpid()
 
-    func_name = original_function.__name__
-    if hasattr(original_function, "__module__"):
-        module_name = original_function.__module__
-    else:
-        module_name = "unknown"
+    func_name = typename(original_function)
 
-    func_name = f"{module_name}.{func_name}"
-
-    dump_trace_API(
-        {
-            "func_call_id": func_call_id,
-            "thread_id": thread_id,
-            "process_id": process_id,
-            "meta_vars": meta_vars,
-            "type": TraceLineType.FUNC_CALL_PRE,
-            "function": func_name,
-        }
-    )
+    pre_record = {
+        "func_call_id": func_call_id,
+        "thread_id": thread_id,
+        "process_id": process_id,
+        "meta_vars": meta_vars,
+        "type": TraceLineType.FUNC_CALL_PRE,
+        "function": func_name,
+        "is_bound_method": is_bound_method,
+        "obj_id": None if not is_bound_method else id(args[0]),
+    }
+    dump_trace_API(pre_record)
     try:
         ### Safe but inefficient: use inspect.getsource to check if the function is a C level function
         # C_level_call = False
@@ -175,30 +172,42 @@ def global_wrapper(original_function, *args, **kwargs):
             # args = unproxy_arg(args[0])
             kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
 
-        # def unwrap_proxies(obj):
-        #     if isinstance(obj, Proxy):
-        #         return unwrap_proxies(obj._obj)
-        #     elif isinstance(obj, list):
-        #         for i in range(len(obj)):
-        #             obj[i] = unwrap_proxies(obj[i])
-        #         return obj
-        # Ziming: comment out the dict unwrapping here, it would interfere
-        # with the _try_get_data functionality in dataloader
-        # elif isinstance(obj, dict):
-        #     for key in obj:
-        #         obj[key] = unwrap_proxies(obj[key], level+1)
-        #     return obj
-        # elif isinstance(obj, tuple):
-        #     obj = tuple(unwrap_proxies(item) for item in obj)
-        #     return obj
-        # elif isinstance(obj, types.ModuleType):
-        #     return obj
-        # else:
-        #     return obj
+        proxy_in_args = []
 
-        # if not disable_proxy_class:
-        #     args = [unwrap_proxies(arg) for arg in args]
-        #     kwargs = {k: unwrap_proxies(v) for k, v in kwargs.items()}
+        def find_proxy_in_args(args):
+            for i, arg in enumerate(args):
+                if isinstance(arg, Proxy):
+                    print(
+                        f"Found proxy {arg.__dict__['var_name']} in function {func_name}"
+                    )
+                    proxy_in_args.append(arg)
+                elif type(arg) in [list, tuple]:
+                    find_proxy_in_args(arg)
+                elif isinstance(arg, types.GeneratorType) and not isinstance(
+                    arg, tuple
+                ):
+                    arg_list = list(arg)
+                    args[i] = iter(arg_list)
+                    find_proxy_in_args(arg_list)
+
+        args = list(args)
+        find_proxy_in_args(args)
+        args = tuple(args)
+
+        if proxy_in_args:
+            # if this method is a bound method (method belonging to a specific object), the first argument is the class instance, then document the specific instance
+            if is_bound_method:
+                for proxy in proxy_in_args:
+                    if (
+                        proxy.__dict__["var_name"]
+                        not in Proxy.var_and_causally_related_obj_ids
+                    ):
+                        Proxy.var_and_causally_related_obj_ids[
+                            proxy.__dict__["var_name"]
+                        ] = set()
+                    Proxy.var_and_causally_related_obj_ids[
+                        proxy.__dict__["var_name"]
+                    ].add(id(args[0]))
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
@@ -227,16 +236,19 @@ def global_wrapper(original_function, *args, **kwargs):
             "meta_vars": meta_vars,
             "type": TraceLineType.FUNC_CALL_POST,
             "function": func_name,
+            "is_bound_method": is_bound_method,
+            "obj_id": None if not is_bound_method else id(args[0]),
         },
         logging.INFO,
     )
+
     return result
 
 
-def wrapper(original_function):
+def wrapper(original_function, is_bound_method):
     @functools.wraps(original_function)
     def wrapped(*args, **kwargs):
-        return global_wrapper(original_function, *args, **kwargs)
+        return global_wrapper(original_function, is_bound_method, *args, **kwargs)
 
     wrapped._ml_daikon_original_function = original_function
     wrapped._ml_daikon_instrumented = True
@@ -293,7 +305,7 @@ def is_module_or_cls_instrumented(module: object) -> bool:
     return id(module) in modules_or_cls_id_instrumented
 
 
-def is_API_instrumented(obj: object) -> bool:
+def is_API_instrumented(obj: Callable) -> bool:
     # APIs has to be marked with a flag as ids will be changed after instrumentation, and also having the same id would mean that the object is not instrumented (e.g. multiple references to the same object)
     try:
         # we cannot use hasattr as it would trigger the __getattr__ method of the object, and can lead to exceptions at https://github.com/pytorch/pytorch/blob/main/torch/_ops.py#L1029-L1031
@@ -301,6 +313,28 @@ def is_API_instrumented(obj: object) -> bool:
     except Exception:
         # a wrapped API would have __dict__ and have the flag
         return False
+
+
+def is_API_bound_method(obj: Callable) -> bool:
+    """We will see if the object will be a bound method or not. If the object is a bound method, we will return True, else False"""
+    logger = logging.getLogger(__name__)
+    signature = None
+
+    # handle the case where the object is already a bound method, theoretically, this should not happen
+    if inspect.ismethod(obj):
+        logger.warning(f"Object is already a bound method: {obj}")
+        return True
+
+    # handle the case where the object is a method not instantiated yet, e.g. torch.optim.Adam.step is a method, but not a bound method yet
+    try:
+        signature = inspect.signature(obj)
+    except (
+        ValueError
+    ) as e:  # inspect.signature raises ValueError if no signature is found, TypeError if obj is not a callable
+        logger.error(f"Error in inspect.signature: {e}")
+        return False
+    param_names = list(signature.parameters.keys())
+    return len(param_names) > 0 and "self" == param_names[0]
 
 
 class Instrumentor:
@@ -423,7 +457,6 @@ class Instrumentor:
                 )
                 continue
 
-            # isinstance(torch.Tensor.backward, types.FunctionType) is True
             if isinstance(
                 attr, (types.FunctionType, types.BuiltinFunctionType, _instancemethod_t)
             ):
@@ -431,7 +464,7 @@ class Instrumentor:
                 log_instrumentation_progress(
                     depth, "Instrumenting function", attr, attr_name, pymodule
                 )
-                wrapped = wrapper(attr)
+                wrapped = wrapper(attr, is_bound_method=is_API_bound_method(attr))
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:

@@ -1,11 +1,10 @@
 import inspect
 import json
 import time
-from typing import Dict
+from typing import Any, Dict
 
 import torch
 
-from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.config import (
     attribute_black_list,
     dump_tensor_statistics,
@@ -15,6 +14,9 @@ from mldaikon.proxy_wrapper.config import (
     primitive_types,
 )
 from mldaikon.proxy_wrapper.utils import print_debug
+
+# from mldaikon.instrumentor.tracer import meta_vars
+meta_vars: dict[str, Any] = {}
 
 
 class Singleton(type):
@@ -45,6 +47,7 @@ class json_dumper(metaclass=Singleton):
         change_type,
         var_attributes,
         stack_trace=None,
+        obj_ids=None,
     ):
 
         if (
@@ -65,6 +68,7 @@ class json_dumper(metaclass=Singleton):
             "time": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
             "attributes": var_attributes,
+            "obj_ids": obj_ids if obj_ids is not None else [],
         }
         json_data = json.dumps(data)
 
