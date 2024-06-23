@@ -1,5 +1,5 @@
 import torch
-from bytecode import *
+from bytecode import Bytecode, Instr
 
 a = 10
 tensor = torch.tensor([1, 2, 3])
