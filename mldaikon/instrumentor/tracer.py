@@ -223,6 +223,8 @@ def global_wrapper(original_function, is_bound_method, *args, **kwargs):
                 "exception": str(e),
                 "exception_type": f"{type(e)}",
                 "traceback": traceback.format_exc(),
+                "is_bound_method": is_bound_method,
+                "obj_id": None if not is_bound_method else id(args[0]),
             },
             logging.ERROR,
         )
