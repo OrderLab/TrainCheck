@@ -22,10 +22,11 @@ jobs:
           pip install mypy==1.9.0
           pip install isort
           pip install ruff==0.3.3
-          pip install ./requirements.txt
           pip install torch
           pip install polars
+          pip install tqdm
           pip install bytecode
+          pip install deepdiff
 
       - name: Run black
         id: black
