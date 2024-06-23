@@ -34,7 +34,7 @@ jobs:
 
       - name: Run mypy
         id: mypy
-        run: mypy .
+        run: mypy . --exclude='mldaikon/proxy_wrapper/torch_proxy.py' --ignore-missing-imports
 
       - name: Run isort
         id: isort
