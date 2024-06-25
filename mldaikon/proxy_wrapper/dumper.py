@@ -47,7 +47,7 @@ class json_dumper(metaclass=Singleton):
         change_type,
         var_attributes,
         stack_trace=None,
-        obj_ids=None,
+        causal_func_call_ids=None,
     ):
 
         if (
@@ -68,7 +68,7 @@ class json_dumper(metaclass=Singleton):
             "time": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
             "attributes": var_attributes,
-            "obj_ids": obj_ids if obj_ids is not None else [],
+            "causal_func_call_ids": causal_func_call_ids if causal_func_call_ids is not None else [],
         }
         json_data = json.dumps(data)
 

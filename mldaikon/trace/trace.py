@@ -88,6 +88,11 @@ class Trace:
         """Remove incomplete trailing function calls from the trace. https://github.com/OrderLab/ml-daikon/issues/31"""
         logger = logging.getLogger(__name__)
 
+        if "function" not in self.events.columns:
+            logger.warning(
+                "function column not found in the events, no function related invariants will be extracted."
+            )
+            return
         # group function calls by func_call_id ## NOTE: BREAKING BEHAVIOR IF FUNC_CALL_ID IS NOT UNIQUE
         func_call_groups = self.events.groupby("func_call_id").count()
         # find the func_call_ids that have only one record
@@ -153,7 +158,90 @@ class Trace:
         return (
             self.events.select("function").drop_nulls().unique().to_series().to_list()
         )
+    
+    def get_func_is_bound_method(self, func_name: str) -> bool:
+        """Check if a function is bound to a class."""
+        if "function" not in self.events.columns:
+            logger.warning(
+                "function column not found in the events, no function related invariants will be extracted."
+            )
+            return False
+        
+        is_bound_method = self.events.filter(pl.col("function") == func_name).select("is_bound_method").to_series().to_list()
+        assert None not in is_bound_method, f"Boundness information not found for {func_name}"
+        assert all(is_bound_method[0] == is_bound_method[i] for i in range(1, len(is_bound_method))), f"Boundness information is not consistent for {func_name}"
+        return is_bound_method[0]
+    
+    def get_causally_related_vars(self, func_call_id) -> list[VarInstId]:
+        """Find all variables that are causally related to a function call."""
+        
+        # get the pre-call event of the function call 
+        func_call_pre_event = self.events.filter(
+            pl.col("type") == TraceLineType.FUNC_CALL_PRE,
+            pl.col("func_call_id") == func_call_id,
+        ).row(0, named=True)
 
+        func_call_time = func_call_pre_event["time"]
+
+        # get the process id of the function call
+        assert func_call_pre_event['is_bound_method'], f"Causal relation extraction is only supported for bound methods, got {func_call_pre_event['function']} which is not"
+        obj_id = func_call_pre_event['obj_id']
+
+        # find all function calls that are related to this object prior to the function call
+        related_func_call_pre_events = self.events.filter(
+            pl.col("type") == TraceLineType.FUNC_CALL_PRE,
+            pl.col("obj_id") == obj_id,
+            pl.col("time") < func_call_pre_event["time"],
+        )
+
+        process_id = func_call_pre_event["process_id"]
+        thread_id = func_call_pre_event["thread_id"]
+        for related_func_call_pre_event in related_func_call_pre_events.rows(named=True):
+            # having the assertion failure does not mean that we run into a bug, but it is something that we should investigate 
+            assert related_func_call_pre_event["process_id"] == process_id, "Related function call is on a different process."
+            assert related_func_call_pre_event["thread_id"] == thread_id, "Related function call is on a different thread."
+
+        # find all variables that are related to the function calls
+        related_func_call_ids = related_func_call_pre_events["func_call_id"].to_list()
+
+        # take a look at each var's last trace before the function call time to determine if it is causally related
+        related_vars = []
+        var_ids = self.get_var_ids()
+        for var_id in var_ids:
+            trace_before_func_call = self.events.filter(
+                pl.col("process_id") == var_id.process_id,
+                pl.col("var_name") == var_id.var_name,
+                pl.col("var_type") == var_id.var_type,
+                pl.col("time") < func_call_time,
+            )
+            if len(trace_before_func_call) == 0:
+                continue
+            last_trace = trace_before_func_call.row(-1, named=True)
+            if len([related_func_call_id 
+                    for related_func_call_id in related_func_call_ids 
+                    if related_func_call_id in last_trace["causal_func_call_ids"]
+                    ]) > 0:
+                # the variable is causally related to the function call
+                related_vars.append(var_id)
+        return related_vars
+
+    def get_vars_not_changed_but_causally_related(self, func_call_id, var_type: None, attr_name: None) -> list[VarInstId]:
+        related_vars = self.get_causally_related_vars(func_call_id)
+        changed_vars = self.query_var_changes_within_func_call(func_call_id)
+        
+        related_vars_not_changed = []
+        if var_type is not None:
+            related_vars = [var_id for var_id in related_vars if var_id.var_type == var_type]
+            changed_vars = [var_change for var_change in changed_vars if var_change.var_id.var_type == var_type]
+        if attr_name is not None:
+            changed_vars = [var_change for var_change in changed_vars if var_change.attr_name == attr_name]
+            
+        for var_id in related_vars:
+            if any([var_change.var_id == var_id for var_change in changed_vars]):
+                continue
+            related_vars_not_changed.append(var_id)
+        return related_vars_not_changed
+    
     def get_var_ids(self) -> list[VarInstId]:
         """Find all variables (uniquely identified by name, type and process id) from the trace."""
         # Identification of Variables --> (variable_name, process_id)
@@ -259,6 +347,16 @@ class Trace:
         self.var_insts = var_insts
         return self.var_insts
 
+    def get_var_raw_event_before_time(self, var_id: VarInstId, time: int) -> list[dict]:
+        """Get all raw events of a variable."""
+        return self.events.filter(
+            pl.col("process_id") == var_id.process_id,
+            pl.col("var_name") == var_id.var_name,
+            pl.col("var_type") == var_id.var_type,
+            pl.col("time") < time,
+        ).rows(named=True)
+
+
     def get_var_changes(self) -> list[VarChangeEvent]:
         if self.var_changes is not None:
             return self.var_changes
@@ -309,6 +407,23 @@ class Trace:
             if time_range[0] <= var_change.change_time <= time_range[1]
             and var_change.var_id.process_id == process_id
         ]
+
+    def query_var_changes_within_func_call(
+        self, func_call_id: int
+    ) -> list[VarChangeEvent]:
+        func_call_pre_event = self.events.filter(
+            pl.col("type") == TraceLineType.FUNC_CALL_PRE,
+            pl.col("func_call_id") == func_call_id,
+        ).row(0, named=True)
+
+        func_call_post_event = self.events.filter(
+            pl.col("type") == TraceLineType.FUNC_CALL_POST,
+            pl.col("func_call_id") == func_call_id,
+        ).row(0, named=True)
+
+        return self.query_var_changes_within_time(
+            (func_call_pre_event["time"], func_call_post_event["time"])
+        )
 
     def scan_to_groups(self, param_selectors: list):
         """Extract from trace, groups of events

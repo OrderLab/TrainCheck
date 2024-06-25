@@ -200,14 +200,14 @@ def global_wrapper(original_function, is_bound_method, *args, **kwargs):
                 for proxy in proxy_in_args:
                     if (
                         proxy.__dict__["var_name"]
-                        not in Proxy.var_and_causally_related_obj_ids
+                        not in Proxy.var_causal_func_call_ids
                     ):
-                        Proxy.var_and_causally_related_obj_ids[
+                        Proxy.var_causal_func_call_ids[
                             proxy.__dict__["var_name"]
-                        ] = set()
-                    Proxy.var_and_causally_related_obj_ids[
+                        ] = []
+                    Proxy.var_causal_func_call_ids[
                         proxy.__dict__["var_name"]
-                    ].add(id(args[0]))
+                    ].append(func_call_id)
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
