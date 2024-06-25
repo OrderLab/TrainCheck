@@ -1,5 +1,6 @@
 import datetime
 import functools
+import importlib
 import inspect
 import json
 import logging
@@ -198,16 +199,11 @@ def global_wrapper(original_function, is_bound_method, *args, **kwargs):
             # if this method is a bound method (method belonging to a specific object), the first argument is the class instance, then document the specific instance
             if is_bound_method:
                 for proxy in proxy_in_args:
-                    if (
-                        proxy.__dict__["var_name"]
-                        not in Proxy.var_causal_func_call_ids
-                    ):
-                        Proxy.var_causal_func_call_ids[
-                            proxy.__dict__["var_name"]
-                        ] = []
-                    Proxy.var_causal_func_call_ids[
-                        proxy.__dict__["var_name"]
-                    ].append(func_call_id)
+                    if proxy.__dict__["var_name"] not in Proxy.var_causal_func_call_ids:
+                        Proxy.var_causal_func_call_ids[proxy.__dict__["var_name"]] = []
+                    Proxy.var_causal_func_call_ids[proxy.__dict__["var_name"]].append(
+                        func_call_id
+                    )
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
@@ -339,6 +335,20 @@ def is_API_bound_method(obj: Callable) -> bool:
     return len(param_names) > 0 and "self" == param_names[0]
 
 
+def get_module_path_from_file_path(file_path: str, root_module: str) -> str | None:
+    # import root_module and get root module
+    if (
+        not file_path.endswith(".py")
+        or not os.path.exists(file_path)
+        or f"/{root_module}/" not in file_path
+    ):
+        return None
+    # get the path of the module from the file path
+    path_after_root_module = file_path.split(f"/{root_module}/")[1].split(".py")[0]
+    module_path = f"{root_module}.{path_after_root_module}".replace("/", ".")
+    return module_path
+
+
 class Instrumentor:
     def __init__(
         self,
@@ -374,10 +384,52 @@ class Instrumentor:
         self.target = target
 
     def instrument(self):
-        if self.instrumenting:
-            self.instrumented_count = self._instrument_module(self.target)
-            return self.instrumented_count
-        return 0
+        if not self.instrumenting:
+            return 0
+
+        visited_file_paths = set()
+
+        first_pass_instrumented_count = 0
+        get_instrumentation_logger_for_process().info(
+            "First pass: Recursive scan of the module"
+        )
+        first_pass_instrumented_count += self._instrument_module(
+            self.target, visited_file_paths
+        )
+        get_instrumentation_logger_for_process().info(
+            "Files scanned %s", "\n".join(sorted(visited_file_paths))
+        )
+        get_instrumentation_logger_for_process().info(
+            "First pass instrumented %d functions", first_pass_instrumented_count
+        )
+
+        get_instrumentation_logger_for_process().info(
+            "Second pass: Direct instrumentation of the files"
+        )
+        second_pass_instrumented_count = 0
+        for file_path in sorted(visited_file_paths):
+            module_path = get_module_path_from_file_path(file_path, self.root_module)
+            if module_path is None or "__init__" in module_path:
+                get_instrumentation_logger_for_process().info(
+                    f"Skipping file {file_path}"
+                )
+                continue
+
+            get_instrumentation_logger_for_process().info(
+                f"Instrumenting module {module_path}"
+            )
+            pymodule = importlib.import_module(module_path)
+            second_pass_instrumented_count += self._instrument_module(
+                pymodule, visited_file_paths
+            )
+        get_instrumentation_logger_for_process().info(
+            "Second pass instrumented %d functions", second_pass_instrumented_count
+        )
+
+        self.instrumented_count = (
+            first_pass_instrumented_count + second_pass_instrumented_count
+        )
+        return self.instrumented_count
 
     def _should_skip_module_or_cls(self, pymodule: object) -> str | None:
         module_or_cls = "class" if inspect.isclass(pymodule) else "module"
@@ -434,7 +486,9 @@ class Instrumentor:
 
         return None
 
-    def _instrument_module(self, pymodule: types.ModuleType | type, depth=0):
+    def _instrument_module(
+        self, pymodule: types.ModuleType | type, visited_file_paths=set(), depth=0
+    ):
         target_name = pymodule.__name__
 
         # if pymodule in instrumented_modules or pymodule in skipped_modules:
@@ -458,6 +512,13 @@ class Instrumentor:
                     f"Depth: {depth}, Skipping attribute: {attr_name}, Reason: {reason}, Module: {target_name}, Type: {typename(attr)}"
                 )
                 continue
+
+            try:
+                file_path = inspect.getsourcefile(attr)  # type: ignore
+                if file_path is not None:
+                    visited_file_paths.add(file_path)
+            except Exception:
+                pass
 
             if isinstance(
                 attr, (types.FunctionType, types.BuiltinFunctionType, _instancemethod_t)
@@ -485,7 +546,9 @@ class Instrumentor:
                 log_instrumentation_progress(
                     depth, f"Recursing into {module_or_cls}", attr, attr_name, pymodule
                 )
-                count_wrapped += self._instrument_module(attr, depth + 1)
+                count_wrapped += self._instrument_module(
+                    attr, visited_file_paths, depth + 1
+                )
 
             else:
                 log_instrumentation_progress(
