@@ -487,7 +487,7 @@ class Instrumentor:
         return None
 
     def _instrument_module(
-        self, pymodule: types.ModuleType | type, visited_file_paths=set(), depth=0
+        self, pymodule: types.ModuleType | type, visited_file_paths: set, depth=0
     ):
         target_name = pymodule.__name__
 
