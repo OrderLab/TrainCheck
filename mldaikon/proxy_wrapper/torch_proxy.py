@@ -27,6 +27,7 @@ from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 original_default_to_fused_or_foreach = torch_optimizer._default_to_fused_or_foreach
 
 
+@functools.wraps(original_default_to_fused_or_foreach)
 def _default_to_fused_or_foreach(
     params: List[torch.Tensor], differentiable: bool, use_fused: bool = False
 ) -> Tuple[bool, bool]:
