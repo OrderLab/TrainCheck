@@ -15,6 +15,7 @@ import torch.utils
 
 # from mldaikon.proxy_wrapper.proxy import Proxy
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP
+from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
 from mldaikon.proxy_wrapper.config import disable_proxy_class
 from mldaikon.proxy_wrapper.proxy import Proxy
 from mldaikon.utils import typename
@@ -421,7 +422,9 @@ class Instrumentor:
 
             pymodule = importlib.import_module(module_path)
             second_pass_instrumented_count += self._instrument_module(
-                pymodule, visited_file_paths, False,
+                pymodule,
+                visited_file_paths,
+                False,
             )
         get_instrumentation_logger_for_process().info(
             "Second pass instrumented %d functions", second_pass_instrumented_count
@@ -434,8 +437,6 @@ class Instrumentor:
 
     def _should_skip_module_or_cls(self, pymodule: object) -> str | None:
         module_or_cls = "class" if inspect.isclass(pymodule) else "module"
-
-
 
         if typename(pymodule) in INSTR_MODULES_TO_SKIP:
             return f"Skipping {module_or_cls} as it is in INSTR_MODULES_TO_SKIP"
@@ -487,7 +488,11 @@ class Instrumentor:
         return None
 
     def _instrument_module(
-        self, pymodule: types.ModuleType | type, visited_file_paths: set, recurse_into_sub_module=True, depth=0
+        self,
+        pymodule: types.ModuleType | type,
+        visited_file_paths: set,
+        recurse_into_sub_module=True,
+        depth=0,
     ):
         target_name = pymodule.__name__
 
@@ -535,11 +540,13 @@ class Instrumentor:
             if isinstance(
                 attr, (types.FunctionType, types.BuiltinFunctionType, _instancemethod_t)
             ):
-                assert not (recurse_into_sub_module and is_API_instrumented(attr)), f"{attr} is already instrumented"
+                assert not (
+                    recurse_into_sub_module and is_API_instrumented(attr)
+                ), f"{attr} is already instrumented"
                 if not recurse_into_sub_module and is_API_instrumented(attr):
                     log_instrumentation_progress(
                         depth,
-                        f"Skipping function as it is already instrumented",
+                        "Skipping function as it is already instrumented",
                         attr,
                         attr_name,
                         pymodule,
@@ -548,6 +555,13 @@ class Instrumentor:
                 log_instrumentation_progress(
                     depth, "Instrumenting function", attr, attr_name, pymodule
                 )
+
+                if typename(attr) in funcs_to_be_replaced:
+                    get_instrumentation_logger_for_process().info(
+                        f"Replacing function {typename(attr)} with funcs_to_be_replaced[typename(attr)]"
+                    )
+                    attr = funcs_to_be_replaced[typename(attr)]
+
                 wrapped = wrapper(attr, is_bound_method=is_API_bound_method(attr))
                 try:
                     setattr(pymodule, attr_name, wrapped)
@@ -564,13 +578,15 @@ class Instrumentor:
                 count_wrapped += 1
             elif inspect.isclass(attr):
                 log_instrumentation_progress(
-                    depth, f"Recursing into class", attr, attr_name, pymodule
+                    depth, "Recursing into class", attr, attr_name, pymodule
                 )
                 count_wrapped += self._instrument_module(
                     attr, visited_file_paths, recurse_into_sub_module, depth + 1
                 )
             elif recurse_into_sub_module and isinstance(attr, types.ModuleType):
-                log_instrumentation_progress(depth, f"Recursing into module", attr, attr_name, pymodule)
+                log_instrumentation_progress(
+                    depth, "Recursing into module", attr, attr_name, pymodule
+                )
                 count_wrapped += self._instrument_module(
                     attr, visited_file_paths, recurse_into_sub_module, depth + 1
                 )
