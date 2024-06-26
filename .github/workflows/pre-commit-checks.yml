@@ -42,7 +42,7 @@ jobs:
 
       - name: Run ruff
         id: ruff
-        run: ruff .
+        run: ruff check .
 
       - name: Check if any checks failed
         if: failure()

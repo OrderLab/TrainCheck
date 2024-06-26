@@ -28,11 +28,11 @@ def unproxy_func(func):
     return wrapper
 
 
-setattr(ProcessGroup, "broadcast", unproxy_func(ProcessGroup.__dict__.get("broadcast"))) 
+setattr(ProcessGroup, "broadcast", unproxy_func(ProcessGroup.__dict__.get("broadcast")))
 setattr(ProcessGroup, "allreduce", unproxy_func(ProcessGroup.__dict__.get("allreduce")))
 setattr(ProcessGroup, "allgather", unproxy_func(ProcessGroup.__dict__.get("allgather")))
 
-setattr(tokenize, "_tokenize", unproxy_func(tokenize.__dict__.get("_tokenize"))) 
+setattr(tokenize, "_tokenize", unproxy_func(tokenize.__dict__.get("_tokenize")))
 if "BF16_Optimizer" in globals():
     BF16_Optimizer._flatten_dense_tensors_aligned = unproxy_func(
         BF16_Optimizer.__dict__.get("_flatten_dense_tensors_aligned")

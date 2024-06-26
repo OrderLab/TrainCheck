@@ -35,7 +35,7 @@ def typename(o):
         class_name = safe_getattr(o, "__name__", "")
     if not class_name:
         class_name = safe_getattr(o, "__class__", type(o)).__name__
-    assert isinstance(module, str) and isinstance(class_name, str), (
-        f"module and class_name should be str, but got {module} and {class_name} for {o}"
-    )
+    assert isinstance(module, str) and isinstance(
+        class_name, str
+    ), f"module and class_name should be str, but got {module} and {class_name} for {o}"
     return f"{module}.{class_name}" if module else class_name

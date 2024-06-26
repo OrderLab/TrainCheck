@@ -68,7 +68,9 @@ class json_dumper(metaclass=Singleton):
             "time": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
             "attributes": var_attributes,
-            "causal_func_call_ids": causal_func_call_ids if causal_func_call_ids is not None else [],
+            "causal_func_call_ids": (
+                causal_func_call_ids if causal_func_call_ids is not None else []
+            ),
         }
         json_data = json.dumps(data)
 

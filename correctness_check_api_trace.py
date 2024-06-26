@@ -12,7 +12,7 @@ def check_every_func_pre_has_post(trace: Trace):
         if row["type"] == TraceLineType.FUNC_CALL_PRE:
             try:
                 trace.get_func_post_call_idx(i)
-            except:
+            except Exception:
                 print(f"Function Pre {row} has no post call.")
                 return False
     return True
