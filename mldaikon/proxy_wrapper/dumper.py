@@ -1,24 +1,27 @@
 import inspect
 import json
 import time
+from typing import Any, Dict
 
 import torch
 
-from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.config import (
     attribute_black_list,
-    exclude_file_names,
-    dump_tensor_version,
     dump_tensor_statistics,
-    filter_by_tensor_version,
-    primitive_types,
+    dump_tensor_version,
+    exclude_file_names,
     meta_var_black_list,
+    primitive_types,
 )
 from mldaikon.proxy_wrapper.utils import print_debug
 
+# from mldaikon.instrumentor.tracer import meta_vars
+meta_vars: dict[str, Any] = {}
+
 
 class Singleton(type):
-    _instances = {}
+
+    _instances: Dict[type, type] = {}
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
@@ -44,6 +47,7 @@ class json_dumper(metaclass=Singleton):
         change_type,
         var_attributes,
         stack_trace=None,
+        causal_func_call_ids=None,
     ):
 
         if (
@@ -64,6 +68,7 @@ class json_dumper(metaclass=Singleton):
             "time": time.time(),
             "meta_vars": json.dumps(str(meta_vars)),
             "attributes": var_attributes,
+            "causal_func_call_ids": causal_func_call_ids if causal_func_call_ids is not None else [],
         }
         json_data = json.dumps(data)
 
@@ -111,7 +116,7 @@ def dump_attributes(obj):
 
     # if the object is a proxy object, get the original object
     obj_dict = obj.__dict__
-    if "is_proxied_obj" in obj_dict:
+    if "is_ml_daikon_proxied_obj" in obj_dict:
         obj = obj_dict["_obj"]._obj
 
     # currently only dump primitive types, tensors and nn.Module

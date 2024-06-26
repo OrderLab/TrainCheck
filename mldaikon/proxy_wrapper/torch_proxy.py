@@ -1,65 +1,19 @@
 import functools
 import tokenize as tokenize
-from typing import List, Tuple
 
-import torch
-import torch.distributed
 import torch.optim.adam as adam
 import torch.optim.sgd as sgd
-import torch.optim.optimizer as torch_optimizer
 
 try:
     from deepspeed.runtime.bf16_optimizer import BF16_Optimizer
 except ImportError:
     pass
 from torch._C._distributed_c10d import ProcessGroup
-from torch.optim.optimizer import (
-    _foreach_supported_types,
-    _get_foreach_kernels_supported_devices,
-    _get_fused_kernels_supported_devices,
-)
 
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 
 #################################################
 ###         Proxied Torch functions
-
-original_default_to_fused_or_foreach = torch_optimizer._default_to_fused_or_foreach
-
-
-
-def _default_to_fused_or_foreach(
-    params: List[torch.Tensor], differentiable: bool, use_fused: bool = False
-) -> Tuple[bool, bool]:
-    print("_default_to_fused_or_foreach_function wrapped")
-    if torch.jit.is_scripting() or differentiable:
-        return False, False
-
-    fused_supported_devices = _get_fused_kernels_supported_devices()
-    foreach_supported_devices = _get_foreach_kernels_supported_devices()
-    fused = use_fused and all(
-        p is None
-        or (
-            type(p) in _foreach_supported_types
-            or hasattr(p, "is_proxied_obj")
-            and p.device.type in fused_supported_devices
-            and torch.is_floating_point(p)
-        )
-        for p in params
-    )
-    foreach = not fused and all(
-        p is None
-        or (
-            type(p) in _foreach_supported_types
-            or hasattr(p, "is_proxied_obj")
-            and p.device.type in foreach_supported_devices
-        )
-        for p in params
-    )
-    return fused, foreach
-
-
-torch_optimizer._default_to_fused_or_foreach = _default_to_fused_or_foreach
 
 
 def unproxy_func(func):
@@ -90,7 +44,7 @@ if "BF16_Optimizer" in globals():
 
 
 def observe_proxy_var(var, phase):
-    if hasattr(var, "is_proxied_obj"):
+    if hasattr(var, "is_ml_daikon_proxied_obj"):
         var.dump_trace(phase)
     else:
         NotImplementedError(f"observe method not implemented for {var}")

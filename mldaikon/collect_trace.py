@@ -41,7 +41,7 @@ if __name__ == "__main__":
         "--modules_to_instrument",
         nargs="*",
         help="Modules to be instrumented",
-        default=config.MODULES_TO_INSTRUMENT,
+        default=config.INSTR_MODULES_TO_INSTRUMENT,
     )
     parser.add_argument(
         "--wrapped_modules",

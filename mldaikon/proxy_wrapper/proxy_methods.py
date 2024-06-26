@@ -24,7 +24,7 @@ def __add__(self, other):
     print_debug(
         "logger_proxy: " + f"Calling __add__ for object '{self.__class__.__name__}'"
     )
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     if isinstance(other, str):
         # If the other operand is a string, concatenate it with the string representation of the Proxy object
         return str(self._obj) + other
@@ -58,7 +58,7 @@ def __ror__(self, other):
     print_debug(
         "logger_proxy: " + f"Calling __ror__ for object '{self.__class__.__name__}'"
     )
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     if isinstance(other, bool):
         return other | bool(self._obj)
     return self._obj.__ror__(other)
@@ -69,7 +69,7 @@ def __radd__(self, other):
         "logger_proxy: " + f"Calling __radd__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     if isinstance(other, str):
         # If the other operand is a string, concatenate it with the string representation of the Proxy object
         return other + str(self._obj)
@@ -81,7 +81,7 @@ def __iadd__(self, other):
         "logger_proxy: " + f"Calling __iadd__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     self._obj.__iadd__(other)
     return self
 
@@ -91,7 +91,7 @@ def __sub__(self, other):
         "logger_proxy: " + f"Calling __sub__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     return self._obj - other
 
 
@@ -100,7 +100,7 @@ def __mul__(self, other):
         "logger_proxy: " + f"Calling __mul__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     return self._obj * other
 
 
@@ -109,7 +109,7 @@ def __rmul__(self, other):
         "logger_proxy: " + f"Calling __rmul__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     return other * self._obj
 
 
@@ -118,7 +118,7 @@ def __truediv__(self, other):
         "logger_proxy: " + f"Calling __truediv__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     return self._obj / other
 
 
@@ -128,7 +128,7 @@ def __floatdiv__(self, other):
         + f"Calling __floatdiv__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     return self._obj // other
 
 
@@ -137,7 +137,7 @@ def __intdiv__(self, other):
         "logger_proxy: " + f"Calling __intdiv__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     return self._obj // other
 
 
@@ -147,7 +147,7 @@ def __rfloordiv__(self, other):
         + f"Calling __ifloordiv__ for object '{self.__class__.__name__}'"
     )
     # Unwrap other if it's a Proxy
-    other = other._obj if hasattr(other, "is_proxied_obj") else other
+    other = other._obj if hasattr(other, "is_ml_daikon_proxied_obj") else other
     return other // self._obj
 
 

@@ -1,7 +1,11 @@
 import polars as pl
 
 TMP_FILE_PREFIX = "_ml_daikon_"
-MODULES_TO_INSTRUMENT = ["torch"]
+INSTR_MODULES_TO_INSTRUMENT = ["torch"]
+INSTR_MODULES_TO_SKIP = [
+    "torch.fx",
+    "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
+]
 INCLUDED_WRAP_LIST = ["Net", "DataParallel"]  # FIXME: Net & DataParallel seem ad-hoc
 LIVENESS_OVERLAP_THRESHOLD = 0.01  # 1%
 PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be the targets of invariants, but can be precondition or postcondition)
@@ -21,7 +25,6 @@ SKIP_INIT_VALUE_TYPES_KEY_WORDS = [  ## Types that should be skipped for initial
 ]
 
 NOT_USE_AS_CLAUSE_FIELDS = ["func_call_id", "process_id", "thread_id", "time", "type"]
-
 
 VAR_ATTR_PREFIX = "attributes."
 

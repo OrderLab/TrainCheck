@@ -1,7 +1,7 @@
 import ast
 import logging
 
-from mldaikon.config.config import MODULES_TO_INSTRUMENT
+from mldaikon.config.config import INSTR_MODULES_TO_INSTRUMENT
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +75,9 @@ def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
 
     if modules_to_instrument is None:
         logger.warning(
-            f"modules_to_instrument not provided. Using default value CONSTANTS.MODULES_TO_INSTRUMENT: {modules_to_instrument}."
+            f"modules_to_instrument not provided. Using default value CONSTANTS.INSTR_MODULES_TO_INSTRUMENT: {modules_to_instrument}."
         )
-        modules_to_instrument = MODULES_TO_INSTRUMENT
+        modules_to_instrument = INSTR_MODULES_TO_INSTRUMENT
 
     visitor = InsertTracerVisitor(modules_to_instrument)
     root = visitor.visit(root)
@@ -164,7 +164,7 @@ if __name__ == "__main__":
         "--modules_to_instrument",
         nargs="*",
         help="Modules to be instrumented",
-        default=MODULES_TO_INSTRUMENT,
+        default=INSTR_MODULES_TO_INSTRUMENT,
     )
     parser.add_argument(
         "--disable_proxy_class",
