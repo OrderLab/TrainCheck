@@ -284,7 +284,7 @@ lr = 0.01
 optimizer_transfer = optim.Adam(model_transfer.module._fc.parameters(), lr=lr)
 
 ## ML-DAIKON Instrumentation
-observer = tracer.StateVarObserver(model_transfer)
+observer = tracer.StatelessVarObserver(model_transfer)
 
 
 ## ML-DAIKON Instrumentation

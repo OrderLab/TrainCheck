@@ -16,7 +16,7 @@ from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
 from mldaikon.utils import typename
 
-def can_func_be_bound_method(trace: Trace, func_name: str, var_type: None, attr_name: None) -> bool:
+def can_func_be_bound_method(trace: Trace, func_name: str, var_type: str|None=None, attr_name: str|None=None) -> bool:
     """Checks if during each invocaton of the function, there are variables that are not changed
     but are causally related to the function. If such variables exist, it means that the function
     's negative examples can be found by looking at the variables that are not changed. Otherwise,
@@ -207,7 +207,7 @@ class APIContainRelation(Relation):
                     # who didn't change as negative examples
                     # NOTE: this is only implemented if the causally-related variables exist for all calls of this parent function
                     # if not, we fall back to using the parent function call as a negative example
-                    pass
+                    assert isinstance(event, VarChangeEvent)                
                     not_changed_var_ids = trace.get_vars_not_changed_but_causally_related(idx, event.var_id.var_type, event.attr_name)
                     for var_id in not_changed_var_ids:
                         if var_id not in touched[high_level_event_type]:

@@ -28,10 +28,11 @@ def unproxy_func(func):
     return wrapper
 
 
-ProcessGroup.broadcast = unproxy_func(ProcessGroup.__dict__.get("broadcast"))
-ProcessGroup.allreduce = unproxy_func(ProcessGroup.__dict__.get("allreduce"))
-ProcessGroup.allgather = unproxy_func(ProcessGroup.__dict__.get("allgather"))
-tokenize._tokenize = unproxy_func(tokenize.__dict__.get("_tokenize"))  # type: ignore
+setattr(ProcessGroup, "broadcast", unproxy_func(ProcessGroup.__dict__.get("broadcast"))) 
+setattr(ProcessGroup, "allreduce", unproxy_func(ProcessGroup.__dict__.get("allreduce")))
+setattr(ProcessGroup, "allgather", unproxy_func(ProcessGroup.__dict__.get("allgather")))
+
+setattr(tokenize, "_tokenize", unproxy_func(tokenize.__dict__.get("_tokenize"))) 
 if "BF16_Optimizer" in globals():
     BF16_Optimizer._flatten_dense_tensors_aligned = unproxy_func(
         BF16_Optimizer.__dict__.get("_flatten_dense_tensors_aligned")
@@ -78,5 +79,5 @@ def add_observer_to_func(func):
 
 #################################################
 
-adam.adam = add_observer_to_func(adam.__dict__.get("adam"))
-sgd.sgd = add_observer_to_func(sgd.__dict__.get("sgd"))
+setattr(adam, "adam", add_observer_to_func(adam.__dict__.get("adam")))
+setattr(sgd, "sgd", add_observer_to_func(sgd.__dict__.get("sgd")))

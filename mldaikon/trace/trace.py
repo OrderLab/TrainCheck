@@ -225,7 +225,7 @@ class Trace:
                 related_vars.append(var_id)
         return related_vars
 
-    def get_vars_not_changed_but_causally_related(self, func_call_id, var_type: None, attr_name: None) -> list[VarInstId]:
+    def get_vars_not_changed_but_causally_related(self, func_call_id: str, var_type: str|None=None, attr_name: str|None=None) -> list[VarInstId]:
         related_vars = self.get_causally_related_vars(func_call_id)
         changed_vars = self.query_var_changes_within_func_call(func_call_id)
         
@@ -409,7 +409,7 @@ class Trace:
         ]
 
     def query_var_changes_within_func_call(
-        self, func_call_id: int
+        self, func_call_id: str
     ) -> list[VarChangeEvent]:
         func_call_pre_event = self.events.filter(
             pl.col("type") == TraceLineType.FUNC_CALL_PRE,
