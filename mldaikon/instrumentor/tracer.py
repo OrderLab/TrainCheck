@@ -120,7 +120,9 @@ def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
 
-def global_wrapper(original_function, is_bound_method, *args, **kwargs):
+def global_wrapper(
+    original_function, is_bound_method, scan_proxy_in_args, *args, **kwargs
+):
     import uuid
 
     func_call_id = uuid.uuid4().hex
@@ -174,37 +176,44 @@ def global_wrapper(original_function, is_bound_method, *args, **kwargs):
             # args = unproxy_arg(args[0])
             kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
 
-        proxy_in_args = []
+        if scan_proxy_in_args:
+            proxy_in_args = []
 
-        def find_proxy_in_args(args):
-            for i, arg in enumerate(args):
-                if isinstance(arg, Proxy):
-                    print(
-                        f"Found proxy {arg.__dict__['var_name']} in function {func_name}"
-                    )
-                    proxy_in_args.append(arg)
-                elif type(arg) in [list, tuple]:
-                    find_proxy_in_args(arg)
-                elif isinstance(arg, types.GeneratorType) and not isinstance(
-                    arg, tuple
-                ):
-                    arg_list = list(arg)
-                    args[i] = iter(arg_list)
-                    find_proxy_in_args(arg_list)
+            def find_proxy_in_args(args):
+                for i, arg in enumerate(args):
+                    if isinstance(arg, Proxy):
+                        print(
+                            f"Found proxy {arg.__dict__['var_name']} in function {func_name}"
+                        )
+                        proxy_in_args.append(arg)
+                    elif type(arg) in [list, tuple]:
+                        find_proxy_in_args(arg)
+                    elif isinstance(arg, types.GeneratorType) and not isinstance(
+                        arg, tuple
+                    ):
+                        arg_list = list(arg)
+                        args[i] = iter(arg_list)
+                        find_proxy_in_args(arg_list)
 
-        args = list(args)
-        find_proxy_in_args(args)
-        args = tuple(args)
+            args = list(args)
+            find_proxy_in_args(args)
+            args = tuple(args)
 
-        if proxy_in_args:
-            # if this method is a bound method (method belonging to a specific object), the first argument is the class instance, then document the specific instance
-            if is_bound_method:
-                for proxy in proxy_in_args:
-                    if proxy.__dict__["var_name"] not in Proxy.var_causal_func_call_ids:
-                        Proxy.var_causal_func_call_ids[proxy.__dict__["var_name"]] = []
-                    Proxy.var_causal_func_call_ids[proxy.__dict__["var_name"]].append(
-                        func_call_id
-                    )
+            if proxy_in_args:
+                # if this method is a bound method (method belonging to a specific object), the first argument is the class instance, then document the specific instance
+                if is_bound_method:
+                    for proxy in proxy_in_args:
+                        if (
+                            proxy.__dict__["var_name"]
+                            not in Proxy.var_causal_func_call_ids
+                        ):
+                            Proxy.var_causal_func_call_ids[
+                                proxy.__dict__["var_name"]
+                            ] = []
+                        Proxy.var_causal_func_call_ids[
+                            proxy.__dict__["var_name"]
+                        ].append(func_call_id)
+
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
@@ -244,10 +253,12 @@ def global_wrapper(original_function, is_bound_method, *args, **kwargs):
     return result
 
 
-def wrapper(original_function, is_bound_method):
+def wrapper(original_function, is_bound_method, scan_proxy_in_args):
     @functools.wraps(original_function)
     def wrapped(*args, **kwargs):
-        return global_wrapper(original_function, is_bound_method, *args, **kwargs)
+        return global_wrapper(
+            original_function, is_bound_method, scan_proxy_in_args, *args, **kwargs
+        )
 
     wrapped._ml_daikon_original_function = original_function
     wrapped._ml_daikon_instrumented = True
@@ -384,18 +395,19 @@ class Instrumentor:
         self.instrumented_count = 0
         self.target = target
 
-    def instrument(self):
+    def instrument(self, scan_proxy_in_args: bool) -> int:
         if not self.instrumenting:
             return 0
 
-        visited_file_paths = set()
+        visited_file_paths: set[str] = set()
 
         first_pass_instrumented_count = 0
         get_instrumentation_logger_for_process().info(
             "First pass: Recursive scan of the module"
         )
+        assert isinstance(self.target, (types.ModuleType, type)), "Invalid target"
         first_pass_instrumented_count += self._instrument_module(
-            self.target, visited_file_paths
+            self.target, visited_file_paths, True, scan_proxy_in_args, 0
         )
         get_instrumentation_logger_for_process().info(
             "Files scanned %s", "\n".join(sorted(visited_file_paths))
@@ -425,6 +437,8 @@ class Instrumentor:
                 pymodule,
                 visited_file_paths,
                 False,
+                scan_proxy_in_args,
+                0,
             )
         get_instrumentation_logger_for_process().info(
             "Second pass instrumented %d functions", second_pass_instrumented_count
@@ -491,8 +505,9 @@ class Instrumentor:
         self,
         pymodule: types.ModuleType | type,
         visited_file_paths: set,
-        recurse_into_sub_module=True,
-        depth=0,
+        recurse_into_sub_module: bool,
+        scan_proxy_in_args: bool,
+        depth,
     ):
         target_name = pymodule.__name__
 
@@ -562,7 +577,11 @@ class Instrumentor:
                     )
                     attr = funcs_to_be_replaced[typename(attr)]
 
-                wrapped = wrapper(attr, is_bound_method=is_API_bound_method(attr))
+                wrapped = wrapper(
+                    attr,
+                    is_bound_method=is_API_bound_method(attr),
+                    scan_proxy_in_args=scan_proxy_in_args,
+                )
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
@@ -581,14 +600,22 @@ class Instrumentor:
                     depth, "Recursing into class", attr, attr_name, pymodule
                 )
                 count_wrapped += self._instrument_module(
-                    attr, visited_file_paths, recurse_into_sub_module, depth + 1
+                    attr,
+                    visited_file_paths,
+                    recurse_into_sub_module,
+                    scan_proxy_in_args,
+                    depth + 1,
                 )
             elif recurse_into_sub_module and isinstance(attr, types.ModuleType):
                 log_instrumentation_progress(
                     depth, "Recursing into module", attr, attr_name, pymodule
                 )
                 count_wrapped += self._instrument_module(
-                    attr, visited_file_paths, recurse_into_sub_module, depth + 1
+                    attr,
+                    visited_file_paths,
+                    recurse_into_sub_module,
+                    scan_proxy_in_args,
+                    depth + 1,
                 )
             else:
                 log_instrumentation_progress(
@@ -737,7 +764,3 @@ class StatelessVarObserver:
                     "time": timestamp,
                 }
             )
-
-
-if __name__ == "__main__":
-    Instrumentor(torch).instrument()

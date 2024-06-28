@@ -11,7 +11,7 @@ Methods for reading and instrumenting source files.
 
 
 class InsertTracerVisitor(ast.NodeTransformer):
-    def __init__(self, modules_to_instrument: list[str]):
+    def __init__(self, modules_to_instrument: list[str], scan_proxy_in_args: bool):
         super().__init__()
         if not modules_to_instrument:
             logger.warning(
@@ -20,10 +20,11 @@ class InsertTracerVisitor(ast.NodeTransformer):
             self.modules_to_instrument = []
         else:
             self.modules_to_instrument = modules_to_instrument
+        self.scan_proxy_in_args = scan_proxy_in_args
 
-    def get_instrument_node(self, module_name):
+    def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}).instrument()"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}).instrument(scan_proxy_in_args={self.scan_proxy_in_args})"
         ).body
 
     def visit_Import(self, node):
@@ -64,7 +65,9 @@ class InsertTracerVisitor(ast.NodeTransformer):
         return [node] + instrument_nodes
 
 
-def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
+def instrument_source(
+    source: str, modules_to_instrument: list[str], scan_proxy_in_args: bool
+) -> str:
     """
     Instruments the given source code and returns the instrumented source code.
 
@@ -79,7 +82,7 @@ def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
         )
         modules_to_instrument = INSTR_MODULES_TO_INSTRUMENT
 
-    visitor = InsertTracerVisitor(modules_to_instrument)
+    visitor = InsertTracerVisitor(modules_to_instrument, scan_proxy_in_args)
     root = visitor.visit(root)
     source = ast.unparse(root)
 
@@ -87,7 +90,10 @@ def instrument_source(source: str, modules_to_instrument: list[str]) -> str:
 
 
 def instrument_file(
-    path: str, modules_to_instrument: list[str], disable_proxy_class
+    path: str,
+    modules_to_instrument: list[str],
+    disable_proxy_class: bool,
+    scan_proxy_in_args: bool,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -97,7 +103,9 @@ def instrument_file(
         source = file.read()
 
     # instrument APIs
-    instrumented_source = instrument_source(source, modules_to_instrument)
+    instrumented_source = instrument_source(
+        source, modules_to_instrument, scan_proxy_in_args
+    )
 
     logging_code = """
 import os
@@ -138,49 +146,3 @@ for cls in get_all_subclasses(torch.nn.Module):
     )
 
     return instrumented_source
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="Source File Instrumentor for ML Pipelines in Python"
-    )
-    parser.add_argument(
-        "-p",
-        "--path",
-        type=str,
-        required=True,
-        help="Path to the source file to be instrumented",
-    )
-    parser.add_argument(
-        "-d",
-        "--debug",
-        action="store_true",
-        help="Print debug logs",
-    )
-    parser.add_argument(
-        "-t",
-        "--modules_to_instrument",
-        nargs="*",
-        help="Modules to be instrumented",
-        default=INSTR_MODULES_TO_INSTRUMENT,
-    )
-    parser.add_argument(
-        "--disable_proxy_class",
-        action="store_true",
-        help="Disable the proxy class",
-    )
-
-    args = parser.parse_args()
-
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    # instrument the source file
-    instrumented_source = instrument_file(
-        args.path, args.modules_to_instrument, args.disable_proxy_class
-    )[0]
-    print(instrumented_source)
