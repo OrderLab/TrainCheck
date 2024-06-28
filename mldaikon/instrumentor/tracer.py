@@ -146,74 +146,55 @@ def global_wrapper(
         "function": func_name,
         "is_bound_method": is_bound_method,
         "obj_id": None if not is_bound_method else id(args[0]),
+        "proxy_obj_names": [],
     }
+
+    C_level_call = is_c_level_function(original_function)
+    if C_level_call:
+
+        def unproxy_arg(arg):
+
+            if hasattr(arg, "is_ml_daikon_proxied_obj"):
+                return unproxy_arg(arg._obj)
+            elif type(arg) in [list]:
+                return [unproxy_arg(element) for element in arg]
+            elif type(arg) in [tuple]:
+                return tuple(unproxy_arg(element) for element in arg)
+            else:
+                return arg
+
+        args = [unproxy_arg(arg) for arg in args]
+        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+
+    if scan_proxy_in_args:
+        proxy_in_args = []
+
+        def find_proxy_in_args(args):
+            for i, arg in enumerate(args):
+                if isinstance(arg, Proxy):
+                    print(
+                        f"Found proxy {arg.__dict__['var_name']} in function {func_name}"
+                    )
+                    proxy_in_args.append(arg)
+                elif type(arg) in [list, tuple]:
+                    find_proxy_in_args(arg)
+                elif isinstance(arg, types.GeneratorType) and not isinstance(
+                    arg, tuple
+                ):
+                    arg_list = list(arg)
+                    args[i] = iter(arg_list)
+                    find_proxy_in_args(arg_list)
+
+        args = list(args)
+        find_proxy_in_args(args)
+        args = tuple(args)
+
+        if proxy_in_args:
+            for proxy in proxy_in_args:
+                pre_record["proxy_obj_names"].append(proxy.__dict__["var_name"])
+
     dump_trace_API(pre_record)
     try:
-        ### Safe but inefficient: use inspect.getsource to check if the function is a C level function
-        # C_level_call = False
-        # try:
-        #     # check if the original function is a C level function
-        #     inspect.getsource(original_function)
-        # except Exception as e:
-        #     C_level_call = True
-        C_level_call = is_c_level_function(original_function)
-        # Not Safe for wrapped functions: check if the original function is a builtin_function_or_method
-        # if isinstance(original_function, types.BuiltinFunctionType):
-        if C_level_call:
-            # print(f"Wrapping {original_function}")
-            def unproxy_arg(arg):
-
-                if hasattr(arg, "is_ml_daikon_proxied_obj"):
-                    return unproxy_arg(arg._obj)
-                elif type(arg) in [list]:
-                    return [unproxy_arg(element) for element in arg]
-                elif type(arg) in [tuple]:
-                    return tuple(unproxy_arg(element) for element in arg)
-                else:
-                    return arg
-
-            args = [unproxy_arg(arg) for arg in args]
-            # args = unproxy_arg(args[0])
-            kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
-
-        if scan_proxy_in_args:
-            proxy_in_args = []
-
-            def find_proxy_in_args(args):
-                for i, arg in enumerate(args):
-                    if isinstance(arg, Proxy):
-                        print(
-                            f"Found proxy {arg.__dict__['var_name']} in function {func_name}"
-                        )
-                        proxy_in_args.append(arg)
-                    elif type(arg) in [list, tuple]:
-                        find_proxy_in_args(arg)
-                    elif isinstance(arg, types.GeneratorType) and not isinstance(
-                        arg, tuple
-                    ):
-                        arg_list = list(arg)
-                        args[i] = iter(arg_list)
-                        find_proxy_in_args(arg_list)
-
-            args = list(args)
-            find_proxy_in_args(args)
-            args = tuple(args)
-
-            if proxy_in_args:
-                # if this method is a bound method (method belonging to a specific object), the first argument is the class instance, then document the specific instance
-                if is_bound_method:
-                    for proxy in proxy_in_args:
-                        if (
-                            proxy.__dict__["var_name"]
-                            not in Proxy.var_causal_func_call_ids
-                        ):
-                            Proxy.var_causal_func_call_ids[
-                                proxy.__dict__["var_name"]
-                            ] = []
-                        Proxy.var_causal_func_call_ids[
-                            proxy.__dict__["var_name"]
-                        ].append(func_call_id)
-
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
@@ -236,19 +217,12 @@ def global_wrapper(
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
-    dump_trace_API(
-        {
-            "func_call_id": func_call_id,
-            "thread_id": thread_id,
-            "process_id": process_id,
-            "meta_vars": meta_vars,
-            "type": TraceLineType.FUNC_CALL_POST,
-            "function": func_name,
-            "is_bound_method": is_bound_method,
-            "obj_id": None if not is_bound_method else id(args[0]),
-        },
-        logging.INFO,
-    )
+
+    post_record = (
+        pre_record.copy()
+    )  # copy the pre_record (though we don't actually need to copy anything)
+    post_record["type"] = TraceLineType.FUNC_CALL_POST
+    dump_trace_API(post_record, logging.INFO)
 
     return result
 
