@@ -83,8 +83,7 @@ def get_trace_VAR_logger_for_process():
 def dump_trace_API(trace: dict, level=logging.INFO):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     logger = get_trace_API_logger_for_process()
-    if "time" not in trace:
-        trace["time"] = datetime.datetime.now().timestamp()
+    trace["time"] = datetime.datetime.now().timestamp()
     logger.log(level, json.dumps(trace))
 
 
@@ -147,7 +146,7 @@ def global_wrapper(
         "is_bound_method": is_bound_method,
         "obj_id": None if not is_bound_method else id(args[0]),
         "proxy_obj_names": [
-            ""
+            ["", ""]
         ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
     }
 
@@ -193,7 +192,9 @@ def global_wrapper(
 
         if proxy_in_args:
             for proxy in proxy_in_args:
-                pre_record["proxy_obj_names"].append(proxy.__dict__["var_name"])
+                pre_record["proxy_obj_names"].append(
+                    [proxy.__dict__["var_name"], type(proxy._obj).__name__]
+                )
 
     dump_trace_API(pre_record)
     try:

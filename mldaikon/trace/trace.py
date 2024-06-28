@@ -182,7 +182,7 @@ class Trace:
         ), f"Boundness information is not consistent for {func_name}"
         return is_bound_method[0]
 
-    def get_causally_related_vars(self, func_call_id) -> list[VarInstId]:
+    def get_causally_related_vars(self, func_call_id) -> set[VarInstId]:
         """Find all variables that are causally related to a function call."""
 
         # get the pre-call event of the function call
@@ -190,8 +190,6 @@ class Trace:
             pl.col("type") == TraceLineType.FUNC_CALL_PRE,
             pl.col("func_call_id") == func_call_id,
         ).row(0, named=True)
-
-        func_call_time = func_call_pre_event["time"]
 
         # get the process id of the function call
         assert func_call_pre_event[
@@ -208,6 +206,8 @@ class Trace:
 
         process_id = func_call_pre_event["process_id"]
         thread_id = func_call_pre_event["thread_id"]
+
+        causally_related_var_ids: set[VarInstId] = set()
         for related_func_call_pre_event in related_func_call_pre_events.rows(
             named=True
         ):
@@ -218,38 +218,14 @@ class Trace:
             assert (
                 related_func_call_pre_event["thread_id"] == thread_id
             ), "Related function call is on a different thread."
+            for var_name, var_type in related_func_call_pre_event["proxy_obj_names"]:
+                if var_name == "" and var_type == "":
+                    continue
+                causally_related_var_ids.add(VarInstId(process_id, var_name, var_type))
 
-        # find all variables that are related to the function calls
-        related_func_call_ids = related_func_call_pre_events["func_call_id"].to_list()
+        return causally_related_var_ids
 
-        # take a look at each var's last trace before the function call time to determine if it is causally related
-        related_vars = []
-        var_ids = self.get_var_ids()
-        for var_id in var_ids:
-            trace_before_func_call = self.events.filter(
-                pl.col("process_id") == var_id.process_id,
-                pl.col("var_name") == var_id.var_name,
-                pl.col("var_type") == var_id.var_type,
-                pl.col("time") < func_call_time,
-            )
-            if len(trace_before_func_call) == 0:
-                continue
-            last_trace = trace_before_func_call.row(-1, named=True)
-            if (
-                len(
-                    [
-                        related_func_call_id
-                        for related_func_call_id in related_func_call_ids
-                        if related_func_call_id in last_trace["causal_func_call_ids"]
-                    ]
-                )
-                > 0
-            ):
-                # the variable is causally related to the function call
-                related_vars.append(var_id)
-        return related_vars
-
-    def get_vars_not_changed_but_causally_related(
+    def get_var_ids_unchanged_but_causally_related(
         self,
         func_call_id: str,
         var_type: str | None = None,
@@ -260,9 +236,9 @@ class Trace:
 
         related_vars_not_changed = []
         if var_type is not None:
-            related_vars = [
+            related_vars = {
                 var_id for var_id in related_vars if var_id.var_type == var_type
-            ]
+            }
             changed_vars = [
                 var_change
                 for var_change in changed_vars
