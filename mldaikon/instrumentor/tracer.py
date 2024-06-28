@@ -146,7 +146,9 @@ def global_wrapper(
         "function": func_name,
         "is_bound_method": is_bound_method,
         "obj_id": None if not is_bound_method else id(args[0]),
-        "proxy_obj_names": [],
+        "proxy_obj_names": [
+            ""
+        ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
     }
 
     C_level_call = is_c_level_function(original_function)
