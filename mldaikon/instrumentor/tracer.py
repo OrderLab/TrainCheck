@@ -318,7 +318,7 @@ def is_API_bound_method(obj: Callable) -> bool:
     except (
         ValueError
     ) as e:  # inspect.signature raises ValueError if no signature is found, TypeError if obj is not a callable
-        logger.error(f"Error in inspect.signature: {e}")
+        logger.debug(f"Error in inspect.signature: {e}")
         return False
     param_names = list(signature.parameters.keys())
     return len(param_names) > 0 and "self" == param_names[0]

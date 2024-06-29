@@ -1,0 +1,61 @@
+name: Instrumentor Benchmark
+on: 
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'tests/bench_instrumentor/**'
+      - 'mldaikon/instrumentor/**'
+      - 'mldaikon/proxy_wrapper/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'tests/bench_instrumentor/**'
+      - 'mldaikon/instrumentor/**'
+      - 'mldaikon/proxy_wrapper/**'
+    
+
+permissions:
+  contents: write
+  deployments: write
+
+jobs:
+  benchmark:
+    runs-on: self-hosted
+
+    name: Run pytest-benchmark benchmark example
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+    
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r tests/bench_instrumentor/workloads/requirements.txt
+          pip install -r tests/bench_instrumentor/workloads/requirements-torch-cuda121.txt
+          pip install -e .
+
+      - name: Run benchmark
+        run: |
+          cd tests/bench_instrumentor
+          pytest bench.py --benchmark-json output.json
+
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: Python Benchmark with pytest-benchmark
+          tool: 'pytest'
+          output-file-path: tests/bench_instrumentor/output.json
+          # Use personal access token instead of GITHUB_TOKEN due to https://github.community/t/github-action-not-triggering-gh-pages-upon-push/16096
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-pages-branch: gh-pages
+          auto-push: true
+          comment-always: true # Comment the benchmark result on every run
+          # Show alert with commit comment on detecting possible performance regression
+          alert-threshold: '200%'
+          comment-on-alert: true
+          fail-on-alert: true
+          alert-comment-cc-users: '@ktrz'
