@@ -123,6 +123,6 @@ if __name__ == "__main__":
 
     if return_code != 0:
         logging.error(f"Program exited with code {return_code}, skipping analysis.")
-        exit()
+        exit(return_code)
 
     logger.info("Trace collection done.")

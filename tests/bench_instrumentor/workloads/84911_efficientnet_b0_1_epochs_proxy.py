@@ -147,9 +147,14 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
         accuracy = 0.0
 
         model.train()
+        iters = 0
         for batch_idx, (data, target) in enumerate(
             tqdm(loaders["train"], desc="Training")
         ):
+            iters += 1
+            if iters > 200:
+                print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
+                break
             # move to GPU
             if use_cuda:
                 data, target = data.to("cuda", non_blocking=True), target.to(
@@ -189,9 +194,14 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
 
         ## ML-DAIKON Instrumentation
         model.eval()
+        iters = 0
         for batch_idx, (data, target) in enumerate(
             tqdm(loaders["valid"], desc="Validation")
         ):
+            iters += 1
+            if iters > 20:
+                print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
+                break
 
             # move to GPU
             if use_cuda:

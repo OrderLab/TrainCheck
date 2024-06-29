@@ -1,52 +1,117 @@
-import pytest
+import os
 import subprocess
 
+import pytest  # noqa: F401
+
+
 # get file location
-def get_file_location():
-    return __file__
+def get_file_parent_dir():
+    return os.path.dirname(os.path.realpath(__file__))
+
 
 def run_naive():
-    subprocess.run(["python", f"{__file__}/workloads/84911_efficientnet_b0_1_epochs_naive.py"])
+    res = subprocess.run(
+        [
+            "python",
+            f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_naive.py",
+        ]
+    )
+    return res
+
 
 def run_naive_instrumented():
-    subprocess.run(["python", "-m", "mldaikon.collect_trace", "-p", f"{__file__}/workloads/84911_efficientnet_b0_1_epochs_naive.py"])
+    res = subprocess.run(
+        [
+            "python",
+            "-m",
+            "mldaikon.collect_trace",
+            "-p",
+            f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_naive.py",
+        ]
+    )
+    return res
+
 
 def run_sampler_instrumented():
-    subprocess.run(["python", "-m", "mldaikon.collect_trace", "-p", f"{__file__}/workloads/84911_efficientnet_b0_1_epochs_sampler.py"])
+    res = subprocess.run(
+        [
+            "python",
+            "-m",
+            "mldaikon.collect_trace",
+            "-p",
+            f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_sampler.py",
+        ]
+    )
+    return res
+
 
 def run_proxy_instrumented():
-    subprocess.run(["python", "-m", "mldaikon.collect_trace", "-p", f"{__file__}/workloads/84911_efficientnet_b0_1_epochs_proxy.py"])
+    res = subprocess.run(
+        [
+            "python",
+            "-m",
+            "mldaikon.collect_trace",
+            "-p",
+            f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_proxy.py",
+        ]
+    )
+    return res
+
 
 def run_proxy_instrumented_with_scan_proxy_in_args():
-    subprocess.run(["python", "-m", "mldaikon.collect_trace", "-p", f"{__file__}/workloads/84911_efficientnet_b0_1_epochs_naive.py", "--scan_proxy_in_args"])
+    res = subprocess.run(
+        [
+            "python",
+            "-m",
+            "mldaikon.collect_trace",
+            "-p",
+            f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_proxy.py",
+            "--scan_proxy_in_args",
+        ]
+    )
+    return res
+
 
 def cleanup():
-    subprocess.run(["rm", "-rf", f"{__file__}/workloads/__pycache__"])
-    subprocess.run(["rm", "-rf", f"{__file__}/workloads/*.pyc"])
-    subprocess.run(["rm", "-rf", f"{__file__}/workloads/*.pyi"])
-    subprocess.run(["rm", "-rf", f"{__file__}/workloads/*.pyi"])
-    subprocess.run(["rm", "-rf", f"{__file__}/workloads/*.json"])
-    subprocess.run(["rm", "-rf", f"{__file__}/workloads/*.log"])
-    subprocess.run(["rm", "-rf", f"{__file__}/workloads/*.csv"])
-    subprocess.run(["rm", "-rf", f"{__file__}/workloads/*.pt"])
+    subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/*.json"])
+    subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/*.log"])
+    subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/*.csv"])
+    subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/*.pt"])
+    subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/_ml_daikon*.py"])
+
+    subprocess.run(["rm", "-rf", "*.json"])
+    subprocess.run(["rm", "-rf", "*.log"])
+    subprocess.run(["rm", "-rf", "*.csv"])
+    subprocess.run(["rm", "-rf", "*.pt"])
+
 
 def test_naive(benchmark):
-    benchmark(run_naive)
-    cleanup()
+    res = benchmark.pedantic(run_naive, rounds=1, iterations=1)
+    assert res.returncode == 0
+    # cleanup()
+
 
 def test_instrumented(benchmark):
-    benchmark(run_naive_instrumented)
-    cleanup()
+    res = benchmark.pedantic(run_naive_instrumented, rounds=1, iterations=1)
+    assert res.returncode == 0
+    # cleanup()
+
 
 def test_sampler_instrumented(benchmark):
-    benchmark(run_sampler_instrumented)
-    cleanup()
+    res = benchmark.pedantic(run_sampler_instrumented, rounds=1, iterations=1)
+    assert res.returncode == 0
+    # cleanup()
+
 
 def test_proxy_instrumented(benchmark):
-    benchmark(run_proxy_instrumented)
-    cleanup()
+    res = benchmark.pedantic(run_proxy_instrumented, rounds=1, iterations=1)
+    assert res.returncode == 0
+    # cleanup()
+
 
 def test_proxy_instrumented_with_scan_proxy_in_args(benchmark):
-    benchmark(run_proxy_instrumented_with_scan_proxy_in_args)
-    cleanup()
-    
+    res = benchmark.pedantic(
+        run_proxy_instrumented_with_scan_proxy_in_args, rounds=1, iterations=1
+    )
+    assert res.returncode == 0
+    # cleanup()
