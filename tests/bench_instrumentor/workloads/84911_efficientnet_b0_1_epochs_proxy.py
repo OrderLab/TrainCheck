@@ -152,7 +152,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["train"], desc="Training")
         ):
             iters += 1
-            if iters > 200:
+            if iters > 5:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -179,7 +179,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     grad_norm += param.grad.norm(2).item()
-                    print("norm of ", name, " is ", param.grad.norm(2).item())
             # writer.add_scalar('Grad Norm (L2) /train', grad_norm**0.5, epoch)
             print(f"Epoch: {epoch}, Batch: {batch_idx}, Grad Norm: {grad_norm**0.5}")
 
@@ -199,7 +198,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["valid"], desc="Validation")
         ):
             iters += 1
-            if iters > 20:
+            if iters > 5:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
 
@@ -262,11 +261,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
 
         with open(os.path.join(save_path, f"case_{epoch}_res.json"), "w") as fp:
             json.dump(res, fp)
-        import pandas as pd
-
-        df = pd.DataFrame(confusion_matrix.numpy())
-        df.to_csv(os.path.join(save_path, f"case_{epoch}_confusion_matrix.csv"))
-        del df
 
     return model, res
 

@@ -1,6 +1,8 @@
-name: Python Example with pytest
+name: Instrumentor Benchmark
 on: 
   push:
+    branches:
+      - main
     paths:
       - '.github/workflows/**'
       - 'tests/bench_instrumentor/**'
