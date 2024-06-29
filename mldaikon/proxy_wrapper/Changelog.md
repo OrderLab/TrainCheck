@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.3.5] - 2024-06-29
+
+### Added
+
+- `dump_iter` switch to determine whether or not to dump the variable states from iterator (this would usually generated from e.g. enumerate(self._blocks) function)
+
+### Fixed
+
+- get rid of rubbish trace info due to flawed dumping logic handling
+
 ## [0.3.4] - 2024-06-19
 
 support `._version` based var update filtering, disable `__call__` value dumping in default
