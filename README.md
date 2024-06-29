@@ -2,6 +2,10 @@
 
 [![Pre-commit checks](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml)
 
+[![Instrumentor Benchmark](https://github.com/OrderLab/ml-daikon/actions/workflows/bench-instr-e2e.yml/badge.svg)](https://github.com/OrderLab/ml-daikon/actions/workflows/bench-instr-e2e.yml)
+
+Instrumentor Performance Benchmark Results: http://orderlab.io/ml-daikon/dev/bench/
+
 The analysis compoent is not completely functional as we are refactoring the codebase to make the workflow less ad-hoc to the bugs that we have found. If you want to use the e2e workflow and reproduce the results for DS-1801 and PyTorch-FORUM84911, please swtich to commit [600ce9b](https://github.com/Essoz/ml-daikon-eecs598/commit/600ce9b0fe2e6fd97068d9f20002f26fb1a0303b).
 
 ## Instrumentator Usage
