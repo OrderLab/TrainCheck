@@ -8,7 +8,10 @@ debug_mode = False
 dump_tensor_version = False  # only dump the _version attribute of tensor
 dump_tensor_statistics = False  # dump the statistics of tensor {min, max, mean, shape}
 dump_call_return = False  # dump the return value of the function call
-filter_by_tensor_version = True  # only dump the tensor when the version is changed
+dump_iter = False  # dump the variable states from iterator (this would usually generated from e.g. enumerate(self._blocks) function)
+dump_update_only = False  # only dump the updated part of the proxied object
+filter_by_tensor_version = False  # only dump the tensor when the version is changed
+
 
 primitive_types = {
     int,

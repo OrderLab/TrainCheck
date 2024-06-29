@@ -17,6 +17,7 @@ import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
 from mldaikon.proxy_wrapper.config import (
     debug_mode,
     dump_call_return,
+    dump_iter,
     exclude_file_names,
     filter_by_tensor_version,
     proxy_log_dir,
@@ -36,7 +37,13 @@ def get_line(filename, lineno):
 
 
 def proxy_handler(
-    obj, logdir, log_level, var_name, no_init_dump=False, from_call=False
+    obj,
+    logdir,
+    log_level,
+    var_name,
+    no_init_dump=False,
+    from_call=False,
+    from_iter=False,
 ):
     # if list or tuple, do the same thing for each element
     if isinstance(obj, (list, tuple)):
@@ -48,6 +55,7 @@ def proxy_handler(
                 var_name,
                 no_init_dump=no_init_dump,
                 from_call=from_call,
+                from_iter=from_iter,
             )
     if isinstance(obj, types.GeneratorType):
 
@@ -60,6 +68,7 @@ def proxy_handler(
                     var_name,
                     no_init_dump=no_init_dump,
                     from_call=from_call,
+                    from_iter=from_iter,
                 )
 
         obj = generator_proxy_handler()
@@ -72,8 +81,9 @@ def proxy_handler(
                 logdir=logdir,
                 log_level=log_level,
                 var_name=var_name,
-                dump_trace=not no_init_dump,
+                dump_trace_info=not no_init_dump,
                 from_call=from_call,
+                from_iter=from_iter,
             )
     return obj
 
@@ -116,14 +126,16 @@ class Proxy:
                 print_debug("logger_proxy: " + f"'{value}'")
 
     @staticmethod
-    def proxy_parameters(module, parent_name=""):
+    def proxy_parameters(module, parent_name="", from_iter=False):
         print(
             "logger_proxy: "
             + f"Proxying all parameters of '{parent_name + module.__class__.__name__}'"
         )
         for name, parameter in module.named_parameters():
             print("logger_proxy: " + f"Proxying parameter '{parent_name+name}'")
-            parameter = Proxy(parameter, var_name=parent_name + name)
+            parameter = Proxy(
+                parameter, var_name=parent_name + name, from_iter=from_iter
+            )
             module._parameters[name] = parameter
 
     @staticmethod
@@ -200,8 +212,9 @@ class Proxy:
         log_level=logging.INFO,
         is_root=False,
         var_name="",
-        dump_trace=True,
+        dump_trace_info=True,
         from_call=False,
+        from_iter=False,
     ):
         # Access proxy attribute: since we are wrapping the getattr method, we need to access the attribute directly
         self.__dict__["process_id"] = os.getpid()
@@ -259,11 +272,12 @@ class Proxy:
         # Ziming: here we still seperate the handling of tensor and other objects
         # however, despite the dumping logic these two are identical and could be merged
 
-        if isinstance(obj, torch.nn.Module):
+        if isinstance(obj, torch.nn.Module):  # special handling for nn.Module
 
             if self.__dict__["is_root"]:
                 # proxy all of its parameters
                 assert not from_call
+                assert not from_iter
 
                 self.proxy_parameters(obj)
                 for name, module in obj.named_children():
@@ -286,27 +300,36 @@ class Proxy:
 
             else:
                 if current_var_name_list == "":
-                    self.proxy_parameters(obj)
+                    self.proxy_parameters(obj, from_iter=from_iter)
                 else:
-                    self.proxy_parameters(obj, current_var_name_list + ".")
+                    self.proxy_parameters(
+                        obj, current_var_name_list + ".", from_iter=from_iter
+                    )
 
         current_var_name_list = current_var_name_list
-        if Proxy.var_dict.get(current_var_name_list) is None:
+        if (
+            Proxy.var_dict.get(current_var_name_list) is None
+        ):  # if the object is not proxied yet
 
             self.__dict__["_obj"] = obj
             if not dump_call_return and from_call:
                 return
 
-            if dump_trace:
+            if not dump_iter and from_iter:
+                return
+
+            if dump_trace_info:
                 if from_call:
                     self.dump_to_trace(obj, "call", dumped_frame_array)
+                if from_iter:
+                    self.dump_to_trace(obj, "iter", dumped_frame_array)
                 # if the object is generated from getattr, then do not dump it
                 else:
                     self.dump_to_trace(obj, "new", dumped_frame_array)
                 self.__dict__["last_update_timestamp"] = time.time()
                 Proxy.var_dict[current_var_name_list] = self
 
-        else:
+        else:  # if the object is proxied already
             if type(obj) not in [int, float, str, bool] and obj is not None:
                 print_debug(
                     "logger_proxy: "
@@ -329,9 +352,14 @@ class Proxy:
             if not dump_call_return and from_call:
                 return
 
+            if not dump_iter and from_iter:
+                return
+
             if from_call:
                 self.dump_to_trace(obj, "call", dumped_frame_array)
-            else:
+            elif from_iter:
+                self.dump_to_trace(obj, "iter", dumped_frame_array)
+            elif dump_trace_info:
                 self.dump_to_trace(obj, "update", dumped_frame_array)
 
             del Proxy.var_dict[current_var_name_list]
@@ -429,6 +457,7 @@ class Proxy:
                 logdir=self.logdir,
                 log_level=self.log_level,
                 var_name=self.__dict__["var_name"],
+                from_iter=True,
             )
 
     __add__ = proxy_methods.__add__
