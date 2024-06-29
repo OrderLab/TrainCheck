@@ -79,9 +79,6 @@ def proxy_handler(
 
 
 class Proxy:
-    var_causal_func_call_ids: Dict[str, list[str]] = (
-        {}
-    )  # a list of function call ids where the variable is used as an input, look up the function call id to get the original function call
     var_dict: Dict[str, typing.Any] = {}
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
@@ -174,10 +171,13 @@ class Proxy:
             var_name == self.__dict__["dumped_varname_list"]
         ), f"var_name {var_name} is not consistent with dumped_varname_list {self.__dict__['dumped_varname_list']}"
         assert var_name is not None  # '' is allowed as a var_name (root object)
-        causal_func_call_ids = list(Proxy.var_causal_func_call_ids.get(var_name, []))
-        if hasattr(obj, "_version") and filter_by_tensor_version:
-            if obj._version == Proxy.var_dict[self.__dict__["var_name"]]._obj._version:
-                return
+        if filter_by_tensor_version and status == "update":
+            if hasattr(obj, "_version"):
+                if (
+                    obj._version
+                    == Proxy.var_dict[self.__dict__["var_name"]]._obj._version
+                ):
+                    return
 
         if not issubclass(type(obj), torch.nn.Module):
             dumped_val = str(torch_serialize(obj))
@@ -191,7 +191,6 @@ class Proxy:
                 status,
                 dump_attributes(obj),
                 dumped_frame_array,
-                causal_func_call_ids,
             )
 
     def __init__(

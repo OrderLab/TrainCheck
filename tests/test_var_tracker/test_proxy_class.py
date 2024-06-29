@@ -47,7 +47,7 @@ class Proxy:
 # Accessing attributes through the proxy
 print(torch.tensor)  # This will print: Accessing attribute 'tensor'
 # Modifying attributes through the proxy
-torch.tensor = lambda x: print(
+torch.tensor = lambda x: print(  # type: ignore
     f"Creating tensor with value '{x}'"
 )  # This will print: Setting attribute 'tensor' to '<lambda>'
 # Creating a tensor through the proxy

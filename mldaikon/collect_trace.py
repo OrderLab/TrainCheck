@@ -51,6 +51,11 @@ if __name__ == "__main__":
         help="Module to be traced by the proxy wrapper",
     )
     parser.add_argument(
+        "--scan_proxy_in_args",
+        action="store_true",
+        help="Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions",
+    )
+    parser.add_argument(
         "--tracer_log_dir",
         type=str,
         default="proxy_log.log",
@@ -100,7 +105,10 @@ if __name__ == "__main__":
 
     # call into the instrumentor
     source_code = instrumentor.instrument_file(
-        args.pyscript, args.modules_to_instrument, args.disable_proxy_class
+        args.pyscript,
+        args.modules_to_instrument,
+        args.disable_proxy_class,
+        args.scan_proxy_in_args,
     )
 
     # call into the program runner

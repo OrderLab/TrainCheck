@@ -1,5 +1,4 @@
 import abc
-from typing import Iterator
 
 from mldaikon.trace.trace import Trace
 
@@ -77,7 +76,7 @@ class ExampleList:
     def add_example(self, example: Example):
         assert (
             set(example.trace_groups.keys()) == self.group_names
-        ), f"Example groups do not match the expected group names"
+        ), "Example groups do not match the expected group names"
         self.examples.append(example)
 
     def get_group_from_examples(self, group_name: str) -> list[list[dict]]:
