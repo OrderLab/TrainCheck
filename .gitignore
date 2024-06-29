@@ -11,6 +11,7 @@ build
 *.log
 *.json
 program_output.txt
+*.ipynb
 
 trace_count.ipynb
 

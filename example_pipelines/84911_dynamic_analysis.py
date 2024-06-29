@@ -16,26 +16,16 @@ from PIL import ImageFile
 from torchvision import datasets
 from tqdm import tqdm
 
-## ML-DAIKON Instrumentation
-## ML-DAIKON Instrumentation
-from mldaikon.instrumentor import meta_vars, tracer
-
-## ML-DAIKON Instrumentation
-meta_vars["stage"] = "data_preparation"
+from mldaikon.proxy_wrapper.proxy import Proxy
 
 shape = (224, 224)
-# shape = (1024, 1024)
 log_dir = f"runs/{shape[0]}"
 os.makedirs("runs", exist_ok=True)
 os.makedirs(log_dir, exist_ok=True)
-# from torch.utils.tensorboard import SummaryWriter
-# writer = SummaryWriter(log_dir)
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-# os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 
-# Deterministic Behaviour
 seed = 786
 os.environ["PYTHONHASHSEED"] = str(seed)
 ## Torch RNG
@@ -50,7 +40,6 @@ random.seed(seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 # torch.cuda.empty_cache()
-
 
 ## Specify appropriate transforms, and batch_sizes
 data_transform = {
@@ -78,9 +67,6 @@ data_transform = {
 dir_file = "dataset"
 train_dir = os.path.join(dir_file, "train")
 valid_dir = os.path.join(dir_file, "dev")
-# image_dataset = {'train':datasets.ImageFolder(train_dir,transform = data_transform['train']),
-#                 'valid':datasets.ImageFolder(valid_dir,transform = data_transform['valid']),
-#                 }
 train_set = datasets.CIFAR100(
     root="./data", train=True, download=True, transform=data_transform["train"]
 )
@@ -90,18 +76,16 @@ valid_set = datasets.CIFAR100(
 
 batch_size = 64
 train_loader = torch.utils.data.DataLoader(
-    train_set, batch_size=batch_size, pin_memory=False, num_workers=1, shuffle=False
+    train_set, batch_size=batch_size, pin_memory=False, num_workers=0, shuffle=False
 )
 valid_loader = torch.utils.data.DataLoader(
-    valid_set, batch_size=1, pin_memory=False, num_workers=1, shuffle=False
+    valid_set, batch_size=1, pin_memory=False, num_workers=0, shuffle=False
 )
 
 
 data_transfer = {"train": train_loader, "valid": valid_loader}
 
 ## ML-DAIKON Instrumentation
-meta_vars["stage"] = "defining_model_optimizer"
-
 model_transfer = EfficientNet.from_pretrained("efficientnet-b0")
 n_inputs = model_transfer._fc.in_features
 
@@ -113,21 +97,28 @@ use_cuda = torch.cuda.is_available()
 
 if torch.cuda.device_count() > 1:
     print("Let's use", torch.cuda.device_count(), "GPUs!")
-model_transfer = nn.DataParallel(
-    model_transfer
-)  # moved out from the above if statement
+# model_transfer = nn.DataParallel(
+#     model_transfer
+# )  # moved out from the above if statement
 
 criterion_transfer = nn.CrossEntropyLoss()  # moved out from the above if statement
 model_transfer.to(device)
 
-for name, param in model_transfer.module.named_parameters():
+
+for name, param in model_transfer.named_parameters():
     if "bn" not in name:
         param.requires_grad = False
 
-for param in model_transfer.module._fc.parameters():
+for param in model_transfer._conv_stem.parameters():
     param.requires_grad = False
 
-print(model_transfer.module._fc.in_features)
+for param in model_transfer._fc.parameters():
+    param.requires_grad = True
+
+model_transfer = Proxy(
+    model_transfer, is_root=True
+)  # has to be after the requires_grad lines in order for the `new` traces to report _conv_stem have requires_grad=False`
+print(model_transfer._fc.in_features)
 
 nb_classes = num_classes
 
@@ -146,8 +137,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
     for epoch in tqdm(range(1, n_epochs + 1), desc="Epochs"):
         # initialize variables to monitor training and validation loss
         ## ML-DAIKON Instrumentation
-        meta_vars["stage"] = "training"
-        meta_vars["epoch"] = epoch
         train_loss = 0.0
         valid_loss = 0.0
         correct = 0.0
@@ -160,7 +149,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["train"], desc="Training")
         ):
             iters += 1
-            if iters > 10:
+            if iters > 5:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -169,6 +158,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
                     "cuda", non_blocking=True
                 )
             optimizer.zero_grad()
+            # model = Proxy(model, is_root=True)
             output = model(data)
             loss = criterion(output, target)
 
@@ -191,7 +181,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             print(f"Epoch: {epoch}, Batch: {batch_idx}, Grad Norm: {grad_norm**0.5}")
 
             ## ML-DAIKON Instrumentation
-            meta_vars["stage"] = "updating_scheduler"
             optimizer.step()
 
             train_loss += (1 / (batch_idx + 1)) * (float(loss) - train_loss)
@@ -201,14 +190,13 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
         ######################
 
         ## ML-DAIKON Instrumentation
-        meta_vars["stage"] = "testing"
         model.eval()
         iters = 0
         for batch_idx, (data, target) in enumerate(
             tqdm(loaders["valid"], desc="Validation")
         ):
             iters += 1
-            if iters > 10:
+            if iters > 5:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -281,30 +269,12 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
 
 num_epochs = 1
 lr = 0.01
-optimizer_transfer = optim.Adam(model_transfer.module._fc.parameters(), lr=lr)
 
-## ML-DAIKON Instrumentation
-observer = tracer.StatelessVarObserver(model_transfer)
-
-
-## ML-DAIKON Instrumentation
-def update_meta_vars():
-    import os
-    import threading
-
-    meta_vars["process_id"] = os.getpid()
-    meta_vars["thread_id"] = threading.get_ident()
-
-
-## ML-DAIKON Instrumentation
-update_meta_vars()
-optimizer_transfer.register_step_post_hook(
-    lambda optimizer, *args, **kwargs: update_meta_vars()
+params = list(model_transfer._fc.parameters()) + list(
+    model_transfer._conv_stem.parameters()
 )
-optimizer_transfer.register_step_post_hook(
-    lambda optimizer, *args, **kwargs: observer.observe()
-)
-
+optimizer_transfer = optim.Adam(params, lr=lr)
+# optimizer_transfer = Proxy(optimizer_transfer, is_root=True)
 
 # optimizer_transfer = optim.Adam(filter(lambda p : p.requires_grad, model_transfer.parameters()),lr=lr)
 model_transfer, res = train(
@@ -316,9 +286,6 @@ model_transfer, res = train(
     use_cuda,
     f"results/{num_epochs}_{lr}",
 )
-
-## ML-DAIKON Instrumentation
-meta_vars["stage"] = "saving_model"
 
 # save model
 torch.save(model_transfer.state_dict(), f"case_{num_epochs}_{lr}_model.pt")
