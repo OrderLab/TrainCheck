@@ -130,7 +130,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
     os.makedirs(save_path, exist_ok=True)
 
     valid_loss_min = np.Inf
-    confusion_matrix = torch.zeros(nb_classes, nb_classes)
     res = []
     for epoch in tqdm(range(1, n_epochs + 1), desc="Epochs"):
         if epoch > 1:
@@ -151,7 +150,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["train"], desc="Training")
         ):
             iters += 1
-            if iters > 5:
+            if iters > 200:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -188,7 +187,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["valid"], desc="Validation")
         ):
             iters += 1
-            if iters > 5:
+            if iters > 20:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
