@@ -4,24 +4,6 @@ import inspect
 import astor
 
 
-def is_proxied(obj):
-    if hasattr(obj, "is_ml_daikon_proxied_obj"):
-        return True
-    return False
-
-
-def unproxy_arg(arg):
-
-    if is_proxied(arg):
-        return unproxy_arg(arg._obj)
-    elif type(arg) in [list]:
-        return [unproxy_arg(element) for element in arg]
-    elif type(arg) in [tuple]:
-        return tuple(unproxy_arg(element) for element in arg)
-    else:
-        return arg
-
-
 def custom_type(x):
     if hasattr(x, "is_ml_daikon_proxied_obj"):
         return type(x._obj)
@@ -29,17 +11,6 @@ def custom_type(x):
 
 
 class TypeToIsInstanceTransformer(ast.NodeTransformer):
-    # add from mldaiokn.proxy_wrapper.proxy_basics import custom_type after function definition
-    def visit_FunctionDef(self, node):
-        self.generic_visit(node)
-        # Inject code right after the def statement
-        inject_code = """
-from mldaikon.proxy_wrapper.proxy_basics import custom_type
-"""
-        inject_node = ast.parse(inject_code).body
-        node.body = inject_node + node.body
-        return node
-
     def visit_Call(self, node):
         self.generic_visit(node)
 
@@ -49,14 +20,12 @@ from mldaikon.proxy_wrapper.proxy_basics import custom_type
             and node.func.id == "type"
             and len(node.args) == 1
         ):
-
             # Replace type(xxx) with custom_type(xxx)
             new_node = ast.Call(
                 func=ast.Name(id="custom_type", ctx=ast.Load()),
                 args=node.args,
                 keywords=[],
             )
-
             return ast.copy_location(new_node, node)
         return node
 
@@ -75,3 +44,20 @@ def transform_function(func):
 
     # Return the transformed function object
     return new_locals[func.__name__]
+
+
+# Example usage
+def example_function():
+    a = 42
+    import pdb
+
+    pdb.set_trace()
+    if type(a) is int:  # noqa
+        print("a is an int")
+
+
+# Transform the example function
+example_function = transform_function(example_function)
+
+# Call the transformed function
+example_function()
