@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning].
 
 - get rid of rubbish trace info due to flawed dumping logic handling
 
+- fix type(Proxy) object handling by replacing with custom_type(..) function using ast
+
 ## [0.3.4] - 2024-06-19
 
 support `._version` based var update filtering, disable `__call__` value dumping in default
