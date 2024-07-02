@@ -4,24 +4,6 @@ import inspect
 import astor
 
 
-def is_proxied(obj):
-    if hasattr(obj, "is_ml_daikon_proxied_obj"):
-        return True
-    return False
-
-
-def unproxy_arg(arg):
-
-    if is_proxied(arg):
-        return unproxy_arg(arg._obj)
-    elif type(arg) in [list]:
-        return [unproxy_arg(element) for element in arg]
-    elif type(arg) in [tuple]:
-        return tuple(unproxy_arg(element) for element in arg)
-    else:
-        return arg
-
-
 def type_handle_mldaikon_proxy(x):
     if hasattr(x, "is_ml_daikon_proxied_obj"):
         return type(x._obj)
@@ -29,17 +11,6 @@ def type_handle_mldaikon_proxy(x):
 
 
 class TypeToIsInstanceTransformer(ast.NodeTransformer):
-    # add from mldaiokn.proxy_wrapper.proxy_basics import type_handle_mldaikon_proxy after function definition
-    def visit_FunctionDef(self, node):
-        self.generic_visit(node)
-        # Inject code right after the def statement
-        inject_code = """
-from mldaikon.proxy_wrapper.proxy_basics import type_handle_mldaikon_proxy
-"""
-        inject_node = ast.parse(inject_code).body
-        node.body = inject_node + node.body
-        return node
-
     def visit_Call(self, node):
         self.generic_visit(node)
 
@@ -49,23 +20,17 @@ from mldaikon.proxy_wrapper.proxy_basics import type_handle_mldaikon_proxy
             and node.func.id == "type"
             and len(node.args) == 1
         ):
-
             # Replace type(xxx) with type_handle_mldaikon_proxy(xxx)
             new_node = ast.Call(
                 func=ast.Name(id="type_handle_mldaikon_proxy", ctx=ast.Load()),
                 args=node.args,
                 keywords=[],
             )
-
             return ast.copy_location(new_node, node)
         return node
 
 
 def adapt_func_for_proxy(func):
-    """Adapt a function to work with proxied objects.
-    - Replace type() calls with type_handle_mldaikon_proxy() so that type(ProxyObj) returns type(ProxyObj._obj) instead of Proxy
-    """
-
     source = inspect.getsource(func)
     tree = ast.parse(source)
     transformer = TypeToIsInstanceTransformer()
@@ -79,3 +44,20 @@ def adapt_func_for_proxy(func):
 
     # Return the transformed function object
     return new_locals[func.__name__]
+
+
+# Example usage
+def example_function():
+    a = 42
+    import pdb
+
+    pdb.set_trace()
+    if type(a) is int:  # noqa
+        print("a is an int")
+
+
+# Transform the example function
+example_function = adapt_func_for_proxy(example_function)
+
+# Call the transformed function
+example_function()

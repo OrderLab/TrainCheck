@@ -88,28 +88,28 @@ def cleanup():
 def test_naive(benchmark):
     res = benchmark(run_naive)
     assert res.returncode == 0
-    # cleanup()
+    cleanup()
 
 
 def test_instrumented(benchmark):
     res = benchmark(run_naive_instrumented)
     assert res.returncode == 0
-    # cleanup()
+    cleanup()
 
 
 def test_sampler_instrumented(benchmark):
     res = benchmark(run_sampler_instrumented)
     assert res.returncode == 0
-    # cleanup()
+    cleanup()
 
 
 def test_proxy_instrumented(benchmark):
     res = benchmark(run_proxy_instrumented)
     assert res.returncode == 0
-    # cleanup()
+    cleanup()
 
 
 def test_proxy_instrumented_with_scan_proxy_in_args(benchmark):
     res = benchmark(run_proxy_instrumented_with_scan_proxy_in_args)
     assert res.returncode == 0
-    # cleanup()
+    cleanup()

@@ -141,7 +141,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
     os.makedirs(save_path, exist_ok=True)
 
     valid_loss_min = np.Inf
-    confusion_matrix = torch.zeros(nb_classes, nb_classes)
     res = []
     for epoch in tqdm(range(1, n_epochs + 1), desc="Epochs"):
         # initialize variables to monitor training and validation loss
@@ -270,11 +269,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
 
         with open(os.path.join(save_path, f"case_{epoch}_res.json"), "w") as fp:
             json.dump(res, fp)
-        import pandas as pd
-
-        df = pd.DataFrame(confusion_matrix.numpy())
-        df.to_csv(os.path.join(save_path, f"case_{epoch}_confusion_matrix.csv"))
-        del df
 
     return model, res
 

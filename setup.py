@@ -12,8 +12,10 @@ setup(
     author_email="jyuxuan@umich.edu",
     url="https://github.com/yourusername/your-project-name",
     install_requires=[
-        "polars",
-        "tqdm",
+        "astor",
         "deepdiff",
+        "polars",
+        "torch",
+        "tqdm",
     ],
 )
