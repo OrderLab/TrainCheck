@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning].
 
 - get rid of rubbish trace info due to flawed dumping logic handling
 
-- fix type(Proxy) object handling by replacing with custom_type(..) function using ast
+- fix type(Proxy) object handling by replacing with type_handle_mldaikon_proxy(..) function using ast
 
 ## [0.3.4] - 2024-06-19
 
