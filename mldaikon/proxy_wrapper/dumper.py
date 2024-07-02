@@ -76,8 +76,8 @@ class json_dumper(metaclass=Singleton):
         self.close()
 
     def close(self):
-        self.json_file.close()
         self.json_file.write("]\n")
+        self.json_file.close()
 
     def create_instance(self):
         return json_dumper(self.json_file.name)
