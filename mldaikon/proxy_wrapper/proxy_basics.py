@@ -1,4 +1,5 @@
 import ast
+import functools
 import inspect
 
 import astor
@@ -20,6 +21,18 @@ def unproxy_arg(arg):
         return tuple(unproxy_arg(element) for element in arg)
     else:
         return arg
+
+
+def unproxy_func(func):
+    original_func = func
+
+    @functools.wraps(original_func)
+    def wrapper(*args, **kwargs):
+        args = [unproxy_arg(arg) for arg in args]
+        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+        return original_func(*args, **kwargs)
+
+    return wrapper
 
 
 def custom_type(x):
