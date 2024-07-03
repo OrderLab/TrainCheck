@@ -72,6 +72,7 @@ def call_graph_parser(
             ):
                 module_list = line.split(" ")[1].split(":")[1].split(".")[:-1]
                 if neglect_hidden_module:
+                    skip_flag = False
                     for module in module_list:
                         if module.startswith("_"):
                             skip_flag = True
