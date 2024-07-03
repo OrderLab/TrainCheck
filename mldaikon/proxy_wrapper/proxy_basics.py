@@ -35,19 +35,19 @@ def unproxy_func(func):
     return wrapper
 
 
-def custom_type(x):
+def type_handle_mldaikon_proxy(x):
     if hasattr(x, "is_ml_daikon_proxied_obj"):
         return type(x._obj)
     return type(x)
 
 
 class TypeToIsInstanceTransformer(ast.NodeTransformer):
-    # add from mldaiokn.proxy_wrapper.proxy_basics import custom_type after function definition
+    # add from mldaiokn.proxy_wrapper.proxy_basics import type_handle_mldaikon_proxy after function definition
     def visit_FunctionDef(self, node):
         self.generic_visit(node)
         # Inject code right after the def statement
         inject_code = """
-from mldaikon.proxy_wrapper.proxy_basics import custom_type
+from mldaikon.proxy_wrapper.proxy_basics import type_handle_mldaikon_proxy
 """
         inject_node = ast.parse(inject_code).body
         node.body = inject_node + node.body
@@ -63,9 +63,9 @@ from mldaikon.proxy_wrapper.proxy_basics import custom_type
             and len(node.args) == 1
         ):
 
-            # Replace type(xxx) with custom_type(xxx)
+            # Replace type(xxx) with type_handle_mldaikon_proxy(xxx)
             new_node = ast.Call(
-                func=ast.Name(id="custom_type", ctx=ast.Load()),
+                func=ast.Name(id="type_handle_mldaikon_proxy", ctx=ast.Load()),
                 args=node.args,
                 keywords=[],
             )
@@ -74,7 +74,11 @@ from mldaikon.proxy_wrapper.proxy_basics import custom_type
         return node
 
 
-def transform_function(func):
+def adapt_func_for_proxy(func):
+    """Adapt a function to work with proxied objects.
+    - Replace type() calls with type_handle_mldaikon_proxy() so that type(ProxyObj) returns type(ProxyObj._obj) instead of Proxy
+    """
+
     source = inspect.getsource(func)
     tree = ast.parse(source)
     transformer = TypeToIsInstanceTransformer()

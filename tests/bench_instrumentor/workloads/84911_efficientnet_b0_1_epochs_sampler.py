@@ -16,7 +16,7 @@ from PIL import ImageFile
 from torchvision import datasets
 from tqdm import tqdm
 
-from mldaikon.proxy_wrapper.proxy import Proxy
+from mldaikon.instrumentor.tracer import StatelessVarObserver
 
 shape = (224, 224)
 log_dir = f"runs/{shape[0]}"
@@ -115,9 +115,9 @@ for param in model_transfer._conv_stem.parameters():
 for param in model_transfer._fc.parameters():
     param.requires_grad = True
 
-model_transfer = Proxy(
-    model_transfer, is_root=True
-)  # has to be after the requires_grad lines in order for the `new` traces to report _conv_stem have requires_grad=False`
+# model_transfer = Proxy(
+#     model_transfer, is_root=True
+# )  # has to be after the requires_grad lines in order for the `new` traces to report _conv_stem have requires_grad=False`
 print(model_transfer._fc.in_features)
 
 nb_classes = num_classes
@@ -134,6 +134,9 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
     valid_loss_min = np.Inf
     res = []
     for epoch in tqdm(range(1, n_epochs + 1), desc="Epochs"):
+        if epoch > 1:
+            print("ML-DAIKON: Breaking after 3 epochs for testing purposes")
+            break
         # initialize variables to monitor training and validation loss
         ## ML-DAIKON Instrumentation
         train_loss = 0.0
@@ -148,7 +151,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["train"], desc="Training")
         ):
             iters += 1
-            if iters > 5:
+            if iters > 200:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -175,7 +178,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     grad_norm += param.grad.norm(2).item()
-                    print("norm of ", name, " is ", param.grad.norm(2).item())
             # writer.add_scalar('Grad Norm (L2) /train', grad_norm**0.5, epoch)
             print(f"Epoch: {epoch}, Batch: {batch_idx}, Grad Norm: {grad_norm**0.5}")
 
@@ -188,14 +190,13 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
         # validate the model #
         ######################
 
-        ## ML-DAIKON Instrumentation
         model.eval()
         iters = 0
         for batch_idx, (data, target) in enumerate(
             tqdm(loaders["valid"], desc="Validation")
         ):
             iters += 1
-            if iters > 5:
+            if iters > 20:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -268,6 +269,13 @@ params = list(model_transfer._fc.parameters()) + list(
     model_transfer._conv_stem.parameters()
 )
 optimizer_transfer = optim.Adam(params, lr=lr)
+## ML-DAIKON Instrumentation
+observer = StatelessVarObserver(model_transfer)
+
+optimizer_transfer.register_step_post_hook(
+    lambda optimizer, *args, **kwargs: observer.observe()
+)
+
 # optimizer_transfer = Proxy(optimizer_transfer, is_root=True)
 
 # optimizer_transfer = optim.Adam(filter(lambda p : p.requires_grad, model_transfer.parameters()),lr=lr)

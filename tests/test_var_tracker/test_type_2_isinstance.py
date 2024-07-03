@@ -4,7 +4,7 @@ import inspect
 import astor
 
 
-def custom_type(x):
+def type_handle_mldaikon_proxy(x):
     if hasattr(x, "is_ml_daikon_proxied_obj"):
         return type(x._obj)
     return type(x)
@@ -20,9 +20,9 @@ class TypeToIsInstanceTransformer(ast.NodeTransformer):
             and node.func.id == "type"
             and len(node.args) == 1
         ):
-            # Replace type(xxx) with custom_type(xxx)
+            # Replace type(xxx) with type_handle_mldaikon_proxy(xxx)
             new_node = ast.Call(
-                func=ast.Name(id="custom_type", ctx=ast.Load()),
+                func=ast.Name(id="type_handle_mldaikon_proxy", ctx=ast.Load()),
                 args=node.args,
                 keywords=[],
             )
@@ -30,7 +30,7 @@ class TypeToIsInstanceTransformer(ast.NodeTransformer):
         return node
 
 
-def transform_function(func):
+def adapt_func_for_proxy(func):
     source = inspect.getsource(func)
     tree = ast.parse(source)
     transformer = TypeToIsInstanceTransformer()
@@ -57,7 +57,7 @@ def example_function():
 
 
 # Transform the example function
-example_function = transform_function(example_function)
+example_function = adapt_func_for_proxy(example_function)
 
 # Call the transformed function
 example_function()

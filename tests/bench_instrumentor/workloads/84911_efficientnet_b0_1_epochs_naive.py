@@ -16,8 +16,6 @@ from PIL import ImageFile
 from torchvision import datasets
 from tqdm import tqdm
 
-from mldaikon.proxy_wrapper.proxy import Proxy
-
 shape = (224, 224)
 log_dir = f"runs/{shape[0]}"
 os.makedirs("runs", exist_ok=True)
@@ -115,9 +113,9 @@ for param in model_transfer._conv_stem.parameters():
 for param in model_transfer._fc.parameters():
     param.requires_grad = True
 
-model_transfer = Proxy(
-    model_transfer, is_root=True
-)  # has to be after the requires_grad lines in order for the `new` traces to report _conv_stem have requires_grad=False`
+# model_transfer = Proxy(
+#     model_transfer, is_root=True
+# )  # has to be after the requires_grad lines in order for the `new` traces to report _conv_stem have requires_grad=False`
 print(model_transfer._fc.in_features)
 
 nb_classes = num_classes
@@ -134,6 +132,9 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
     valid_loss_min = np.Inf
     res = []
     for epoch in tqdm(range(1, n_epochs + 1), desc="Epochs"):
+        if epoch > 1:
+            print("ML-DAIKON: Breaking after 1 epoch for testing purposes")
+            break
         # initialize variables to monitor training and validation loss
         ## ML-DAIKON Instrumentation
         train_loss = 0.0
@@ -143,12 +144,13 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
         accuracy = 0.0
 
         model.train()
+
         iters = 0
         for batch_idx, (data, target) in enumerate(
             tqdm(loaders["train"], desc="Training")
         ):
             iters += 1
-            if iters > 5:
+            if iters > 200:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -157,25 +159,15 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
                     "cuda", non_blocking=True
                 )
             optimizer.zero_grad()
-            # model = Proxy(model, is_root=True)
             output = model(data)
             loss = criterion(output, target)
 
-            # for name, param in model.named_parameters():
-            #     # assert: no param should have grad
-            #     if not (param.grad is None or param.grad.abs().sum() == 0):
-            #         print("name: ", name, " has non-zero grad norm", param.grad.norm(2).item())
-            #         raise ValueError("param.grad is not None or param.grad.abs().sum() != 0")
-
             loss.backward()
 
-            # writer.add_scalar('Loss/train (batch)', loss, batch_idx)
-            # calculate gradient norm
             grad_norm = 0
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     grad_norm += param.grad.norm(2).item()
-                    print("norm of ", name, " is ", param.grad.norm(2).item())
             # writer.add_scalar('Grad Norm (L2) /train', grad_norm**0.5, epoch)
             print(f"Epoch: {epoch}, Batch: {batch_idx}, Grad Norm: {grad_norm**0.5}")
 
@@ -195,7 +187,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["valid"], desc="Validation")
         ):
             iters += 1
-            if iters > 5:
+            if iters > 20:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -268,9 +260,7 @@ params = list(model_transfer._fc.parameters()) + list(
     model_transfer._conv_stem.parameters()
 )
 optimizer_transfer = optim.Adam(params, lr=lr)
-# optimizer_transfer = Proxy(optimizer_transfer, is_root=True)
 
-# optimizer_transfer = optim.Adam(filter(lambda p : p.requires_grad, model_transfer.parameters()),lr=lr)
 model_transfer, res = train(
     num_epochs,
     data_transfer,
