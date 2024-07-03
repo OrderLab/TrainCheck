@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.4.0] - 2024-07-02
+
+### Added
+
+- support automated function observing based on function call graph level
+- add function depth info of `torch/optim` library into `mldaikon/static_analyzer/func_level` (file generated from modified pyan lib)
+- add the following switches to control the behavior of automated function observer
+
+    ```python
+    enable_auto_observer = True  # automatically add observer to the function
+    enable_auto_observer_depth = 3  # the depth of the function call that we want to observe
+    observe_up_to_depth = False  # observe up to the depth of the function call, if False, only observe the function call at the depth
+    neglect_hidden_func = (
+        True  # neglect the hidden function (function that starts with '_')
+    )
+    observe_then_unproxy = False  # observe the function call and then unproxy the arguments
+    ```
+
 ## [0.3.5] - 2024-06-29
 
 ### Added
