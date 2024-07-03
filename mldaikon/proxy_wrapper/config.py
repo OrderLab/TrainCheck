@@ -19,6 +19,7 @@ observe_up_to_depth = False  # observe up to the depth of the function call, if 
 neglect_hidden_func = (
     True  # neglect the hidden function (function that starts with '_')
 )
+neglect_hidden_module = True  # neglect the hidden module (module that starts with '_')
 observe_then_unproxy = False  # observe the function call and then unproxy the arguments
 
 primitive_types = {
@@ -90,5 +91,6 @@ if enable_auto_observer:
             depth=enable_auto_observer_depth,
             observe_up_to_depth=observe_up_to_depth,
             neglect_hidden_func=neglect_hidden_func,
+            neglect_hidden_module=neglect_hidden_module,
             observe_then_unproxy=observe_then_unproxy,
         )

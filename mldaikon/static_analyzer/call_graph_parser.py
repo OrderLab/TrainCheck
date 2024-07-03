@@ -60,6 +60,7 @@ def call_graph_parser(
     depth=3,
     observe_up_to_depth=False,
     neglect_hidden_func=True,
+    neglect_hidden_module=True,
     observe_then_unproxy=False,
 ):
     with open(log_file_path, "r") as f:
@@ -69,8 +70,15 @@ def call_graph_parser(
             if re.match(r"<Node function:.*> - \d+", line) or re.match(
                 r"<Node method:.*> - \d+", line
             ):
-                # print the module_name, function_name and function_depth
-                module_name = ".".join(line.split(" ")[1].split(":")[1].split(".")[:-1])
+                module_list = line.split(" ")[1].split(":")[1].split(".")[:-1]
+                if neglect_hidden_module:
+                    for module in module_list:
+                        if module.startswith("_"):
+                            skip_flag = True
+                            break
+                    if skip_flag:
+                        continue
+                module_name = ".".join(module_list)
                 if module_name == "*":
                     continue
                 function_name = (
@@ -92,6 +100,6 @@ def call_graph_parser(
 
 if __name__ == "__main__":
     log_file_path = os.path.join(
-        os.path.dirname(__file__), "func_level", "optim_func_level.log"
+        os.path.dirname(__file__), "func_level", "nn_func_level.log"
     )
     call_graph_parser(log_file_path)
