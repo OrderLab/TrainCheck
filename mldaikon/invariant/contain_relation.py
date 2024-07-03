@@ -5,13 +5,16 @@ from tqdm import tqdm
 
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import (
+    APIParam,
     Example,
     ExampleList,
     Hypothesis,
     Invariant,
+    Param,
     Relation,
+    VarTypeParam,
 )
-from mldaikon.invariant.precondition import find_precondition
+from mldaikon.invariant.precondition import UnconditionalPrecondition, find_precondition
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
 from mldaikon.utils import typename
@@ -106,6 +109,10 @@ class APIContainRelation(Relation):
         ] = {}
         func_names = trace.get_func_names()
 
+        func_names = [
+            func_name for func_name in func_names if "adam.step" in func_name.lower()
+        ]
+
         if len(func_names) == 0:
             logger.warning(
                 "No function calls found in the trace, skipping the analysis"
@@ -152,14 +159,6 @@ class APIContainRelation(Relation):
                         else (event.var_id.var_type, event.attr_name)
                     )
 
-                    param_selectors = [
-                        target,  # TODO: refactor the relation evaluate logic to be specific-trace-agnotic
-                        lambda func_pre_call_idx: events_scanner(
-                            trace=trace,
-                            func_pre_call_idx=func_pre_call_idx,
-                            parent_func_name=parent,
-                        ),
-                    ]
                     if high_level_event_type not in hypothesis[parent]:
                         hypothesis[parent][high_level_event_type] = {}
                         hypothesis_should_use_causal_vars_for_negative_examples[parent][
@@ -184,12 +183,24 @@ class APIContainRelation(Relation):
                             if isinstance(event, VarChangeEvent)
                             else {"parent_func_call_pre"}
                         )
+
+                        params: list[Param] = [APIParam(parent)]
+                        if isinstance(event, VarChangeEvent):
+                            params.append(
+                                VarTypeParam(event.var_id.var_type, event.attr_name)
+                            )
+
+                            # params.append(VarNameParam(event.var_id.var_type, event.attr_name)) # TODO: add a switch to enable using the attribute name as a parameter
+                        elif isinstance(event, FuncCallEvent):
+                            params.append(APIParam(event.func_name))
+
                         hypothesis[parent][high_level_event_type][target] = Hypothesis(
                             Invariant(
                                 relation=APIContainRelation(),
-                                param_selectors=param_selectors,
-                                precondition=None,
-                                text_description=f"{parent} (is_bound_method: {is_parent_a_bound_method}, should_use_causal_vars_for_negative_examples: {should_use_causal_vars_for_negative_examples}) contains {target} of type {typename(event)}",
+                                params=params,  # TODO
+                                precondition=UnconditionalPrecondition(),
+                                text_description=f"{parent} contains {target} of type {typename(event)}",
+                                # text_description=f"{parent} (is_bound_method: {is_parent_a_bound_method}, should_use_causal_vars_for_negative_examples: {should_use_causal_vars_for_negative_examples}) contains {target} of type {typename(event)}",
                             ),
                             positive_examples=ExampleList(group_names),
                             negative_examples=ExampleList(
@@ -292,10 +303,11 @@ class APIContainRelation(Relation):
                     logger.debug(
                         f"Starting the inference of precondition for the hypothesis: {h.invariant.text_description}"
                     )
-                    h.invariant.precondition = find_precondition(h)
+                    found_precondition = find_precondition(h)
                     if (
-                        h.invariant.precondition is not None
+                        found_precondition is not None
                     ):  # TODO: abstract this precondition inference part to a function
+                        h.invariant.precondition = found_precondition
                         all_invariants.append(h.invariant)
                         all_hypotheses.append((h, f"{high_level_event_type}"))
                     else:
@@ -303,9 +315,6 @@ class APIContainRelation(Relation):
 
         # sort the hypotheses for debugging purposes
         all_hypotheses.sort(key=lambda h: len(h[0].positive_examples), reverse=True)
-        for h, desc in all_hypotheses:
-            print(desc, h._print_debug())
-
         return all_invariants
 
     @staticmethod

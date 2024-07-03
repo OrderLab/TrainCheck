@@ -1,8 +1,10 @@
 import argparse
 import datetime
+import json
 import logging
 import time
 
+from mldaikon.invariant.base_cls import Invariant
 from mldaikon.invariant.relation_pool import relation_pool
 from mldaikon.trace.trace import Trace, read_trace_file
 
@@ -26,6 +28,13 @@ class InferEngine:
         return invs
 
 
+def save_invs(invs: list[Invariant], output_file: str):
+    with open(output_file, "w") as f:
+        for inv in invs:
+            f.write(json.dumps(inv.to_dict()))
+            f.write("\n")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Invariant Finder for ML Pipelines in Python"
@@ -42,6 +51,12 @@ if __name__ == "__main__":
         "--debug",
         action="store_true",
         help="Enable debug logging",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="invariants.json",
+        help="Output file to save invariants",
     )
     args = parser.parse_args()
 
@@ -64,3 +79,5 @@ if __name__ == "__main__":
 
     engine = InferEngine(traces)
     invs = engine.infer()
+
+    save_invs(invs, args.output)

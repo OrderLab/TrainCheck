@@ -24,7 +24,7 @@ PT = PreconditionClauseType
 
 
 class PreconditionClause:
-    def __init__(self, prop_name: str, prop_type: type, _type: PT, values: set | None):
+    def __init__(self, prop_name: str, prop_dtype: type, _type: PT, values: set | None):
         assert _type in [
             PT.CONSISTENT,
             PT.CONSTANT,
@@ -37,7 +37,7 @@ class PreconditionClause:
             ), "Values should not be empty for CONSTANT or CONSISTENT type"
 
         self.prop_name = prop_name
-        self.prop_type = prop_type
+        self.prop_dtype = prop_dtype
         self.type = _type
         self.values = values if isinstance(values, set) else {values}
 
@@ -47,6 +47,16 @@ class PreconditionClause:
     def __str__(self) -> str:
         return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
 
+    def to_dict(self) -> dict:
+        clause_dict: dict[str, str | list] = {
+            "type": self.type.value,
+            "prop_name": self.prop_name,
+            "prop_dtype": self.prop_dtype.__name__,
+        }
+        if self.type in [PT.CONSTANT, PT.CONSISTENT]:
+            clause_dict["values"] = list(self.values)
+        return clause_dict
+
     def __eq__(self, other):
         if not isinstance(other, PreconditionClause):
             return False
@@ -54,21 +64,21 @@ class PreconditionClause:
         if self.type == PT.CONSISTENT and other.type == PT.CONSISTENT:
             return (
                 self.prop_name == other.prop_name
-                and self.prop_type == other.prop_type
+                and self.prop_dtype == other.prop_dtype
                 and self.type == other.type
             )
 
         return (
             self.prop_name == other.prop_name
-            and self.prop_type == other.prop_type
+            and self.prop_dtype == other.prop_dtype
             and self.type == other.type
             and self.values == other.values
         )
 
     def __hash__(self):
         if self.type == PT.CONSISTENT:
-            return hash((self.prop_name, self.prop_type, self.type))
-        return hash((self.prop_name, self.prop_type, self.type, tuple(self.values)))
+            return hash((self.prop_name, self.prop_dtype, self.type))
+        return hash((self.prop_name, self.prop_dtype, self.type, tuple(self.values)))
 
     def verify(self, example: list) -> bool:
         assert isinstance(example, list)
@@ -111,7 +121,7 @@ class Precondition:
     Currently the `Precondition` object is a conjunction of the `PreconditionClause` objects.
     """
 
-    def __init__(self, clauses: list[PreconditionClause]):
+    def __init__(self, clauses: Iterable[PreconditionClause]):
         self.clauses = clauses
 
     def verify(self, example: list) -> bool:
@@ -126,10 +136,10 @@ class Precondition:
         return self.__str__()
 
     def __str__(self) -> str:
-        output = "======================\n"
+        output = "====================== Start of Precondition ======================\n"
         for clause in self.clauses:
             output += str(clause) + "\n"
-        output += "======================"
+        output += "====================== End of Preconditions ======================\n"
         return output
 
     def implies(self, other) -> bool:
@@ -141,6 +151,9 @@ class Precondition:
                 return False
 
         return True
+
+    def to_dict(self) -> dict:
+        return {"clauses": [clause.to_dict() for clause in self.clauses]}
 
 
 class UnconditionalPrecondition(Precondition):
@@ -160,14 +173,38 @@ class UnconditionalPrecondition(Precondition):
         # Unconditional Precondition cannot imply any other preconditions as it is always True
         return False
 
+    def to_dict(self) -> dict:
+        return {"clauses": "Unconditional"}
 
-def pprint_preconds(clauses: Iterable[PreconditionClause]):
-    for clause in clauses:
-        print("==============================")
-        print("values", clause.values)
-        print("type", clause.type)
-        print("target", clause.prop_name)
-    print("==============================")
+
+class GroupedPreconditions:
+    def __init__(self, grouped_preconditions: dict[str, list[Precondition]]):
+        self.grouped_preconditions = grouped_preconditions
+
+    def verify(self, example: list, group_name: str) -> bool:
+        assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
+        for precondition in self.grouped_preconditions[group_name]:
+            if precondition.verify(example):
+                return True
+        return False
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __str__(self) -> str:
+        output = "====================== Start of Grouped Precondition ======================\n"
+        for group_name, preconditions in self.grouped_preconditions.items():
+            output += f"Group: {group_name}\n"
+            for precondition in preconditions:
+                output += str(precondition) + "\n"
+        output += "====================== End of Grouped Precondition ======================\n"
+        return output
+
+    def to_dict(self) -> dict:
+        return {
+            group_name: [precond.to_dict() for precond in preconditions]
+            for group_name, preconditions in self.grouped_preconditions.items()
+        }
 
 
 def is_statistical_significant(positive_examples: list) -> bool:
@@ -207,29 +244,29 @@ def _find_local_clauses(
             prop_values_seen.add(example[i][prop])
 
         # get the type of the property
-        prop_type = None
+        prop_dtype = None
         for value in prop_values_seen:
             if value is None:
                 continue
-            if prop_type is None:
-                prop_type = type(value)
-            if prop_type != type(value) and value is not None:
+            if prop_dtype is None:
+                prop_dtype = type(value)
+            if prop_dtype != type(value) and value is not None:
                 raise ValueError(
-                    f"Property {prop} has inconsistent types {prop_type, type(value)} in the example"
+                    f"Property {prop} has inconsistent types {prop_dtype, type(value)} in the example"
                 )
 
-        if prop_type is None:
+        if prop_dtype is None:
             logger.warning(
                 f"Property {prop} has no real values in the example, skipping this property as a clause."
             )
             continue
 
-        if len(prop_values_seen) == 1 and prop_type is not None:
+        if len(prop_values_seen) == 1 and prop_dtype is not None:
             clauses.append(
-                PreconditionClause(prop, prop_type, PT.CONSTANT, prop_values_seen)
+                PreconditionClause(prop, prop_dtype, PT.CONSTANT, prop_values_seen)
             )
         elif len(prop_values_seen) == len(example) and None not in prop_values_seen:
-            clauses.append(PreconditionClause(prop, prop_type, PT.UNEQUAL, None))
+            clauses.append(PreconditionClause(prop, prop_dtype, PT.UNEQUAL, None))
 
     return clauses
 
@@ -283,11 +320,11 @@ def _merge_clauses(
     for target, clauses_and_exp_ids in clause_targets_and_exp_ids.items():
         seen_constant_values = set()
         seen_constant_exp_ids = set()
-        prop_type = None
+        prop_dtype = None
         for clause in clauses_and_exp_ids:
-            if prop_type is None:
-                prop_type = clause.prop_type
-            if clause.type == PT.CONSTANT and prop_type is not bool:
+            if prop_dtype is None:
+                prop_dtype = clause.prop_dtype
+            if clause.type == PT.CONSTANT and prop_dtype is not bool:
                 seen_constant_values.update(clause.values)
                 seen_constant_exp_ids.update(clauses_and_exp_ids[clause])
             if clause.type == PT.CONSISTENT:
@@ -295,14 +332,14 @@ def _merge_clauses(
                     "Consistent clause found in the local clauses, this should not happen"
                 )
 
-            if clause.type == PT.CONSTANT and prop_type is bool:
-                # if the prop_type is bool, we should not merge the constant clauses
+            if clause.type == PT.CONSTANT and prop_dtype is bool:
+                # if the prop_dtype is bool, we should not merge the constant clauses
                 merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
             if clause.type == PT.UNEQUAL:
                 # if we see a unequal clause, just add it to the merged_clauses_and_exp_ids
                 merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
 
-        assert prop_type is not None, "Property type should not be None"
+        assert prop_dtype is not None, "Property type should not be None"
 
         # merge the constant clauses into consistent clauses
         if len(seen_constant_values) == 0:
@@ -310,15 +347,15 @@ def _merge_clauses(
 
         if (
             len(seen_constant_values) > CONST_CLAUSE_NUM_VALUES_THRESHOLD
-            and prop_type is not bool
+            and prop_dtype is not bool
         ):
             consistent_clause = PreconditionClause(
-                target, prop_type, PT.CONSISTENT, seen_constant_values
+                target, prop_dtype, PT.CONSISTENT, seen_constant_values
             )
             merged_clauses_and_exp_ids[consistent_clause] = list(seen_constant_exp_ids)
         else:
             constant_clause = PreconditionClause(
-                target, prop_type, PT.CONSTANT, seen_constant_values
+                target, prop_dtype, PT.CONSTANT, seen_constant_values
             )
             merged_clauses_and_exp_ids[constant_clause] = list(seen_constant_exp_ids)
 
@@ -328,7 +365,7 @@ def _merge_clauses(
 def find_precondition(
     hypothesis: Hypothesis,
     keys_to_skip: list[str] = [],
-) -> dict[str, list[Precondition]] | None:
+) -> GroupedPreconditions | None:
     """When None is returned, it means that we cannot find a precondition that is safe to use for the hypothesis."""
 
     # postive examples and negative examples should have the same group names
@@ -339,7 +376,7 @@ def find_precondition(
             f"Group names in positive and negative examples do not match in the hypothesis. This might lead to unexpected results.\n Positive Examples: {hypothesis.positive_examples.group_names}\n Negative Examples: {hypothesis.negative_examples.group_names}"
         )
 
-    preconditions = {}
+    grouped_preconditions = {}
     for group_name in group_names:
         positive_examples = hypothesis.positive_examples.get_group_from_examples(
             group_name
@@ -355,15 +392,18 @@ def find_precondition(
             # the negative examples are not found, assign an unconditional precondition (to be handled in find_precondition_from_single_group)
             negative_examples = []
 
-        preconditions[group_name] = find_precondition_from_single_group(
+        grouped_preconditions[group_name] = find_precondition_from_single_group(
             positive_examples, negative_examples, keys_to_skip
         )
 
     # if every group's precondition is of length 0, return None
-    if all(len(preconditions[group_name]) == 0 for group_name in preconditions):
+    if all(
+        len(grouped_preconditions[group_name]) == 0
+        for group_name in grouped_preconditions
+    ):
         return None
 
-    return preconditions
+    return GroupedPreconditions(grouped_preconditions)
 
 
 def find_precondition_from_single_group(
@@ -473,7 +513,7 @@ def find_precondition_from_single_group(
             }
         )
         print("Base Precondition Clauses After Pruning")
-        pprint_preconds(base_precond_clauses)
+        print(str(Precondition(base_precond_clauses)))
     else:
         # skip pruning is necessary when we are inferring on a reduced set of negative examples as many clauses may not be violated and thus pruned unnecessarily
         assert (

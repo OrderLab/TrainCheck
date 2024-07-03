@@ -1,50 +1,75 @@
+from __future__ import annotations
+
 import abc
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from mldaikon.trace.trace import Trace
+
+if TYPE_CHECKING:
+    from mldaikon.invariant.precondition import (
+        GroupedPreconditions,
+        UnconditionalPrecondition,
+    )
+
+
+@dataclass
+class Param:
+    # param_type: str  # ["func", "var_type", "var_name"]
+    pass
+
+    def to_dict(self):
+        return self.__dict__
+
+
+@dataclass
+class APIParam(Param):
+    def __init__(self, api_full_name: str):
+        self.param_type = "api_param"
+        self.api_full_name = api_full_name
+
+
+@dataclass
+class VarTypeParam(Param):
+    def __init__(self, var_type: str, attr_name: str):
+        self.param_type = "var_type"
+        self.var_type = var_type
+        self.attr_name = attr_name
+
+
+@dataclass
+class VarNameParam(Param):
+    param_type = "var_name"
+
+    def __init__(self, var_name: str, attr_name: str):
+        self.param_type = "var_name"
+        self.var_name = var_name
+        self.attr_name = attr_name
 
 
 class Invariant:
     def __init__(
         self,
-        relation,
-        param_selectors: list,
-        precondition: dict[str, list] | None = None,
+        relation: Relation,
+        params: list[Param],
+        precondition: "GroupedPreconditions" | "UnconditionalPrecondition",
         text_description: str | None = None,
     ):
-        # def __init__(self, relation: Relation, param_selectors: list[Predicate], precondition: Predicate):
         self.relation = relation
-        self.param_selectors = param_selectors  ## Param selector
-        self.precondition = precondition  # stateful preconditions
+        self.params = params  ## params to be used in the check
+        self.precondition = precondition
         self.text_description = text_description
 
-    def get_params(self, trace: Trace) -> list:
-        """Given a trace, should return the values of the parameters
-        that the invariant should be evaluated on.
-
-        args:
-            trace: str
-                A trace to get the parameter values from.
-        """
-        raise NotImplementedError("get_params method is not implemented yet.")
-
-    def verify(self, trace) -> bool:
-        """Given a trace, should return a boolean value indicating
-        whether the invariant holds or not.
-
-        args:
-            trace: str
-                A trace to verify the invariant on.
-        """
-        # relevant_trace = trace.filter(self.precondition)
-        # the pre-condition should be incorporated into the param_selectors
-        groups = trace.group(self.param_selectors)
-        for g in groups:
-            if not self.relation.evaluate(g):
-                return False
-        return True
-
     def __str__(self) -> str:
-        return f"""Relation: {self.relation}\nParam Selectors: {self.param_selectors}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
+        return f"""Relation: {self.relation}\nParam Selectors: {self.params}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
+
+    def to_dict(self) -> dict:
+        return {
+            "text_description": self.text_description,
+            "relation": self.relation.get_name(),
+            "params": [param.to_dict() for param in self.params],
+            "precondition": self.precondition.to_dict(),
+        }
 
 
 class Example:
@@ -119,6 +144,9 @@ class Relation(abc.ABC):
         pass
 
     def __str__(self):
+        return self.__class__.__name__
+
+    def get_name(self):
         return self.__class__.__name__
 
     @staticmethod
