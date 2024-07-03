@@ -419,8 +419,6 @@ class Proxy:
             print_debug(
                 f"Time elapse: {time.time() - Proxy.var_dict[self.__dict__['var_name']].__dict__['last_update_timestamp']}"
             )
-            # dump frame array
-            self.dump_trace("update")
 
             if self.__dict__["var_name"] == "":
                 var_name = name
@@ -443,6 +441,8 @@ class Proxy:
                         var_name=var_name,
                     ),
                 )
+            # dump frame array
+            self.dump_trace("update")
 
     def __getitem__(self, key):
         # Intercept item retrieval
