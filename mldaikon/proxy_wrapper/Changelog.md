@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning].
     neglect_hidden_func = (
         True  # neglect the hidden function (function that starts with '_')
     )
+    neglect_hidden_module = True  # neglect the hidden module (module that starts with '_')
     observe_then_unproxy = False  # observe the function call and then unproxy the arguments
     ```
 
