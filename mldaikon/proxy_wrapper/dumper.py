@@ -131,6 +131,8 @@ def dump_attributes(obj):
             continue
         try:
             attr = getattr(obj, attr_name)
+            if attr is None:
+                result[attr_name] = None
             if type(attr) in primitive_types:
                 result[attr_name] = attr
 
