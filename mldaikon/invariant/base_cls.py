@@ -7,10 +7,7 @@ from typing import TYPE_CHECKING
 from mldaikon.trace.trace import Trace
 
 if TYPE_CHECKING:
-    from mldaikon.invariant.precondition import (
-        GroupedPreconditions,
-        UnconditionalPrecondition,
-    )
+    from mldaikon.invariant.precondition import GroupedPreconditions
 
 
 @dataclass
@@ -52,7 +49,7 @@ class Invariant:
         self,
         relation: Relation,
         params: list[Param],
-        precondition: "GroupedPreconditions" | "UnconditionalPrecondition",
+        precondition: "GroupedPreconditions" | None,
         text_description: str | None = None,
     ):
         self.relation = relation
@@ -64,6 +61,10 @@ class Invariant:
         return f"""Relation: {self.relation}\nParam Selectors: {self.params}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
 
     def to_dict(self) -> dict:
+        assert (
+            self.precondition is not None
+        ), f"Invariant precondition is not set, check the infer function of {self.relation.get_name()}"
+
         return {
             "text_description": self.text_description,
             "relation": self.relation.get_name(),

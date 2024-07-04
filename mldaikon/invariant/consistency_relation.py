@@ -10,6 +10,7 @@ from mldaikon.invariant.base_cls import (
     Hypothesis,
     Invariant,
     Relation,
+    VarTypeParam,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Liveness, Trace
@@ -111,7 +112,7 @@ class ConsistencyRelation(Relation):
             return []
 
         ## 2. Hypothesis Generation Based on Liveness Overlapping
-        hypothesis = set()  # (var_type1, attr1, var_type2, attr2)
+        hypothesis = set()  # {(var_type1, attr1, var_type2, attr2)}
         for var_inst, other_var_inst in tqdm(
             combinations(var_insts, 2),
             desc="Generating Hypothesis",
@@ -184,7 +185,7 @@ class ConsistencyRelation(Relation):
         logger.debug(f"Number of Hypothesis: {len(hypothesis)}")
 
         # for each hypothesis, collect number of positive examples seen, if it is below a threshold, prune it
-        filtered_hypothesis = []
+        filtered_hypothesis = []  # [(var_type1, attr1, var_type2, attr2)]
         for hypo in hypothesis:
             var_type1 = hypo[0]
             attr1 = hypo[1]
@@ -269,12 +270,20 @@ class ConsistencyRelation(Relation):
         ## 4.  Positive Examples and Negative Examples Collection
         group_name = "var"  # TODO: hacky, need to fix this
         hypothesis_with_examples = {
-            key: Hypothesis(
-                invariant=Invariant(ConsistencyRelation, [], None),
+            hypo: Hypothesis(
+                invariant=Invariant(
+                    relation=ConsistencyRelation,  # type: ignore
+                    params=[
+                        VarTypeParam(var_type=hypo[0], attr_name=hypo[1]),
+                        VarTypeParam(var_type=hypo[2], attr_name=hypo[3]),
+                    ],
+                    precondition=None,
+                    text_description=f"Consistency Relation between {hypo[0]}.{hypo[1]} and {hypo[2]}.{hypo[3]}",
+                ),
                 positive_examples=ExampleList({group_name}),
                 negative_examples=ExampleList({group_name}),
             )
-            for key in filtered_hypothesis
+            for hypo in filtered_hypothesis
         }
         for hypo in hypothesis_with_examples:
             var_type1 = hypo[0]
@@ -361,9 +370,6 @@ class ConsistencyRelation(Relation):
         for hypo in hypos_to_delete:
             del hypothesis_with_examples[hypo]
 
-        ## 6. TODO: Invariant Construction
-        ## NEED TO THINK ABOUT HOW TO EXPRESS THIS INVARIANT
-        logger.debug(f"Hypothesis with a found : {hypothesis_with_examples.keys()}")
         return list([hypo.invariant for hypo in hypothesis_with_examples.values()])
 
     @staticmethod

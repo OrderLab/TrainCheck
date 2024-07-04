@@ -14,7 +14,7 @@ from mldaikon.invariant.base_cls import (
     Relation,
     VarTypeParam,
 )
-from mldaikon.invariant.precondition import UnconditionalPrecondition, find_precondition
+from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
 from mldaikon.utils import typename
@@ -196,9 +196,9 @@ class APIContainRelation(Relation):
 
                         hypothesis[parent][high_level_event_type][target] = Hypothesis(
                             Invariant(
-                                relation=APIContainRelation(),
-                                params=params,  # TODO
-                                precondition=UnconditionalPrecondition(),
+                                relation=APIContainRelation,  # type: ignore
+                                params=params,
+                                precondition=None,
                                 text_description=f"{parent} contains {target} of type {typename(event)}",
                                 # text_description=f"{parent} (is_bound_method: {is_parent_a_bound_method}, should_use_causal_vars_for_negative_examples: {should_use_causal_vars_for_negative_examples}) contains {target} of type {typename(event)}",
                             ),
