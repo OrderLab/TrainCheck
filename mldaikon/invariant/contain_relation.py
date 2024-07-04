@@ -93,9 +93,6 @@ class APIContainRelation(Relation):
     In the API contain relation, an parent API call will always contain the child API call.
     """
 
-    def __init__(self):
-        pass
-
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:
         """Infer Invariants with Preconditions"""
@@ -108,10 +105,6 @@ class APIContainRelation(Relation):
             str, dict[str, dict[str | tuple[str, ...], bool]]
         ] = {}
         func_names = trace.get_func_names()
-
-        func_names = [
-            func_name for func_name in func_names if "adam.step" in func_name.lower()
-        ]
 
         if len(func_names) == 0:
             logger.warning(

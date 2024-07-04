@@ -2,46 +2,270 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Type
+from enum import Enum
+from typing import Hashable, Iterable, Type
 
 from mldaikon.trace.trace import Trace
-
-if TYPE_CHECKING:
-    from mldaikon.invariant.precondition import GroupedPreconditions
 
 
 @dataclass
 class Param:
     # param_type: str  # ["func", "var_type", "var_name"]
-    pass
-
     def to_dict(self):
-        return self.__dict__
+        self_dict = {
+            "param_type": self.__class__.__name__,
+        }
+        self_dict.update(self.__dict__)
+        return self_dict
+
+    @staticmethod
+    def from_dict(param_dict: dict) -> Param:
+        for param_type in Param.__subclasses__():
+            if param_type.__name__ == param_dict["param_type"]:
+                print("Found param type" + param_dict["param_type"])
+                args = {k: v for k, v in param_dict.items() if k != "param_type"}
+                return param_type(**args)
+        raise ValueError(f"Unknown param type: {param_dict['param_type']}")
 
 
 @dataclass
 class APIParam(Param):
     def __init__(self, api_full_name: str):
-        self.param_type = "api_param"
         self.api_full_name = api_full_name
 
 
 @dataclass
 class VarTypeParam(Param):
     def __init__(self, var_type: str, attr_name: str):
-        self.param_type = "var_type"
         self.var_type = var_type
         self.attr_name = attr_name
 
 
 @dataclass
 class VarNameParam(Param):
-    param_type = "var_name"
-
     def __init__(self, var_name: str, attr_name: str):
-        self.param_type = "var_name"
         self.var_name = var_name
         self.attr_name = attr_name
+
+
+class PreconditionClauseType(Enum):
+    CONSTANT = "constant"
+    CONSISTENT = "consistent"
+    UNEQUAL = "unequal"
+
+
+PT = PreconditionClauseType
+
+
+class PreconditionClause:
+    def __init__(self, prop_name: str, prop_dtype: type, _type: PT, values: set | None):
+        assert _type in [
+            PT.CONSISTENT,
+            PT.CONSTANT,
+            PT.UNEQUAL,
+        ], f"Invalid Precondition type {_type}"
+
+        if _type in [PT.CONSISTENT, PT.CONSTANT]:
+            assert (
+                values is not None and len(values) > 0
+            ), "Values should not be empty for CONSTANT or CONSISTENT type"
+
+        self.prop_name = prop_name
+        self.prop_dtype = prop_dtype
+        self.type = _type
+        self.values = values if isinstance(values, set) else {values}
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __str__(self) -> str:
+        return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
+
+    def to_dict(self) -> dict:
+        clause_dict: dict[str, str | list] = {
+            "type": self.type.value,
+            "prop_name": self.prop_name,
+            "prop_dtype": self.prop_dtype.__name__,
+        }
+        if self.type in [PT.CONSTANT, PT.CONSISTENT]:
+            clause_dict["values"] = list(self.values)
+        return clause_dict
+
+    @staticmethod
+    def from_dict(clause_dict: dict) -> PreconditionClause:
+        prop_name = clause_dict["prop_name"]
+        _type = PT(clause_dict["type"])
+        prop_dtype = eval(clause_dict["prop_dtype"])
+
+        values = None
+        if _type in [PT.CONSTANT, PT.CONSISTENT]:
+            assert "values" in clause_dict, "Values not found in the clause"
+            assert isinstance(clause_dict["values"], list), "Values should be a list"
+            values = set(clause_dict["values"])
+        return PreconditionClause(prop_name, prop_dtype, _type, values)
+
+    def __eq__(self, other):
+        if not isinstance(other, PreconditionClause):
+            return False
+
+        if self.type == PT.CONSISTENT and other.type == PT.CONSISTENT:
+            return (
+                self.prop_name == other.prop_name
+                and self.prop_dtype == other.prop_dtype
+                and self.type == other.type
+            )
+
+        return (
+            self.prop_name == other.prop_name
+            and self.prop_dtype == other.prop_dtype
+            and self.type == other.type
+            and self.values == other.values
+        )
+
+    def __hash__(self):
+        if self.type == PT.CONSISTENT:
+            return hash((self.prop_name, self.prop_dtype, self.type))
+        return hash((self.prop_name, self.prop_dtype, self.type, tuple(self.values)))
+
+    def verify(self, example: list) -> bool:
+        assert isinstance(example, list)
+        assert len(example) > 0
+
+        prop_name = self.prop_name
+        prop_values_seen = set()
+        for i in range(len(example)):
+            if prop_name not in example[i]:
+                return False
+
+            if not isinstance(example[i][prop_name], Hashable):
+                # print(
+                #     f"ERROR: Property {prop_name} is not hashable, skipping this property"
+                # )
+                return False
+
+            prop_values_seen.add(example[i][prop_name])
+
+        if self.type == PT.CONSTANT:
+            if len(prop_values_seen) == 1 and tuple(prop_values_seen)[0] in self.values:
+                return True
+            return False
+
+        if self.type == PT.CONSISTENT:
+            if len(prop_values_seen) == 1:
+                return True
+            return False
+
+        if self.type == PT.UNEQUAL:
+            if len(prop_values_seen) == len(example):
+                return True
+            return False
+
+        raise ValueError(f"Invalid Precondition type {self.type}")
+
+
+class Precondition:
+    """A class to represent a precondition for a hypothesis. A precondition is a set of `PreconditionClause` objects that should hold for the hypothesis to be valid.
+    Currently the `Precondition` object is a conjunction of the `PreconditionClause` objects.
+    """
+
+    def __init__(self, clauses: Iterable[PreconditionClause]):
+        self.clauses = clauses
+
+    def verify(self, example: list) -> bool:
+        and_result = True
+        for clause in self.clauses:
+            and_result = and_result and clause.verify(example)
+            if not and_result:
+                return False
+        return True
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __str__(self) -> str:
+        output = "====================== Start of Precondition ======================\n"
+        for clause in self.clauses:
+            output += str(clause) + "\n"
+        output += "====================== End of Preconditions ======================\n"
+        return output
+
+    def implies(self, other) -> bool:
+        """When self is True, other should also be True."""
+
+        ## all the clauses in other should be in self
+        for clause in other.clauses:
+            if clause not in self.clauses:
+                return False
+
+        return True
+
+    def to_dict(self) -> dict:
+        return {"clauses": [clause.to_dict() for clause in self.clauses]}
+
+
+class UnconditionalPrecondition(Precondition):
+    def __init__(self):
+        super().__init__([])
+
+    def verify(self, example: list) -> bool:
+        return True
+
+    def __repr__(self) -> str:
+        return "Unconditional Precondition"
+
+    def __str__(self) -> str:
+        return "Unconditional Precondition"
+
+    def implies(self, other) -> bool:
+        # Unconditional Precondition cannot imply any other preconditions as it is always True
+        return False
+
+    def to_dict(self) -> dict:
+        return {"clauses": "Unconditional"}
+
+
+class GroupedPreconditions:
+    def __init__(self, grouped_preconditions: dict[str, list[Precondition]]):
+        self.grouped_preconditions = grouped_preconditions
+
+    def verify(self, example: list, group_name: str) -> bool:
+        assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
+        for precondition in self.grouped_preconditions[group_name]:
+            if precondition.verify(example):
+                return True
+        return False
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __str__(self) -> str:
+        output = "====================== Start of Grouped Precondition ======================\n"
+        for group_name, preconditions in self.grouped_preconditions.items():
+            output += f"Group: {group_name}\n"
+            for precondition in preconditions:
+                output += str(precondition) + "\n"
+        output += "====================== End of Grouped Precondition ======================\n"
+        return output
+
+    def to_dict(self) -> dict:
+        return {
+            group_name: [precond.to_dict() for precond in preconditions]
+            for group_name, preconditions in self.grouped_preconditions.items()
+        }
+
+    @staticmethod
+    def from_dict(precondition_dict: dict) -> GroupedPreconditions:
+        grouped_preconditions: dict[str, list[Precondition]] = {}
+        for group_name, preconditions in precondition_dict.items():
+            grouped_preconditions[group_name] = []
+            for precondition in preconditions:
+                clauses = []
+                for clause_dict in precondition["clauses"]:
+                    clauses.append(
+                        PreconditionClause.from_dict(clause_dict=clause_dict)
+                    )
+                grouped_preconditions[group_name].append(Precondition(clauses))
+        return GroupedPreconditions(grouped_preconditions)
 
 
 class Invariant:
@@ -49,7 +273,7 @@ class Invariant:
         self,
         relation: Type[Relation],
         params: list[Param],
-        precondition: "GroupedPreconditions" | None,
+        precondition: GroupedPreconditions | None,
         text_description: str | None = None,
     ):
         self.relation = relation
@@ -71,6 +295,16 @@ class Invariant:
             "params": [param.to_dict() for param in self.params],
             "precondition": self.precondition.to_dict(),
         }
+
+    @staticmethod
+    def from_dict(invariant_dict: dict) -> Invariant:
+        relation = Relation.from_name(invariant_dict["relation"])
+        text_description = invariant_dict["text_description"]
+        params = [
+            Param.from_dict(param_dict) for param_dict in invariant_dict["params"]
+        ]
+        precondition = GroupedPreconditions.from_dict(invariant_dict["precondition"])
+        return Invariant(relation, params, precondition, text_description)
 
 
 class Example:
@@ -139,11 +373,6 @@ class Hypothesis:
 
 class Relation(abc.ABC):
 
-    @abc.abstractmethod
-    def __init__(self):
-        # TODO: indentify common attributes of relations and initialize them here
-        pass
-
     @staticmethod
     @abc.abstractmethod
     def infer(trace) -> list[Invariant]:
@@ -157,21 +386,6 @@ class Relation(abc.ABC):
         pass
 
     @staticmethod
-    def instantiate_invariant(param_selector: list, precondition: list) -> Invariant:
-        """Given a list of parameter selectors and a precondition, should return an invariant
-        instance.
-
-        args:
-            param_selector: list
-                A list of parameter selectors to be used in the invariant.
-            precondition: list
-                A list of preconditions to be used in the invariant.
-        """
-        raise NotImplementedError(
-            "instantiate_invariant method is not implemented yet."
-        )
-
-    @staticmethod
     @abc.abstractmethod
     def evaluate(value_group: list) -> bool:
         """Given a group of values, should return a boolean value
@@ -183,3 +397,19 @@ class Relation(abc.ABC):
                 should be equal to the number of variables in the relation.
         """
         pass
+
+    @staticmethod
+    def from_name(relation_name: str) -> Type[Relation]:
+        """Given a relation name, should return the relation class.
+
+        args:
+            relation_name: str
+                The name of the relation.
+        """
+        for type_relation in Relation.__subclasses__():
+            print("Iterating")
+            print(type_relation.__name__)
+            if type_relation.__name__ == relation_name:
+                return type_relation
+
+        raise ValueError(f"Relation {relation_name} not found")

@@ -1,7 +1,6 @@
 import logging
-from enum import Enum
 from itertools import combinations
-from typing import Hashable, Iterable
+from typing import Hashable
 
 from tqdm import tqdm
 
@@ -9,202 +8,16 @@ from mldaikon.config.config import (
     CONST_CLAUSE_NUM_VALUES_THRESHOLD,
     NOT_USE_AS_CLAUSE_FIELDS,
 )
-from mldaikon.invariant.base_cls import Hypothesis
+from mldaikon.invariant.base_cls import (
+    PT,
+    GroupedPreconditions,
+    Hypothesis,
+    Precondition,
+    PreconditionClause,
+    UnconditionalPrecondition,
+)
 
 logger = logging.getLogger("Precondition")
-
-
-class PreconditionClauseType(Enum):
-    CONSTANT = "constant"
-    CONSISTENT = "consistent"
-    UNEQUAL = "unequal"
-
-
-PT = PreconditionClauseType
-
-
-class PreconditionClause:
-    def __init__(self, prop_name: str, prop_dtype: type, _type: PT, values: set | None):
-        assert _type in [
-            PT.CONSISTENT,
-            PT.CONSTANT,
-            PT.UNEQUAL,
-        ], f"Invalid Precondition type {_type}"
-
-        if _type in [PT.CONSISTENT, PT.CONSTANT]:
-            assert (
-                values is not None and len(values) > 0
-            ), "Values should not be empty for CONSTANT or CONSISTENT type"
-
-        self.prop_name = prop_name
-        self.prop_dtype = prop_dtype
-        self.type = _type
-        self.values = values if isinstance(values, set) else {values}
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-    def __str__(self) -> str:
-        return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
-
-    def to_dict(self) -> dict:
-        clause_dict: dict[str, str | list] = {
-            "type": self.type.value,
-            "prop_name": self.prop_name,
-            "prop_dtype": self.prop_dtype.__name__,
-        }
-        if self.type in [PT.CONSTANT, PT.CONSISTENT]:
-            clause_dict["values"] = list(self.values)
-        return clause_dict
-
-    def __eq__(self, other):
-        if not isinstance(other, PreconditionClause):
-            return False
-
-        if self.type == PT.CONSISTENT and other.type == PT.CONSISTENT:
-            return (
-                self.prop_name == other.prop_name
-                and self.prop_dtype == other.prop_dtype
-                and self.type == other.type
-            )
-
-        return (
-            self.prop_name == other.prop_name
-            and self.prop_dtype == other.prop_dtype
-            and self.type == other.type
-            and self.values == other.values
-        )
-
-    def __hash__(self):
-        if self.type == PT.CONSISTENT:
-            return hash((self.prop_name, self.prop_dtype, self.type))
-        return hash((self.prop_name, self.prop_dtype, self.type, tuple(self.values)))
-
-    def verify(self, example: list) -> bool:
-        assert isinstance(example, list)
-        assert len(example) > 0
-
-        prop_name = self.prop_name
-        prop_values_seen = set()
-        for i in range(len(example)):
-            if prop_name not in example[i]:
-                return False
-
-            if not isinstance(example[i][prop_name], Hashable):
-                # print(
-                #     f"ERROR: Property {prop_name} is not hashable, skipping this property"
-                # )
-                return False
-
-            prop_values_seen.add(example[i][prop_name])
-
-        if self.type == PT.CONSTANT:
-            if len(prop_values_seen) == 1 and tuple(prop_values_seen)[0] in self.values:
-                return True
-            return False
-
-        if self.type == PT.CONSISTENT:
-            if len(prop_values_seen) == 1:
-                return True
-            return False
-
-        if self.type == PT.UNEQUAL:
-            if len(prop_values_seen) == len(example):
-                return True
-            return False
-
-        raise ValueError(f"Invalid Precondition type {self.type}")
-
-
-class Precondition:
-    """A class to represent a precondition for a hypothesis. A precondition is a set of `PreconditionClause` objects that should hold for the hypothesis to be valid.
-    Currently the `Precondition` object is a conjunction of the `PreconditionClause` objects.
-    """
-
-    def __init__(self, clauses: Iterable[PreconditionClause]):
-        self.clauses = clauses
-
-    def verify(self, example: list) -> bool:
-        and_result = True
-        for clause in self.clauses:
-            and_result = and_result and clause.verify(example)
-            if not and_result:
-                return False
-        return True
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-    def __str__(self) -> str:
-        output = "====================== Start of Precondition ======================\n"
-        for clause in self.clauses:
-            output += str(clause) + "\n"
-        output += "====================== End of Preconditions ======================\n"
-        return output
-
-    def implies(self, other) -> bool:
-        """When self is True, other should also be True."""
-
-        ## all the clauses in other should be in self
-        for clause in other.clauses:
-            if clause not in self.clauses:
-                return False
-
-        return True
-
-    def to_dict(self) -> dict:
-        return {"clauses": [clause.to_dict() for clause in self.clauses]}
-
-
-class UnconditionalPrecondition(Precondition):
-    def __init__(self):
-        super().__init__([])
-
-    def verify(self, example: list) -> bool:
-        return True
-
-    def __repr__(self) -> str:
-        return "Unconditional Precondition"
-
-    def __str__(self) -> str:
-        return "Unconditional Precondition"
-
-    def implies(self, other) -> bool:
-        # Unconditional Precondition cannot imply any other preconditions as it is always True
-        return False
-
-    def to_dict(self) -> dict:
-        return {"clauses": "Unconditional"}
-
-
-class GroupedPreconditions:
-    def __init__(self, grouped_preconditions: dict[str, list[Precondition]]):
-        self.grouped_preconditions = grouped_preconditions
-
-    def verify(self, example: list, group_name: str) -> bool:
-        assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
-        for precondition in self.grouped_preconditions[group_name]:
-            if precondition.verify(example):
-                return True
-        return False
-
-    def __repr__(self) -> str:
-        return self.__str__()
-
-    def __str__(self) -> str:
-        output = "====================== Start of Grouped Precondition ======================\n"
-        for group_name, preconditions in self.grouped_preconditions.items():
-            output += f"Group: {group_name}\n"
-            for precondition in preconditions:
-                output += str(precondition) + "\n"
-        output += "====================== End of Grouped Precondition ======================\n"
-        return output
-
-    def to_dict(self) -> dict:
-        return {
-            group_name: [precond.to_dict() for precond in preconditions]
-            for group_name, preconditions in self.grouped_preconditions.items()
-        }
 
 
 def is_statistical_significant(positive_examples: list) -> bool:

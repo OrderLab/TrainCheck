@@ -94,9 +94,6 @@ class VariableValueSelector:
 
 
 class ConsistencyRelation(Relation):
-    def __init__(self, parent_func_name: str, child_func_name: str):
-        self.parent_func_name = parent_func_name
-        self.child_func_name = child_func_name
 
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:

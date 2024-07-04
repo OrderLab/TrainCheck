@@ -19,10 +19,12 @@ class InferEngine:
     def infer(self):
         all_invs = []
         for trace in self.traces:
-            for r in relation_pool:
-                logger.info(f"Infering invariants for relation: {r}")
-                invs = r.infer(trace)
-                logger.info(f"Found {len(invs)} invariants for relation: {r}")
+            for relation in relation_pool:
+                logger.info(f"Infering invariants for relation: {relation.__name__}")
+                invs = relation.infer(trace)
+                logger.info(
+                    f"Found {len(invs)} invariants for relation: {relation.__name__}"
+                )
                 all_invs.extend(invs)
         logger.info(f"Found {len(all_invs)} invariants.")
         return invs
