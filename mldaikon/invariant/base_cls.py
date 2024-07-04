@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 
 from mldaikon.trace.trace import Trace
 
@@ -47,7 +47,7 @@ class VarNameParam(Param):
 class Invariant:
     def __init__(
         self,
-        relation: Relation,
+        relation: Type[Relation],
         params: list[Param],
         precondition: "GroupedPreconditions" | None,
         text_description: str | None = None,
@@ -63,11 +63,11 @@ class Invariant:
     def to_dict(self) -> dict:
         assert (
             self.precondition is not None
-        ), f"Invariant precondition is not set, check the infer function of {self.relation.get_name()}"
+        ), f"Invariant precondition is not set, check the infer function of {self.relation.__name__}"
 
         return {
             "text_description": self.text_description,
-            "relation": self.relation.get_name(),
+            "relation": self.relation.__name__,
             "params": [param.to_dict() for param in self.params],
             "precondition": self.precondition.to_dict(),
         }
@@ -143,12 +143,6 @@ class Relation(abc.ABC):
     def __init__(self):
         # TODO: indentify common attributes of relations and initialize them here
         pass
-
-    def __str__(self):
-        return self.__class__.__name__
-
-    def get_name(self):
-        return self.__class__.__name__
 
     @staticmethod
     @abc.abstractmethod

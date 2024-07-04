@@ -196,7 +196,7 @@ class APIContainRelation(Relation):
 
                         hypothesis[parent][high_level_event_type][target] = Hypothesis(
                             Invariant(
-                                relation=APIContainRelation,  # type: ignore
+                                relation=APIContainRelation,
                                 params=params,
                                 precondition=None,
                                 text_description=f"{parent} contains {target} of type {typename(event)}",

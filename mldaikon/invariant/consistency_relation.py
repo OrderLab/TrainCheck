@@ -272,7 +272,7 @@ class ConsistencyRelation(Relation):
         hypothesis_with_examples = {
             hypo: Hypothesis(
                 invariant=Invariant(
-                    relation=ConsistencyRelation,  # type: ignore
+                    relation=ConsistencyRelation,
                     params=[
                         VarTypeParam(var_type=hypo[0], attr_name=hypo[1]),
                         VarTypeParam(var_type=hypo[2], attr_name=hypo[3]),
