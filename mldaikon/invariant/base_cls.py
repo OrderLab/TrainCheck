@@ -22,7 +22,6 @@ class Param:
     def from_dict(param_dict: dict) -> Param:
         for param_type in Param.__subclasses__():
             if param_type.__name__ == param_dict["param_type"]:
-                print("Found param type" + param_dict["param_type"])
                 args = {k: v for k, v in param_dict.items() if k != "param_type"}
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
@@ -258,6 +257,16 @@ class GroupedPreconditions:
         grouped_preconditions: dict[str, list[Precondition]] = {}
         for group_name, preconditions in precondition_dict.items():
             grouped_preconditions[group_name] = []
+            if (
+                len(preconditions) > 0
+                and preconditions[0]["clauses"] == "Unconditional"
+            ):
+                assert (
+                    len(preconditions) == 1
+                ), "Unconditional precondition should be the only precondition"
+                grouped_preconditions[group_name].append(UnconditionalPrecondition())
+                continue
+
             for precondition in preconditions:
                 clauses = []
                 for clause_dict in precondition["clauses"]:
@@ -407,8 +416,6 @@ class Relation(abc.ABC):
                 The name of the relation.
         """
         for type_relation in Relation.__subclasses__():
-            print("Iterating")
-            print(type_relation.__name__)
             if type_relation.__name__ == relation_name:
                 return type_relation
 
