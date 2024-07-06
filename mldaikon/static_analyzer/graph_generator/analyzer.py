@@ -164,7 +164,6 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.contract_nonexistents()
         self.cull_inherited()
         self.collapse_inner()
-        self.assign_levels()
 
     ###########################################################################
     # visitor methods

@@ -88,10 +88,8 @@ def main(cli_args=None):
 
     if known_args.very_verbose:
         logger.setLevel(logging.DEBUG)
-
     elif known_args.verbose:
         logger.setLevel(logging.INFO)
-
     else:
         logger.setLevel(logging.WARN)
 
@@ -112,16 +110,16 @@ def main(cli_args=None):
     v = CallGraphVisitor(filenames, logger=logger, root=root, output_path=output_path)
 
     if known_args.function or known_args.namespace:
-
         if known_args.function:
             function_name = known_args.function.split(".")[-1]
             namespace = ".".join(known_args.function.split(".")[:-1])
             node = v.get_node(namespace, function_name)
-
         else:
             node = None
 
         v.filter(node=node, namespace=known_args.namespace)
+
+    v.assign_levels()
 
 
 if __name__ == "__main__":

@@ -6,4 +6,10 @@ Note: This module (currently) mainly support dynamic graph unparsing from Pyan r
 
 ```bash
 python main.py --lib nn
+
+# Only output functions with namespace torch.nn.modules.padding
+python main.py --lib nn --namespace torch.nn.modules.padding
+
+# Only output functions with namespace torch.nn.modules.padding and used in torch.nn.modules.padding
+python main.py --lib nn --namespace torch.nn.modules.padding --function torch.nn.modules.padding.ConstantPad3d
 ```
