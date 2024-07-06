@@ -19,6 +19,9 @@ from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
 from mldaikon.utils import typename
 
+PARENT_GROUP_NAME = "parent_func_call_pre"
+VAR_GROUP_NAME = "var_events"
+
 
 def can_func_be_bound_method(
     trace: Trace,
@@ -49,7 +52,7 @@ def can_func_be_bound_method(
 
 
 def events_scanner(
-    trace: Trace, func_pre_call_idx: int, parent_func_name: str
+    trace: Trace, func_call_id: str
 ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
     """Scan the trace, and return the first set of events that happened within the pre and post
     events of the parent_func_name.
@@ -57,22 +60,11 @@ def events_scanner(
     Args:
         trace: Trace
             - the trace to be scanned
-        parent_func_name: str
-            - the parent function name
-
-    Note that if the first record of the trace is not the pre-event of the parent_func_name, or
-    the pre-event has no post-event, the function will return None. Otherwise, it will return the
-    set of events that happened within the first post-event of the parent_func_name on the same
-    thread and process.
+        func_call_id: str
+            - the function call id of the parent function, which should correspond to two events (entry and exit)
     """
-    pre_call_record = trace.events.row(index=func_pre_call_idx, named=True)
-    assert (
-        trace.events.row(index=func_pre_call_idx, named=True)["function"]
-        == parent_func_name
-    ), "The func_pre_call_idx should be the pre-event of the parent function"
-
-    func_post_call_idx = trace.get_func_post_call_idx(func_pre_call_idx)
-    post_call_record = trace.events.row(index=func_post_call_idx, named=True)
+    pre_call_record = trace.get_pre_func_call_record(func_call_id)
+    post_call_record = trace.get_post_func_call_record(func_call_id)
 
     process_id = pre_call_record["process_id"]
     thread_id = pre_call_record["thread_id"]
@@ -106,6 +98,10 @@ class APIContainRelation(Relation):
         ] = {}
         func_names = trace.get_func_names()
 
+        func_names = [
+            func_name for func_name in func_names if "adam.step" in func_name.lower()
+        ]
+
         if len(func_names) == 0:
             logger.warning(
                 "No function calls found in the trace, skipping the analysis"
@@ -118,22 +114,24 @@ class APIContainRelation(Relation):
             is_parent_a_bound_method = trace.get_func_is_bound_method(parent)
             logger.debug(f"Starting the analysis for the parent function: {parent}")
             # get all parent pre event indexes
-            parent_pre_call_indices = trace.events.select(
-                pl.arg_where(
+            parent_func_call_ids = (
+                trace.events.filter(
                     (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
                     & (pl.col("function") == parent)
                 )
-            ).to_series()
+                .select("func_call_id")
+                .to_series()
+            )
             logger.debug(
-                f"Found {len(parent_pre_call_indices)} invocations for the function: {parent}"
+                f"Found {len(parent_func_call_ids)} invocations for the function: {parent}"
             )
             all_contained_events: list[
                 list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
             ] = []
-            for idx in parent_pre_call_indices:
+            for parent_func_call_id in parent_func_call_ids:
                 # get all contained events (can be any child function calls, var changes, etc.)
                 contained_events = events_scanner(
-                    trace=trace, func_pre_call_idx=idx, parent_func_name=parent
+                    trace=trace, func_call_id=parent_func_call_id
                 )
                 all_contained_events.append(contained_events)
 
@@ -172,9 +170,9 @@ class APIContainRelation(Relation):
                         ][target] = should_use_causal_vars_for_negative_examples
 
                         group_names = (
-                            {"parent_func_call_pre", "var_events"}
+                            {PARENT_GROUP_NAME, VAR_GROUP_NAME}
                             if isinstance(event, VarChangeEvent)
-                            else {"parent_func_call_pre"}
+                            else {PARENT_GROUP_NAME}
                         )
 
                         params: list[Param] = [APIParam(parent)]
@@ -199,7 +197,7 @@ class APIContainRelation(Relation):
                             negative_examples=ExampleList(
                                 group_names
                                 if should_use_causal_vars_for_negative_examples
-                                else {"parent_func_call_pre"}
+                                else {PARENT_GROUP_NAME}
                             ),
                         )
                         """If the parent function is a bound method, we can leverage the dynamic analysis to find variables that are not changed but are causally related to the parent function.
@@ -209,11 +207,11 @@ class APIContainRelation(Relation):
                         """
 
             # scan the child_func_names for positive and negative examples
-            for idx, local_contained_events in zip(
-                parent_pre_call_indices, all_contained_events
+            for parent_func_call_id, local_contained_events in zip(
+                parent_func_call_ids, all_contained_events
             ):
                 touched: dict[str, set] = {}
-                pre_record = trace.events.row(index=idx, named=True)
+                pre_record = trace.get_pre_func_call_record(parent_func_call_id)
                 for event in local_contained_events:
                     high_level_event_type = typename(event)
 
@@ -225,9 +223,9 @@ class APIContainRelation(Relation):
 
                     assert target in hypothesis[parent][high_level_event_type]
                     example = Example()
-                    example.add_group("parent_func_call_pre", [pre_record])
+                    example.add_group(PARENT_GROUP_NAME, [pre_record])
                     if isinstance(event, VarChangeEvent):
-                        example.add_group("var_events", event.get_traces())
+                        example.add_group(VAR_GROUP_NAME, event.get_traces())
                     hypothesis[parent][high_level_event_type][
                         target
                     ].positive_examples.add_example(example)
@@ -242,19 +240,18 @@ class APIContainRelation(Relation):
                             parent
                         ][high_level_event_type][target]:
                             assert high_level_event_type == typename(VarChangeEvent)
-                            pre_record = trace.events.row(index=idx, named=True)
                             unchanged_var_ids = (
                                 trace.get_var_ids_unchanged_but_causally_related(
-                                    pre_record["func_call_id"],
+                                    parent_func_call_id,
                                     target[0],
                                     target[1],
                                 )
                             )
                             for var_id in unchanged_var_ids:
                                 example = Example()
-                                example.add_group("parent_func_call_pre", [pre_record])
+                                example.add_group(PARENT_GROUP_NAME, [pre_record])
                                 example.add_group(
-                                    "var_events",
+                                    VAR_GROUP_NAME,
                                     trace.get_var_raw_event_before_time(
                                         var_id, pre_record["time"]
                                     ),
@@ -270,7 +267,7 @@ class APIContainRelation(Relation):
                             or target not in touched[high_level_event_type]
                         ):
                             example = Example()
-                            example.add_group("parent_func_call_pre", [pre_record])
+                            example.add_group(PARENT_GROUP_NAME, [pre_record])
                             hypothesis[parent][high_level_event_type][
                                 target
                             ].negative_examples.add_example(example)
