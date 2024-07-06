@@ -89,7 +89,6 @@ class CallGraphVisitor(ast.NodeVisitor):
         for pas in range(2):
             for filename in self.filenames:
                 self.logger.info("========== pass %d, file '%s' ==========" % (pas + 1, filename))
-                print(filename)
                 self.process_one(filename)
             if pas == 0:
                 self.resolve_base_classes()  # must be done only after all files seen

@@ -18,7 +18,7 @@ from analyzer import CallGraphVisitor
 
 
 def main(cli_args=None):
-    usage = """%(prog)s FILENAME... [--libname|--log|--verbose|--output]"""
+    usage = """%(prog)s [--libname|--log|--verbose|--output]"""
     desc = (
         "Analyse one or more Python source files and generate an"
         "approximate call graph of the modules, classes and functions"
@@ -90,7 +90,7 @@ def main(cli_args=None):
     else:
         root = None
 
-    if known_args.libname is not None:
+    if known_args.libname is None:
         parser.error("The --libname option is not added")
 
     # traverse the directory
@@ -131,7 +131,15 @@ def main(cli_args=None):
         handler = logging.FileHandler(known_args.logname)
         logger.addHandler(handler)
 
-    v = CallGraphVisitor(filenames, logger=logger, root=root, output_path=known_args.output)
+    if known_args.output is None:
+        output_path = os.path.dirname(os.path.abspath(__file__))
+        output_path = os.path.abspath(os.path.join(output_path, '..', 'func_level', f'{known_args.libname}_func_level.log'))
+    else:
+        output_path = known_args.output
+
+    print(f"Output path: {output_path}")
+
+    v = CallGraphVisitor(filenames, logger=logger, root=root, output_path=output_path)
 
     if known_args.function or known_args.namespace:
 
