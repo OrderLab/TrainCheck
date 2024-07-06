@@ -387,4 +387,36 @@ class ConsistencyRelation(Relation):
 
     @staticmethod
     def static_check_all(trace: Trace, inv: Invariant) -> bool:
+        # 1. examine the invariant, and get relevant variables based on type and attribute
+        assert len(inv.params) == 2, "Invariant should have exactly two parameters."
+
+        param1 = inv.params[0]
+        param2 = inv.params[1]
+
+        assert isinstance(param1, VarTypeParam) and isinstance(
+            param2, VarTypeParam
+        ), "Invariant parameters should be VarTypeParam."
+
+        var_type1, attr1 = param1.var_type, param1.attr_name
+        var_type2, attr2 = param2.var_type, param2.attr_name
+
+        all_var_insts = trace.get_var_insts()
+        var1_attr1 = [
+            all_var_insts[var_id][attr1]
+            for var_id in all_var_insts
+            if var_id.var_type == var_type1
+        ]
+        var2_attr2 = [
+            all_var_insts[var_id][attr2]
+            for var_id in all_var_insts
+            if var_id.var_type == var_type2
+        ]
+
+        # 2. for each pair of variables, check if the invariant holds
+        for val1, val2 in zip(var1_attr1, var2_attr2):
+            for value1, value2 in zip(val1, val2):
+                pass
+
+        # 3. for each group, check if the invariant holds
+
         raise NotImplementedError("This method is not implemented yet.")
