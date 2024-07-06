@@ -488,7 +488,9 @@ Defaulting to skip the var preconditon check for now.
                         f"Unsupported parameter type for child_param: {child_param}"
                     )
 
-            if not found_expected_child_event and not var_unchanged_check_passed:
+            if (skip_var_unchanged_check and not found_expected_child_event) or (
+                not skip_var_unchanged_check and not var_unchanged_check_passed
+            ):
                 logger.error(
                     f"INV CHECK ERROR: Expected child event not found in the contained events for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
                 )
