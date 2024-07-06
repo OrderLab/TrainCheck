@@ -62,9 +62,10 @@ if __name__ == "__main__":
         help="Path to the log file of the tracer",
     )
     parser.add_argument(
-        "--disable_proxy_class",
-        action="store_true",
-        help="Disable proxy class for tracing",
+        "--proxy_module",
+        type=str,
+        default="None",
+        help="The module to be traced by the proxy wrapper",
     )
     parser.add_argument(
         "--profiling",
@@ -87,7 +88,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     config.INCLUDED_WRAP_LIST = args.wrapped_modules
-    proxy_config.disable_proxy_class = args.disable_proxy_class
+
+    if args.proxy_module != "None":
+        disable_proxy_class = False
+    else:
+        disable_proxy_class = True
+
+    proxy_config.disable_proxy_class = disable_proxy_class
     proxy_config.proxy_log_dir = args.tracer_log_dir
     proxy_config.proxy_update_limit = args.proxy_update_limit
     proxy_config.profiling = (
@@ -107,8 +114,9 @@ if __name__ == "__main__":
     source_code = instrumentor.instrument_file(
         args.pyscript,
         args.modules_to_instrument,
-        args.disable_proxy_class,
+        disable_proxy_class,
         args.scan_proxy_in_args,
+        args.proxy_module,
     )
 
     # call into the program runner
