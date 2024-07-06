@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import NamedTuple
 
 from mldaikon.instrumentor.tracer import TraceLineType
@@ -44,6 +45,7 @@ class AttrState:
 """High-level events to be extracted from the low-level trace events (a low-level event is a single line in a trace file)."""
 
 
+@dataclass
 class HighLevelEvent(object):
     """Base class for high-level events. A high-level event is an conceptual event that is extracted from the low-level trace events (each line in the trace).
     For example, a function call event is a high-level event that is extracted from the low-level trace events of 'function_call (pre)' and 'function_call (post)'.
@@ -62,6 +64,7 @@ class HighLevelEvent(object):
         return self.__dict__ == other.__dict__
 
 
+@dataclass
 class FuncCallEvent(HighLevelEvent):
     """A function call event."""
 
@@ -81,6 +84,7 @@ class FuncCallEvent(HighLevelEvent):
         return [self.pre_record, self.post_record]
 
 
+@dataclass
 class FuncCallExceptionEvent(HighLevelEvent):
     def __init__(self, func_name: str, pre_record: dict, post_record: dict):
         self.func_name = func_name
@@ -98,6 +102,7 @@ class FuncCallExceptionEvent(HighLevelEvent):
         return [self.pre_record, self.post_record]
 
 
+@dataclass
 class VarChangeEvent(HighLevelEvent):
     def __init__(
         self,

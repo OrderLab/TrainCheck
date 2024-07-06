@@ -334,3 +334,164 @@ class APIContainRelation(Relation):
         seen_child_funcs = value_group[1]
 
         return expected_child_func in seen_child_funcs
+
+    @staticmethod
+    def static_check_all(trace: Trace, inv: Invariant) -> bool:
+        """Check the invariant on the trace
+
+        NOTE: this function takes one invariant at a time, and checks if the invariant holds on the trace. However, if multiple invariants targets the same parent function,
+        we should be batching the checks for the same parent function to avoid redundant computation (mainly from `events_scanner`). ### TODO ITEM ###
+        """
+
+        assert (
+            len(inv.params) == 2
+        ), "Expected 2 parameters for APIContainRelation, one for the parent function name, and one for the child event name"
+
+        parent_param, child_param = inv.params[0], inv.params[1]
+        assert isinstance(
+            parent_param, APIParam
+        ), "Expected the first parameter to be an APIParam"
+        assert isinstance(
+            child_param, (APIParam, VarTypeParam)
+        ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
+
+        logger = logging.getLogger(__name__)
+
+        parent_func_name = parent_param.api_full_name
+        preconditions = inv.precondition
+        assert preconditions is not None, "Expected the precondition to be set"
+
+        parent_func_call_ids = (
+            trace.events.filter((pl.col("function") == parent_func_name))
+            .select("func_call_id")
+            .unique()
+            .to_series()
+        )
+        # should be sorted by time to reflect timeliness
+
+        parent_preconditions = preconditions.get_group(PARENT_GROUP_NAME)
+        skip_parent_check = (
+            len(parent_preconditions) == 0
+        )  # this is no precondition for the parent function (not even unconditional ones)
+
+        skip_var_unchanged_check = (
+            VAR_GROUP_NAME not in preconditions.get_group_names()
+            or len(preconditions.get_group(VAR_GROUP_NAME)) == 0
+            or preconditions.is_group_unconditional(VAR_GROUP_NAME)
+        )
+        logger.debug(
+            f"skip_parent_check {skip_parent_check}, skip_var_unchanged_check: {skip_var_unchanged_check}"
+        )
+        if not skip_var_unchanged_check:
+            assert isinstance(
+                child_param, VarTypeParam
+            ), "Expected the child parameter to be a VarTypeParam"
+            var_preconditions = preconditions.get_group(VAR_GROUP_NAME)
+            if not can_func_be_bound_method(
+                trace, parent_func_name, child_param.var_type, child_param.attr_name
+            ):
+                logger.warning(
+                    """The invariant includes a precondition for the variables that are changed/unchanged, to enforce this precondition, you should be running the trace collector with the --scan_proxy_in_args flag to collect the trace.
+Defaulting to skip the var preconditon check for now.
+                    """
+                )
+                skip_var_unchanged_check = True
+
+        for parent_func_call_id in parent_func_call_ids:
+            # check for parent precondition
+            parent_pre_record = trace.get_pre_func_call_record(parent_func_call_id)
+            if not skip_parent_check:
+                if not any(
+                    precond.verify([parent_pre_record])
+                    for precond in parent_preconditions
+                ):
+                    # if no precondition is met, continue without checking the child events
+                    logger.debug(
+                        f"Precondition not met for the parent function {parent_func_name} at {parent_pre_record}, skipping the check for the child events on inv: {inv.text_description}"
+                    )
+                    continue
+
+            var_unchanged_check_passed = True
+            found_expected_child_event = False
+            if not skip_var_unchanged_check:
+                assert isinstance(
+                    child_param, VarTypeParam
+                ), "Expected the child parameter to be a VarTypeParam"
+                # get the unchanged vars that are causally related to the parent function
+                unchanged_var_ids = trace.get_var_ids_unchanged_but_causally_related(
+                    parent_func_call_id, child_param.var_type, child_param.attr_name
+                )
+                assert (
+                    len(unchanged_var_ids) > 0
+                ), f"Internal error: can_func_be_bound_method returned True but no unchanged vars found for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
+                # get the var change events for the unchanged vars
+                unchanged_var_states = [
+                    trace.get_var_raw_event_before_time(
+                        var_id, parent_pre_record["time"]
+                    )
+                    for var_id in unchanged_var_ids
+                ]
+                for unchanged_var_state in unchanged_var_states:
+                    # verify that no precondition is met for the unchanged vars
+                    if any(
+                        precond.verify(unchanged_var_state)
+                        for precond in var_preconditions
+                    ):
+                        logger.error(
+                            f"INV CHECK ERROR: Precondition met for the unchanged vars for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
+                        )
+                        var_unchanged_check_passed = False
+                        break
+
+                # var_change_events = [event for event in trace.query_var_changes_within_func_call(parent_func_call_id) if event.var_id.var_type == child_param.var_type and event.attr_name == child_param.attr_name]
+                # TODO: enable precondition refinement by checking whether there are any var change events that don't satisfy the precondition
+            else:
+                # no preconditions for the child events in the current implementation
+
+                # get all contained events (can be any child function calls, var changes, etc.)
+                contained_events = events_scanner(
+                    trace=trace,
+                    func_call_id=parent_func_call_id,
+                )
+
+                # check if the expected child event is in the contained events
+                if isinstance(child_param, (APIParam, VarTypeParam)):
+                    for event in contained_events:
+                        if isinstance(child_param, APIParam) and isinstance(
+                            event, FuncCallEvent
+                        ):
+                            if event.func_name == child_param.api_full_name:
+                                # found expected child event, break the loop as the invariant holds and we can check next parent function invocation
+                                logger.debug(
+                                    f"Found the expected child event: {child_param.api_full_name} in the contained events for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
+                                )
+                                found_expected_child_event = True
+                                # no precondition refinement for APIParam child events yet as the infer algorithm doesn't infer preconditions for child API events
+                                break
+
+                        if isinstance(child_param, VarTypeParam) and isinstance(
+                            event, VarChangeEvent
+                        ):
+                            if (
+                                event.var_id.var_type == child_param.var_type
+                                and event.attr_name == child_param.attr_name
+                            ):
+                                # found expected child event, break the loop as the invariant holds and we can check next parent function invocation
+                                logger.debug(
+                                    f"Found the expected child event: {child_param.var_type} in the contained events for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
+                                )
+                                found_expected_child_event = True
+                                # no precondition refinement for VarTypeParam child events yet as the infer algorithm doesn't infer preconditions for child Var events
+                                break
+                else:
+                    raise ValueError(
+                        f"Unsupported parameter type for child_param: {child_param}"
+                    )
+
+            if not found_expected_child_event and not var_unchanged_check_passed:
+                logger.error(
+                    f"INV CHECK ERROR: Expected child event not found in the contained events for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
+                )
+                return False
+
+        return True

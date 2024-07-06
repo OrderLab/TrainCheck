@@ -3,7 +3,10 @@ import datetime
 import json
 import logging
 
+from tqdm import tqdm
+
 from mldaikon.invariant.base_cls import Invariant
+from mldaikon.trace.trace import Trace, read_trace_file
 
 
 def read_inv_file(file_path: str | list[str]):
@@ -17,6 +20,21 @@ def read_inv_file(file_path: str | list[str]):
                 inv = Invariant.from_dict(inv_dict)
                 invs.append(inv)
     return invs
+
+
+def check_engine(traces: list[Trace], invariants: list[Invariant]):
+    logger = logging.getLogger(__name__)
+
+    for trace in tqdm(
+        traces, desc="Checking invariants on traces", unit="trace", leave=False
+    ):
+        for inv in tqdm(
+            invariants, desc="Checking invariants", unit="invariant", leave=False
+        ):
+            logger.info("=====================================")
+            # logger.debug("Checking invariant %s on trace %s", inv, trace)
+            res = inv.check(trace)
+            logger.info("Invariant %s on trace %s: %s", inv, trace, res)
 
 
 if __name__ == "__main__":
@@ -64,7 +82,9 @@ if __name__ == "__main__":
     logger.info("Reading invaraints from %s", "\n".join(args.invariants))
     invs = read_inv_file(args.invariants)
 
-    # TODO: make this a test (test whether the invariants are still the same after deserialization and serialization)
-    from mldaikon.infer_engine import save_invs
+    logger.info("Reading traces from %s", "\n".join(args.traces))
+    traces = [
+        read_trace_file(args.traces)
+    ]  # TODO: we don't really support multiple traces yet, these are just traces from different processes and they are 'logically' the same trace as they
 
-    save_invs(invs, "invariants_deserialized.json")
+    check_engine(traces, invs)

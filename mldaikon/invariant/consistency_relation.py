@@ -384,3 +384,7 @@ class ConsistencyRelation(Relation):
 
         # simplified implementation
         return all(value == value_group[0] for value in value_group)
+
+    @staticmethod
+    def static_check_all(trace: Trace, inv: Invariant) -> bool:
+        raise NotImplementedError("This method is not implemented yet.")

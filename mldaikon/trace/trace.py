@@ -559,6 +559,11 @@ class Trace:
 
         return high_level_func_call_events + high_level_var_change_events
 
+    def get_time_precentage(self, time: int) -> float:
+        return (time - self.get_start_time()) / (
+            self.get_end_time() - self.get_start_time()
+        )
+
 
 def read_trace_file(
     file_path: str | list[str], truncate_incomplete_func_calls=True

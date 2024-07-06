@@ -182,10 +182,10 @@ class Precondition:
         return self.__str__()
 
     def __str__(self) -> str:
-        output = "====================== Start of Precondition ======================\n"
+        output = "** Start of Precondition **\n"
         for clause in self.clauses:
             output += str(clause) + "\n"
-        output += "====================== End of Preconditions ======================\n"
+        output += "** End of Preconditions **"
         return output
 
     def implies(self, other) -> bool:
@@ -243,7 +243,9 @@ class GroupedPreconditions:
             output += f"Group: {group_name}\n"
             for precondition in preconditions:
                 output += str(precondition) + "\n"
-        output += "====================== End of Grouped Precondition ======================\n"
+        output += (
+            "====================== End of Grouped Precondition ======================"
+        )
         return output
 
     def to_dict(self) -> dict:
@@ -251,6 +253,13 @@ class GroupedPreconditions:
             group_name: [precond.to_dict() for precond in preconditions]
             for group_name, preconditions in self.grouped_preconditions.items()
         }
+
+    def get_group(self, group_name: str) -> list[Precondition]:
+        assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
+        return self.grouped_preconditions[group_name]
+
+    def get_group_names(self) -> set[str]:
+        return set(self.grouped_preconditions.keys())
 
     @staticmethod
     def from_dict(precondition_dict: dict) -> GroupedPreconditions:
@@ -275,6 +284,20 @@ class GroupedPreconditions:
                     )
                 grouped_preconditions[group_name].append(Precondition(clauses))
         return GroupedPreconditions(grouped_preconditions)
+
+    def is_group_unconditional(self, group_name: str) -> bool:
+        assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
+        is_all_unconditional = all(
+            [
+                isinstance(precond, UnconditionalPrecondition)
+                for precond in self.grouped_preconditions[group_name]
+            ]
+        )
+        if is_all_unconditional:
+            assert (
+                len(self.grouped_preconditions[group_name]) == 1
+            ), "Multiple unconditional preconditions found"
+        return is_all_unconditional
 
 
 class Invariant:
@@ -314,6 +337,9 @@ class Invariant:
         ]
         precondition = GroupedPreconditions.from_dict(invariant_dict["precondition"])
         return Invariant(relation, params, precondition, text_description)
+
+    def check(self, trace: Trace) -> bool:
+        return self.relation.static_check_all(trace, self)
 
 
 class Example:
@@ -420,3 +446,17 @@ class Relation(abc.ABC):
                 return type_relation
 
         raise ValueError(f"Relation {relation_name} not found")
+
+    @staticmethod
+    @abc.abstractmethod
+    def static_check_all(trace: Trace, inv: Invariant) -> bool:
+        """Given a trace and an invariant, should return a boolean value
+        indicating whether the invariant holds on the trace.
+
+        args:
+            trace: Trace
+                A trace to check the invariant on.
+            inv: Invariant
+                The invariant to check on the trace.
+        """
+        pass
