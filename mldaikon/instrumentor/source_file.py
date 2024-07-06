@@ -94,6 +94,7 @@ def instrument_file(
     modules_to_instrument: list[str],
     disable_proxy_class: bool,
     scan_proxy_in_args: bool,
+    proxy_module: str,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -111,8 +112,12 @@ def instrument_file(
 import os
 os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]    
 """
+    proxy_start_code = ""
 
     if not disable_proxy_class:
+        proxy_start_code = """
+from mldaikon.proxy_wrapper.proxy import Proxy
+"""
         # find the main() function
         main_func = None
         root = ast.parse(instrumented_source)
@@ -125,23 +130,39 @@ os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]
         if main_func:
             code_to_insert = ast.parse(
                 """
-from mldaikon.instrumentor.tracer import new_wrapper, get_all_subclasses
-for cls in get_all_subclasses(torch.nn.Module):
-    print(f"Create new wrapper: {cls.__name__}")
-    cls.__new__ = new_wrapper(cls.__new__)
-"""
+            """
             )
-            code_to_insert = ast.parse(
-                ""
-            )  # Ziming: disable new_wrapper instrumentations
             main_func.body = code_to_insert.body + main_func.body
 
         instrumented_source = ast.unparse(root)
+
+        # insert proxy for the module
+        if proxy_module != "None":
+            # find where the module is constructed and insert the proxy
+            root_for_proxy = ast.parse(instrumented_source)
+            for node in ast.walk(root_for_proxy):
+                if (
+                    isinstance(node, ast.Assign)
+                    and isinstance(node.targets[0], ast.Name)
+                    and node.targets[0].id == proxy_module
+                ):
+                    node.value = ast.Call(
+                        func=ast.Name(id="Proxy", ctx=ast.Load()),
+                        args=[node.value],
+                        keywords=[],
+                    )
+                    print(
+                        f"Proxy inserted for module {proxy_module} at line {node.lineno}, content: {ast.unparse(node)}"
+                    )
+                    break
+
+            instrumented_source = ast.unparse(root_for_proxy)
 
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
     instrumented_source = (
         instrumented_source.split("\n")[0]
         + logging_code
+        + proxy_start_code
         + "\n".join(instrumented_source.split("\n")[1:])
     )
 
