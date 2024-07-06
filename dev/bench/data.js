@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1720235614605,
+  "lastUpdate": 1720302552398,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -841,6 +841,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.6348783098147959",
             "extra": "mean: 270.5389657657594 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "OrderLab",
+            "username": "OrderLab"
+          },
+          "committer": {
+            "name": "OrderLab",
+            "username": "OrderLab"
+          },
+          "id": "e0496be0c4d5f8c2879a4c7566aad424130425cb",
+          "message": "[Feat] Offline Checker",
+          "timestamp": "2024-07-02T05:44:31Z",
+          "url": "https://github.com/OrderLab/ml-daikon/pull/46/commits/e0496be0c4d5f8c2879a4c7566aad424130425cb"
+        },
+        "date": 1720302551927,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_naive",
+            "value": 0.00999665268648202,
+            "unit": "iter/sec",
+            "range": "stddev: 0.30120950699511595",
+            "extra": "mean: 100.03348434343934 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.006929322293187519,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7457087078250977",
+            "extra": "mean: 144.3142572518438 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.005509559486340644,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0231479259144065",
+            "extra": "mean: 181.50271405167877 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.0037749701442161545,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1268598020311387",
+            "extra": "mean: 264.90275731906297 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented_with_scan_proxy_in_args",
+            "value": 0.0036989716449572505,
+            "unit": "iter/sec",
+            "range": "stddev: 1.593161539291777",
+            "extra": "mean: 270.3454083956778 sec\nrounds: 5"
           }
         ]
       }
