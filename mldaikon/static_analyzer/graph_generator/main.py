@@ -18,7 +18,7 @@ from analyzer import CallGraphVisitor
 
 
 def main(cli_args=None):
-    usage = """%(prog)s [--libname|--log|--verbose|--output]"""
+    usage = """%(prog)s [--lib|--log|--verbose|--output]"""
     desc = (
         "Analyse one or more Python source files and generate an"
         "approximate call graph of the modules, classes and functions"
@@ -27,7 +27,7 @@ def main(cli_args=None):
 
     parser = ArgumentParser(usage=usage, description=desc)
 
-    parser.add_argument("--libname", dest="libname", help="filter for LIBNAME", metavar="LIBNAME", default=None)
+    parser.add_argument("--lib", dest="libname", help="filter for LIBNAME", metavar="LIBNAME", default=None)
 
     parser.add_argument("-o", "--output", dest="output", help="write function level to OUTPUT", metavar="OUTPUT", default=None)
 
@@ -46,33 +46,6 @@ def main(cli_args=None):
         default=False,
         dest="very_verbose",
         help="even more verbose output (mainly for debug)",
-    )
-
-    parser.add_argument(
-        "-G",
-        "--grouped-alt",
-        action="store_true",
-        default=False,
-        dest="grouped_alt",
-        help="suggest grouping by adding invisible defines edges [only useful with --no-defines]",
-    )
-
-    parser.add_argument(
-        "-g",
-        "--grouped",
-        action="store_true",
-        default=False,
-        dest="grouped",
-        help="group nodes (create subgraphs) according to namespace [dot only]",
-    )
-
-    parser.add_argument(
-        "-e",
-        "--nested-groups",
-        action="store_true",
-        default=False,
-        dest="nested_groups",
-        help="create nested groups (subgraphs) for nested namespaces (implies -g) [dot only]",
     )
 
     parser.add_argument(
@@ -109,9 +82,6 @@ def main(cli_args=None):
             if file.endswith('.py'):
                 full_path = os.path.join(dir_root, file)
                 filenames.append(full_path)
-
-    if known_args.nested_groups:
-        known_args.grouped = True
 
     # TODO: use an int argument for verbosity
     logger = logging.getLogger(__name__)

@@ -5,5 +5,5 @@ Note: This module (currently) mainly support dynamic graph unparsing from Pyan r
 # Usage
 
 ```bash
-python main.py --libname nn -o ../func_level/nn_func_level.log
+python main.py --lib nn
 ```
