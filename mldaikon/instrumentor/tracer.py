@@ -34,6 +34,8 @@ disable_proxy_class = disable_proxy_class
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
+METRIC_INSTRUMENTED_FUNC_LIST: dict[str, list[str]] = {"dump": [], "no_dump": []}
+
 
 class TraceLineType:
     FUNC_CALL_PRE = "function_call (pre)"
@@ -256,6 +258,7 @@ def core_wrapper(original_function, *args, **kwargs):
 
 def wrapper(original_function, is_bound_method, scan_proxy_in_args, disable_dump=False):
     if not disable_dump:
+        METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(typename(original_function))
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
@@ -264,6 +267,7 @@ def wrapper(original_function, is_bound_method, scan_proxy_in_args, disable_dump
             )
 
     else:
+        METRIC_INSTRUMENTED_FUNC_LIST["no_dump"].append(typename(original_function))
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
@@ -459,6 +463,25 @@ class Instrumentor:
         self.instrumented_count = (
             first_pass_instrumented_count + second_pass_instrumented_count
         )
+
+        # sort the instrumented functions by their name
+        METRIC_INSTRUMENTED_FUNC_LIST["dump"] = sorted(
+            METRIC_INSTRUMENTED_FUNC_LIST["dump"]
+        )
+        METRIC_INSTRUMENTED_FUNC_LIST["no_dump"] = sorted(
+            METRIC_INSTRUMENTED_FUNC_LIST["no_dump"]
+        )
+
+        # dump the instrumented functions
+        get_instrumentation_logger_for_process().info(
+            "Functions instrumented with trace dumping enabled:\n%s",
+            "\n".join(METRIC_INSTRUMENTED_FUNC_LIST["dump"]),
+        )
+        get_instrumentation_logger_for_process().info(
+            "Functions instrumented with trace dumping disabled:\n%s",
+            "\n".join(METRIC_INSTRUMENTED_FUNC_LIST["no_dump"]),
+        )
+
         return self.instrumented_count
 
     def _should_skip_module_or_cls(self, pymodule: object) -> str | None:
@@ -514,6 +537,8 @@ class Instrumentor:
         return None
 
     def should_disable_dump(self, attr) -> bool:
+        if not self.allow_disable_dump:
+            return False
         logger = logging.getLogger(__name__)
         attr_name = typename(attr)
         for wrap_without_dump_module in WRAP_WITHOUT_DUMP:
