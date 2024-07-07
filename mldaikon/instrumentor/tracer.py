@@ -672,11 +672,12 @@ class StatelessVarObserver:
 
         state_copy = []
         for name, param in self.var.named_parameters():
-            if name in self.param_versions:
-                if param._version == self.param_versions[name]:
-                    # the parameter has not changed, so skip it
-                    print(f"Skipping {name} as it has not changed in step {self.step}")
-                    continue
+            # if name in self.param_versions:
+            #     if param._version == self.param_versions[name]:
+            #         # the parameter has not changed, so skip it
+            #         print(f"Skipping {name} as it has not changed in step {self.step}")
+            #         continue
+            # TODO: use a flag to enable/disable this optimization
             self.param_versions[name] = param._version
             state_copy.append(
                 {
