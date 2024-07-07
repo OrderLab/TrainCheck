@@ -196,12 +196,12 @@ class Proxy:
             self.jsondumper.dump_json(
                 self.process_id,
                 self.thread_id,
-                dump_meta_vars(proxy_file_path=__file__),
+                dump_meta_vars(self, proxy_file_path=__file__),
                 self.__dict__["dumped_varname_list"],
                 type(obj).__name__,
                 dumped_val,
                 status,
-                dump_attributes(obj),
+                dump_attributes(self, obj),
                 dumped_frame_array,
             )
 
@@ -226,6 +226,8 @@ class Proxy:
         self.__dict__["is_ml_daikon_proxied_obj"] = True
         self.__dict__["is_root"] = is_root
         self.__dict__["var_name"] = var_name
+        self.__dict__["old_value"] = None
+        self.__dict__["old_meta_vars"] = None
 
         if type(obj) is Proxy:
             print_debug(
@@ -247,6 +249,8 @@ class Proxy:
             self.__dict__["logdir"] = obj.__dict__["logdir"]
             self.__dict__["log_level"] = obj.__dict__["log_level"]
             self.__dict__["meta_vars"] = obj.__dict__["meta_vars"]
+            self.__dict__["old_value"] = obj.__dict__["old_value"]
+            self.__dict__["old_meta_vars"] = obj.__dict__["old_meta_vars"]
             return
 
         frame = inspect.currentframe()
