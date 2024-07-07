@@ -5,7 +5,20 @@ import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
 import mldaikon.proxy_wrapper.config as proxy_config
 import mldaikon.runner as runner
-from mldaikon.invariant.base_cls import read_inv_file
+from mldaikon.invariant.base_cls import APIParam, Invariant, read_inv_file
+
+
+def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
+    """
+    Get a list of functions from the invariants
+    """
+    funcs = set()
+    for inv in invariants:
+        for param in inv.params:
+            if isinstance(param, APIParam):
+                funcs.add(param.api_full_name)
+    return sorted(list(funcs))
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -123,8 +136,10 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
+    funcs_of_inv_interest = None
     if args.invariants is not None:
         invariants = read_inv_file(args.invariants)
+        funcs_of_inv_interest = get_list_of_funcs_from_invariants(invariants)
 
     # call into the instrumentor
     source_code = instrumentor.instrument_file(
@@ -133,6 +148,7 @@ if __name__ == "__main__":
         disable_proxy_class,
         args.scan_proxy_in_args,
         args.allow_disable_dump,
+        funcs_of_inv_interest,
         args.proxy_module,
     )
 
