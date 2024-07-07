@@ -81,6 +81,12 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.last_value = None
         self.output_path = output_path
 
+        # Collect all torch modules
+        self.torch_modules = set()
+
+        self.filter_flavor = [Flavor.FUNCTION, Flavor.CLASS, Flavor.METHOD, Flavor.ATTRIBUTE]
+
+
         # Analyze.
         self.process()
 
@@ -1851,7 +1857,6 @@ class CallGraphVisitor(ast.NodeVisitor):
                     n.defined = False
 
     def find_top_level_nodes(self):
-        self.filter_flavor = [Flavor.FUNCTION, Flavor.CLASS, Flavor.METHOD]
         self.all_nodes = {item for sublist in self.nodes.values() for item in sublist if item.flavor in self.filter_flavor}
         top_level_nodes = self.all_nodes.copy()
         for from_nodes, to_nodes in self.uses_edges.items():
@@ -1902,6 +1907,12 @@ class CallGraphVisitor(ast.NodeVisitor):
         graph = self.build_graph()
         all_paths = {}
         for node in self.all_nodes:
+            # collect torch module name for future use
+            # TODO: Because the modules in the first module dir is large, we 
+            # collect the modules at the second level
+            if 'torch' in node.namespace and len(node.namespace.split('.')) > 1:
+                # module_name = node.namespace.split('.')[0] + '.' + node.namespace.split('.')[1]
+                self.torch_modules.add(node.namespace)
             all_paths[node] = self.find_paths_to_top_level(node, graph, top_level_nodes)
         return all_paths
 
@@ -1916,22 +1927,22 @@ class CallGraphVisitor(ast.NodeVisitor):
 
     def assign_levels(self):
         all_paths = self.analyze()
-
         self.eval_level(all_paths)
 
+    def dump_levels(self, filter_level=None):
+        print(f'----Output Path: {self.output_path}----')
         with open(self.output_path, 'w') as f:
-            f.write(f'Total {len(all_paths)} number of nodes\n')
+            for node, level in self.level.items():
+                if node.flavor != Flavor.ATTRIBUTE and (filter_level is None or level <= filter_level):
+                    f.write(f'{node} - {level}\n')
+
             # for node, paths in all_paths.items():
             #     f.write(f'{node} - {paths}\n')
 
+    def dump_attributes(self, output_path='debug_attr.log'):
+        print(f'----Attribute Path: {output_path}----')
+        with open(output_path, 'w') as f:
             for node, level in self.level.items():
-                f.write(f'{node} - {level}\n')
-
-        # with open('debug_uses_edges.log', 'w') as f:
-            # f.write(f'Define Edges\n')
-            # for from_node, to_node in self.defines_edges.items():
-            #     f.write(f'{from_node} --- {to_node}\n')
-
-            # f.write(f'Uses Edges\n')
-            # for from_node, to_node in self.uses_edges.items():
-            #     f.write(f'{from_node} --- {to_node}\n')
+                if node.flavor == Flavor.ATTRIBUTE and node.namespace in self.torch_modules:
+                    f.write(f'{node} - {level}\n')
+        return self.torch_modules

@@ -29,6 +29,8 @@ def main(cli_args=None):
 
     parser.add_argument("--lib", dest="libname", help="filter for LIBNAME", metavar="LIBNAME", default=None)
 
+    parser.add_argument("--ext", dest="extlib", help="higher-level python scripts", metavar="EXTLIB", default=None)
+
     parser.add_argument("-o", "--output", dest="output", help="write function level to OUTPUT", metavar="OUTPUT", default=None)
 
     parser.add_argument("--namespace", dest="namespace", help="filter for NAMESPACE", metavar="NAMESPACE", default=None)
@@ -66,23 +68,6 @@ def main(cli_args=None):
     if known_args.libname is None:
         parser.error("The --libname option is not added")
 
-    # traverse the directory
-    filenames = []
-
-    def get_torch_path(input_path):
-        torch_home = os.getenv('TORCH_HOME')
-        input_path = input_path.replace('.', '/')
-        if input_path.startswith('torch/'):
-            input_path = input_path[6:]
-        return os.path.join(torch_home, input_path)
-
-    dirname = get_torch_path(known_args.libname)
-    for dir_root, _, files in os.walk(dirname):
-        for file in files:
-            if file.endswith('.py'):
-                full_path = os.path.join(dir_root, file)
-                filenames.append(full_path)
-
     # TODO: use an int argument for verbosity
     logger = logging.getLogger(__name__)
 
@@ -105,10 +90,54 @@ def main(cli_args=None):
     else:
         output_path = known_args.output
 
-    print(f"Output path: {output_path}")
+    if known_args.extlib is None:
+        # if there is no extern library, go through the torch lib only
+        filenames = traverse_torch_dir(known_args.libname)
+        v = CallGraphVisitor(filenames, logger=logger, root=root, output_path=output_path)
+        filtering(known_args, v)
+        v.assign_levels()
+        v.dump_levels()
+        return
 
-    v = CallGraphVisitor(filenames, logger=logger, root=root, output_path=output_path)
+    # if there is an extern library
+    ext_filenames = glob(known_args.extlib)
 
+    filenames = traverse_torch_dir(known_args.libname)
+
+    attr_output_name = ext_filenames[0].split('/')[-1].split('.')[0] + '_attr.log'
+
+    v = CallGraphVisitor(ext_filenames, logger=logger, root=root, output_path=output_path)
+
+    filtering(known_args, v)
+
+    v.assign_levels()
+
+    torch_modules = v.dump_attributes(attr_output_name)
+
+    # v = CallGraphVisitor(filenames, logger=logger, root=root, output_path=output_path)
+
+
+def traverse_torch_dir(libname: str):
+    def get_torch_path(input_path):
+        torch_home = os.getenv('TORCH_HOME')
+        input_path = input_path.replace('.', '/')
+        if input_path.startswith('torch/'):
+            input_path = input_path[6:]
+        return os.path.join(torch_home, input_path)
+
+    # traverse the directory
+    filenames = []
+
+    dirname = get_torch_path(libname)
+    for dir_root, _, files in os.walk(dirname):
+        for file in files:
+            if file.endswith('.py'):
+                full_path = os.path.join(dir_root, file)
+                filenames.append(full_path)
+
+    return filenames
+
+def filtering(known_args, v: CallGraphVisitor):
     if known_args.function or known_args.namespace:
         if known_args.function:
             function_name = known_args.function.split(".")[-1]
@@ -118,8 +147,6 @@ def main(cli_args=None):
             node = None
 
         v.filter(node=node, namespace=known_args.namespace)
-
-    v.assign_levels()
 
 
 if __name__ == "__main__":
