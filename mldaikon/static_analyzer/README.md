@@ -13,3 +13,21 @@ python main.py --lib nn --namespace torch.nn.modules.padding
 # Only output functions with namespace torch.nn.modules.padding and used in torch.nn.modules.padding
 python main.py --lib nn --namespace torch.nn.modules.padding --function torch.nn.modules.padding.ConstantPad3d
 ```
+
+# Thoughts
+
+1. Because there is few classmethods/staticmethods, we are not collecting them. 
+
+2. The roadmap is that we first look into low-level API (e.g., in torch.nn), and calculate the function call level using the top-down method. We found that filtering out layers greater than 3 is a good choice. However, there are many noises in the third layer. To filter out these noises, we look into higher level calls (e.g., `efficientnet_pytorch`) to see which is used. These are the functions we care about in the third layer.
+
+3. The plan is to start from the high-level python script and parse modules used in the user scripts. We will do it recursively in the parsing.
+
+4. Make a white (black) list to filter out some modules in the higher level scripts (e.g., modules that are not in torch, or efficientnet_pytorch, torchvision).
+
+# TODOs
+
+- [ ] In 84911, line 124: `for name, param in model_transfer.module.named_parameters():`. The `named_parameters()` function is not captured. 
+
+- [ ] Add extern lib CLI, e.g., visit the extern lib to filter the third layer calls.
+
+- [ ] Add a CLI to dump the Attributes.
