@@ -418,8 +418,10 @@ class ConsistencyRelation(Relation):
         }
 
         # 2. for each pair of variables, check if the invariant holds
-        for var1_id in type1_attr1:
-            for var2_id in type2_attr2:
+        for i, var1_id in enumerate(type1_attr1):
+            for j, var2_id in enumerate(type2_attr2):
+                if var_type1 == var_type2 and attr1 == attr2 and i >= j:
+                    continue
                 for attr1_val in type1_attr1[var1_id]:
                     for attr2_val in type2_attr2[var2_id]:
                         assert (
@@ -449,8 +451,12 @@ class ConsistencyRelation(Relation):
                                     [attr1_trace, attr2_trace], VAR_GROUP_NAME
                                 ):
                                     logger.error(
-                                        f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"
+                                        f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"
                                     )
                                     return False
+                                else:
+                                    logger.debug(
+                                        f"Violation detected but Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"
+                                    )
         # TODO: implement the precondition improvement logic here (i.e. when compare_result is True, check if the precondition is satisfied, if not, improve the precondition)
         return True
