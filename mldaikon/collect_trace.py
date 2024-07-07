@@ -5,6 +5,7 @@ import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
 import mldaikon.proxy_wrapper.config as proxy_config
 import mldaikon.runner as runner
+from mldaikon.invariant.base_cls import read_inv_file
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -85,6 +86,18 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable debug mode for the program",
     )
+    parser.add_argument(
+        "-i",
+        "--invariants",
+        nargs="*",
+        help="Invariant files produced by the inference engine. If provided, we will only collect traces for APIs and variables that are related to the invariants. This can be used to speed up the trace collection. HAS TO BE USED WITH --allow_disable_dump for the optimization to work properly.",
+        default=None,
+    )
+    parser.add_argument(
+        "--allow_disable_dump",
+        action="store_true",
+        help="Allow the instrumentor to disable API dump for certain APIs that are not helpful for the invariant analysis",
+    )
 
     args = parser.parse_args()
     config.INCLUDED_WRAP_LIST = args.wrapped_modules
@@ -110,12 +123,16 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
+    if args.invariants is not None:
+        invariants = read_inv_file(args.invariants)
+
     # call into the instrumentor
     source_code = instrumentor.instrument_file(
         args.pyscript,
         args.modules_to_instrument,
         disable_proxy_class,
         args.scan_proxy_in_args,
+        args.allow_disable_dump,
         args.proxy_module,
     )
 

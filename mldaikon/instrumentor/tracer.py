@@ -8,13 +8,15 @@ import os
 import threading
 import traceback
 import types
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 import torch
 import torch.utils
 
-# from mldaikon.proxy_wrapper.proxy import Proxy
-from mldaikon.config.config import INSTR_MODULES_TO_SKIP
+if TYPE_CHECKING:
+    from mldaikon.proxy_wrapper.proxy import Proxy
+
+from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
 from mldaikon.proxy_wrapper.config import disable_proxy_class
 from mldaikon.proxy_wrapper.proxy import Proxy
@@ -230,12 +232,42 @@ def global_wrapper(
     return result
 
 
-def wrapper(original_function, is_bound_method, scan_proxy_in_args):
-    @functools.wraps(original_function)
-    def wrapped(*args, **kwargs):
-        return global_wrapper(
-            original_function, is_bound_method, scan_proxy_in_args, *args, **kwargs
-        )
+def core_wrapper(original_function, *args, **kwargs):
+    """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
+    We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
+    """
+    C_level_call = is_c_level_function(original_function)
+    if C_level_call:
+
+        def unproxy_arg(arg):
+            if hasattr(arg, "is_ml_daikon_proxied_obj"):
+                return unproxy_arg(arg._obj)
+            elif type(arg) in [list]:
+                return [unproxy_arg(element) for element in arg]
+            elif type(arg) in [tuple]:
+                return tuple(unproxy_arg(element) for element in arg)
+            else:
+                return arg
+
+        args = [unproxy_arg(arg) for arg in args]
+        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+    return original_function(*args, **kwargs)
+
+
+def wrapper(original_function, is_bound_method, scan_proxy_in_args, disable_dump=False):
+    if not disable_dump:
+
+        @functools.wraps(original_function)
+        def wrapped(*args, **kwargs):
+            return global_wrapper(
+                original_function, is_bound_method, scan_proxy_in_args, *args, **kwargs
+            )
+
+    else:
+
+        @functools.wraps(original_function)
+        def wrapped(*args, **kwargs):
+            return core_wrapper(original_function, *args, **kwargs)
 
     wrapped._ml_daikon_original_function = original_function
     wrapped._ml_daikon_instrumented = True
@@ -348,6 +380,8 @@ class Instrumentor:
             | types.BuiltinFunctionType
             | types.BuiltinMethodType
         ),
+        scan_proxy_in_args: bool,
+        allow_disable_dump: bool,
     ):
         self.instrumenting = True
         if isinstance(target, types.ModuleType):
@@ -371,8 +405,10 @@ class Instrumentor:
             self.instrumenting = False
         self.instrumented_count = 0
         self.target = target
+        self.scan_proxy_in_args = scan_proxy_in_args
+        self.allow_disable_dump = allow_disable_dump
 
-    def instrument(self, scan_proxy_in_args: bool) -> int:
+    def instrument(self) -> int:
         if not self.instrumenting:
             return 0
 
@@ -384,7 +420,7 @@ class Instrumentor:
         )
         assert isinstance(self.target, (types.ModuleType, type)), "Invalid target"
         first_pass_instrumented_count += self._instrument_module(
-            self.target, visited_file_paths, True, scan_proxy_in_args, 0
+            self.target, visited_file_paths, True, 0
         )
         get_instrumentation_logger_for_process().info(
             "Files scanned %s", "\n".join(sorted(visited_file_paths))
@@ -414,7 +450,6 @@ class Instrumentor:
                 pymodule,
                 visited_file_paths,
                 False,
-                scan_proxy_in_args,
                 0,
             )
         get_instrumentation_logger_for_process().info(
@@ -478,12 +513,22 @@ class Instrumentor:
 
         return None
 
+    def should_disable_dump(self, attr) -> bool:
+        logger = logging.getLogger(__name__)
+        attr_name = typename(attr)
+        for wrap_without_dump_module in WRAP_WITHOUT_DUMP:
+            if attr_name.startswith(wrap_without_dump_module):
+                logger.debug(
+                    f"Skipping dump for {attr_name} as it is in WRAP_WITHOUT_DUMP {wrap_without_dump_module}"
+                )
+                return True
+        return False
+
     def _instrument_module(
         self,
         pymodule: types.ModuleType | type,
         visited_file_paths: set,
         recurse_into_sub_module: bool,
-        scan_proxy_in_args: bool,
         depth,
     ):
         target_name = pymodule.__name__
@@ -557,7 +602,8 @@ class Instrumentor:
                 wrapped = wrapper(
                     attr,
                     is_bound_method=is_API_bound_method(attr),
-                    scan_proxy_in_args=scan_proxy_in_args,
+                    scan_proxy_in_args=self.scan_proxy_in_args,
+                    disable_dump=self.should_disable_dump(attr),
                 )
                 try:
                     setattr(pymodule, attr_name, wrapped)
@@ -580,7 +626,6 @@ class Instrumentor:
                     attr,
                     visited_file_paths,
                     recurse_into_sub_module,
-                    scan_proxy_in_args,
                     depth + 1,
                 )
             elif recurse_into_sub_module and isinstance(attr, types.ModuleType):
@@ -591,7 +636,6 @@ class Instrumentor:
                     attr,
                     visited_file_paths,
                     recurse_into_sub_module,
-                    scan_proxy_in_args,
                     depth + 1,
                 )
             else:

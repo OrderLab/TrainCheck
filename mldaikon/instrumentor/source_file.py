@@ -11,7 +11,12 @@ Methods for reading and instrumenting source files.
 
 
 class InsertTracerVisitor(ast.NodeTransformer):
-    def __init__(self, modules_to_instrument: list[str], scan_proxy_in_args: bool):
+    def __init__(
+        self,
+        modules_to_instrument: list[str],
+        scan_proxy_in_args: bool,
+        allow_disable_dump: bool,
+    ):
         super().__init__()
         if not modules_to_instrument:
             logger.warning(
@@ -21,10 +26,11 @@ class InsertTracerVisitor(ast.NodeTransformer):
         else:
             self.modules_to_instrument = modules_to_instrument
         self.scan_proxy_in_args = scan_proxy_in_args
+        self.allow_disable_dump = allow_disable_dump
 
     def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}).instrument(scan_proxy_in_args={self.scan_proxy_in_args})"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, allow_disable_dump={self.allow_disable_dump}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -66,7 +72,10 @@ class InsertTracerVisitor(ast.NodeTransformer):
 
 
 def instrument_source(
-    source: str, modules_to_instrument: list[str], scan_proxy_in_args: bool
+    source: str,
+    modules_to_instrument: list[str],
+    scan_proxy_in_args: bool,
+    allow_disable_dump: bool,
 ) -> str:
     """
     Instruments the given source code and returns the instrumented source code.
@@ -82,7 +91,9 @@ def instrument_source(
         )
         modules_to_instrument = INSTR_MODULES_TO_INSTRUMENT
 
-    visitor = InsertTracerVisitor(modules_to_instrument, scan_proxy_in_args)
+    visitor = InsertTracerVisitor(
+        modules_to_instrument, scan_proxy_in_args, allow_disable_dump
+    )
     root = visitor.visit(root)
     source = ast.unparse(root)
 
@@ -94,6 +105,7 @@ def instrument_file(
     modules_to_instrument: list[str],
     disable_proxy_class: bool,
     scan_proxy_in_args: bool,
+    allow_disable_dump: bool,
     proxy_module: str,
 ) -> str:
     """
@@ -105,7 +117,7 @@ def instrument_file(
 
     # instrument APIs
     instrumented_source = instrument_source(
-        source, modules_to_instrument, scan_proxy_in_args
+        source, modules_to_instrument, scan_proxy_in_args, allow_disable_dump
     )
 
     logging_code = """

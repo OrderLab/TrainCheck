@@ -1,25 +1,11 @@
 import argparse
 import datetime
-import json
 import logging
 
 from tqdm import tqdm
 
-from mldaikon.invariant.base_cls import Invariant
+from mldaikon.invariant.base_cls import Invariant, read_inv_file
 from mldaikon.trace.trace import Trace, read_trace_file
-
-
-def read_inv_file(file_path: str | list[str]):
-    if isinstance(file_path, str):
-        file_path = [file_path]
-    invs = []
-    for file in file_path:
-        with open(file, "r") as f:
-            for line in f:
-                inv_dict = json.loads(line)
-                inv = Invariant.from_dict(inv_dict)
-                invs.append(inv)
-    return invs
 
 
 def check_engine(traces: list[Trace], invariants: list[Invariant]):
