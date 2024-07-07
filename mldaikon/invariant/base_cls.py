@@ -339,6 +339,9 @@ class Invariant:
         return Invariant(relation, params, precondition, text_description)
 
     def check(self, trace: Trace) -> bool:
+        assert (
+            self.precondition is not None
+        ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         return self.relation.static_check_all(trace, self)
 
 

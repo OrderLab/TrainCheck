@@ -359,7 +359,9 @@ class APIContainRelation(Relation):
 
         parent_func_name = parent_param.api_full_name
         preconditions = inv.precondition
-        assert preconditions is not None, "Expected the precondition to be set"
+        assert (
+            preconditions is not None
+        ), "Expected the precondition to be set for the invariant"
 
         parent_func_call_ids = (
             trace.events.filter((pl.col("function") == parent_func_name))

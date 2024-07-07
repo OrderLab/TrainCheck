@@ -31,6 +31,9 @@ def check_engine(traces: list[Trace], invariants: list[Invariant]):
         for inv in tqdm(
             invariants, desc="Checking invariants", unit="invariant", leave=False
         ):
+            assert (
+                inv.precondition is not None
+            ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
             logger.info("=====================================")
             # logger.debug("Checking invariant %s on trace %s", inv, trace)
             res = inv.check(trace)
