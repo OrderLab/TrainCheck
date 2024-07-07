@@ -480,70 +480,60 @@ class Trace:
 
         return groups
 
-    def get_func_post_call_idx(self, func_pre_call_idx: int) -> int:
-        """Get the post call index of a function given its pre-call index."""
-        # get the first record of the trace at the offset
-        pre_call_record = self.events.row(index=func_pre_call_idx, named=True)
+    def get_pre_func_call_record(self, func_call_id: str) -> dict:
+        """Get the pre call record of a function given its pre-call index."""
+        pre_records = self.events.filter(
+            pl.col("func_call_id") == func_call_id,
+            pl.col("type") == TraceLineType.FUNC_CALL_PRE,
+        )
 
         assert (
-            pre_call_record["type"] == TraceLineType.FUNC_CALL_PRE
-        ), "The record at the given index is not a function call (pre) event."
+            pre_records.height == 1
+        ), f"Multiple pre call events found for {func_call_id}"
+        pre_record = pre_records.row(0, named=True)
 
-        function = pre_call_record["function"]
-        process_id = pre_call_record["process_id"]
-        thread_id = pre_call_record["thread_id"]
-        func_call_id = pre_call_record["func_call_id"]
+        return pre_record
 
-        # get the idx of the first post-event
-        func_post_call_indices = self.events.select(
-            pl.arg_where(
-                (
-                    pl.col("type").is_in(
-                        [
-                            TraceLineType.FUNC_CALL_POST,
-                            TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                        ]
-                    )
-                )
-                & (pl.col("function") == function)
-                & (pl.col("func_call_id") == func_call_id)
-                & (pl.col("process_id") == process_id)
-                & (pl.col("thread_id") == thread_id)
-            )
-        ).to_series()
+    def get_post_func_call_record(self, func_call_id: str) -> dict:
+        """Get the post call record of a function given its pre-call index."""
+        post_records = self.events.filter(
+            pl.col("func_call_id") == func_call_id,
+            pl.col("type").is_in(
+                [TraceLineType.FUNC_CALL_POST, TraceLineType.FUNC_CALL_POST_EXCEPTION]
+            ),
+        )
 
-        # find the first post-idx > offset as there might be multiple calls with the same func_call_id
-        func_post_call_idx = [
-            idx for idx in func_post_call_indices if idx > func_pre_call_idx
-        ][0]
-        return func_post_call_idx
+        assert (
+            post_records.height == 1
+        ), f"Multiple post call events found for {func_call_id}"
+        post_record = post_records.row(0, named=True)
+
+        return post_record
 
     def query_func_call_events_within_time(
         self, time_range: tuple[int, int], process_id: int, thread_id: int
     ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
         """Extract all function call events from the trace."""
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
-        func_pre_call_event_indices = (
-            self.events.select(
-                pl.arg_where(
-                    (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
-                    & (
-                        pl.col("time").is_between(
-                            time_range[0], time_range[1], closed="none"
-                        )
+        func_call_ids = (
+            self.events.filter(
+                (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
+                & (
+                    pl.col("time").is_between(
+                        time_range[0], time_range[1], closed="none"
                     )
-                    & (pl.col("process_id") == process_id)
-                    & (pl.col("thread_id") == thread_id)
                 )
+                & (pl.col("process_id") == process_id)
+                & (pl.col("thread_id") == thread_id)
             )
+            .select(pl.col("func_call_id"))
             .to_series()
             .to_list()
         )
 
-        for func_pre_call_idx in func_pre_call_event_indices:
-            func_post_call_idx = self.get_func_post_call_idx(func_pre_call_idx)
-            pre_record = self.events.row(index=func_pre_call_idx, named=True)
-            post_record = self.events.row(index=func_post_call_idx, named=True)
+        for func_call_id in func_call_ids:
+            pre_record = self.get_pre_func_call_record(func_call_id)
+            post_record = self.get_post_func_call_record(func_call_id)
             assert (
                 post_record["time"] < time_range[1]
             ), f"Post call event found after the time range {time_range}"
@@ -568,6 +558,11 @@ class Trace:
         )
 
         return high_level_func_call_events + high_level_var_change_events
+
+    def get_time_precentage(self, time: int) -> float:
+        return (time - self.get_start_time()) / (
+            self.get_end_time() - self.get_start_time()
+        )
 
 
 def read_trace_file(

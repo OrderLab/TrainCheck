@@ -10,11 +10,14 @@ from mldaikon.invariant.base_cls import (
     Hypothesis,
     Invariant,
     Relation,
+    VarTypeParam,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Liveness, Trace
 
 tracker_var_field_prefix = "attributes."
+
+VAR_GROUP_NAME = "var"
 
 
 def calc_liveness_overlap(liveness1: Liveness, liveness2: Liveness) -> float:
@@ -93,9 +96,6 @@ class VariableValueSelector:
 
 
 class ConsistencyRelation(Relation):
-    def __init__(self, parent_func_name: str, child_func_name: str):
-        self.parent_func_name = parent_func_name
-        self.child_func_name = child_func_name
 
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:
@@ -111,7 +111,7 @@ class ConsistencyRelation(Relation):
             return []
 
         ## 2. Hypothesis Generation Based on Liveness Overlapping
-        hypothesis = set()  # (var_type1, attr1, var_type2, attr2)
+        hypothesis = set()  # {(var_type1, attr1, var_type2, attr2)}
         for var_inst, other_var_inst in tqdm(
             combinations(var_insts, 2),
             desc="Generating Hypothesis",
@@ -184,7 +184,7 @@ class ConsistencyRelation(Relation):
         logger.debug(f"Number of Hypothesis: {len(hypothesis)}")
 
         # for each hypothesis, collect number of positive examples seen, if it is below a threshold, prune it
-        filtered_hypothesis = []
+        filtered_hypothesis = []  # [(var_type1, attr1, var_type2, attr2)]
         for hypo in hypothesis:
             var_type1 = hypo[0]
             attr1 = hypo[1]
@@ -267,14 +267,22 @@ class ConsistencyRelation(Relation):
         logger.debug(f"Filtered Hypothesis: {filtered_hypothesis}")
 
         ## 4.  Positive Examples and Negative Examples Collection
-        group_name = "var"  # TODO: hacky, need to fix this
+        group_name = VAR_GROUP_NAME
         hypothesis_with_examples = {
-            key: Hypothesis(
-                invariant=Invariant(ConsistencyRelation, [], None),
+            hypo: Hypothesis(
+                invariant=Invariant(
+                    relation=ConsistencyRelation,
+                    params=[
+                        VarTypeParam(var_type=hypo[0], attr_name=hypo[1]),
+                        VarTypeParam(var_type=hypo[2], attr_name=hypo[3]),
+                    ],
+                    precondition=None,
+                    text_description=f"Consistency Relation between {hypo[0]}.{hypo[1]} and {hypo[2]}.{hypo[3]}",
+                ),
                 positive_examples=ExampleList({group_name}),
                 negative_examples=ExampleList({group_name}),
             )
-            for key in filtered_hypothesis
+            for hypo in filtered_hypothesis
         }
         for hypo in hypothesis_with_examples:
             var_type1 = hypo[0]
@@ -361,9 +369,6 @@ class ConsistencyRelation(Relation):
         for hypo in hypos_to_delete:
             del hypothesis_with_examples[hypo]
 
-        ## 6. TODO: Invariant Construction
-        ## NEED TO THINK ABOUT HOW TO EXPRESS THIS INVARIANT
-        logger.debug(f"Hypothesis with a found : {hypothesis_with_examples.keys()}")
         return list([hypo.invariant for hypo in hypothesis_with_examples.values()])
 
     @staticmethod
@@ -381,3 +386,71 @@ class ConsistencyRelation(Relation):
 
         # simplified implementation
         return all(value == value_group[0] for value in value_group)
+
+    @staticmethod
+    def static_check_all(trace: Trace, inv: Invariant) -> bool:
+        # 1. examine the invariant, and get relevant variables based on type and attribute
+        assert len(inv.params) == 2, "Invariant should have exactly two parameters."
+        assert inv.precondition is not None, "Invariant should have a precondition."
+
+        logger = logging.getLogger(__name__)
+
+        param1 = inv.params[0]
+        param2 = inv.params[1]
+
+        assert isinstance(param1, VarTypeParam) and isinstance(
+            param2, VarTypeParam
+        ), "Invariant parameters should be VarTypeParam."
+
+        var_type1, attr1 = param1.var_type, param1.attr_name
+        var_type2, attr2 = param2.var_type, param2.attr_name
+
+        all_var_insts = trace.get_var_insts()
+        type1_attr1 = {
+            var_id: all_var_insts[var_id][attr1]
+            for var_id in all_var_insts
+            if var_id.var_type == var_type1
+        }
+        type2_attr2 = {
+            var_id: all_var_insts[var_id][attr2]
+            for var_id in all_var_insts
+            if var_id.var_type == var_type2
+        }
+
+        # 2. for each pair of variables, check if the invariant holds
+        for var1_id in type1_attr1:
+            for var2_id in type2_attr2:
+                for attr1_val in type1_attr1[var1_id]:
+                    for attr2_val in type2_attr2[var2_id]:
+                        assert (
+                            attr1_val.liveness.start_time is not None
+                            and attr1_val.liveness.end_time is not None
+                            and attr2_val.liveness.start_time is not None
+                            and attr2_val.liveness.end_time is not None
+                        ), "Liveness should have both start_time and end_time."
+                        if attr2_val.liveness.start_time >= attr1_val.liveness.end_time:
+                            # attr2 starts after attr1 ends, no need to check further
+                            break
+                        if attr1_val.liveness.end_time <= attr2_val.liveness.start_time:
+                            # attr1 ends before attr2 starts, fast forward to the next attr2
+                            continue
+                        overlap = calc_liveness_overlap(
+                            attr1_val.liveness, attr2_val.liveness
+                        )
+                        if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                            compare_result = ConsistencyRelation.evaluate(
+                                [attr1_val.value, attr2_val.value]
+                            )
+                            if not compare_result:
+                                # check for precondition match, if yes, report alarm
+                                attr1_trace = attr1_val.traces[-1]
+                                attr2_trace = attr2_val.traces[-1]
+                                if inv.precondition.verify(
+                                    [attr1_trace, attr2_trace], VAR_GROUP_NAME
+                                ):
+                                    logger.error(
+                                        f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"
+                                    )
+                                    return False
+        # TODO: implement the precondition improvement logic here (i.e. when compare_result is True, check if the precondition is satisfied, if not, improve the precondition)
+        return True

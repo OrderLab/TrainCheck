@@ -11,7 +11,7 @@ def check_every_func_pre_has_post(trace: Trace):
     for i, row in enumerate(tqdm(trace.events.rows(named=True))):
         if row["type"] == TraceLineType.FUNC_CALL_PRE:
             try:
-                trace.get_func_post_call_idx(i)
+                trace.get_post_func_call_record(row["func_call_id"])
             except Exception:
                 print(f"Function Pre {row} has no post call.")
                 return False

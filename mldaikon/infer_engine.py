@@ -1,8 +1,10 @@
 import argparse
 import datetime
+import json
 import logging
 import time
 
+from mldaikon.invariant.base_cls import Invariant
 from mldaikon.invariant.relation_pool import relation_pool
 from mldaikon.trace.trace import Trace, read_trace_file
 
@@ -17,13 +19,22 @@ class InferEngine:
     def infer(self):
         all_invs = []
         for trace in self.traces:
-            for r in relation_pool:
-                logger.info(f"Infering invariants for relation: {r}")
-                invs = r.infer(trace)
-                logger.info(f"Found {len(invs)} invariants for relation: {r}")
+            for relation in relation_pool:
+                logger.info(f"Infering invariants for relation: {relation.__name__}")
+                invs = relation.infer(trace)
+                logger.info(
+                    f"Found {len(invs)} invariants for relation: {relation.__name__}"
+                )
                 all_invs.extend(invs)
         logger.info(f"Found {len(all_invs)} invariants.")
         return invs
+
+
+def save_invs(invs: list[Invariant], output_file: str):
+    with open(output_file, "w") as f:
+        for inv in invs:
+            f.write(json.dumps(inv.to_dict()))
+            f.write("\n")
 
 
 if __name__ == "__main__":
@@ -42,6 +53,12 @@ if __name__ == "__main__":
         "--debug",
         action="store_true",
         help="Enable debug logging",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="invariants.json",
+        help="Output file to save invariants",
     )
     args = parser.parse_args()
 
@@ -64,3 +81,5 @@ if __name__ == "__main__":
 
     engine = InferEngine(traces)
     invs = engine.infer()
+
+    save_invs(invs, args.output)
