@@ -8,7 +8,7 @@ import os
 import threading
 import traceback
 import types
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Optional
 
 import torch
 import torch.utils
@@ -386,7 +386,32 @@ class Instrumentor:
         ),
         scan_proxy_in_args: bool,
         allow_disable_dump: bool,
+        funcs_of_inv_interest: Optional[list[str]] = None,
     ):
+        """
+        Instruments the specified target with additional tracing functionality.
+
+        Args:
+            target:
+                The module, class, or function to instrument.
+                Note: Instrumenting functions is not supported; calling this will do nothing.
+            scan_proxy_in_args (bool):
+                Whether to scan the arguments of the function for proxy objects.
+                Enabling this will allow the instrumentor to log the proxy objects in the function arguments,
+                which can be useful to establish the causal relationship between the proxy objects and the function calls.
+                Enabling this leads to a mild 2% overhead on 84911.
+            allow_disable_dump (bool):
+                Whether to allow disabling the dump of the trace on certain functions. Regardless of this flag, the function will still be instrumented.
+                Refer to WRAP_WITHOUT_DUMP in config.py for the list of functions/modules that will have the dump disabled.
+            funcs_of_inv_interest (Optional[List[Callable]]):
+                An optional list of functions that are of interest for invariant inference.
+                If provided, all functions not in this list will be instrumented with dump disabled,
+                and the functions in this list will be instrumented with dump enabled. NOTE: If this list is provided, allow_disable_dump must be set to True. WRAP_WITHOUT_DUMP will be ignored.
+
+        Returns:
+            None
+        """
+
         self.instrumenting = True
         if isinstance(target, types.ModuleType):
             self.root_module = target.__name__.split(".")[0]
@@ -411,6 +436,20 @@ class Instrumentor:
         self.target = target
         self.scan_proxy_in_args = scan_proxy_in_args
         self.allow_disable_dump = allow_disable_dump
+        self.funcs_of_inv_interest = funcs_of_inv_interest
+
+        if self.funcs_of_inv_interest is not None and not self.allow_disable_dump:
+            get_instrumentation_logger_for_process().fatal(
+                "Invariants are provided but allow_disable_dump is False. Selective instrumentation cannot be done. Please set allow_disable_dump to True or remove the invariants"
+            )
+            raise ValueError(
+                "Invariants are provided but allow_disable_dump is False. Selective instrumentation cannot be done. Please set allow_disable_dump to True or remove the invariants"
+            )
+
+        if self.funcs_of_inv_interest is not None:
+            get_instrumentation_logger_for_process().info(
+                f"Functions of interest for invariant inference: {self.funcs_of_inv_interest}"
+            )
 
     def instrument(self) -> int:
         if not self.instrumenting:
@@ -482,6 +521,13 @@ class Instrumentor:
             "\n".join(METRIC_INSTRUMENTED_FUNC_LIST["no_dump"]),
         )
 
+        # do some simple checking for correctness:
+        # 1. if funcs_of_inv_interest is provided, then METRIC_INSTRUMENTED_FUNC_LIST["dump"] should be equal to funcs_of_inv_interest
+        if self.funcs_of_inv_interest is not None:
+            assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) == set(
+                self.funcs_of_inv_interest
+            ), "METRIC_INSTRUMENTED_FUNC_LIST['dump'] != funcs_of_inv_interest"
+
         return self.instrumented_count
 
     def _should_skip_module_or_cls(self, pymodule: object) -> str | None:
@@ -537,8 +583,20 @@ class Instrumentor:
         return None
 
     def should_disable_dump(self, attr) -> bool:
+        """Check if the dump should be disabled for the attribute.
+        If allow_disable_dump is False, then the dump will not be disabled.
+        If funcs_of_inv_interest is provided, then the dump will be disabled for all functions except the ones in funcs_of_inv_interest.
+        If the attribute is in WRAP_WITHOUT_DUMP, then the dump will be disabled. Otherwise, the dump will not be disabled.
+        """
+
         if not self.allow_disable_dump:
             return False
+
+        if self.funcs_of_inv_interest is not None:
+            if typename(attr) in self.funcs_of_inv_interest:
+                return False
+            return True
+
         logger = logging.getLogger(__name__)
         attr_name = typename(attr)
         for wrap_without_dump_module in WRAP_WITHOUT_DUMP:
