@@ -1,3 +1,4 @@
+import glob
 import os
 
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
@@ -12,7 +13,7 @@ dump_iter = False  # dump the variable states from iterator (this would usually 
 dump_update_only = False  # only dump the updated part of the proxied object
 filter_by_tensor_version = False  # only dump the tensor when the version is changed
 
-enable_auto_observer = True  # automatically add observer to the function
+enable_auto_observer = False  # automatically add observer to the function
 enable_auto_observer_depth = 3  # the depth of the function call that we want to observe
 observe_up_to_depth = False  # observe up to the depth of the function call, if False, only observe the function call at the depth
 neglect_hidden_func = (
@@ -72,3 +73,24 @@ for root, dirs, files in os.walk(mldaikon_folder):
             exclude_file_names.append(os.path.join(root, file))
 
 print(exclude_file_names)
+
+if enable_auto_observer:
+    print("auto observer enabled with observing depth: ", enable_auto_observer_depth)
+    if observe_up_to_depth:
+        print("observe up to the depth of the function call")
+    else:
+        print("observe only the function call at the depth")
+    from mldaikon.static_analyzer.call_graph_parser import call_graph_parser
+
+    log_files = glob.glob(
+        os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
+    )
+    for log_file in log_files:
+        call_graph_parser(
+            log_file,
+            depth=enable_auto_observer_depth,
+            observe_up_to_depth=observe_up_to_depth,
+            neglect_hidden_func=neglect_hidden_func,
+            neglect_hidden_module=neglect_hidden_module,
+            observe_then_unproxy=observe_then_unproxy,
+        )
