@@ -14,7 +14,7 @@ setup(
     install_requires=[
         "astor",
         "deepdiff",
-        "polars",
+        "polars>=1.0.0",
         "torch",
         "tqdm",
     ],

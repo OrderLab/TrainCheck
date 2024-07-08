@@ -94,7 +94,7 @@ class Trace:
             )
             return
         # group function calls by func_call_id ## NOTE: BREAKING BEHAVIOR IF FUNC_CALL_ID IS NOT UNIQUE
-        func_call_groups = self.events.groupby("func_call_id").count()
+        func_call_groups = self.events.group_by("func_call_id").count()
         # find the func_call_ids that have only one record
         incomplete_func_call_ids = func_call_groups.filter(pl.col("count") == 1)[
             "func_call_id"

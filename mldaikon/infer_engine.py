@@ -27,7 +27,7 @@ class InferEngine:
                 )
                 all_invs.extend(invs)
         logger.info(f"Found {len(all_invs)} invariants.")
-        return invs
+        return all_invs
 
 
 def save_invs(invs: list[Invariant], output_file: str):
