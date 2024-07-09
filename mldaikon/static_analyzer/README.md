@@ -26,8 +26,22 @@ python main.py --lib nn --namespace torch.nn.modules.padding --function torch.nn
 
 # TODOs
 
+- [x] Add extern lib CLI.
+
+- [x] Add a CLI to dump the Attributes.
+
+- [ ] Add CLI to let user to specify how to filter the attributes.
+
+- [ ] Black list for pyan inputs (filenames)
+
+- [ ] Make one call graph for each of the modules in the user code
+
+- [ ] Only output necessary functions to the ".log" in way2
+
+# Not urgent
+
 - [ ] In 84911, line 124: `for name, param in model_transfer.module.named_parameters():`. The `named_parameters()` function is not captured. 
 
-- [ ] Add extern lib CLI, e.g., visit the extern lib to filter the third layer calls.
+- [ ] If we want to get `torch.random_seed`, get the first level python files in the torch. 
 
-- [ ] Add a CLI to dump the Attributes.
+- [ ] Function argument has a function call. It is marked as ^^^argument^^^
