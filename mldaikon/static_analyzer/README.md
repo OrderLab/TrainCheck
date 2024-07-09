@@ -2,25 +2,31 @@
 
 Note: This module (currently) mainly support dynamic graph unparsing from Pyan results and obtain function level info for proxy_class observer and (possibly) API instrumentor. Currently log is generated on torch2.2.2
 
+# Requirements
+
+Install necessary packages when using static analyzer, as we need to look into the specfic file.
+
 # Usage
+
+Edit the `config.py` or add compile flags to modify the behavior of the static analyzer. 
 
 ## To run the internal pytorch library: 
 ```bash
 # Output all functions in torch.nn
-python main.py --lib nn
+python -m mldaikon.static_analyzer.graph_generator.main --lib nn
 # Or equivalently
-python main.py --lib torch.nn
+python -m mldaikon.static_analyzer.graph_generator.main --lib torch.nn
 
 # Only output functions with namespace torch.nn.modules.padding
-python main.py --lib nn --namespace torch.nn.modules.padding
+python -m mldaikon.static_analyzer.graph_generator.main --lib nn --namespace torch.nn.modules.padding
 
 # Only output functions with namespace torch.nn.modules.padding and used in torch.nn.modules.padding
-python main.py --lib nn --namespace torch.nn.modules.padding --function torch.nn.modules.padding.ConstantPad3d
+python -m mldaikon.static_analyzer.graph_generator.main --lib nn --namespace torch.nn.modules.padding --function torch.nn.modules.padding.ConstantPad3d
 ```
 
 ## To run the external library:
 ```bash
-python main.py --ext ../../../example_pipelines/bug_84911_ml_daikon.py
+python -m mldaikon.static_analyzer.graph_generator.main --ext ../../../example_pipelines/bug_84911_ml_daikon.py
 ```
 
 # Thoughts
@@ -41,7 +47,7 @@ python main.py --ext ../../../example_pipelines/bug_84911_ml_daikon.py
 
 - [ ] Add CLI to let user to specify how to filter the attributes.
 
-- [ ] Black list for pyan inputs (filenames)
+- [x] Black list for pyan inputs (filenames)
 
 - [x] Make one call graph for each of the modules in the user code
 
