@@ -17,7 +17,8 @@ dump_iter = False  # dump the variable states from iterator (this would usually 
 dump_update_only = False  # only dump the updated part of the proxied object
 filter_by_tensor_version = False  # only dump the tensor when the version is changed
 
-enable_auto_observer = False  # automatically add observer to the function
+enable_C_level_observer = False  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
+enable_auto_observer = True  # automatically add observer to the function
 enable_auto_observer_depth = 3  # the depth of the function call that we want to observe
 observe_up_to_depth = False  # observe up to the depth of the function call, if False, only observe the function call at the depth
 neglect_hidden_func = (

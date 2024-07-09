@@ -16,8 +16,8 @@ import torch.utils
 # from mldaikon.proxy_wrapper.proxy import Proxy
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP
 from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
-from mldaikon.proxy_wrapper.config import disable_proxy_class
-from mldaikon.proxy_wrapper.proxy import Proxy
+from mldaikon.proxy_wrapper.config import disable_proxy_class, enable_C_level_observer
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -172,7 +172,9 @@ def global_wrapper(
 
         def find_proxy_in_args(args):
             for i, arg in enumerate(args):
-                if isinstance(arg, Proxy):
+                if is_proxied(
+                    arg
+                ):  # Ziming: get rid of directly import Proxy from external module, use proxy_basics instead
                     print(
                         f"Found proxy {arg.__dict__['var_name']} in function {func_name}"
                     )
@@ -198,6 +200,10 @@ def global_wrapper(
 
     dump_trace_API(pre_record)
     try:
+        if enable_C_level_observer and C_level_call:
+            from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
+
+            original_function = add_observer_to_func(original_function)
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
