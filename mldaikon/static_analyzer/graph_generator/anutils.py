@@ -5,8 +5,14 @@
 import ast
 import os.path
 
-from node import Flavor
+from .node import Flavor
 
+
+def is_hidden(name: list[str]):
+    for part in name:
+        if part.startswith('_') and not part.startswith('__'):
+            return True
+    return False
 
 def head(lst):
     if len(lst):

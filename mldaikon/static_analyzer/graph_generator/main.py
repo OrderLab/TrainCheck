@@ -10,6 +10,8 @@
 """
 
 from argparse import ArgumentParser
+from .anutils import is_hidden
+from .. import config
 from glob import glob
 import importlib
 import logging
@@ -17,11 +19,11 @@ import os
 import pandas as pd
 import re
 
-from analyzer import CallGraphVisitor
+from .analyzer import CallGraphVisitor
 
 
 def unparse_module(module_name, logger, level=0):
-    if level > 3:
+    if level > config.UNPARSE_LEVEL:
         return None
     try:
         module = importlib.import_module(f"{'.'.join(module_name.split('.'))}")
@@ -67,7 +69,7 @@ def filtering(known_args, v: CallGraphVisitor):
         v.filter(node=node, namespace=known_args.namespace)
 
 def call_graph_parser_to_df(log_file_path):
-    def call_graph_parser(log_file_path, depth=3, observe_up_to_depth=False, neglect_hidden_func=True, observe_then_unproxy=False):
+    def call_graph_parser(log_file_path, depth, observe_up_to_depth=False, observe_then_unproxy=False):
         list_of_observers = []
         with open(log_file_path, 'r') as f:
             lines = f.readlines()
@@ -80,12 +82,7 @@ def call_graph_parser_to_df(log_file_path):
                         continue
 
                     # filter out the hidden functions
-                    skip = False
-                    for part in module_list:
-                        if part.startswith('_') and neglect_hidden_func:
-                            skip = True
-                            continue
-                    if skip:
+                    if not config.SHOW_HIDDEN and is_hidden(module_list):
                         continue
 
                     function_depth = line.split(' ')[-1].strip()
@@ -99,7 +96,7 @@ def call_graph_parser_to_df(log_file_path):
         return list_of_observers
 
     df = pd.DataFrame()
-    for depth in range(1, 10):
+    for depth in range(1, config.MAXIMUM_DEPTH):
         list_of_observers = call_graph_parser(log_file_path, depth=depth)
         depth_df = pd.DataFrame(list_of_observers, columns=[f'depth_{depth}'])
         # extend the length of the original dataframe
@@ -119,17 +116,15 @@ def main(cli_args=None):
 
     parser = ArgumentParser(usage=usage, description=desc)
 
-    parser.add_argument("--lib", dest="libname", help="filter for LIBNAME", metavar="LIBNAME", default=None)
+    parser.add_argument("--lib", dest="libname", help="filter for LIBNAME", metavar="LIBNAME", default=config.INTERNAL_LIBS)
 
-    parser.add_argument("--ext", dest="extlib", help="higher-level python scripts", metavar="EXTLIB", default=None)
-
-    parser.add_argument("--extfilter", dest="extfilter", help="filter the extern file", metavar="EXTFILTER", default=None)
+    parser.add_argument("--ext", dest="extlib", help="higher-level python scripts", metavar="EXTLIB", default=config.EXTERNAL_LIBS)
 
     parser.add_argument("-o", "--output", dest="output", help="write function level to OUTPUT", metavar="OUTPUT", default=None)
 
-    parser.add_argument("--namespace", dest="namespace", help="filter for NAMESPACE", metavar="NAMESPACE", default=None)
+    parser.add_argument("--namespace", dest="namespace", help="filter for NAMESPACE", metavar="NAMESPACE", default=config.FILTER_NAMESPACE)
 
-    parser.add_argument("--function", dest="function", help="filter for FUNCTION", metavar="FUNCTION", default=None)
+    parser.add_argument("--function", dest="function", help="filter for FUNCTION", metavar="FUNCTION", default=config.FILTER_FUNCTION)
 
     parser.add_argument("-l", "--log", dest="logname", help="write log to LOG", metavar="LOG")
 
@@ -190,7 +185,7 @@ def main(cli_args=None):
         visitor = CallGraphVisitor(filenames, logger=logger, root=root)
         filtering(known_args, visitor)
         visitor.assign_levels()
-        visitor.dump_levels(output_path=output_path)
+        visitor.dump_levels(output_path=output_path, show_hidden=config.SHOW_HIDDEN)
         return
 
     # if there is an extern library
@@ -224,8 +219,8 @@ def main(cli_args=None):
             unparsed_filenames.add(os.path.dirname(file) if file.endswith('__init__.py') else file)
 
     # TODO: add a blacklist for unparsing
-    blacklist_files = ['/home/beijie/miniconda3/envs/static_check/lib/python3.10/site-packages/torch', '/home/beijie/miniconda3/envs/static_check/lib/python3.10/site-packages/torchvision', '/home/beijie/miniconda3/envs/static_check/lib/python3.10/site-packages/deepspeed']
-    for file in blacklist_files:
+    unparsing_blacklist_files = config.BLACKLIST_PATH
+    for file in unparsing_blacklist_files:
         if file in unparsed_filenames:
             unparsed_filenames.remove(file)
 
@@ -239,7 +234,7 @@ def main(cli_args=None):
     logger.info(f'Unparsed Filenames: {unparsed_filenames}')
 
     # TODO: add a whitelist for unparsing
-    unparse_whitelist = ['torch', 'torchvision', 'deepspeed']
+    unparse_whitelist = config.WHITELIST_MODULES
 
     def unparse_processor(unparsed_filename):
         """Return a key name for the unparsed file"""
@@ -278,11 +273,10 @@ def main(cli_args=None):
     # process the files
     for key, file_list in filenames.items():
         visitor = CallGraphVisitor(file_list, logger=logger, root=root)
-        filtering(known_args, visitor)
         visitor.assign_levels()
         log_file_path = os.path.join(os.path.dirname(output_path), f'{key}_func_level.log')
-        visitor.dump_levels(output_path=log_file_path)
-        
+        visitor.dump_levels(output_path=log_file_path, show_hidden=config.SHOW_HIDDEN)
+        # output an csv
         call_graph_parser_to_df(log_file_path)
 
 

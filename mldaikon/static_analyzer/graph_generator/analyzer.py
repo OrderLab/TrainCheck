@@ -7,7 +7,8 @@ import logging
 import symtable
 from typing import Union
 
-from anutils import (
+from .anutils import (
+    is_hidden,
     ExecuteInInnerScope,
     Scope,
     UnresolvedSuperCallError,
@@ -18,7 +19,7 @@ from anutils import (
     sanitize_exprs,
     tail,
 )
-from node import Flavor, Node
+from .node import Flavor, Node
 
 # TODO: add Cython support (strip type annotations in a preprocess step, then treat as Python)
 # TODO: built-in functions (range(), enumerate(), zip(), iter(), ...):
@@ -1925,7 +1926,7 @@ class CallGraphVisitor(ast.NodeVisitor):
         all_paths = self.analyze()
         self.eval_level(all_paths)
 
-    def dump_levels(self, output_path='debug_level.log', filter_level=None, filter_func_set=None):
+    def dump_levels(self, output_path='debug_level.log', filter_level=None, filter_func_set=None, show_hidden=True):
         def filter_func(node):
             pass
 
@@ -1937,6 +1938,10 @@ class CallGraphVisitor(ast.NodeVisitor):
                     (filter_level is None or level <= filter_level) and
                     (filter_func_set is None or filter_func(node))
                 ):
+                    if not show_hidden:
+                        name = (node.namespace + '.' + node.name).split('.')
+                        if is_hidden(name):
+                            continue
                     f.write(f'{node} - {level}\n')
 
             # for node, paths in all_paths.items():
