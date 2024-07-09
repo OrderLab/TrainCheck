@@ -14,10 +14,101 @@ from glob import glob
 import importlib
 import logging
 import os
+import pandas as pd
 import re
 
 from analyzer import CallGraphVisitor
 
+
+def unparse_module(module_name, logger, level=0):
+    if level > 3:
+        return None
+    try:
+        module = importlib.import_module(f"{'.'.join(module_name.split('.'))}")
+        module_path = "/".join(module.__file__.split("/"))
+        logger.info(f'Final Path at level {level}: {module_path}')
+        return module_path
+    except ModuleNotFoundError:
+        module_path = unparse_module(".".join(module_name.split(".")[:-1]), logger, level + 1)
+        return module_path
+    except Exception as e:
+        logger.info(f"Error finding {module_name}: {e}")
+        module_path = unparse_module(".".join(module_name.split(".")[:-1]), logger, level + 1)
+        return module_path
+
+def traverse_torch_dir(libname: str):
+    def get_torch_path(input_path):
+        torch_home = os.getenv('TORCH_HOME')
+        input_path = input_path.replace('.', '/')
+        if input_path.startswith('torch/'):
+            input_path = input_path[6:]
+        return os.path.join(torch_home, input_path)
+
+    # traverse the directory
+    filenames = []
+    dirname = get_torch_path(libname)
+    for dir_root, _, files in os.walk(dirname):
+        for file in files:
+            if file.endswith('.py'):
+                full_path = os.path.join(dir_root, file)
+                filenames.append(full_path)
+
+    return filenames
+
+def filtering(known_args, v: CallGraphVisitor):
+    if known_args.function or known_args.namespace:
+        if known_args.function:
+            function_name = known_args.function.split(".")[-1]
+            namespace = ".".join(known_args.function.split(".")[:-1])
+            node = v.get_node(namespace, function_name)
+        else:
+            node = None
+
+        v.filter(node=node, namespace=known_args.namespace)
+
+def call_graph_parser(log_file_path, depth=3, observe_up_to_depth=False, neglect_hidden_func=True, observe_then_unproxy=False):
+    list_of_observers = []
+    with open(log_file_path, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            # filter out the lines with the format <Node function:module_name.function_name> - function_depth
+            if re.match(r'<Node function:.*> - \d+', line) or re.match(r'<Node method:.*> - \d+', line):
+                # print the module_name, function_name and function_depth
+                module_list = line.split(">")[0].split(" ")[1].split(":")[1].split(".")
+                if module_list[-1] =='*':
+                    continue
+
+                # filter out the hidden functions
+                skip = False
+                for part in module_list:
+                    if part.startswith('_') and neglect_hidden_func:
+                        skip = True
+                        continue
+                if skip:
+                    continue
+
+                function_depth = line.split(' ')[-1].strip()
+                # save those with function_depth <= depth
+                if observe_up_to_depth:
+                    if int(function_depth) <= depth:
+                        list_of_observers.append('.'.join(module_list))
+                else:
+                    if int(function_depth) == depth:
+                        list_of_observers.append('.'.join(module_list))
+    return list_of_observers
+
+def call_graph_parser_to_df(log_file_path):
+    df = pd.DataFrame()
+    for depth in range(1, 10):
+        list_of_observers = call_graph_parser(log_file_path, depth=depth)
+        print(f'depth: {depth}, number of functions: ', len(list_of_observers))
+        depth_df = pd.DataFrame(list_of_observers, columns=[f'depth_{depth}'])
+        # extend the length of the original dataframe
+        df = pd.concat([df, depth_df], axis=1)
+
+    csv_path = log_file_path.replace('.log', '.csv')
+    print(f'---- CSV Path: {csv_path} ----')
+    df.to_csv(csv_path, index=False)
 
 def main(cli_args=None):
     usage = """%(prog)s [--lib|--log|--verbose|--output]"""
@@ -190,56 +281,10 @@ def main(cli_args=None):
         visitor = CallGraphVisitor(file_list, logger=logger, root=root)
         filtering(known_args, visitor)
         visitor.assign_levels()
-        visitor.dump_levels(output_path=os.path.join(os.path.dirname(output_path), f'{key}_func_level.log'))
-
-
-def unparse_module(module_name, logger, level=0):
-    if level > 3:
-        return None
-    try:
-        module = importlib.import_module(f"{'.'.join(module_name.split('.'))}")
-        module_path = "/".join(module.__file__.split("/"))
-        logger.info(f'Final Path at level {level}: {module_path}')
-        return module_path
-    except ModuleNotFoundError:
-        module_path = unparse_module(".".join(module_name.split(".")[:-1]), logger, level + 1)
-        return module_path
-    except Exception as e:
-        logger.info(f"Error finding {module_name}: {e}")
-        module_path = unparse_module(".".join(module_name.split(".")[:-1]), logger, level + 1)
-        return module_path
-
-
-def traverse_torch_dir(libname: str):
-    def get_torch_path(input_path):
-        torch_home = os.getenv('TORCH_HOME')
-        input_path = input_path.replace('.', '/')
-        if input_path.startswith('torch/'):
-            input_path = input_path[6:]
-        return os.path.join(torch_home, input_path)
-
-    # traverse the directory
-    filenames = []
-
-    dirname = get_torch_path(libname)
-    for dir_root, _, files in os.walk(dirname):
-        for file in files:
-            if file.endswith('.py'):
-                full_path = os.path.join(dir_root, file)
-                filenames.append(full_path)
-
-    return filenames
-
-def filtering(known_args, v: CallGraphVisitor):
-    if known_args.function or known_args.namespace:
-        if known_args.function:
-            function_name = known_args.function.split(".")[-1]
-            namespace = ".".join(known_args.function.split(".")[:-1])
-            node = v.get_node(namespace, function_name)
-        else:
-            node = None
-
-        v.filter(node=node, namespace=known_args.namespace)
+        log_file_path = os.path.join(os.path.dirname(output_path), f'{key}_func_level.log')
+        visitor.dump_levels(output_path=log_file_path)
+        
+        call_graph_parser_to_df(log_file_path)
 
 
 if __name__ == "__main__":
