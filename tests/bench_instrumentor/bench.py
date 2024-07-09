@@ -32,6 +32,20 @@ def run_naive_instrumented():
     return res
 
 
+def run_naive_instrumented_with_jit_and_c_tracing_disabled():
+    res = subprocess.run(
+        [
+            "python",
+            "-m",
+            "mldaikon.collect_trace",
+            "-p",
+            f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_naive.py",
+            "--allow_disable_dump",
+        ]
+    )
+    return res
+
+
 def run_sampler_instrumented():
     res = subprocess.run(
         [
@@ -93,6 +107,12 @@ def test_naive(benchmark):
 
 def test_instrumented(benchmark):
     res = benchmark(run_naive_instrumented)
+    assert res.returncode == 0
+    cleanup()
+
+
+def test_instrumented_with_jit_and_c_tracing_disabled(benchmark):
+    res = benchmark(run_naive_instrumented_with_jit_and_c_tracing_disabled)
     assert res.returncode == 0
     cleanup()
 

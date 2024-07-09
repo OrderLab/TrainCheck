@@ -6,6 +6,11 @@ INSTR_MODULES_TO_SKIP = [
     "torch.fx",
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
 ]
+WRAP_WITHOUT_DUMP = [
+    "torch._C",
+    "torch._jit",
+    "torch.jit",
+]
 INCLUDED_WRAP_LIST = ["Net", "DataParallel"]  # FIXME: Net & DataParallel seem ad-hoc
 LIVENESS_OVERLAP_THRESHOLD = 0.01  # 1%
 PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be the targets of invariants, but can be precondition or postcondition)
