@@ -66,42 +66,41 @@ def filtering(known_args, v: CallGraphVisitor):
 
         v.filter(node=node, namespace=known_args.namespace)
 
-def call_graph_parser(log_file_path, depth=3, observe_up_to_depth=False, neglect_hidden_func=True, observe_then_unproxy=False):
-    list_of_observers = []
-    with open(log_file_path, 'r') as f:
-        lines = f.readlines()
-        for line in lines:
-            # filter out the lines with the format <Node function:module_name.function_name> - function_depth
-            if re.match(r'<Node function:.*> - \d+', line) or re.match(r'<Node method:.*> - \d+', line):
-                # print the module_name, function_name and function_depth
-                module_list = line.split(">")[0].split(" ")[1].split(":")[1].split(".")
-                if module_list[-1] =='*':
-                    continue
-
-                # filter out the hidden functions
-                skip = False
-                for part in module_list:
-                    if part.startswith('_') and neglect_hidden_func:
-                        skip = True
-                        continue
-                if skip:
-                    continue
-
-                function_depth = line.split(' ')[-1].strip()
-                # save those with function_depth <= depth
-                if observe_up_to_depth:
-                    if int(function_depth) <= depth:
-                        list_of_observers.append('.'.join(module_list))
-                else:
-                    if int(function_depth) == depth:
-                        list_of_observers.append('.'.join(module_list))
-    return list_of_observers
-
 def call_graph_parser_to_df(log_file_path):
+    def call_graph_parser(log_file_path, depth=3, observe_up_to_depth=False, neglect_hidden_func=True, observe_then_unproxy=False):
+        list_of_observers = []
+        with open(log_file_path, 'r') as f:
+            lines = f.readlines()
+            for line in lines:
+                # filter out the lines with the format <Node function:module_name.function_name> - function_depth
+                if re.match(r'<Node function:.*> - \d+', line) or re.match(r'<Node method:.*> - \d+', line):
+                    # print the module_name, function_name and function_depth
+                    module_list = line.split(">")[0].split(" ")[1].split(":")[1].split(".")
+                    if module_list[-1] =='*':
+                        continue
+
+                    # filter out the hidden functions
+                    skip = False
+                    for part in module_list:
+                        if part.startswith('_') and neglect_hidden_func:
+                            skip = True
+                            continue
+                    if skip:
+                        continue
+
+                    function_depth = line.split(' ')[-1].strip()
+                    # save those with function_depth <= depth
+                    if observe_up_to_depth:
+                        if int(function_depth) <= depth:
+                            list_of_observers.append('.'.join(module_list))
+                    else:
+                        if int(function_depth) == depth:
+                            list_of_observers.append('.'.join(module_list))
+        return list_of_observers
+
     df = pd.DataFrame()
     for depth in range(1, 10):
         list_of_observers = call_graph_parser(log_file_path, depth=depth)
-        print(f'depth: {depth}, number of functions: ', len(list_of_observers))
         depth_df = pd.DataFrame(list_of_observers, columns=[f'depth_{depth}'])
         # extend the length of the original dataframe
         df = pd.concat([df, depth_df], axis=1)

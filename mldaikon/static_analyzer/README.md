@@ -4,14 +4,23 @@ Note: This module (currently) mainly support dynamic graph unparsing from Pyan r
 
 # Usage
 
+## To run the internal pytorch library: 
 ```bash
+# Output all functions in torch.nn
 python main.py --lib nn
+# Or equivalently
+python main.py --lib torch.nn
 
 # Only output functions with namespace torch.nn.modules.padding
 python main.py --lib nn --namespace torch.nn.modules.padding
 
 # Only output functions with namespace torch.nn.modules.padding and used in torch.nn.modules.padding
 python main.py --lib nn --namespace torch.nn.modules.padding --function torch.nn.modules.padding.ConstantPad3d
+```
+
+## To run the external library:
+```bash
+python main.py --ext ../../../example_pipelines/bug_84911_ml_daikon.py
 ```
 
 # Thoughts
@@ -34,9 +43,9 @@ python main.py --lib nn --namespace torch.nn.modules.padding --function torch.nn
 
 - [ ] Black list for pyan inputs (filenames)
 
-- [ ] Make one call graph for each of the modules in the user code
+- [x] Make one call graph for each of the modules in the user code
 
-- [ ] Only output necessary functions to the ".log" in way2
+- [x] Only output non-hidden functions to the ".log" in way2
 
 # Not urgent
 
