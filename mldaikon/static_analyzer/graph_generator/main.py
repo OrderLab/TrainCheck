@@ -11,8 +11,10 @@
 
 from argparse import ArgumentParser
 from glob import glob
+import importlib
 import logging
 import os
+import re
 
 from analyzer import CallGraphVisitor
 
@@ -30,6 +32,8 @@ def main(cli_args=None):
     parser.add_argument("--lib", dest="libname", help="filter for LIBNAME", metavar="LIBNAME", default=None)
 
     parser.add_argument("--ext", dest="extlib", help="higher-level python scripts", metavar="EXTLIB", default=None)
+
+    parser.add_argument("--extfilter", dest="extfilter", help="filter the extern file", metavar="EXTFILTER", default=None)
 
     parser.add_argument("-o", "--output", dest="output", help="write function level to OUTPUT", metavar="OUTPUT", default=None)
 
@@ -65,8 +69,8 @@ def main(cli_args=None):
     else:
         root = None
 
-    if known_args.libname is None:
-        parser.error("The --libname option is not added")
+    if known_args.libname is None and known_args.extlib is None:
+        parser.error("The --libname or --extlib argument is required.")
 
     # TODO: use an int argument for verbosity
     logger = logging.getLogger(__name__)
@@ -93,28 +97,110 @@ def main(cli_args=None):
     if known_args.extlib is None:
         # if there is no extern library, go through the torch lib only
         filenames = traverse_torch_dir(known_args.libname)
-        v = CallGraphVisitor(filenames, logger=logger, root=root, output_path=output_path)
-        filtering(known_args, v)
-        v.assign_levels()
-        v.dump_levels()
+        visitor = CallGraphVisitor(filenames, logger=logger, root=root)
+        filtering(known_args, visitor)
+        visitor.assign_levels()
+        visitor.dump_levels(output_path=output_path)
         return
 
     # if there is an extern library
     ext_filenames = glob(known_args.extlib)
 
-    filenames = traverse_torch_dir(known_args.libname)
-
+    # get all attributes for the extern library
     attr_output_name = ext_filenames[0].split('/')[-1].split('.')[0] + '_attr.log'
 
-    v = CallGraphVisitor(ext_filenames, logger=logger, root=root, output_path=output_path)
+    # produce a file
+    ext_visitor = CallGraphVisitor(ext_filenames, logger=logger, root=root)
+    filtering(known_args, ext_visitor)
+    ext_visitor.assign_levels()
+    ext_visitor.dump_attributes(attr_output_name)
 
-    filtering(known_args, v)
+    func_filter_set = set()
+    with open(attr_output_name, "r") as f:
+        lines = f.readlines()
+        for line in lines:
+            if re.match(r"<Node attribute:.*> - \d+", line):
+                module_list = line.split(">")[0].split(" ")[1].split(":")[1].split(".")
+                logger.info(f'Add module: {".".join(module_list)}')
+                func_filter_set.add(".".join(module_list))
 
-    v.assign_levels()
+    # unparsing the attributes
+    unparsed_filenames = set()
+    for func in func_filter_set:
+        logger.info(f'Unparsing function: {func}')
+        file = unparse_module(func, logger, level=0)
+        if file is not None:
+            # collect the directory name if it is an __init__.py file
+            unparsed_filenames.add(os.path.dirname(file) if file.endswith('__init__.py') else file)
 
-    torch_modules = v.dump_attributes(attr_output_name)
+    # TODO: add a blacklist for unparsing
+    blacklist_files = ['/home/beijie/miniconda3/envs/static_check/lib/python3.10/site-packages/torch', '/home/beijie/miniconda3/envs/static_check/lib/python3.10/site-packages/torchvision', '/home/beijie/miniconda3/envs/static_check/lib/python3.10/site-packages/deepspeed']
+    for file in blacklist_files:
+        if file in unparsed_filenames:
+            unparsed_filenames.remove(file)
 
-    # v = CallGraphVisitor(filenames, logger=logger, root=root, output_path=output_path)
+    # filter out the contained situations
+    filtered_unparsed_filenames = set()
+    for path in unparsed_filenames:
+        if not any(path != other_path and path.startswith(other_path) for other_path in unparsed_filenames):
+            filtered_unparsed_filenames.add(path)
+    unparsed_filenames = filtered_unparsed_filenames
+
+    logger.info(f'Unparsed Filenames: {unparsed_filenames}')
+
+    # TODO: add a whitelist for unparsing
+    unparse_whitelist = ['torch', 'torchvision', 'deepspeed']
+
+    def unparse_processor(unparsed_filename):
+        """Return a key name for the unparsed file"""
+        for whitelist in unparse_whitelist:
+            if whitelist in unparsed_filename:
+                if unparsed_filename.endswith('.py'):
+                    return unparsed_filename.split('/')[-1].split('.')[0]
+                else:
+                    return unparsed_filename.split('/')[-1]
+        return None
+
+    # Warning: the key name might not be unique
+    unparsed_filenames = {unparse_processor(unparsed_filename): unparsed_filename for unparsed_filename in unparsed_filenames if unparse_processor(unparsed_filename) is not None}
+    logger.info(f'Unparsed Filenames: {unparsed_filenames}')
+
+    def traverse_dir(dirname):
+        filenames = []
+        for dir_root, _, files in os.walk(dirname):
+            for file in files:
+                if file.endswith('.py'):
+                    full_path = os.path.join(dir_root, file)
+                    filenames.append(full_path)
+        return filenames
+
+    filenames = {}
+    for key, path_name in unparsed_filenames.items():
+        if path_name.endswith('.py'):
+            filenames[key] = [path_name]
+        else:
+            file_list = traverse_dir(path_name)
+            filenames[key] = file_list
+
+    for key, files in filenames.items():
+        logger.info(f'Key: {key}, File number: {len(files)}')
+
+
+def unparse_module(module_name, logger, level=0):
+    if level > 3:
+        return None
+    try:
+        module = importlib.import_module(f"{'.'.join(module_name.split('.'))}")
+        module_path = "/".join(module.__file__.split("/"))
+        logger.info(f'Final Path at level {level}: {module_path}')
+        return module_path
+    except ModuleNotFoundError:
+        module_path = unparse_module(".".join(module_name.split(".")[:-1]), logger, level + 1)
+        return module_path
+    except Exception as e:
+        logger.info(f"Error finding {module_name}: {e}")
+        module_path = unparse_module(".".join(module_name.split(".")[:-1]), logger, level + 1)
+        return module_path
 
 
 def traverse_torch_dir(libname: str):

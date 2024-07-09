@@ -50,7 +50,7 @@ class CallGraphVisitor(ast.NodeVisitor):
     all files.  This way use information between objects in different files
     can be gathered."""
 
-    def __init__(self, filenames, root: str = None, logger=None, output_path='.'):
+    def __init__(self, filenames, root: str = None, logger=None):
         self.logger = logger or logging.getLogger(__name__)
 
         # full module names for all given files
@@ -79,13 +79,11 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.class_stack = []  # Nodes for class definitions currently in scope
         self.context_stack = []  # for detecting which FunctionDefs are methods
         self.last_value = None
-        self.output_path = output_path
 
         # Collect all torch modules
-        self.torch_modules = set()
+        self.all_modules = set()
 
         self.filter_flavor = [Flavor.FUNCTION, Flavor.CLASS, Flavor.METHOD, Flavor.ATTRIBUTE]
-
 
         # Analyze.
         self.process()
@@ -1910,9 +1908,7 @@ class CallGraphVisitor(ast.NodeVisitor):
             # collect torch module name for future use
             # TODO: Because the modules in the first module dir is large, we 
             # collect the modules at the second level
-            if 'torch' in node.namespace and len(node.namespace.split('.')) > 1:
-                # module_name = node.namespace.split('.')[0] + '.' + node.namespace.split('.')[1]
-                self.torch_modules.add(node.namespace)
+            self.all_modules.add(node.namespace)
             all_paths[node] = self.find_paths_to_top_level(node, graph, top_level_nodes)
         return all_paths
 
@@ -1929,20 +1925,27 @@ class CallGraphVisitor(ast.NodeVisitor):
         all_paths = self.analyze()
         self.eval_level(all_paths)
 
-    def dump_levels(self, filter_level=None):
-        print(f'----Output Path: {self.output_path}----')
-        with open(self.output_path, 'w') as f:
+    def dump_levels(self, output_path='debug_level.log', filter_level=None, filter_func_set=None):
+        def filter_func(node):
+            pass
+
+        print(f'---- Output Path: {output_path} ----')
+        with open(output_path, 'w') as f:
             for node, level in self.level.items():
-                if node.flavor != Flavor.ATTRIBUTE and (filter_level is None or level <= filter_level):
+                if (
+                    node.flavor != Flavor.ATTRIBUTE and 
+                    (filter_level is None or level <= filter_level) and
+                    (filter_func_set is None or filter_func(node))
+                ):
                     f.write(f'{node} - {level}\n')
 
             # for node, paths in all_paths.items():
             #     f.write(f'{node} - {paths}\n')
 
     def dump_attributes(self, output_path='debug_attr.log'):
-        print(f'----Attribute Path: {output_path}----')
+        print(f'---- Attribute Path: {output_path} ----')
         with open(output_path, 'w') as f:
             for node, level in self.level.items():
-                if node.flavor == Flavor.ATTRIBUTE and node.namespace in self.torch_modules:
+                if node.flavor == Flavor.ATTRIBUTE:
                     f.write(f'{node} - {level}\n')
-        return self.torch_modules
+        return self.all_modules
