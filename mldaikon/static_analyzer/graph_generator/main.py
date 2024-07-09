@@ -185,6 +185,13 @@ def main(cli_args=None):
     for key, files in filenames.items():
         logger.info(f'Key: {key}, File number: {len(files)}')
 
+    # process the files
+    for key, file_list in filenames.items():
+        visitor = CallGraphVisitor(file_list, logger=logger, root=root)
+        filtering(known_args, visitor)
+        visitor.assign_levels()
+        visitor.dump_levels(output_path=os.path.join(os.path.dirname(output_path), f'{key}_func_level.log'))
+
 
 def unparse_module(module_name, logger, level=0):
     if level > 3:
