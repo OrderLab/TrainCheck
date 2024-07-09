@@ -6,7 +6,7 @@ import astor
 
 
 def is_proxied(obj):
-    if hasattr(obj, "is_ml_daikon_proxied_obj"):
+    if "is_ml_daikon_proxied_obj" in obj.__dict__:
         return True
     return False
 
