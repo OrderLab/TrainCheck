@@ -10,9 +10,10 @@ from .node import Flavor
 
 def is_hidden(name: list[str]):
     for part in name:
-        if part.startswith('_') and not part.startswith('__'):
+        if part.startswith("_") and not part.startswith("__"):
             return True
     return False
+
 
 def head(lst):
     if len(lst):
@@ -26,7 +27,7 @@ def tail(lst):
         return []
 
 
-def get_module_name(filename, root: str = None):
+def get_module_name(filename, root=None):
     """Try to determine the full module name of a source file, by figuring out
     if its directory looks like a package (i.e. has an __init__.py file or
     there is a .py file in it )."""
@@ -44,7 +45,7 @@ def get_module_name(filename, root: str = None):
     if root is None:
         while directories[0][0] != os.path.dirname(directories[0][0]):
             potential_root = os.path.dirname(directories[0][0])
-            if potential_root=='':
+            if potential_root == "":
                 break
             is_root = any([f == "__init__.py" for f in os.listdir(potential_root)])
             directories.insert(0, (potential_root, is_root))
@@ -115,14 +116,17 @@ def resolve_method_resolution_order(class_base_nodes, logger):
     from functools import reduce
     from operator import add
 
-    def C3_find_good_head(heads, tails):  # find an element of heads which is not in any of the tails
+    def C3_find_good_head(
+        heads, tails
+    ):  # find an element of heads which is not in any of the tails
         flat_tails = reduce(add, tails, [])  # flatten the outer level
         for hd in heads:
             if hd not in flat_tails:
                 break
         else:  # no break only if there are cyclic dependencies.
             raise LinearizationImpossible(
-                "MRO linearization impossible; cyclic dependency detected. heads: %s, tails: %s" % (heads, tails)
+                "MRO linearization impossible; cyclic dependency detected. heads: %s, tails: %s"
+                % (heads, tails)
             )
         return hd
 
@@ -165,7 +169,9 @@ def resolve_method_resolution_order(class_base_nodes, logger):
                         if baseclass_node not in seen:
                             lists.append(C3_linearize(baseclass_node))
                     # ...and the parents themselves (in the order they appear in the ClassDef)
-                    logger.debug("MRO: parents of %s: %s" % (node, class_base_nodes[node]))
+                    logger.debug(
+                        "MRO: parents of %s: %s" % (node, class_base_nodes[node])
+                    )
                     lists.append(class_base_nodes[node])
                     logger.debug("MRO: C3 merging %s" % (lists))
                     memo[node] = [node] + C3_merge(lists)
@@ -191,7 +197,9 @@ def resolve_method_resolution_order(class_base_nodes, logger):
             if node not in memo:
                 out = [node]  # first look up in obj itself...
                 if node in class_base_nodes:  # known class?
-                    for baseclass_node in class_base_nodes[node]:  # ...then in its bases
+                    for baseclass_node in class_base_nodes[
+                        node
+                    ]:  # ...then in its bases
                         if baseclass_node not in seen:
                             out.append(baseclass_node)
                             out.extend(lookup_bases_recursive(baseclass_node))
@@ -225,11 +233,14 @@ class Scope:
                 name = ""  # Pyan defines the top level as anonymous
             self.name = name
             self.type = table.get_type()  # useful for __repr__()
-            self.defs = {iden: None for iden in table.get_identifiers()}  # name:assigned_value
+            self.defs = {
+                iden: None for iden in table.get_identifiers()
+            }  # name:assigned_value
         else:
             self.name = ""
             self.type = "unknown"
             self.defs = {}
+
     def __repr__(self):
         return "<Scope: %s %s>" % (self.type, self.name)
 
@@ -267,8 +278,8 @@ class ExecuteInInnerScope:
             # analyzer.name_stack.pop()
             # setup an empty table for the unknown scope
             analyzer.scope_stack.append(Scope())
-            analyzer.context_stack.append('')
-            if len(analyzer.name_stack)==0:
+            analyzer.context_stack.append("")
+            if len(analyzer.name_stack) == 0:
                 print("name_stack is empty in _enter_")
             # Log warning instead of raising an error, or handle the missing scope differently
             print(f"Warning: Unknown scope '{inner_ns}'. Skipping...")
@@ -286,7 +297,7 @@ class ExecuteInInnerScope:
         analyzer.context_stack.pop()
         analyzer.scope_stack.pop()
         analyzer.name_stack.pop()
-        if len(analyzer.name_stack)==0:
+        if len(analyzer.name_stack) == 0:
             print("name_stack is empty in __exit__")
 
         # Add a defines edge, which will mark the inner scope as defined,
@@ -301,5 +312,9 @@ class ExecuteInInnerScope:
         ns = from_node.get_name()
         to_node = analyzer.get_node(ns, scopename, None, flavor=Flavor.NAMESPACE)
         if analyzer.add_defines_edge(from_node, to_node):
-            analyzer.logger.info("Def from %s to %s %s" % (from_node, scopename, to_node))
-        analyzer.last_value = to_node  # Make this inner scope node assignable to track its uses.
+            analyzer.logger.info(
+                "Def from %s to %s %s" % (from_node, scopename, to_node)
+            )
+        analyzer.last_value = (
+            to_node  # Make this inner scope node assignable to track its uses.
+        )

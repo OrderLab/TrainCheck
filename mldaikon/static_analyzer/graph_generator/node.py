@@ -132,7 +132,11 @@ class Node:
                         self.namespace,
                     )
                 else:
-                    return "%s\\n\\n(%s in %s)" % (self.name, repr(self.flavor), self.namespace)
+                    return "%s\\n\\n(%s in %s)" % (
+                        self.name,
+                        repr(self.flavor),
+                        self.namespace,
+                    )
             else:
                 return self.name
 

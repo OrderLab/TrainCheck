@@ -9,17 +9,18 @@
     for rendering by e.g. GraphViz or yEd.
 """
 
-from argparse import ArgumentParser
-from .anutils import is_hidden
-from .. import config
-from glob import glob
 import importlib
 import logging
 import os
-import pandas as pd
 import re
+from argparse import ArgumentParser
+from glob import glob
 
+import pandas as pd
+
+from .. import config
 from .analyzer import CallGraphVisitor
+from .anutils import is_hidden
 
 
 def unparse_module(module_name, logger, level=0):
@@ -28,21 +29,26 @@ def unparse_module(module_name, logger, level=0):
     try:
         module = importlib.import_module(f"{'.'.join(module_name.split('.'))}")
         module_path = "/".join(module.__file__.split("/"))
-        logger.info(f'Final Path at level {level}: {module_path}')
+        logger.info(f"Final Path at level {level}: {module_path}")
         return module_path
     except ModuleNotFoundError:
-        module_path = unparse_module(".".join(module_name.split(".")[:-1]), logger, level + 1)
+        module_path = unparse_module(
+            ".".join(module_name.split(".")[:-1]), logger, level + 1
+        )
         return module_path
     except Exception as e:
         logger.info(f"Error finding {module_name}: {e}")
-        module_path = unparse_module(".".join(module_name.split(".")[:-1]), logger, level + 1)
+        module_path = unparse_module(
+            ".".join(module_name.split(".")[:-1]), logger, level + 1
+        )
         return module_path
+
 
 def traverse_torch_dir(libname: str):
     def get_torch_path(input_path):
-        torch_home = os.getenv('TORCH_HOME')
-        input_path = input_path.replace('.', '/')
-        if input_path.startswith('torch/'):
+        torch_home = os.getenv("TORCH_HOME")
+        input_path = input_path.replace(".", "/")
+        if input_path.startswith("torch/"):
             input_path = input_path[6:]
         return os.path.join(torch_home, input_path)
 
@@ -51,11 +57,12 @@ def traverse_torch_dir(libname: str):
     dirname = get_torch_path(libname)
     for dir_root, _, files in os.walk(dirname):
         for file in files:
-            if file.endswith('.py'):
+            if file.endswith(".py"):
                 full_path = os.path.join(dir_root, file)
                 filenames.append(full_path)
 
     return filenames
+
 
 def filtering(known_args, v: CallGraphVisitor):
     if known_args.function or known_args.namespace:
@@ -68,43 +75,51 @@ def filtering(known_args, v: CallGraphVisitor):
 
         v.filter(node=node, namespace=known_args.namespace)
 
+
 def call_graph_parser_to_df(log_file_path):
-    def call_graph_parser(log_file_path, depth, observe_up_to_depth=False, observe_then_unproxy=False):
+    def call_graph_parser(
+        log_file_path, depth, observe_up_to_depth=False, observe_then_unproxy=False
+    ):
         list_of_observers = []
-        with open(log_file_path, 'r') as f:
+        with open(log_file_path, "r") as f:
             lines = f.readlines()
             for line in lines:
                 # filter out the lines with the format <Node function:module_name.function_name> - function_depth
-                if re.match(r'<Node function:.*> - \d+', line) or re.match(r'<Node method:.*> - \d+', line):
+                if re.match(r"<Node function:.*> - \d+", line) or re.match(
+                    r"<Node method:.*> - \d+", line
+                ):
                     # print the module_name, function_name and function_depth
-                    module_list = line.split(">")[0].split(" ")[1].split(":")[1].split(".")
-                    if module_list[-1] =='*':
+                    module_list = (
+                        line.split(">")[0].split(" ")[1].split(":")[1].split(".")
+                    )
+                    if module_list[-1] == "*":
                         continue
 
                     # filter out the hidden functions
                     if not config.SHOW_HIDDEN and is_hidden(module_list):
                         continue
 
-                    function_depth = line.split(' ')[-1].strip()
+                    function_depth = line.split(" ")[-1].strip()
                     # save those with function_depth <= depth
                     if observe_up_to_depth:
                         if int(function_depth) <= depth:
-                            list_of_observers.append('.'.join(module_list))
+                            list_of_observers.append(".".join(module_list))
                     else:
                         if int(function_depth) == depth:
-                            list_of_observers.append('.'.join(module_list))
+                            list_of_observers.append(".".join(module_list))
         return list_of_observers
 
     df = pd.DataFrame()
     for depth in range(1, config.MAXIMUM_DEPTH):
         list_of_observers = call_graph_parser(log_file_path, depth=depth)
-        depth_df = pd.DataFrame(list_of_observers, columns=[f'depth_{depth}'])
+        depth_df = pd.DataFrame(list_of_observers, columns=[f"depth_{depth}"])
         # extend the length of the original dataframe
         df = pd.concat([df, depth_df], axis=1)
 
-    csv_path = log_file_path.replace('.log', '.csv')
-    print(f'---- CSV Path: {csv_path} ----')
+    csv_path = log_file_path.replace(".log", ".csv")
+    print(f"---- CSV Path: {csv_path} ----")
     df.to_csv(csv_path, index=False)
+
 
 def main(cli_args=None):
     usage = """%(prog)s [--lib|--log|--verbose|--output]"""
@@ -116,19 +131,59 @@ def main(cli_args=None):
 
     parser = ArgumentParser(usage=usage, description=desc)
 
-    parser.add_argument("--lib", dest="libname", help="filter for LIBNAME", metavar="LIBNAME", default=config.INTERNAL_LIBS)
+    parser.add_argument(
+        "--lib",
+        dest="libname",
+        help="filter for LIBNAME",
+        metavar="LIBNAME",
+        default=config.INTERNAL_LIBS,
+    )
 
-    parser.add_argument("--ext", dest="extlib", help="higher-level python scripts", metavar="EXTLIB", default=config.EXTERNAL_LIBS)
+    parser.add_argument(
+        "--ext",
+        dest="extlib",
+        help="higher-level python scripts",
+        metavar="EXTLIB",
+        default=config.EXTERNAL_LIBS,
+    )
 
-    parser.add_argument("-o", "--output", dest="output", help="write function level to OUTPUT", metavar="OUTPUT", default=None)
+    parser.add_argument(
+        "-o",
+        "--output",
+        dest="output",
+        help="write function level to OUTPUT",
+        metavar="OUTPUT",
+        default=None,
+    )
 
-    parser.add_argument("--namespace", dest="namespace", help="filter for NAMESPACE", metavar="NAMESPACE", default=config.FILTER_NAMESPACE)
+    parser.add_argument(
+        "--namespace",
+        dest="namespace",
+        help="filter for NAMESPACE",
+        metavar="NAMESPACE",
+        default=config.FILTER_NAMESPACE,
+    )
 
-    parser.add_argument("--function", dest="function", help="filter for FUNCTION", metavar="FUNCTION", default=config.FILTER_FUNCTION)
+    parser.add_argument(
+        "--function",
+        dest="function",
+        help="filter for FUNCTION",
+        metavar="FUNCTION",
+        default=config.FILTER_FUNCTION,
+    )
 
-    parser.add_argument("-l", "--log", dest="logname", help="write log to LOG", metavar="LOG")
+    parser.add_argument(
+        "-l", "--log", dest="logname", help="write log to LOG", metavar="LOG"
+    )
 
-    parser.add_argument("-v", "--verbose", action="store_true", default=False, dest="verbose", help="verbose output")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        dest="verbose",
+        help="verbose output",
+    )
 
     parser.add_argument(
         "-V",
@@ -175,7 +230,11 @@ def main(cli_args=None):
 
     if known_args.output is None:
         output_path = os.path.dirname(os.path.abspath(__file__))
-        output_path = os.path.abspath(os.path.join(output_path, '..', 'func_level', f'{known_args.libname}_func_level.log'))
+        output_path = os.path.abspath(
+            os.path.join(
+                output_path, "..", "func_level", f"{known_args.libname}_func_level.log"
+            )
+        )
     else:
         output_path = known_args.output
 
@@ -192,7 +251,7 @@ def main(cli_args=None):
     ext_filenames = glob(known_args.extlib)
 
     # get all attributes for the extern library
-    attr_output_name = ext_filenames[0].split('/')[-1].split('.')[0] + '_attr.log'
+    attr_output_name = ext_filenames[0].split("/")[-1].split(".")[0] + "_attr.log"
 
     # produce a file
     ext_visitor = CallGraphVisitor(ext_filenames, logger=logger, root=root)
@@ -212,11 +271,13 @@ def main(cli_args=None):
     # unparsing the attributes
     unparsed_filenames = set()
     for func in func_filter_set:
-        logger.info(f'Unparsing function: {func}')
+        logger.info(f"Unparsing function: {func}")
         file = unparse_module(func, logger, level=0)
         if file is not None:
             # collect the directory name if it is an __init__.py file
-            unparsed_filenames.add(os.path.dirname(file) if file.endswith('__init__.py') else file)
+            unparsed_filenames.add(
+                os.path.dirname(file) if file.endswith("__init__.py") else file
+            )
 
     # TODO: add a blacklist for unparsing
     unparsing_blacklist_files = config.BLACKLIST_PATH
@@ -227,11 +288,14 @@ def main(cli_args=None):
     # filter out the contained situations
     filtered_unparsed_filenames = set()
     for path in unparsed_filenames:
-        if not any(path != other_path and path.startswith(other_path) for other_path in unparsed_filenames):
+        if not any(
+            path != other_path and path.startswith(other_path)
+            for other_path in unparsed_filenames
+        ):
             filtered_unparsed_filenames.add(path)
     unparsed_filenames = filtered_unparsed_filenames
 
-    logger.info(f'Unparsed Filenames: {unparsed_filenames}')
+    logger.info(f"Unparsed Filenames: {unparsed_filenames}")
 
     # TODO: add a whitelist for unparsing
     unparse_whitelist = config.WHITELIST_MODULES
@@ -240,41 +304,47 @@ def main(cli_args=None):
         """Return a key name for the unparsed file"""
         for whitelist in unparse_whitelist:
             if whitelist in unparsed_filename:
-                if unparsed_filename.endswith('.py'):
-                    return unparsed_filename.split('/')[-1].split('.')[0]
+                if unparsed_filename.endswith(".py"):
+                    return unparsed_filename.split("/")[-1].split(".")[0]
                 else:
-                    return unparsed_filename.split('/')[-1]
+                    return unparsed_filename.split("/")[-1]
         return None
 
     # Warning: the key name might not be unique
-    unparsed_filenames = {unparse_processor(unparsed_filename): unparsed_filename for unparsed_filename in unparsed_filenames if unparse_processor(unparsed_filename) is not None}
-    logger.info(f'Unparsed Filenames: {unparsed_filenames}')
+    unparsed_filenames = {
+        unparse_processor(unparsed_filename): unparsed_filename
+        for unparsed_filename in unparsed_filenames
+        if unparse_processor(unparsed_filename) is not None
+    }
+    logger.info(f"Unparsed Filenames: {unparsed_filenames}")
 
     def traverse_dir(dirname):
         filenames = []
         for dir_root, _, files in os.walk(dirname):
             for file in files:
-                if file.endswith('.py'):
+                if file.endswith(".py"):
                     full_path = os.path.join(dir_root, file)
                     filenames.append(full_path)
         return filenames
 
     filenames = {}
     for key, path_name in unparsed_filenames.items():
-        if path_name.endswith('.py'):
+        if path_name.endswith(".py"):
             filenames[key] = [path_name]
         else:
             file_list = traverse_dir(path_name)
             filenames[key] = file_list
 
     for key, files in filenames.items():
-        logger.info(f'Key: {key}, File number: {len(files)}')
+        logger.info(f"Key: {key}, File number: {len(files)}")
 
     # process the files
     for key, file_list in filenames.items():
         visitor = CallGraphVisitor(file_list, logger=logger, root=root)
         visitor.assign_levels()
-        log_file_path = os.path.join(os.path.dirname(output_path), f'{key}_func_level.log')
+        log_file_path = os.path.join(
+            os.path.dirname(output_path), f"{key}_func_level.log"
+        )
         visitor.dump_levels(output_path=log_file_path, show_hidden=config.SHOW_HIDDEN)
         # output an csv
         call_graph_parser_to_df(log_file_path)
