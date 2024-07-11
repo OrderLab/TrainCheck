@@ -4,9 +4,15 @@ import abc
 import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import Hashable, Iterable, Type
+from typing import Hashable, Iterable, Optional, Type
 
 from mldaikon.trace.trace import Trace
+from mldaikon.trace.types import (
+    FuncCallEvent,
+    FuncCallExceptionEvent,
+    HighLevelEvent,
+    VarChangeEvent,
+)
 
 
 @dataclass
@@ -27,11 +33,31 @@ class Param:
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
 
+    def check_trace_line_match(self, trace_line: dict) -> bool:
+        "Check if the event contains the required information for the param."
+        raise NotImplementedError(
+            "check_trace_line_match method is not implemented yet."
+        )
+
+    def check_event_match(self, event: HighLevelEvent) -> bool:
+        "Check if the high level event contains the required information for the param."
+        raise NotImplementedError("check_event_match method is not implemented yet.")
+
 
 @dataclass
 class APIParam(Param):
     def __init__(self, api_full_name: str):
         self.api_full_name = api_full_name
+
+    def check_trace_line_match(self, trace_line: dict) -> bool:
+        if "function" not in trace_line:
+            return False
+        return trace_line["function"] == self.api_full_name
+
+    def check_event_match(self, event: HighLevelEvent) -> bool:
+        if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
+            return False
+        return event.func_name == self.api_full_name
 
 
 @dataclass
@@ -40,12 +66,36 @@ class VarTypeParam(Param):
         self.var_type = var_type
         self.attr_name = attr_name
 
+    def check_trace_line_match(self, trace_line: dict) -> bool:
+        if "var_type" not in trace_line:
+            return False
+        return trace_line["var_type"] == self.var_type
+
+    def check_event_match(self, event: HighLevelEvent) -> bool:
+        if not isinstance(event, VarChangeEvent):
+            return False
+        return (
+            event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
+        )
+
 
 @dataclass
 class VarNameParam(Param):
     def __init__(self, var_name: str, attr_name: str):
         self.var_name = var_name
         self.attr_name = attr_name
+
+    def check_trace_line_match(self, trace_line: dict) -> bool:
+        if "var_type" not in trace_line:
+            return False
+        return trace_line["var_name"] == self.var_name
+
+    def check_event_match(self, event: HighLevelEvent) -> bool:
+        if not isinstance(event, VarChangeEvent):
+            return False
+        return (
+            event.var_id.var_name == self.var_name and event.attr_name == self.attr_name
+        )
 
 
 class PreconditionClauseType(Enum):
@@ -339,11 +389,51 @@ class Invariant:
         precondition = GroupedPreconditions.from_dict(invariant_dict["precondition"])
         return Invariant(relation, params, precondition, text_description)
 
-    def check(self, trace: Trace) -> bool:
+    def check(self, trace: Trace) -> CheckerResult:
         assert (
             self.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         return self.relation.static_check_all(trace, self)
+
+
+class CheckerResult:
+    def __init__(
+        self, trace: Optional[list[dict]], invariant: Invariant, check_passed: bool
+    ):
+        if trace is None:
+            assert check_passed, "Check passed should be True for None trace"
+        else:
+            assert len(trace) > 0, "Trace should not be empty"
+        self.trace = trace
+        self.invariant = invariant
+        self.check_passed = check_passed
+
+    def __str__(self) -> str:
+        return f"Trace: {self.trace}\nInvariant: {self.invariant}\nResult: {self.check_passed}"
+
+    def get_min_time(self):
+        if not hasattr(self, "min_time"):
+            self.min_time = min([x["time"] for x in self.trace])
+        return self.min_time
+
+    def get_max_time(self):
+        if not hasattr(self, "max_time"):
+            self.max_time = max([x["time"] for x in self.trace])
+        return self.max_time
+
+    def to_dict(self):
+        if self.trace is None:
+            return {
+                "invariant": self.inv.to_dict(),
+                "check_passed": self.check_passed,
+            }
+
+        return {
+            "detection_time": self.get_max_time(),  # the time when the invariant was detected, using max_time as the invariant cannot be checked before the last event is observed
+            "trace": self.trace,
+            "invariant": self.inv.to_dict(),
+            "check_passed": self.check_passed,
+        }
 
 
 class Example:
@@ -453,7 +543,7 @@ class Relation(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def static_check_all(trace: Trace, inv: Invariant) -> bool:
+    def static_check_all(trace: Trace, inv: Invariant) -> CheckerResult:
         """Given a trace and an invariant, should return a boolean value
         indicating whether the invariant holds on the trace.
 

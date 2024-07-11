@@ -1,4 +1,5 @@
 import logging
+from typing import TYPE_CHECKING
 
 import polars as pl
 from tqdm import tqdm
@@ -18,6 +19,9 @@ from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
 from mldaikon.utils import typename
+
+if TYPE_CHECKING:
+    from mldaikon.invariant.base_cls import CheckerResult
 
 PARENT_GROUP_NAME = "parent_func_call_pre"
 VAR_GROUP_NAME = "var_events"
@@ -336,7 +340,7 @@ class APIContainRelation(Relation):
         return expected_child_func in seen_child_funcs
 
     @staticmethod
-    def static_check_all(trace: Trace, inv: Invariant) -> bool:
+    def static_check_all(trace: Trace, inv: Invariant) -> CheckerResult:
         """Check the invariant on the trace
 
         NOTE: this function takes one invariant at a time, and checks if the invariant holds on the trace. However, if multiple invariants targets the same parent function,
@@ -399,9 +403,12 @@ Defaulting to skip the var preconditon check for now.
                 )
                 skip_var_unchanged_check = True
 
+        # the main checking loop: the online checker function will be the body of this loop, which will be called repeatedly
         for parent_func_call_id in parent_func_call_ids:
             # check for parent precondition
             parent_pre_record = trace.get_pre_func_call_record(parent_func_call_id)
+
+            # MARK: precondition 1
             if not skip_parent_check:
                 if not any(
                     precond.verify([parent_pre_record])
@@ -435,6 +442,7 @@ Defaulting to skip the var preconditon check for now.
                 ]
                 for unchanged_var_state in unchanged_var_states:
                     # verify that no precondition is met for the unchanged vars
+                    # MARK: precondition 2
                     if any(
                         precond.verify(unchanged_var_state)
                         for precond in var_preconditions
@@ -449,46 +457,12 @@ Defaulting to skip the var preconditon check for now.
                 # TODO: enable precondition refinement by checking whether there are any var change events that don't satisfy the precondition
             else:
                 # no preconditions for the child events in the current implementation
-
-                # get all contained events (can be any child function calls, var changes, etc.)
-                contained_events = events_scanner(
-                    trace=trace,
-                    func_call_id=parent_func_call_id,
-                )
-
-                # check if the expected child event is in the contained events
-                if isinstance(child_param, (APIParam, VarTypeParam)):
-                    for event in contained_events:
-                        if isinstance(child_param, APIParam) and isinstance(
-                            event, FuncCallEvent
-                        ):
-                            if event.func_name == child_param.api_full_name:
-                                # found expected child event, break the loop as the invariant holds and we can check next parent function invocation
-                                logger.debug(
-                                    f"Found the expected child event: {child_param.api_full_name} in the contained events for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
-                                )
-                                found_expected_child_event = True
-                                # no precondition refinement for APIParam child events yet as the infer algorithm doesn't infer preconditions for child API events
-                                break
-
-                        if isinstance(child_param, VarTypeParam) and isinstance(
-                            event, VarChangeEvent
-                        ):
-                            if (
-                                event.var_id.var_type == child_param.var_type
-                                and event.attr_name == child_param.attr_name
-                            ):
-                                # found expected child event, break the loop as the invariant holds and we can check next parent function invocation
-                                logger.debug(
-                                    f"Found the expected child event: {child_param.var_type} in the contained events for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
-                                )
-                                found_expected_child_event = True
-                                # no precondition refinement for VarTypeParam child events yet as the infer algorithm doesn't infer preconditions for child Var events
-                                break
-                else:
-                    raise ValueError(
-                        f"Unsupported parameter type for child_param: {child_param}"
-                    )
+                for event in events_scanner(
+                    trace=trace, func_call_id=parent_func_call_id
+                ):
+                    if child_param.check_event_match(event):
+                        found_expected_child_event = True
+                        break
 
             if (skip_var_unchanged_check and not found_expected_child_event) or (
                 not skip_var_unchanged_check and not var_unchanged_check_passed
@@ -496,6 +470,17 @@ Defaulting to skip the var preconditon check for now.
                 logger.error(
                     f"INV CHECK ERROR: Expected child event not found in the contained events for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
                 )
-                return False
 
-        return True
+                # TODO: improve reported error message + include the trace for variables that didn't change in the causal relation case
+                result = CheckerResult(
+                    trace=[parent_pre_record],
+                    invariant=inv,
+                    check_passed=False,
+                )
+                return result
+
+        return CheckerResult(
+            trace=None,
+            invariant=inv,
+            check_passed=True,
+        )

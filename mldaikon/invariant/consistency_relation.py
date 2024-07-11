@@ -1,5 +1,6 @@
 import logging
 from itertools import combinations
+from typing import TYPE_CHECKING
 
 from tqdm import tqdm
 
@@ -14,6 +15,9 @@ from mldaikon.invariant.base_cls import (
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Liveness, Trace
+
+if TYPE_CHECKING:
+    from mldaikon.invariant.base_cls import CheckerResult
 
 tracker_var_field_prefix = "attributes."
 
@@ -388,7 +392,7 @@ class ConsistencyRelation(Relation):
         return all(value == value_group[0] for value in value_group)
 
     @staticmethod
-    def static_check_all(trace: Trace, inv: Invariant) -> bool:
+    def static_check_all(trace: Trace, inv: Invariant) -> CheckerResult:
         # 1. examine the invariant, and get relevant variables based on type and attribute
         assert len(inv.params) == 2, "Invariant should have exactly two parameters."
         assert inv.precondition is not None, "Invariant should have a precondition."
@@ -453,10 +457,18 @@ class ConsistencyRelation(Relation):
                                     logger.error(
                                         f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"
                                     )
-                                    return False
+                                    return CheckerResult(
+                                        trace=[attr1_trace, attr2_trace],
+                                        invariant=inv,
+                                        check_passed=False,
+                                    )
                                 else:
                                     logger.debug(
                                         f"Violation detected but Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"
                                     )
         # TODO: implement the precondition improvement logic here (i.e. when compare_result is True, check if the precondition is satisfied, if not, improve the precondition)
-        return True
+        return CheckerResult(
+            trace=None,
+            invariant=inv,
+            check_passed=True,
+        )
