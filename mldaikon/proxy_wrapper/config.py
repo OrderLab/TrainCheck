@@ -6,18 +6,19 @@ disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace w
 proxy_update_limit = 0
 debug_mode = False
 
-delta_dump = True  # only dump the changed part of the object (if this is set to be False, we would dump the whole object no matter what values delta_dump_meta_var and delta_dump_attribute are)
+delta_dump = False  # only dump the changed part of the object (if this is set to be False, we would dump the whole object no matter what values delta_dump_meta_var and delta_dump_attribute are)
 delta_dump_meta_var = True  # only dump the changed part of the meta_var
 delta_dump_attributes = True  # only dump the changed part of the attribute
 
 dump_tensor_version = False  # only dump the _version attribute of tensor
+dump_tensor_hash = True  # dump the hash of the tensor
 dump_tensor_statistics = False  # dump the statistics of tensor {min, max, mean, shape}
 dump_call_return = False  # dump the return value of the function call
 dump_iter = False  # dump the variable states from iterator (this would usually generated from e.g. enumerate(self._blocks) function)
 dump_update_only = False  # only dump the updated part of the proxied object
 filter_by_tensor_version = False  # only dump the tensor when the version is changed
 
-enable_C_level_observer = False  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
+enable_C_level_observer = True  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
 enable_auto_observer = True  # automatically add observer to the function
 enable_auto_observer_depth = 3  # the depth of the function call that we want to observe
 observe_up_to_depth = False  # observe up to the depth of the function call, if False, only observe the function call at the depth
@@ -25,7 +26,8 @@ neglect_hidden_func = (
     True  # neglect the hidden function (function that starts with '_')
 )
 neglect_hidden_module = True  # neglect the hidden module (module that starts with '_')
-observe_then_unproxy = False  # observe the function call and then unproxy the arguments
+observe_then_unproxy = True  # observe the function call and then unproxy the arguments
+only_dump_when_change = False  # only dump the variable when it is changed
 
 primitive_types = {
     int,

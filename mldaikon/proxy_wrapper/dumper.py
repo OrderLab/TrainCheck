@@ -1,6 +1,5 @@
 import inspect
 import json
-import time
 from typing import Any, Dict
 
 import torch
@@ -10,12 +9,14 @@ from mldaikon.proxy_wrapper.config import (
     delta_dump,
     delta_dump_attributes,
     delta_dump_meta_var,
+    dump_tensor_hash,
     dump_tensor_statistics,
     dump_tensor_version,
     exclude_file_names,
     meta_var_black_list,
     primitive_types,
 )
+from mldaikon.proxy_wrapper.hash import tensor_hash
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.utils import print_debug
 
@@ -45,6 +46,7 @@ class json_dumper(metaclass=Singleton):
         self,
         process_id,
         thread_id,
+        time,
         meta_vars,
         variable_name,
         var_type,
@@ -60,6 +62,14 @@ class json_dumper(metaclass=Singleton):
             or var_type in primitive_types
         ):
             return
+        if (
+            stack_trace
+            == """[["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/adam.py", 92, "if p.grad is not None:"], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/adam.py", 157, "has_complex = self._init_group("], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/optimizer.py", 76, "ret = func(self, *args, **kwargs)"], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/optimizer.py", 385, "out = func(*args, **kwargs)"], ["/data/ziming/ml-daikon/_ml_daikon_instrumented_84911.py", 100, "optimizer.step()"], ["/data/ziming/ml-daikon/_ml_daikon_instrumented_84911.py", 141, "model_transfer, res = train(num_epochs, data_transfer, model_transfer, optimizer_transfer, criterion_transfer, use_cuda, f'results/{num_epochs}_{lr}')"]]"""
+        ):
+            import pdb
+
+            pdb.set_trace()
+            return
 
         data = {
             # "value": var_value,
@@ -69,7 +79,7 @@ class json_dumper(metaclass=Singleton):
             "stack_trace": stack_trace,
             "process_id": process_id,
             "thread_id": thread_id,
-            "time": time.time(),
+            "time": time,
             "meta_vars": json.dumps(str(meta_vars)),
             "attributes": var_attributes,
         }
@@ -87,6 +97,21 @@ class json_dumper(metaclass=Singleton):
         return json_dumper(self.json_file.name)
 
 
+def tensor_stats(tensor):
+    min = float(tensor.min().item())
+    max = float(tensor.max().item())
+    mean = float(tensor.mean().item())
+    std = float(tensor.std().item())
+    shape = tuple(int(x) for x in tensor.size())
+    return {
+        "min": min,
+        "max": max,
+        "mean": mean,
+        "std": std,
+        "shape": shape,
+    }
+
+
 def dump_tensor(value):
     param_list = None
     if isinstance(value, torch.Tensor):
@@ -95,16 +120,9 @@ def dump_tensor(value):
             param_list = value._version
         # dump out the tensor data to a list and flatten it to a 1D list
         if dump_tensor_statistics:
-            min = float(value.min().item())
-            max = float(value.max().item())
-            mean = float(value.mean().item())
-            shape = tuple(int(x) for x in value.size())
-            param_list = {
-                "min": min,
-                "max": max,
-                "mean": mean,
-                "shape": shape,
-            }
+            param_list = tensor_stats(value)
+        if dump_tensor_hash:
+            param_list = tensor_hash(value)
         else:
             param_list = value.detach().flatten().tolist()
 
@@ -118,8 +136,8 @@ def dump_attributes(obj, value):
 
     # if the object is a proxy object, get the original object
     obj_dict = value.__dict__
-    if "is_ml_daikon_proxied_obj" in obj_dict:
-        value = obj_dict["_obj"]._obj
+    if is_proxied(value):
+        value = obj_dict["_obj"]
 
     # currently only dump primitive types, tensors and nn.Module
     attr_names = [name for name in dir(value) if not name.startswith("__")]

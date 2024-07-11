@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
 from mldaikon.proxy_wrapper.config import disable_proxy_class, enable_C_level_observer
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -155,21 +155,6 @@ def global_wrapper(
     }
 
     C_level_call = is_c_level_function(original_function)
-    if C_level_call:
-
-        def unproxy_arg(arg):
-
-            if hasattr(arg, "is_ml_daikon_proxied_obj"):
-                return unproxy_arg(arg._obj)
-            elif type(arg) in [list]:
-                return [unproxy_arg(element) for element in arg]
-            elif type(arg) in [tuple]:
-                return tuple(unproxy_arg(element) for element in arg)
-            else:
-                return arg
-
-        args = [unproxy_arg(arg) for arg in args]
-        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
 
     if scan_proxy_in_args:
         proxy_in_args = []
@@ -203,11 +188,14 @@ def global_wrapper(
                 )
 
     dump_trace_API(pre_record)
-    try:
-        if enable_C_level_observer and C_level_call:
-            from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
+    if enable_C_level_observer and C_level_call:
+        from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
 
-            original_function = add_observer_to_func(original_function)
+        original_function = add_observer_to_func(original_function, unproxy=True)
+    elif C_level_call:
+        args = [unproxy_arg(arg) for arg in args]
+        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+    try:
         result = original_function(*args, **kwargs)
     except Exception as e:
         dump_trace_API(
