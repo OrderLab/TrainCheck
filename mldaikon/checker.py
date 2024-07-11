@@ -1,16 +1,17 @@
 import argparse
 import datetime
+import json
 import logging
 
 from tqdm import tqdm
 
-from mldaikon.invariant.base_cls import Invariant, read_inv_file
+from mldaikon.invariant.base_cls import CheckerResult, Invariant, read_inv_file
 from mldaikon.trace.trace import Trace, read_trace_file
 
 
-def check_engine(traces: list[Trace], invariants: list[Invariant]):
+def check_engine(traces: list[Trace], invariants: list[Invariant]) -> list[CheckerResult]:
     logger = logging.getLogger(__name__)
-
+    results: list[CheckerResult] = []
     for trace in tqdm(
         traces, desc="Checking invariants on traces", unit="trace", leave=False
     ):
@@ -24,6 +25,9 @@ def check_engine(traces: list[Trace], invariants: list[Invariant]):
             # logger.debug("Checking invariant %s on trace %s", inv, trace)
             res = inv.check(trace)
             logger.info("Invariant %s on trace %s: %s", inv, trace, res)
+            results.append(res)
+
+    return results
 
 
 if __name__ == "__main__":
@@ -76,4 +80,12 @@ if __name__ == "__main__":
         read_trace_file(args.traces)
     ]  # TODO: we don't really support multiple traces yet, these are just traces from different processes and they are 'logically' the same trace as they
 
-    check_engine(traces, invs)
+    results = check_engine(traces, invs)
+
+    # dump the results to a file
+    with open(
+        f'mldaikon_checker_results_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log',
+        "w",
+    ) as f:
+        res_dicts = [res.to_dict() for res in results]
+        json.dump(res_dicts, f)
