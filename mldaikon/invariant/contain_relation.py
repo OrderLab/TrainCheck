@@ -6,6 +6,7 @@ from tqdm import tqdm
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import (
     APIParam,
+    CheckerResult,
     Example,
     ExampleList,
     Hypothesis,
@@ -14,12 +15,10 @@ from mldaikon.invariant.base_cls import (
     Relation,
     VarTypeParam,
 )
-from mldaikon.invariant.base_cls import CheckerResult
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
 from mldaikon.utils import typename
-
 
 PARENT_GROUP_NAME = "parent_func_call_pre"
 VAR_GROUP_NAME = "var_events"

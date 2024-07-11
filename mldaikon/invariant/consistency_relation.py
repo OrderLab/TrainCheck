@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 from mldaikon.config import config
 from mldaikon.invariant.base_cls import (
+    CheckerResult,
     Example,
     ExampleList,
     Hypothesis,
@@ -12,7 +13,6 @@ from mldaikon.invariant.base_cls import (
     Relation,
     VarTypeParam,
 )
-from mldaikon.invariant.base_cls import CheckerResult
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Liveness, Trace
 
