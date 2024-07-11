@@ -421,19 +421,33 @@ class CheckerResult:
             self.max_time = max([x["time"] for x in self.trace])
         return self.max_time
 
-    def to_dict(self):
-        if self.trace is None:
-            return {
-                "invariant": self.inv.to_dict(),
-                "check_passed": self.check_passed,
-            }
+    def calc_and_set_time_precentage(self, min_time, max_time):
+        detection_time = self.get_max_time()
+        assert (
+            min_time <= detection_time <= max_time
+        ), f"Detection time {detection_time} not in range [{min_time}, {max_time}]"
+        self.time_precentage = (detection_time - min_time) / (max_time - min_time)
+        return self.time_precentage
 
-        return {
-            "detection_time": self.get_max_time(),  # the time when the invariant was detected, using max_time as the invariant cannot be checked before the last event is observed
-            "trace": self.trace,
-            "invariant": self.inv.to_dict(),
+    def to_dict(self):
+        result_dict = {
+            "invariant": self.invariant.to_dict(),
             "check_passed": self.check_passed,
         }
+
+        if not self.check_passed:
+            assert hasattr(
+                self, "time_precentage"
+            ), "Time percentage not set for failed check, please call calc_and_set_time_precentage before converting to dict"
+            result_dict.update(
+                {
+                    "detection_time": self.get_max_time(),  # the time when the invariant was detected, using max_time as the invariant cannot be checked before the
+                    "detection_time_percentage": self.time_precentage,
+                    "trace": self.trace,
+                }
+            )
+
+        return result_dict
 
 
 class Example:

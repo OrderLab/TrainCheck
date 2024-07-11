@@ -9,7 +9,9 @@ from mldaikon.invariant.base_cls import CheckerResult, Invariant, read_inv_file
 from mldaikon.trace.trace import Trace, read_trace_file
 
 
-def check_engine(traces: list[Trace], invariants: list[Invariant]) -> list[CheckerResult]:
+def check_engine(
+    traces: list[Trace], invariants: list[Invariant]
+) -> list[CheckerResult]:
     logger = logging.getLogger(__name__)
     results: list[CheckerResult] = []
     for trace in tqdm(
@@ -24,6 +26,9 @@ def check_engine(traces: list[Trace], invariants: list[Invariant]) -> list[Check
             logger.info("=====================================")
             # logger.debug("Checking invariant %s on trace %s", inv, trace)
             res = inv.check(trace)
+            res.calc_and_set_time_precentage(
+                trace.get_start_time(), trace.get_end_time()
+            )
             logger.info("Invariant %s on trace %s: %s", inv, trace, res)
             results.append(res)
 
