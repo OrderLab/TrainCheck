@@ -422,6 +422,10 @@ class CheckerResult:
         return self.max_time
 
     def calc_and_set_time_precentage(self, min_time, max_time):
+        if self.check_passed:
+            # don't do anything if the check passed
+            return 1.0
+        
         detection_time = self.get_max_time()
         assert (
             min_time <= detection_time <= max_time

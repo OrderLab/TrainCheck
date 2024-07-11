@@ -1,6 +1,5 @@
 import logging
 from itertools import combinations
-from typing import TYPE_CHECKING
 
 from tqdm import tqdm
 
@@ -13,11 +12,9 @@ from mldaikon.invariant.base_cls import (
     Relation,
     VarTypeParam,
 )
+from mldaikon.invariant.base_cls import CheckerResult
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Liveness, Trace
-
-if TYPE_CHECKING:
-    from mldaikon.invariant.base_cls import CheckerResult
 
 tracker_var_field_prefix = "attributes."
 

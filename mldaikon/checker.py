@@ -59,6 +59,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable debug logging",
     )
+    parser.add_argument(
+        "--report_only_failed",
+        action="store_true",
+        help="Only report the failed invariants",
+    )
 
     args = parser.parse_args()
 
@@ -92,5 +97,7 @@ if __name__ == "__main__":
         f'mldaikon_checker_results_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log',
         "w",
     ) as f:
+        if args.report_only_failed:
+            results = [res for res in results if not res.check_passed]
         res_dicts = [res.to_dict() for res in results]
-        json.dump(res_dicts, f)
+        json.dump(res_dicts, f, indent=4)

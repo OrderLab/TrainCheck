@@ -1,5 +1,4 @@
 import logging
-from typing import TYPE_CHECKING
 
 import polars as pl
 from tqdm import tqdm
@@ -15,13 +14,12 @@ from mldaikon.invariant.base_cls import (
     Relation,
     VarTypeParam,
 )
+from mldaikon.invariant.base_cls import CheckerResult
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
 from mldaikon.utils import typename
 
-if TYPE_CHECKING:
-    from mldaikon.invariant.base_cls import CheckerResult
 
 PARENT_GROUP_NAME = "parent_func_call_pre"
 VAR_GROUP_NAME = "var_events"
