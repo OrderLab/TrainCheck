@@ -80,7 +80,7 @@ if enable_auto_observer:
         print("observe up to the depth of the function call")
     else:
         print("observe only the function call at the depth")
-    from mldaikon.static_analyzer.call_graph_parser import call_graph_parser
+    from mldaikon.static_analyzer.graph_generator.call_graph_parser import call_graph_parser
 
     log_files = glob.glob(
         os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
