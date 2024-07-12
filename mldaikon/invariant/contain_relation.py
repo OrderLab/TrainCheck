@@ -2,6 +2,7 @@ import logging
 
 import polars as pl
 from tqdm import tqdm
+import time
 
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import (
@@ -64,6 +65,8 @@ def events_scanner(
         func_call_id: str
             - the function call id of the parent function, which should correspond to two events (entry and exit)
     """
+    entry_time = time.time()
+
     pre_call_record = trace.get_pre_func_call_record(func_call_id)
     post_call_record = trace.get_post_func_call_record(func_call_id)
 
@@ -77,6 +80,11 @@ def events_scanner(
 
     events = trace.query_high_level_events_within_time(
         time_range=time_range, process_id=process_id, thread_id=thread_id
+    )
+    exit_time = time.time()
+    logger = logging.getLogger(__name__)
+    logger.debug(
+        f"Scanned the trace for events, return {len(events)} events, took {exit_time - entry_time} seconds"
     )
     return events
 
