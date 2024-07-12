@@ -6,7 +6,7 @@ disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace w
 proxy_update_limit = 0
 debug_mode = False
 
-delta_dump = True  # only dump the changed part of the object (if this is set to be False, we would dump the whole object no matter what values delta_dump_meta_var and delta_dump_attribute are)
+delta_dump = False  # only dump the changed part of the object (if this is set to be False, we would dump the whole object no matter what values delta_dump_meta_var and delta_dump_attribute are)
 delta_dump_meta_var = True  # only dump the changed part of the meta_var
 delta_dump_attributes = True  # only dump the changed part of the attribute
 
