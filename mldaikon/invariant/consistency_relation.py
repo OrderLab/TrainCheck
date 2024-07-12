@@ -389,7 +389,9 @@ class ConsistencyRelation(Relation):
         return all(value == value_group[0] for value in value_group)
 
     @staticmethod
-    def static_check_all(trace: Trace, inv: Invariant) -> CheckerResult:
+    def static_check_all(
+        trace: Trace, inv: Invariant, check_relation_first: bool
+    ) -> CheckerResult:
         # 1. examine the invariant, and get relevant variables based on type and attribute
         assert len(inv.params) == 2, "Invariant should have exactly two parameters."
         assert inv.precondition is not None, "Invariant should have a precondition."
@@ -452,28 +454,45 @@ class ConsistencyRelation(Relation):
                             attr1_val.liveness, attr2_val.liveness
                         )
                         if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
-                            compare_result = ConsistencyRelation.evaluate(
-                                [attr1_val.value, attr2_val.value]
-                            )
-                            if not compare_result:
-                                # check for precondition match, if yes, report alarm
-                                attr1_trace = attr1_val.traces[-1]
-                                attr2_trace = attr2_val.traces[-1]
-                                if inv.precondition.verify(
-                                    [attr1_trace, attr2_trace], VAR_GROUP_NAME
-                                ):
-                                    logger.error(
-                                        f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"
+                            traces = [attr1_val.traces[-1], attr2_val.traces[-1]]
+                            if check_relation_first:
+                                compare_result = ConsistencyRelation.evaluate(
+                                    [attr1_val.value, attr2_val.value]
+                                )
+                                if not compare_result:
+                                    # check for precondition match, if yes, report alarm
+                                    if inv.precondition.verify(traces, VAR_GROUP_NAME):
+                                        logger.error(
+                                            f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"
+                                        )
+                                        return CheckerResult(
+                                            trace=traces,
+                                            invariant=inv,
+                                            check_passed=False,
+                                        )
+                                    else:
+                                        logger.debug(
+                                            f"Violation detected but Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"
+                                        )
+                            else:
+                                if inv.precondition.verify(traces, VAR_GROUP_NAME):
+                                    compare_result = ConsistencyRelation.evaluate(
+                                        [attr1_val.value, attr2_val.value]
                                     )
-                                    return CheckerResult(
-                                        trace=[attr1_trace, attr2_trace],
-                                        invariant=inv,
-                                        check_passed=False,
-                                    )
+                                    if not compare_result:
+                                        logger.error(
+                                            f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"
+                                        )
+                                        return CheckerResult(
+                                            trace=traces,
+                                            invariant=inv,
+                                            check_passed=False,
+                                        )
                                 else:
                                     logger.debug(
-                                        f"Violation detected but Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"
+                                        f"Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}, skipping the check"
                                     )
+
         # TODO: implement the precondition improvement logic here (i.e. when compare_result is True, check if the precondition is satisfied, if not, improve the precondition)
         return CheckerResult(
             trace=None,

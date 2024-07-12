@@ -10,7 +10,7 @@ from mldaikon.trace.trace import Trace, read_trace_file
 
 
 def check_engine(
-    traces: list[Trace], invariants: list[Invariant]
+    traces: list[Trace], invariants: list[Invariant], check_relation_first: bool
 ) -> list[CheckerResult]:
     logger = logging.getLogger(__name__)
     results: list[CheckerResult] = []
@@ -25,7 +25,7 @@ def check_engine(
             ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
             logger.info("=====================================")
             # logger.debug("Checking invariant %s on trace %s", inv, trace)
-            res = inv.check(trace)
+            res = inv.check(trace, check_relation_first)
             res.calc_and_set_time_precentage(
                 trace.get_start_time(), trace.get_end_time()
             )
@@ -64,6 +64,15 @@ if __name__ == "__main__":
         action="store_true",
         help="Only report the failed invariants",
     )
+    parser.add_argument(
+        "--check_relation_first",
+        action="store_true",
+        help="""Check the relation first, otherwise, the precondition will be checked first. 
+            Enabling this flag will make the checker slower, but enables the checker to catch 
+            the cases where the invariant still holds even if the precondition is not satisfied, 
+            which opens opportunity for precondition refinement. Note that the precondition 
+            refinement algorithm is not implemented yet.""",
+    )
 
     args = parser.parse_args()
 
@@ -82,6 +91,11 @@ if __name__ == "__main__":
 
     logger = logging.getLogger(__name__)
 
+    # log all the arguments
+    logger.info("Checker started with Arguments:")
+    for arg, val in vars(args).items():
+        logger.info("%s: %s", arg, val)
+
     logger.info("Reading invaraints from %s", "\n".join(args.invariants))
     invs = read_inv_file(args.invariants)
 
@@ -90,7 +104,7 @@ if __name__ == "__main__":
         read_trace_file(args.traces)
     ]  # TODO: we don't really support multiple traces yet, these are just traces from different processes and they are 'logically' the same trace as they
 
-    results = check_engine(traces, invs)
+    results = check_engine(traces, invs, args.check_relation_first)
 
     # dump the results to a file
     with open(
