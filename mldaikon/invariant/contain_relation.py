@@ -1,8 +1,8 @@
 import logging
+import time
 
 import polars as pl
 from tqdm import tqdm
-import time
 
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import (

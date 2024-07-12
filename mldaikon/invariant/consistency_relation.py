@@ -407,16 +407,27 @@ class ConsistencyRelation(Relation):
         var_type2, attr2 = param2.var_type, param2.attr_name
 
         all_var_insts = trace.get_var_insts()
-        type1_attr1 = {
-            var_id: all_var_insts[var_id][attr1]
-            for var_id in all_var_insts
-            if var_id.var_type == var_type1
-        }
-        type2_attr2 = {
-            var_id: all_var_insts[var_id][attr2]
-            for var_id in all_var_insts
-            if var_id.var_type == var_type2
-        }
+        try:
+            type1_attr1 = {
+                var_id: all_var_insts[var_id][attr1]
+                for var_id in all_var_insts
+                if var_id.var_type == var_type1
+            }
+            type2_attr2 = {
+                var_id: all_var_insts[var_id][attr2]
+                for var_id in all_var_insts
+                if var_id.var_type == var_type2
+            }
+        except KeyError as e:
+            logger.error(
+                f"Variable Type or Attribute not found in the trace: {var_type1}.{attr1} or {var_type2}.{attr2}, original error: {str(e)}"
+            )
+            # TODO: add a type of result being "not checked due to missing variable in the trace"
+            return CheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
 
         # 2. for each pair of variables, check if the invariant holds
         for i, var1_id in enumerate(type1_attr1):

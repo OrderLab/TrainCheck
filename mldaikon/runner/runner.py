@@ -49,7 +49,9 @@ class ProgramRunner(object):
             # modify the sh script to run the temp python script
             with open(sh_script_path, "r") as file:
                 sh_script = file.read()
-            assert py_script_name in sh_script, f"{py_script_name} not found in {sh_script} at {sh_script_path}"
+            assert (
+                py_script_name in sh_script
+            ), f"{py_script_name} not found in {sh_script} at {sh_script_path}"
             sh_script = sh_script.replace(py_script_name, _tmp_py_script_name)
             with open(self._tmp_sh_script_path, "w") as file:
                 file.write(sh_script)
