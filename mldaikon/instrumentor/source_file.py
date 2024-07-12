@@ -1,6 +1,5 @@
 import ast
 import logging
-from typing import Union
 
 from mldaikon.config.config import INSTR_MODULES_TO_INSTRUMENT
 
@@ -115,11 +114,15 @@ def instrument_file(
     allow_disable_dump: bool,
     funcs_of_inv_interest: list[str] | None,
     proxy_module: str,
-    auto_observer_config: dict[str, Union[bool, int]],
+    adjusted_proxy_config: list[dict[str, int | bool]],
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
     """
+    auto_observer_config: dict[str, int | bool] = adjusted_proxy_config[0]
+    proxy_basic_config: dict[str, int | bool] = adjusted_proxy_config[1]
+    tensor_dump_format: dict[str, int | bool] = adjusted_proxy_config[2]
+    delta_dump_config: dict[str, int | bool] = adjusted_proxy_config[3]
 
     with open(path, "r") as file:
         source = file.read()
@@ -143,6 +146,22 @@ os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]
         proxy_start_code = """
 from mldaikon.proxy_wrapper.proxy import Proxy
 """
+        if proxy_basic_config:
+            proxy_start_code += f"""
+import mldaikon.proxy_wrapper.proxy_config as proxy_config
+proxy_config.__dict__.update({proxy_basic_config})
+"""
+        if tensor_dump_format:
+            proxy_start_code += f"""
+from mldaikon.proxy_wrapper.proxy_config import tensor_dump_format
+tensor_dump_format.update({tensor_dump_format})
+"""
+        if delta_dump_config:
+            proxy_start_code += f"""
+from mldaikon.proxy_wrapper.proxy_config import delta_dump_config
+delta_dump_config.update({delta_dump_config})
+"""
+
         if auto_observer_config["enable_auto_observer"]:
             auto_observer_code = """
 import glob
