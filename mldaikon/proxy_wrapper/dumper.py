@@ -269,7 +269,9 @@ def store_old_value(obj, result):
         obj_dict = obj.__dict__
         assert is_proxied(obj), "The object is not a proxied object"
         if delta_dump_attributes:
-            obj_dict["old_value"] = result
+            import copy
+
+            obj_dict["old_value"] = copy.deepcopy(result)
 
 
 def store_old_value_meta_var(obj, meta_vars=None):
