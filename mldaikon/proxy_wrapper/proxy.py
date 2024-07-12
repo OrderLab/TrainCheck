@@ -15,7 +15,11 @@ import torch
 import torch.nn.parameter
 
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
-from mldaikon.proxy_wrapper.config import (
+from mldaikon.proxy_wrapper.dumper import dump_attributes, dump_meta_vars
+from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
+from mldaikon.proxy_wrapper.dumper import torch_serialize
+from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
+from mldaikon.proxy_wrapper.proxy_config import (
     debug_mode,
     dump_call_return,
     dump_iter,
@@ -24,10 +28,6 @@ from mldaikon.proxy_wrapper.config import (
     proxy_log_dir,
     proxy_update_limit,
 )
-from mldaikon.proxy_wrapper.dumper import dump_attributes, dump_meta_vars
-from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
-from mldaikon.proxy_wrapper.dumper import torch_serialize
-from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
 from mldaikon.proxy_wrapper.proxy_handler import handled_obj_type
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.utils import typename

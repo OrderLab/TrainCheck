@@ -3,7 +3,7 @@ import logging
 
 import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
-import mldaikon.proxy_wrapper.config as proxy_config
+import mldaikon.proxy_wrapper.proxy_config as proxy_config
 import mldaikon.runner as runner
 from mldaikon.invariant.base_cls import APIParam, Invariant, read_inv_file
 

@@ -1,7 +1,7 @@
 import functools
 
-from mldaikon.proxy_wrapper.config import only_dump_when_change
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
+from mldaikon.proxy_wrapper.proxy_config import only_dump_when_change
 
 
 def observe_proxy_var(
@@ -51,8 +51,11 @@ def add_observer_to_func(func, unproxy=False):
                 try:
                     pre_observed_var = copy.deepcopy(var)
                 except Exception:
-                    pre_observed_var = var
-
+                    raise Exception(
+                        f"Error in deepcopy for {var} of type {type(var)},"
+                        f"please implement deepcopy for the class,"
+                        f"or set only_dump_when_change=False"
+                    )
             else:
                 pre_observed_var = var
             trace_info[i] = observe_proxy_var(

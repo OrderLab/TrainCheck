@@ -18,8 +18,11 @@ if TYPE_CHECKING:
 
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
-from mldaikon.proxy_wrapper.config import disable_proxy_class, enable_C_level_observer
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
+from mldaikon.proxy_wrapper.proxy_config import (
+    disable_proxy_class,
+    enable_C_level_observer,
+)
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

@@ -4,7 +4,9 @@ from typing import Any, Dict
 
 import torch
 
-from mldaikon.proxy_wrapper.config import (
+from mldaikon.proxy_wrapper.hash import tensor_hash
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied
+from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
     delta_dump,
     delta_dump_attributes,
@@ -16,8 +18,6 @@ from mldaikon.proxy_wrapper.config import (
     meta_var_black_list,
     primitive_types,
 )
-from mldaikon.proxy_wrapper.hash import tensor_hash
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.utils import print_debug
 
 # from mldaikon.instrumentor.tracer import meta_vars
