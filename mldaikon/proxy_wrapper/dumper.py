@@ -8,20 +8,19 @@ from mldaikon.proxy_wrapper.hash import tensor_hash
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
-    delta_dump,
-    delta_dump_attributes,
-    delta_dump_meta_var,
-    dump_tensor_hash,
-    dump_tensor_statistics,
-    dump_tensor_version,
+    delta_dump_config,
     exclude_file_names,
     meta_var_black_list,
     primitive_types,
+    tensor_dump_format,
 )
 from mldaikon.proxy_wrapper.utils import print_debug
 
 # from mldaikon.instrumentor.tracer import meta_vars
 meta_vars: dict[str, Any] = {}
+delta_dump = delta_dump_config["delta_dump"]
+delta_dump_attributes = delta_dump_config["delta_dump_attributes"]
+delta_dump_meta_var = delta_dump_config["delta_dump_meta_var"]
 
 
 class Singleton(type):
@@ -115,13 +114,13 @@ def tensor_stats(tensor):
 def dump_tensor(value):
     param_list = None
     if isinstance(value, torch.Tensor):
-        if dump_tensor_version:
+        if tensor_dump_format["dump_tensor_version"]:
             # import pdb; pdb.set_trace()
             param_list = value._version
         # dump out the tensor data to a list and flatten it to a 1D list
-        if dump_tensor_statistics:
+        if tensor_dump_format["dump_tensor_statistics"]:
             param_list = tensor_stats(value)
-        if dump_tensor_hash:
+        if tensor_dump_format["dump_tensor_hash"]:
             param_list = tensor_hash(value)
         else:
             param_list = value.detach().flatten().tolist()
@@ -141,6 +140,7 @@ def dump_attributes(obj, value):
 
     # currently only dump primitive types, tensors and nn.Module
     attr_names = [name for name in dir(value) if not name.startswith("__")]
+    dump_tensor_version = tensor_dump_format["dump_tensor_version"]
     if dump_tensor_version and isinstance(value, torch.nn.parameter.Parameter):
         result = value._version
         return result
@@ -174,6 +174,7 @@ def dump_attributes(obj, value):
             print_debug(
                 f"Failed to get attribute {attr_name} of object type {type(value)}, skipping it. Error: {e}"
             )
+
     if delta_dump and delta_dump_attributes:
         # if they have common keys, only dump when old value is different from the new value
         old_value = obj.__dict__.get("old_value", {})

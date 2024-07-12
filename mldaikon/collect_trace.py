@@ -141,6 +141,7 @@ if __name__ == "__main__":
         invariants = read_inv_file(args.invariants)
         funcs_of_inv_interest = get_list_of_funcs_from_invariants(invariants)
 
+    auto_observer_config = proxy_config.auto_observer_config
     # call into the instrumentor
     source_code = instrumentor.instrument_file(
         args.pyscript,
@@ -150,6 +151,7 @@ if __name__ == "__main__":
         args.allow_disable_dump,
         funcs_of_inv_interest,
         args.proxy_module,
+        auto_observer_config,
     )
 
     # call into the program runner

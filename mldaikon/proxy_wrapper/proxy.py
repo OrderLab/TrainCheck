@@ -21,10 +21,8 @@ from mldaikon.proxy_wrapper.dumper import torch_serialize
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
 from mldaikon.proxy_wrapper.proxy_config import (
     debug_mode,
-    dump_call_return,
-    dump_iter,
+    dump_info_config,
     exclude_file_names,
-    filter_by_tensor_version,
     proxy_log_dir,
     proxy_update_limit,
 )
@@ -243,6 +241,7 @@ class Proxy:
             var_name == self.__dict__["dumped_varname_list"]
         ), f"var_name {var_name} is not consistent with dumped_varname_list {self.__dict__['dumped_varname_list']}"
         assert var_name is not None  # '' is allowed as a var_name (root object)
+        filter_by_tensor_version = dump_info_config["filter_by_tensor_version"]
         if filter_by_tensor_version and status == "update":
             if hasattr(obj, "_version"):
                 if (
@@ -381,9 +380,10 @@ class Proxy:
         ):  # if the object is not proxied yet
 
             self.__dict__["_obj"] = obj
+            dump_call_return = dump_info_config["dump_call_return"]
+            dump_iter = dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
-
             if not dump_iter and from_iter:
                 return
 
@@ -424,7 +424,8 @@ class Proxy:
                 < proxy_update_limit
             ):
                 return
-
+            dump_call_return = dump_info_config["dump_call_return"]
+            dump_iter = dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
 

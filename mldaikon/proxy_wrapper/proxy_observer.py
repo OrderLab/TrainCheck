@@ -1,7 +1,7 @@
 import functools
 
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
-from mldaikon.proxy_wrapper.proxy_config import only_dump_when_change
+from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
 
 
 def observe_proxy_var(
@@ -30,6 +30,7 @@ def observe_proxy_var(
 
 def add_observer_to_func(func, unproxy=False):
     original_func = func
+    only_dump_when_change = auto_observer_config["only_dump_when_change"]
 
     @functools.wraps(original_func)
     def wrapper(*args, **kwargs):

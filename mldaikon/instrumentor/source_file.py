@@ -1,5 +1,6 @@
 import ast
 import logging
+from typing import Union
 
 from mldaikon.config.config import INSTR_MODULES_TO_INSTRUMENT
 
@@ -114,6 +115,7 @@ def instrument_file(
     allow_disable_dump: bool,
     funcs_of_inv_interest: list[str] | None,
     proxy_module: str,
+    auto_observer_config: dict[str, Union[bool, int]],
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -140,6 +142,42 @@ os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]
     if not disable_proxy_class:
         proxy_start_code = """
 from mldaikon.proxy_wrapper.proxy import Proxy
+"""
+        if auto_observer_config["enable_auto_observer"]:
+            auto_observer_code = """
+import glob
+import importlib
+from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
+spec = importlib.util.find_spec('mldaikon')
+if spec and spec.origin:
+    mldaikon_folder = os.path.abspath(spec.origin)
+    print("mldaikon folder: ", mldaikon_folder)
+else:
+    raise Exception("mldaikon is not installed properly")
+print("auto observer enabled with observing depth: ", auto_observer_config["enable_auto_observer_depth"])
+enable_auto_observer_depth = auto_observer_config["enable_auto_observer_depth"]
+neglect_hidden_func = auto_observer_config["neglect_hidden_func"]
+neglect_hidden_module = auto_observer_config["neglect_hidden_module"]
+observe_then_unproxy = auto_observer_config["observe_then_unproxy"]
+observe_up_to_depth = auto_observer_config["observe_up_to_depth"]
+if observe_up_to_depth:
+    print("observe up to the depth of the function call")
+else:
+    print("observe only the function call at the depth")
+from mldaikon.static_analyzer.call_graph_parser import call_graph_parser
+
+log_files = glob.glob(
+    os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
+)
+for log_file in log_files:
+    call_graph_parser(
+        log_file,
+        depth=enable_auto_observer_depth,
+        observe_up_to_depth=observe_up_to_depth,
+        neglect_hidden_func=neglect_hidden_func,
+        neglect_hidden_module=neglect_hidden_module,
+        observe_then_unproxy=observe_then_unproxy,
+    )
 """
         # find the main() function
         main_func = None
@@ -190,6 +228,7 @@ from mldaikon.proxy_wrapper.proxy import Proxy
         instrumented_source.split("\n")[0]
         + logging_code
         + proxy_start_code
+        + auto_observer_code
         + "\n".join(instrumented_source.split("\n")[1:])
     )
 
