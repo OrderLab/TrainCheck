@@ -30,7 +30,7 @@ def tensor_hash(x: Tensor, with_parallel: bool = False) -> int:
         while x.ndim > 0:
             x = _reduce_last_axis(x)
         # convert tensor to value
-        return x.item()
+        return int(x.item())
     else:  # conventional approach using hashlib, use as the baseline to test the accuracy of the parallel approach
         # if on cuda, move to cpu. using hashlib to hash the tensor
         if x.is_cuda:

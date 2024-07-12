@@ -141,6 +141,7 @@ import os
 os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]    
 """
     proxy_start_code = ""
+    auto_observer_code = ""
 
     if not disable_proxy_class:
         proxy_start_code = """
