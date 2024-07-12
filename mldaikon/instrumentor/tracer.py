@@ -14,12 +14,15 @@ import torch
 import torch.utils
 
 if TYPE_CHECKING:
-    from mldaikon.proxy_wrapper.proxy import Proxy
+    from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
 
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
-from mldaikon.proxy_wrapper.config import disable_proxy_class
-from mldaikon.proxy_wrapper.proxy import Proxy
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
+from mldaikon.proxy_wrapper.proxy_config import (
+    disable_proxy_class,
+    enable_C_level_observer,
+)
 from mldaikon.utils import typename
 
 EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -155,28 +158,15 @@ def global_wrapper(
     }
 
     C_level_call = is_c_level_function(original_function)
-    if C_level_call:
-
-        def unproxy_arg(arg):
-
-            if hasattr(arg, "is_ml_daikon_proxied_obj"):
-                return unproxy_arg(arg._obj)
-            elif type(arg) in [list]:
-                return [unproxy_arg(element) for element in arg]
-            elif type(arg) in [tuple]:
-                return tuple(unproxy_arg(element) for element in arg)
-            else:
-                return arg
-
-        args = [unproxy_arg(arg) for arg in args]
-        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
 
     if scan_proxy_in_args:
         proxy_in_args = []
 
         def find_proxy_in_args(args):
             for i, arg in enumerate(args):
-                if isinstance(arg, Proxy):
+                if is_proxied(
+                    arg
+                ):  # Ziming: get rid of directly import Proxy from external module, use proxy_basics instead
                     print(
                         f"Found proxy {arg.__dict__['var_name']} in function {func_name}"
                     )
@@ -201,6 +191,13 @@ def global_wrapper(
                 )
 
     dump_trace_API(pre_record)
+    if enable_C_level_observer and C_level_call:
+        from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
+
+        original_function = add_observer_to_func(original_function, unproxy=True)
+    elif C_level_call:
+        args = [unproxy_arg(arg) for arg in args]
+        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
     try:
         result = original_function(*args, **kwargs)
     except Exception as e:

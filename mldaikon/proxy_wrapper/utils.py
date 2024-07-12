@@ -1,4 +1,4 @@
-from mldaikon.proxy_wrapper.config import debug_mode
+from mldaikon.proxy_wrapper.proxy_config import debug_mode
 
 
 def print_debug(message):

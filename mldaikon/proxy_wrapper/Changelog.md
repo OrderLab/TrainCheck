@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.4.1] - 2024-07-06
+
+### Added
+
+- support delta dumping for proxy trace
+- add the following switches to control the behavior of delta_dumping
+
+    ```python
+    delta_dump = True  # only dump the changed part of the object (if this is set to be False, we would dump the whole object no matter what values delta_dump_meta_var and delta_dump_attribute are)
+    delta_dump_meta_var = True  # only dump the changed part of the meta_var
+    delta_dump_attributes = True  # only dump the changed part of the attribute
+    ```
+
 ## [0.4.0] - 2024-07-02
 
 ### Added

@@ -1,22 +1,26 @@
 import inspect
 import json
-import time
 from typing import Any, Dict
 
 import torch
 
-from mldaikon.proxy_wrapper.config import (
+from mldaikon.proxy_wrapper.hash import tensor_hash
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied
+from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
-    dump_tensor_statistics,
-    dump_tensor_version,
+    delta_dump_config,
     exclude_file_names,
     meta_var_black_list,
     primitive_types,
+    tensor_dump_format,
 )
 from mldaikon.proxy_wrapper.utils import print_debug
 
 # from mldaikon.instrumentor.tracer import meta_vars
 meta_vars: dict[str, Any] = {}
+delta_dump = delta_dump_config["delta_dump"]
+delta_dump_attributes = delta_dump_config["delta_dump_attributes"]
+delta_dump_meta_var = delta_dump_config["delta_dump_meta_var"]
 
 
 class Singleton(type):
@@ -35,11 +39,13 @@ class json_dumper(metaclass=Singleton):
 
     def __init__(self, json_file_path):
         self.json_file = open(json_file_path, "a")
+        self.json_file.write("[\n")
 
     def dump_json(
         self,
         process_id,
         thread_id,
+        time,
         meta_vars,
         variable_name,
         var_type,
@@ -55,6 +61,14 @@ class json_dumper(metaclass=Singleton):
             or var_type in primitive_types
         ):
             return
+        if (
+            stack_trace
+            == """[["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/adam.py", 92, "if p.grad is not None:"], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/adam.py", 157, "has_complex = self._init_group("], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/optimizer.py", 76, "ret = func(self, *args, **kwargs)"], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/optimizer.py", 385, "out = func(*args, **kwargs)"], ["/data/ziming/ml-daikon/_ml_daikon_instrumented_84911.py", 100, "optimizer.step()"], ["/data/ziming/ml-daikon/_ml_daikon_instrumented_84911.py", 141, "model_transfer, res = train(num_epochs, data_transfer, model_transfer, optimizer_transfer, criterion_transfer, use_cuda, f'results/{num_epochs}_{lr}')"]]"""
+        ):
+            import pdb
+
+            pdb.set_trace()
+            return
 
         data = {
             # "value": var_value,
@@ -64,7 +78,7 @@ class json_dumper(metaclass=Singleton):
             "stack_trace": stack_trace,
             "process_id": process_id,
             "thread_id": thread_id,
-            "time": time.time(),
+            "time": time,
             "meta_vars": json.dumps(str(meta_vars)),
             "attributes": var_attributes,
         }
@@ -82,44 +96,53 @@ class json_dumper(metaclass=Singleton):
         return json_dumper(self.json_file.name)
 
 
+def tensor_stats(tensor):
+    min = float(tensor.min().item())
+    max = float(tensor.max().item())
+    mean = float(tensor.mean().item())
+    std = float(tensor.std().item())
+    shape = tuple(int(x) for x in tensor.size())
+    return {
+        "min": min,
+        "max": max,
+        "mean": mean,
+        "std": std,
+        "shape": shape,
+    }
+
+
 def dump_tensor(value):
     param_list = None
     if isinstance(value, torch.Tensor):
-        if dump_tensor_version:
+        if tensor_dump_format["dump_tensor_version"]:
             # import pdb; pdb.set_trace()
             param_list = value._version
         # dump out the tensor data to a list and flatten it to a 1D list
-        if dump_tensor_statistics:
-            min = float(value.min().item())
-            max = float(value.max().item())
-            mean = float(value.mean().item())
-            shape = tuple(int(x) for x in value.size())
-            param_list = {
-                "min": min,
-                "max": max,
-                "mean": mean,
-                "shape": shape,
-            }
+        if tensor_dump_format["dump_tensor_statistics"]:
+            param_list = tensor_stats(value)
+        if tensor_dump_format["dump_tensor_hash"]:
+            param_list = tensor_hash(value)
         else:
             param_list = value.detach().flatten().tolist()
 
     return param_list
 
 
-def dump_attributes(obj):
+def dump_attributes(obj, value):
     result = {}
-    if not hasattr(obj, "__dict__"):
+    if not hasattr(value, "__dict__"):
         return result
 
     # if the object is a proxy object, get the original object
-    obj_dict = obj.__dict__
-    if "is_ml_daikon_proxied_obj" in obj_dict:
-        obj = obj_dict["_obj"]._obj
+    obj_dict = value.__dict__
+    if is_proxied(value):
+        value = obj_dict["_obj"]
 
     # currently only dump primitive types, tensors and nn.Module
-    attr_names = [name for name in dir(obj) if not name.startswith("__")]
-    if dump_tensor_version and isinstance(obj, torch.nn.parameter.Parameter):
-        result = obj._version
+    attr_names = [name for name in dir(value) if not name.startswith("__")]
+    dump_tensor_version = tensor_dump_format["dump_tensor_version"]
+    if dump_tensor_version and isinstance(value, torch.nn.parameter.Parameter):
+        result = value._version
         return result
 
     for attr_name in attr_names:
@@ -129,7 +152,7 @@ def dump_attributes(obj):
         if attr_name in attribute_black_list:
             continue
         try:
-            attr = getattr(obj, attr_name)
+            attr = getattr(value, attr_name)
             if attr is None:
                 result[attr_name] = None
             if type(attr) in primitive_types:
@@ -149,12 +172,24 @@ def dump_attributes(obj):
                     result[attr_name] += f"\n{name}: {dump_tensor(param)}"
         except Exception as e:
             print_debug(
-                f"Failed to get attribute {attr_name} of object type {type(obj)}, skipping it. Error: {e}"
+                f"Failed to get attribute {attr_name} of object type {type(value)}, skipping it. Error: {e}"
             )
+
+    if delta_dump and delta_dump_attributes:
+        # if they have common keys, only dump when old value is different from the new value
+        old_value = obj.__dict__.get("old_value", {})
+        # store the old value of the attribute
+        store_old_value(obj, result)
+        if old_value is not None:
+            result = {
+                key: value
+                for key, value in result.items()
+                if key not in old_value or old_value[key] != value
+            }
     return result
 
 
-def dump_meta_vars(level=8, proxy_file_path=""):
+def dump_meta_vars(obj, level=8, proxy_file_path=""):
     frame = inspect.currentframe()
     while (
         frame.f_code.co_filename == proxy_file_path
@@ -188,7 +223,20 @@ def dump_meta_vars(level=8, proxy_file_path=""):
             break
         frame_vars = frame.f_locals
         i += 1
-    return concat_dicts(important_vars, meta_vars)
+    dumped_meta_vars = concat_dicts(important_vars, meta_vars)
+
+    if delta_dump and delta_dump_meta_var:
+        # if they have common keys, only dump when old value is different from the new value
+        old_value = obj.__dict__.get("old_meta_vars", {})
+        # store the old value of the meta_var
+        store_old_value_meta_var(obj, meta_vars=dumped_meta_vars)
+        if old_value is not None:
+            dumped_meta_vars = {
+                key: value
+                for key, value in dumped_meta_vars.items()
+                if key not in old_value or old_value[key] != value
+            }
+    return dumped_meta_vars
 
 
 def concat_dicts(dict1, dict2):
@@ -214,3 +262,26 @@ def torch_serialize(obj, dump_module_tensors=False):
         except TypeError:
             obj = str(obj)
         return obj
+
+
+def store_old_value(obj, result):
+    # set the current snapshot as the "old_value" attribute of the object
+    if delta_dump:
+        obj_dict = obj.__dict__
+        assert is_proxied(obj), "The object is not a proxied object"
+        if delta_dump_attributes:
+            import copy
+
+            obj_dict["old_value"] = copy.deepcopy(result)
+
+
+def store_old_value_meta_var(obj, meta_vars=None):
+    # save the current meta_var of the function stack
+    if delta_dump:
+        obj_dict = obj.__dict__
+        assert is_proxied(obj), "The object is not a proxied object"
+        if delta_dump_meta_var:
+            if meta_vars is None:
+                obj_dict["old_meta_vars"] = dump_meta_vars()
+            else:
+                obj_dict["old_meta_vars"] = meta_vars
