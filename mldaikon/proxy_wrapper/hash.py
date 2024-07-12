@@ -9,28 +9,35 @@ MODULUS = 2**64
 FIXED_CONSTANT = torch.tensor([42], dtype=torch.int64)  # Example fixed constant
 
 
-def tensor_hash(x: Tensor):
+def tensor_hash(x: Tensor, with_parallel: bool = True) -> int:
+    if with_parallel:
+        # Ensure the input is a floating-point tensor
+        assert x.dtype in [torch.float32, torch.float64]
 
-    # Ensure the input is a floating-point tensor
-    assert x.dtype in [torch.float32, torch.float64]
+        # Convert the floating-point tensor to an integer representation
+        x = (x * 1e8).to(torch.int64)  # Scale and convert to int64
 
-    # Convert the floating-point tensor to an integer representation
-    x = (x * 1e6).to(torch.int64)  # Scale and convert to int64
+        # # Expand the fixed constant tensor to match the shape of x
+        # constant_tensor = FIXED_CONSTANT.expand_as(x).to
 
-    # # Expand the fixed constant tensor to match the shape of x
-    # constant_tensor = FIXED_CONSTANT.expand_as(x).to
+        # # Multiply the tensor with the constant tensor
+        # x = x * constant_tensor
 
-    # # Multiply the tensor with the constant tensor
-    # x = x * constant_tensor
+        # Ensure the tensor is of integer type
+        assert x.dtype == torch.int64
 
-    # Ensure the tensor is of integer type
-    assert x.dtype == torch.int64
+        # Reduce the tensor to a single hash value
+        while x.ndim > 0:
+            x = _reduce_last_axis(x)
+        # convert tensor to value
+        return x.item()
+    else:  # conventional approach using hashlib, use as the baseline to test the accuracy of the parallel approach
+        # if on cuda, move to cpu. using hashlib to hash the tensor
+        if x.is_cuda:
+            x = x.cpu()
+        import hashlib
 
-    # Reduce the tensor to a single hash value
-    while x.ndim > 0:
-        x = _reduce_last_axis(x)
-    # convert tensor to value
-    return x.item()
+        return int(hashlib.sha256(x.detach().numpy().tobytes()).hexdigest(), 16)
 
 
 @torch.no_grad()
