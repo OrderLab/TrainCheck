@@ -9,7 +9,7 @@ MODULUS = 2**64
 FIXED_CONSTANT = torch.tensor([42], dtype=torch.int64)  # Example fixed constant
 
 
-def tensor_hash(x: Tensor, with_parallel: bool = True) -> int:
+def tensor_hash(x: Tensor, with_parallel: bool = False) -> int:
     if with_parallel:
         # Ensure the input is a floating-point tensor
         assert x.dtype in [torch.float32, torch.float64]
