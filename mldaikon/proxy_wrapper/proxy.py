@@ -90,8 +90,11 @@ def proxy_handler(
 class Proxy:
     var_dict: Dict[str, typing.Any] = {}
     logger_proxy = logging.getLogger("proxy")
-    logdir = "proxy_logs.log"
     loglevel = logging.INFO
+    # if proxy_log_dir is a directory, then create "proxy_log.json" in the directory
+    if os.path.isdir(proxy_log_dir):
+        proxy_log_dir = os.path.join(proxy_log_dir, "proxy_log.json")
+    logdir = proxy_log_dir
     jsondumper = dumper(proxy_log_dir)
     handler = logging.FileHandler(logdir)
     handler.setLevel(loglevel)
