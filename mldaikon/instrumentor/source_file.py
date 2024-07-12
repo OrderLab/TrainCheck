@@ -169,7 +169,7 @@ import importlib
 from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
 spec = importlib.util.find_spec('mldaikon')
 if spec and spec.origin:
-    mldaikon_folder = os.path.abspath(spec.origin)
+    mldaikon_folder = os.path.dirname(spec.origin)
     print("mldaikon folder: ", mldaikon_folder)
 else:
     raise Exception("mldaikon is not installed properly")
@@ -183,11 +183,12 @@ if observe_up_to_depth:
     print("observe up to the depth of the function call")
 else:
     print("observe only the function call at the depth")
-from mldaikon.static_analyzer.call_graph_parser import call_graph_parser
+from mldaikon.static_analyzer.graph_generator.call_graph_parser import call_graph_parser
 
 log_files = glob.glob(
     os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
 )
+print("log_files: ", log_files)
 for log_file in log_files:
     call_graph_parser(
         log_file,

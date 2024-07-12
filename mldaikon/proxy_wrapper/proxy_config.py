@@ -84,5 +84,3 @@ for root, dirs, files in os.walk(mldaikon_folder):
     for file in files:
         if file.endswith(".py"):
             exclude_file_names.append(os.path.join(root, file))
-
-print(exclude_file_names)
