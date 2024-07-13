@@ -570,9 +570,14 @@ def read_trace_file(
 ) -> Trace:
     """Reads the trace file and returns the trace instance."""
     if isinstance(file_path, list):
-        events = pl.concat(
-            [pl.read_ndjson(f) for f in file_path], how="diagonal_relaxed"
-        )
+        dfs = []
+        for f in file_path:
+            try:
+                dfs.append(pl.read_ndjson(f))
+            except Exception as e:
+                logger.error(f"Failed to read {f} due to {e}. aborting")
+                raise e
+        events = pl.concat(dfs, how="diagonal_relaxed")
     else:
         events = pl.read_ndjson(file_path)
     return Trace(
