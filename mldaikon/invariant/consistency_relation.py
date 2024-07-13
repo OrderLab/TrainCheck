@@ -1,4 +1,5 @@
 import logging
+import time
 from itertools import combinations
 
 from tqdm import tqdm
@@ -431,7 +432,10 @@ class ConsistencyRelation(Relation):
                 check_passed=True,
             )
 
-        # 2. for each pair of variables, check if the invariant holds
+        # collect value pairs to be checked
+        start_time_collecting_pairs = time.time()
+        num_collected_pairs = 0
+        value_pairs_to_check: dict[int, list[tuple]] = {}
         for i, var1_id in enumerate(type1_attr1):
             for j, var2_id in enumerate(type2_attr2):
                 if var_type1 == var_type2 and attr1 == attr2 and i >= j:
@@ -454,44 +458,77 @@ class ConsistencyRelation(Relation):
                             attr1_val.liveness, attr2_val.liveness
                         )
                         if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
-                            traces = [attr1_val.traces[-1], attr2_val.traces[-1]]
-                            if check_relation_first:
-                                compare_result = ConsistencyRelation.evaluate(
-                                    [attr1_val.value, attr2_val.value]
-                                )
-                                if not compare_result:
-                                    # check for precondition match, if yes, report alarm
-                                    if inv.precondition.verify(traces, VAR_GROUP_NAME):
-                                        logger.error(
-                                            f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"
-                                        )
-                                        return CheckerResult(
-                                            trace=traces,
-                                            invariant=inv,
-                                            check_passed=False,
-                                        )
-                                    else:
-                                        logger.debug(
-                                            f"Violation detected but Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"
-                                        )
-                            else:
-                                if inv.precondition.verify(traces, VAR_GROUP_NAME):
-                                    compare_result = ConsistencyRelation.evaluate(
-                                        [attr1_val.value, attr2_val.value]
-                                    )
-                                    if not compare_result:
-                                        logger.error(
-                                            f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"
-                                        )
-                                        return CheckerResult(
-                                            trace=traces,
-                                            invariant=inv,
-                                            check_passed=False,
-                                        )
-                                else:
-                                    logger.debug(
-                                        f"Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}, skipping the check"
-                                    )
+                            time_pair = (
+                                attr1_val.liveness.end_time
+                            )  # FIXME: adhoc solution, need to find a better way to determine the time
+                            if time_pair not in value_pairs_to_check:
+                                value_pairs_to_check[time_pair] = []
+                            value_pairs_to_check[time_pair].append(
+                                (attr1_val, attr2_val)
+                            )
+                            num_collected_pairs += 1
+        end_time_collecting_pairs = time.time()
+        logger.debug(
+            f"Time to collect {num_collected_pairs} value pairs to check: {end_time_collecting_pairs - start_time_collecting_pairs}"
+        )
+
+        # sort the value_pairs_to_check by key in ascending order
+        start_time_checking_pairs = time.time()
+        num_checked_pairs = 0
+        value_pairs_to_check = dict(sorted(value_pairs_to_check.items()))
+        for time_pair in value_pairs_to_check:
+            for attr1_val, attr2_val in value_pairs_to_check[time_pair]:
+                traces = [attr1_val.traces[-1], attr2_val.traces[-1]]
+                num_checked_pairs += 1
+                if check_relation_first:
+                    compare_result = ConsistencyRelation.evaluate(
+                        [attr1_val.value, attr2_val.value]
+                    )
+                    if not compare_result:
+                        # check for precondition match, if yes, report alarm
+                        if inv.precondition.verify(traces, VAR_GROUP_NAME):
+                            logger.error(
+                                f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"  # type: ignore
+                            )
+                            end_time_collecting_pairs = time.time()
+                            logger.debug(
+                                f"VIOLATION HAPPENED: Time to check {num_checked_pairs} value pairs: {end_time_collecting_pairs - start_time_checking_pairs}"
+                            )
+                            return CheckerResult(
+                                trace=traces,
+                                invariant=inv,
+                                check_passed=False,
+                            )
+                        else:
+                            logger.debug(
+                                f"Violation detected but Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"  # type: ignore
+                            )
+                else:
+                    if inv.precondition.verify(traces, VAR_GROUP_NAME):
+                        compare_result = ConsistencyRelation.evaluate(
+                            [attr1_val.value, attr2_val.value]
+                        )
+                        if not compare_result:
+                            end_time_collecting_pairs = time.time()
+                            logger.debug(
+                                f"VIOLATION HAPPENED: Time to check {num_checked_pairs} value pairs: {end_time_collecting_pairs - start_time_checking_pairs}"
+                            )
+                            logger.error(
+                                f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"  # type: ignore
+                            )
+                            return CheckerResult(
+                                trace=traces,
+                                invariant=inv,
+                                check_passed=False,
+                            )
+                    else:
+                        logger.debug(
+                            f"Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}, skipping the check"  # type: ignore
+                        )
+        end_time_collecting_pairs = time.time()
+        logger.debug(
+            f"PASSED: Time to check {num_checked_pairs} value pairs: {end_time_collecting_pairs - start_time_checking_pairs}"
+        )
 
         # TODO: implement the precondition improvement logic here (i.e. when compare_result is True, check if the precondition is satisfied, if not, improve the precondition)
         return CheckerResult(

@@ -80,7 +80,10 @@ if __name__ == "__main__":
     time_end = time.time()
     logger.info(f"Traces read successfully in {time_end - time_start} seconds.")
 
+    time_start = time.time()
     engine = InferEngine(traces)
     invs = engine.infer()
+    time_end = time.time()
+    logger.info(f"Inference completed in {time_end - time_start} seconds.")
 
     save_invs(invs, args.output)
