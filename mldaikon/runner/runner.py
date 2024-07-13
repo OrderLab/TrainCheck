@@ -18,6 +18,7 @@ class ProgramRunner(object):
         py_script_path: str,
         sh_script_path: str | None = None,
         dry_run: bool = False,
+        profiling: bool = False,
     ):
         self.python = (
             sys.executable
@@ -25,6 +26,8 @@ class ProgramRunner(object):
         self.dry_run = dry_run
         self._tmp_sh_script_path: str | None
         self._tmp_py_script_path: str
+
+        self.profiling = profiling
 
         # create temp files to write the source code to
         py_script_path = os.path.abspath(py_script_path)
@@ -76,23 +79,61 @@ class ProgramRunner(object):
             # change back to the original directory
             os.chdir(current_dir)
         else:
-            process = subprocess.Popen(
-                [self.python, "-u", self._tmp_py_script_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
+            if self.profiling:
+                profile_script_name = self._tmp_py_script_path.split("/")[-1].split(
+                    "."
+                )[0]
+                assert profile_script_name.startswith(TMP_FILE_PREFIX)
+                profile_script_name = profile_script_name[len(TMP_FILE_PREFIX) :]
+                profile_output_path = os.path.join(
+                    os.path.dirname(self._tmp_py_script_path),
+                    f"{profile_script_name}.prof",
+                )
+                print("Profiling the program...")
+                print(
+                    f"Profiling the program and saving the result to {profile_output_path}"
+                )
+                cmdline = (
+                    " ".join(
+                        [
+                            self.python,
+                            "-m cProfile",
+                            "-o",
+                            f"{profile_output_path}",
+                            self._tmp_py_script_path,
+                        ]
+                    ),
+                )
+                print(f"Running command: {cmdline}")
+                # flush the stdout buffer
+                sys.stdout.flush()
+                process = subprocess.Popen(
+                    cmdline,
+                    shell=True,
+                )
+                # save the profiling result
+                process.wait()
+                return_code = process.returncode
+                program_output = f"Profiling result saved to {profile_output_path}"
 
-        out_lines = []  # STDERR is redirected to STDOUT
-        assert process.stdout is not None
-        with process.stdout as out:
-            logging.info("Running the program... below is the output:")
-            for line_out in out:
-                decoded_line_out = line_out.decode("utf-8").strip("\n")
-                program_print(decoded_line_out)
-                out_lines.append(decoded_line_out)
-            _, _ = process.communicate()
-        program_output = "\n".join(out_lines)
-        return_code = process.poll()
+            else:
+                process = subprocess.Popen(
+                    [self.python, "-u", self._tmp_py_script_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
+
+                out_lines = []  # STDERR is redirected to STDOUT
+                assert process.stdout is not None
+                with process.stdout as out:
+                    logging.info("Running the program... below is the output:")
+                    for line_out in out:
+                        decoded_line_out = line_out.decode("utf-8").strip("\n")
+                        program_print(decoded_line_out)
+                        out_lines.append(decoded_line_out)
+                    _, _ = process.communicate()
+                program_output = "\n".join(out_lines)
+                return_code = process.poll()
         assert return_code is not None
 
         # XXX: This is a dummy implementation. Replace this with the actual implementation.

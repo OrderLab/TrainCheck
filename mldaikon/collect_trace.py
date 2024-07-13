@@ -83,7 +83,8 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--profiling",
-        action="store_true",
+        type=bool,
+        default=proxy_config.profiling,
         help="Enable to do profiling during the training process,"
         "there would be a train_profiling_results.pstats file generated"
         "in the current directory",
@@ -212,12 +213,16 @@ if __name__ == "__main__":
         args.allow_disable_dump,
         funcs_of_inv_interest,
         args.proxy_module,
-        adjusted_proxy_config,
+        adjusted_proxy_config,  # type: ignore
     )
 
     # call into the program runner
     program_runner = runner.ProgramRunner(
-        source_code, args.pyscript, args.shscript, dry_run=args.only_instrument
+        source_code,
+        args.pyscript,
+        args.shscript,
+        dry_run=args.only_instrument,
+        profiling=args.profiling,
     )
     program_output, return_code = program_runner.run()
 
