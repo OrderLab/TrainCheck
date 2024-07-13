@@ -3,7 +3,7 @@ import logging
 
 import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
-import mldaikon.proxy_wrapper.config as proxy_config
+import mldaikon.proxy_wrapper.proxy_config as proxy_config
 import mldaikon.runner as runner
 from mldaikon.invariant.base_cls import APIParam, Invariant, read_inv_file
 
@@ -70,10 +70,10 @@ if __name__ == "__main__":
         help="Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions",
     )
     parser.add_argument(
-        "--tracer_log_dir",
+        "--proxy_log_dir",
         type=str,
         default="proxy_log.log",
-        help="Path to the log file of the tracer",
+        help="Path to the log file of the proxy tracer",
     )
     parser.add_argument(
         "--proxy_module",
@@ -111,7 +111,37 @@ if __name__ == "__main__":
         action="store_true",
         help="Allow the instrumentor to disable API dump for certain APIs that are not helpful for the invariant analysis",
     )
-
+    parser.add_argument(
+        "--tensor_dump_format",
+        choices=["hash", "stats", "full", "version"],
+        type=str,
+        default="hash",
+        help="The format for dumping tensors. Choose from 'hash'(default), 'stats', 'full' or 'version'(deprecated).",
+    )
+    parser.add_argument(
+        "--delta_dump",
+        type=bool,
+        default=proxy_config.delta_dump_config["delta_dump"],
+        help="Only dump the changed part of the object",
+    )
+    parser.add_argument(
+        "--delta_dump_meta_var",
+        type=bool,
+        default=proxy_config.delta_dump_config["delta_dump_meta_var"],
+        help="Only dump the changed part of the meta_var",
+    )
+    parser.add_argument(
+        "--delta_dump_attributes",
+        type=bool,
+        default=proxy_config.delta_dump_config["delta_dump_attributes"],
+        help="Only dump the changed part of the attribute",
+    )
+    parser.add_argument(
+        "--enable_C_level_observer",
+        type=bool,
+        default=proxy_config.enable_C_level_observer,
+        help="Enable the observer at the C level",
+    )
     args = parser.parse_args()
     config.INCLUDED_WRAP_LIST = args.wrapped_modules
 
@@ -120,13 +150,38 @@ if __name__ == "__main__":
     else:
         disable_proxy_class = True
 
-    proxy_config.disable_proxy_class = disable_proxy_class
-    proxy_config.proxy_log_dir = args.tracer_log_dir
-    proxy_config.proxy_update_limit = args.proxy_update_limit
-    proxy_config.profiling = (
-        args.profiling
-    )  # the profiling has not yet been enacted yet
-    proxy_config.debug_mode = args.debug_mode
+    # set up adjusted proxy_config
+    proxy_basic_config: dict[str, int | bool] = {}
+    if proxy_config.disable_proxy_class != disable_proxy_class:
+        proxy_basic_config["disable_proxy_class"] = disable_proxy_class
+    for configs in [
+        "proxy_update_limit",
+        "profiling",
+        "debug_mode",
+        "proxy_log_dir",
+        "enable_C_level_observer",
+    ]:
+        if getattr(proxy_config, configs) != getattr(args, configs):
+            proxy_basic_config[configs] = getattr(args, configs)
+            print(f"Setting {configs} to {getattr(args, configs)}")
+
+    # set up tensor_dump_format
+    tensor_dump_format: dict[str, int | bool] = {}
+    if args.tensor_dump_format != "hash":
+        tensor_dump_format = proxy_config.tensor_dump_format  # type: ignore
+        print(f"Setting tensor_dump_format to {args.tensor_dump_format}")
+        # set all to False
+        for key in tensor_dump_format:
+            tensor_dump_format[key] = False
+        # set the chosen one to True
+        tensor_dump_format[f"dump_tensor_{args.tensor_dump_format}"] = True
+
+    # set up delta_dump_config
+    delta_dump_config: dict[str, int | bool] = {}
+    for configs in ["delta_dump", "delta_dump_meta_var", "delta_dump_attributes"]:
+        if proxy_config.delta_dump_config[configs] != getattr(args, configs):
+            delta_dump_config[configs] = getattr(args, configs)
+            print(f"Setting {configs} to {getattr(args, configs)}")
 
     # set up logging
     if args.debug_mode:
@@ -141,7 +196,14 @@ if __name__ == "__main__":
         invariants = read_inv_file(args.invariants)
         funcs_of_inv_interest = get_list_of_funcs_from_invariants(invariants)
 
+    auto_observer_config = proxy_config.auto_observer_config
     # call into the instrumentor
+    adjusted_proxy_config: list[dict[str, int | bool]] = [
+        auto_observer_config,  # Ziming: add auto_observer_config for proxy_wrapper
+        proxy_basic_config,  # Ziming: add proxy_basic_config for proxy_wrapper
+        tensor_dump_format,  # Ziming: add tensor_dump_format for proxy_wrapper
+        delta_dump_config,  # Ziming: add delta_dump_config for proxy_wrapper
+    ]
     source_code = instrumentor.instrument_file(
         args.pyscript,
         args.modules_to_instrument,
@@ -150,6 +212,7 @@ if __name__ == "__main__":
         args.allow_disable_dump,
         funcs_of_inv_interest,
         args.proxy_module,
+        adjusted_proxy_config,
     )
 
     # call into the program runner

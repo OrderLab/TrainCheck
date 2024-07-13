@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.4.2] - 2024-07-12
+
+### Added
+
+- support pre-check for observer, do not dump it when the tensor is not changed
+- support `hashing` functionality for cuda tensors
+
+### Changed
+
+- add proxy-related config to arg_parse of collect_trace, dump the adjusted configs to the instrumented src code
+- classify the attributes inside proxy_config into config dicts for clarity
+- rename the proxy config file to proxy_config.py
+
+### Fixed
+
+- fix `is_proxied` utility to cater for object without __dict__ attribute
+
+
+## [0.4.1] - 2024-07-06
+
+### Added
+
+- support delta dumping for proxy trace (the functionality is deprecated and is fixed in proxy-v4.2)
+- add the following switches to control the behavior of delta_dumping
+
+    ```python
+    delta_dump = True  # only dump the changed part of the object (if this is set to be False, we would dump the whole object no matter what values delta_dump_meta_var and delta_dump_attribute are)
+    delta_dump_meta_var = True  # only dump the changed part of the meta_var
+    delta_dump_attributes = True  # only dump the changed part of the attribute
+    ```
+
 ## [0.4.0] - 2024-07-02
 
 ### Added

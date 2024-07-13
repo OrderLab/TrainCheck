@@ -1,3 +1,4 @@
+import copy
 import inspect
 import json
 import json.encoder
@@ -14,19 +15,17 @@ import torch
 import torch.nn.parameter
 
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
-from mldaikon.proxy_wrapper.config import (
-    debug_mode,
-    dump_call_return,
-    dump_iter,
-    exclude_file_names,
-    filter_by_tensor_version,
-    proxy_log_dir,
-    proxy_update_limit,
-)
 from mldaikon.proxy_wrapper.dumper import dump_attributes, dump_meta_vars
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.dumper import torch_serialize
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
+from mldaikon.proxy_wrapper.proxy_config import (
+    debug_mode,
+    dump_info_config,
+    exclude_file_names,
+    proxy_log_dir,
+    proxy_update_limit,
+)
 from mldaikon.proxy_wrapper.proxy_handler import handled_obj_type
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.utils import typename
@@ -157,7 +156,9 @@ class Proxy:
             frame = frame.f_back
         return frame_array
 
-    def dump_trace(self, status):
+    def dump_trace(
+        self, status, only_record=False, prev_obj=None, prev_trace_info=None
+    ):
         if Proxy.var_dict.get(self.__dict__["var_name"]) is None:
             # create
             self.__dict__["last_update_timestamp"] = 0
@@ -170,19 +171,77 @@ class Proxy:
             ]
             > proxy_update_limit
         ):
+            dump_pre_and_post_trace = False
+            if only_record and status == "post_observe":
+                assert (
+                    prev_obj is not None and prev_trace_info is not None
+                ), "prev_obj and prev_trace_info should not be None"
+                # only dump when the object is changed
+
+                if isinstance(prev_obj._obj, torch.Tensor) and isinstance(
+                    self._obj, torch.Tensor
+                ):
+                    if not torch.equal(prev_obj._obj, self._obj):
+                        dump_pre_and_post_trace = True
+                else:
+                    if prev_obj._obj != self._obj:
+                        dump_pre_and_post_trace = True
+
+            if only_record and status == "post_observe":
+                if not dump_pre_and_post_trace:
+                    return None
+                else:
+                    self.dump_to_trace(prev_obj, prev_trace_info)
             frame = inspect.currentframe()
             frame_array = self.get_frame_array(frame)
             dumped_frame_array = json.dumps(frame_array)
-            self.dump_to_trace(self._obj, status, dumped_frame_array)
-            self.__dict__["last_update_timestamp"] = time.time()
+            current_time = time.time()
+            trace_info = {
+                "time": current_time,
+                "status": status,
+                "frame_array": dumped_frame_array,
+            }
+            self.__dict__["last_update_timestamp"] = current_time
 
-    def dump_to_trace(self, obj, status="update", dumped_frame_array=None):
+            if only_record and status == "pre_observe":
+                return trace_info
+
+            self.dump_to_trace(self._obj, trace_info)
+            return None
+
+    def __deepcopy__(self, memo):
+        # Create a new instance of the proxy object
+        if isinstance(self._obj, torch.Tensor):
+            new_copy = type(self)(self._obj.clone().detach(), from_copy=True)
+        else:
+            new_copy = type(self)(copy.deepcopy(self._obj, memo))
+
+        # Copy other attributes if necessary
+        new_copy.__dict__.update(copy.deepcopy(self.__dict__, memo))
+
+        return new_copy
+
+    def dump_to_trace(self, obj, trace_info):
         # version based filtering
+        if "time" in trace_info:
+            current_time = trace_info["time"]
+        else:
+            current_time = time.time()
+        if "status" in trace_info:
+            status = trace_info["status"]
+        else:
+            status = "update"
+        if "frame_array" in trace_info:
+            dumped_frame_array = trace_info["frame_array"]
+        else:
+            raise ValueError("frame_array is not provided in trace_info")
+
         var_name = self.__dict__["var_name"]
         assert (
             var_name == self.__dict__["dumped_varname_list"]
         ), f"var_name {var_name} is not consistent with dumped_varname_list {self.__dict__['dumped_varname_list']}"
         assert var_name is not None  # '' is allowed as a var_name (root object)
+        filter_by_tensor_version = dump_info_config["filter_by_tensor_version"]
         if filter_by_tensor_version and status == "update":
             if hasattr(obj, "_version"):
                 if (
@@ -196,12 +255,13 @@ class Proxy:
             self.jsondumper.dump_json(
                 self.process_id,
                 self.thread_id,
-                dump_meta_vars(proxy_file_path=__file__),
+                current_time,
+                dump_meta_vars(self, proxy_file_path=__file__),
                 self.__dict__["dumped_varname_list"],
                 type(obj).__name__,
                 dumped_val,
                 status,
-                dump_attributes(obj),
+                dump_attributes(self, obj),
                 dumped_frame_array,
             )
 
@@ -215,7 +275,11 @@ class Proxy:
         dump_trace_info=True,
         from_call=False,
         from_iter=False,
+        from_copy=False,
     ):
+        if from_copy:
+            self.__dict__["_obj"] = obj
+            return
         # Access proxy attribute: since we are wrapping the getattr method, we need to access the attribute directly
         self.__dict__["process_id"] = os.getpid()
         self.__dict__["thread_id"] = threading.current_thread().ident
@@ -226,6 +290,8 @@ class Proxy:
         self.__dict__["is_ml_daikon_proxied_obj"] = True
         self.__dict__["is_root"] = is_root
         self.__dict__["var_name"] = var_name
+        self.__dict__["old_value"] = None
+        self.__dict__["old_meta_vars"] = None
 
         if type(obj) is Proxy:
             print_debug(
@@ -247,6 +313,8 @@ class Proxy:
             self.__dict__["logdir"] = obj.__dict__["logdir"]
             self.__dict__["log_level"] = obj.__dict__["log_level"]
             self.__dict__["meta_vars"] = obj.__dict__["meta_vars"]
+            self.__dict__["old_value"] = obj.__dict__["old_value"]
+            self.__dict__["old_meta_vars"] = obj.__dict__["old_meta_vars"]
             return
 
         frame = inspect.currentframe()
@@ -312,21 +380,29 @@ class Proxy:
         ):  # if the object is not proxied yet
 
             self.__dict__["_obj"] = obj
+            dump_call_return = dump_info_config["dump_call_return"]
+            dump_iter = dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
-
             if not dump_iter and from_iter:
                 return
 
+            current_time = time.time()
+            trace_info = {
+                "time": current_time,
+                "frame_array": dumped_frame_array,
+            }
             if dump_trace_info:
                 if from_call:
-                    self.dump_to_trace(obj, "call", dumped_frame_array)
+                    trace_info["status"] = "call"
+
                 if from_iter:
-                    self.dump_to_trace(obj, "iter", dumped_frame_array)
+                    trace_info["status"] = "iter"
                 # if the object is generated from getattr, then do not dump it
                 else:
-                    self.dump_to_trace(obj, "new", dumped_frame_array)
-                self.__dict__["last_update_timestamp"] = time.time()
+                    trace_info["status"] = "update"
+                self.dump_to_trace(obj, trace_info)
+                self.__dict__["last_update_timestamp"] = current_time
                 Proxy.var_dict[current_var_name_list] = self
 
         else:  # if the object is proxied already
@@ -348,22 +424,32 @@ class Proxy:
                 < proxy_update_limit
             ):
                 return
-
+            dump_call_return = dump_info_config["dump_call_return"]
+            dump_iter = dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
 
             if not dump_iter and from_iter:
                 return
 
-            if from_call:
-                self.dump_to_trace(obj, "call", dumped_frame_array)
-            elif from_iter:
-                self.dump_to_trace(obj, "iter", dumped_frame_array)
-            elif dump_trace_info:
-                self.dump_to_trace(obj, "update", dumped_frame_array)
+            current_time = time.time()
+
+            trace_info = {
+                "time": current_time,
+                "frame_array": dumped_frame_array,
+            }
+            if dump_trace_info:
+                if from_call:
+                    trace_info["status"] = "call"
+                elif from_iter:
+                    trace_info["status"] = "iter"
+                else:
+                    trace_info["status"] = "update"
+
+                self.dump_to_trace(obj, trace_info)
 
             del Proxy.var_dict[current_var_name_list]
-            self.__dict__["last_update_timestamp"] = time.time()
+            self.__dict__["last_update_timestamp"] = current_time
             Proxy.var_dict[current_var_name_list] = self
 
     @property  # type: ignore
