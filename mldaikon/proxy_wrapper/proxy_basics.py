@@ -7,7 +7,7 @@ import astor
 
 def is_proxied(obj):
     try:
-        if "is_ml_daikon_proxied_obj" in obj.__dict__:
+        if obj is not None and "is_ml_daikon_proxied_obj" in obj.__dict__:
             return True
     except AttributeError:
         return False
