@@ -46,6 +46,8 @@ def run_e2e(
     modules_to_instrument: str = input_config["modules_to_instrument"]  # with -t flag
     proxy_module = input_config["proxy_module"]  # with --proxy_module flag
     proxy_log_dir = input_config["proxy_log_dir"]  # with --proxy_log_dir flag
+    profiling = input_config["profiling"]  # with --profiling flag
+    # run the script with the given arguments and environment variables
     script_args: list[str] = [
         "-m",
         "mldaikon.collect_trace",
@@ -54,10 +56,17 @@ def run_e2e(
         "-t",
         modules_to_instrument,
         "--proxy_module",
-        " ".join(proxy_module),
+        proxy_module,
         "--proxy_log_dir",
         proxy_log_dir,
+        "--profiling",
+        profiling,
     ]
+    # clear up the output directory
+    if os.path.exists(output_dir):
+        os.system(f"rm -r {output_dir}")
+    os.makedirs(output_dir)
+
     # run the script with the given arguments and environment variables
     return_code = run_python_script(
         python_path, script_args, input_env, output_dir
@@ -89,6 +98,7 @@ if __name__ == "__main__":
         # "funcs_of_inv_interest": None,
         "proxy_module": "model_transfer",
         "proxy_log_dir": output_dir,
+        "profiling": "True",
     }
     input_env = {"PYTORCH_JIT": "0"}
 
