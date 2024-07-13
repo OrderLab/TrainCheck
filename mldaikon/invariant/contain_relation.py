@@ -427,6 +427,23 @@ Defaulting to skip the var preconditon check for now.
                     if child_param.check_event_match(event):
                         found_expected_child_event = True
                         break
+            else:
+                # invariant check
+                for event in events_scanner(
+                    trace=trace, func_call_id=parent_func_call_id
+                ):
+                    if child_param.check_event_match(event):
+                        found_expected_child_event = True
+                        break
+
+                # precondition check
+                if not preconditions.verify_for_group(
+                    [parent_pre_record], PARENT_GROUP_NAME
+                ):
+                    logger.debug(
+                        f"Precondition not met for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}, skipping the contained events check"
+                    )
+                    continue
 
             if not skip_var_unchanged_check:
                 assert isinstance(
