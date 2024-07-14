@@ -10,18 +10,6 @@ class VarInstId(NamedTuple):
     var_name: str
     var_type: str
 
-    # def __str__(self):
-    #     return f"VarInstId: {self.process_id}, {self.var_name}, {self.var_type}"
-
-    # def __repr__(self) -> str:
-    #     return super().__repr__()
-
-    # def __hash__(self) -> int:
-    #     return hash(str(self.__dict__))
-
-    # def __eq__(self, other) -> bool:
-    #     return self.__dict__ == other.__dict__
-
 
 class Liveness:
     def __init__(self, start_time: int | None, end_time: int | None):

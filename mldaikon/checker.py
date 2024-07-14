@@ -83,9 +83,13 @@ if __name__ == "__main__":
     else:
         log_level = logging.INFO
 
+    time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    ## DEBUG
+    time_now = f"{time_now}_relation_first_{args.check_relation_first}"
     # set logging to a file
     logging.basicConfig(
-        filename=f'mldaikon_checker_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log',
+        filename=f"mldaikon_checker_{time_now}.log",
         level=log_level,
     )
 
@@ -108,7 +112,7 @@ if __name__ == "__main__":
 
     # dump the results to a file
     with open(
-        f'mldaikon_checker_results_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log',
+        f"mldaikon_checker_results_{time_now}.log",
         "w",
     ) as f:
         if args.report_only_failed:

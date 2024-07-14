@@ -207,16 +207,9 @@ class ConsistencyRelation(Relation):
             # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
             is_skipping_init_values = False
 
-            for skip_init_type in config.SKIP_INIT_VALUE_TYPES_KEY_WORDS:
-                if (
-                    skip_init_type in var_type1.lower()
-                    and skip_init_type in var_type2.lower()
-                ):
-                    is_skipping_init_values = True
-                    logger.debug(
-                        f"Skipping init values for {var_type1} and {var_type2}"
-                    )
-                    break
+            if skip_init_values(var_type1) or skip_init_values(var_type2):
+                is_skipping_init_values = True
+                logger.debug(f"Skipping init values for {var_type1} and {var_type2}")
 
             for idx1, var_inst1 in enumerate(
                 tqdm(var_type1_vars, desc=f"Pruning Hypo {hypo}")
@@ -230,10 +223,8 @@ class ConsistencyRelation(Relation):
 
                     for val_idx1, value1 in enumerate(var_insts[var_inst1][attr1]):
                         for val_idx2, value2 in enumerate(var_insts[var_inst2][attr2]):
-                            if (
-                                is_skipping_init_values
-                                and val_idx1 == 0
-                                and val_idx2 == 0
+                            if is_skipping_init_values and (
+                                val_idx1 == 0 or val_idx2 == 0
                             ):
                                 # skipping the init values
                                 continue
@@ -267,6 +258,7 @@ class ConsistencyRelation(Relation):
                 )
 
         logger.debug(f"Filtered Hypothesis: {filtered_hypothesis}")
+        # filtered_hypothesis = [("Parameter", "data", "Parameter", "data")]
 
         ## 4.  Positive Examples and Negative Examples Collection
         group_name = VAR_GROUP_NAME
@@ -305,10 +297,12 @@ class ConsistencyRelation(Relation):
                 var_inst for var_inst in var_insts if var_inst.var_type == var_type2
             ]
 
-            for var_inst1 in tqdm(
-                var_type1_vars, desc=f"Collecting Examples for Hypo: {hypo}"
+            for idx1, var_inst1 in tqdm(
+                enumerate(var_type1_vars), desc=f"Collecting Examples for Hypo: {hypo}"
             ):
-                for var_inst2 in var_type2_vars:
+                for idx2, var_inst2 in enumerate(var_type2_vars):
+                    if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
+                        continue
                     if var_inst1 == var_inst2:
                         continue
                     for val_idx1, value1 in enumerate(var_insts[var_inst1][attr1]):
@@ -356,6 +350,9 @@ class ConsistencyRelation(Relation):
         ## 5. Precondition Inference TODO: this can be abstracted into a separate function that takes a list of hypothesis and returns those with preconditions
         hypos_to_delete = []
         for hypo in hypothesis_with_examples:
+            logger.debug(
+                f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
+            )
             preconditions = find_precondition(
                 hypothesis_with_examples[hypo],
                 keys_to_skip=[f"attributes.{hypo[1]}", f"attributes.{hypo[3]}"],
@@ -440,6 +437,7 @@ class ConsistencyRelation(Relation):
             for j, var2_id in enumerate(type2_attr2):
                 if var_type1 == var_type2 and attr1 == attr2 and i >= j:
                     continue
+                assert var1_id != var2_id, "Variable instances should be different."
                 for attr1_val in type1_attr1[var1_id]:
                     for attr2_val in type2_attr2[var2_id]:
                         assert (
@@ -488,10 +486,10 @@ class ConsistencyRelation(Relation):
                         # check for precondition match, if yes, report alarm
                         if inv.precondition.verify(traces, VAR_GROUP_NAME):
                             logger.error(
-                                f"Invariant {inv} violated for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"  # type: ignore
+                                f"Invariant {inv} violated near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"  # type: ignore
                             )
                             end_time_collecting_pairs = time.time()
-                            logger.debug(
+                            logger.info(
                                 f"VIOLATION HAPPENED: Time to check {num_checked_pairs} value pairs: {end_time_collecting_pairs - start_time_checking_pairs}"
                             )
                             return CheckerResult(
@@ -501,7 +499,7 @@ class ConsistencyRelation(Relation):
                             )
                         else:
                             logger.debug(
-                                f"Violation detected but Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}"  # type: ignore
+                                f"Violation detected but Precondition not satisfied at liveness 1: {attr1_val.liveness.start_time}, {attr1_val.liveness.end_time}, liveness 2: {attr2_val.liveness.start_time}, {attr2_val.liveness.end_time}, overlap: {calc_liveness_overlap(attr1_val.liveness, attr2_val.liveness)}"  # type: ignore
                             )
                 else:
                     if inv.precondition.verify(traces, VAR_GROUP_NAME):
@@ -510,7 +508,7 @@ class ConsistencyRelation(Relation):
                         )
                         if not compare_result:
                             end_time_collecting_pairs = time.time()
-                            logger.debug(
+                            logger.info(
                                 f"VIOLATION HAPPENED: Time to check {num_checked_pairs} value pairs: {end_time_collecting_pairs - start_time_checking_pairs}"
                             )
                             logger.error(
@@ -523,10 +521,10 @@ class ConsistencyRelation(Relation):
                             )
                     else:
                         logger.debug(
-                            f"Precondition not satisfied for {var1_id} and {var2_id} near time {attr1_val.liveness.end_time} and {attr2_val.liveness.start_time}, skipping the check"  # type: ignore
+                            f"Precondition not satisfied at liveness 1: {attr1_val.liveness.start_time}, {attr1_val.liveness.end_time}, liveness 2: {attr2_val.liveness.start_time}, {attr2_val.liveness.end_time}, overlap: {calc_liveness_overlap(attr1_val.liveness, attr2_val.liveness)}, skipping the check"  # type: ignore
                         )
         end_time_collecting_pairs = time.time()
-        logger.debug(
+        logger.info(
             f"PASSED: Time to check {num_checked_pairs} value pairs: {end_time_collecting_pairs - start_time_checking_pairs}"
         )
 

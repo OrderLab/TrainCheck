@@ -69,9 +69,9 @@ def _find_local_clauses(
                 )
 
         if prop_dtype is None:
-            logger.warning(
-                f"Property {prop} has no real values in the example, skipping this property as a clause."
-            )
+            # logger.warning(
+            #     f"Property {prop} has no real values in the example, skipping this property as a clause."
+            # )
             continue
 
         if len(prop_values_seen) == 1 and prop_dtype is not None:
@@ -247,6 +247,9 @@ def find_precondition_from_single_group(
     )
 
     if len(negative_examples) == 0:
+        assert (
+            len(positive_examples) > 0
+        ), "No negative examples found, but no positive examples found either"
         logger.warning(
             "No negative examples found, assigning unconditional precondition"
         )
@@ -255,7 +258,7 @@ def find_precondition_from_single_group(
     ## 1. Find the properties (meta_vars and variable local attributes) that consistently shows up positive examples
     all_local_clauses = []
 
-    for example in tqdm(positive_examples):
+    for example in tqdm(positive_examples, desc="Scanning Positive Examples"):
         if len(example) == 0:
             raise ValueError("Empty example found in positive examples")
 
@@ -334,6 +337,7 @@ def find_precondition_from_single_group(
         ), "_pruned_clauses must be provided if pruning process are to skipped"
         print("Skipping Pruning")
 
+    # success if no negative examples are passing
     if not passing_neg_exps:
         return [Precondition(list(base_precond_clauses))]
 
@@ -344,6 +348,10 @@ def find_precondition_from_single_group(
         for clause in merged_clauses_and_exp_ids
         if clause not in base_precond_clauses
     }
+
+    if len(partial_merged_clauses_and_exp_ids) == 0:
+        logger.debug("No partial preconditions found, cannot infer further")
+        return []
 
     # group the clauses by the example indices
     grouped_clauses: dict[tuple[int, ...], list[PreconditionClause]] = {}
