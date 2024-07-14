@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 
 
 def run_python_script(
@@ -156,7 +157,7 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     # should be current_dir + '../../example_pipelines'
     example_pipelines_dir = os.path.join(current_dir, "../../example_pipelines")
-    python_path = "/home/ziming/miniconda3/bin/python"
+    python_path = sys.executable
     script_name = "PT84911"
     modules_to_instrument = ["megatron", "deepspeed", "torch"]
     output_dir = os.path.join(current_dir, f"../../output/{script_name}")
