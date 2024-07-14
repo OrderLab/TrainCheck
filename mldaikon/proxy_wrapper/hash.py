@@ -37,7 +37,9 @@ def tensor_hash(x: Tensor, with_parallel: bool = False) -> int:
             x = x.cpu()
         import hashlib
 
-        return int(hashlib.sha256(x.detach().numpy().tobytes()).hexdigest(), 16)
+        return (
+            int(hashlib.sha256(x.detach().numpy().tobytes()).hexdigest(), 16) % MODULUS
+        )
 
 
 @torch.no_grad()
