@@ -75,15 +75,32 @@ if __name__ == "__main__":
         input_program_dir = os.path.join(example_pipelines_dir, script_name)
         input_program_list = find_files(input_program_dir, prefix="", suffix=".py")
         input_bash_script_list = find_files(input_program_dir, prefix="", suffix=".sh")
-        assert (
-            len(input_program_list) == 1
-        ), f"Multiple python files found in {input_program_dir}"
-        input_program = input_program_list[0]
-        assert (
-            len(input_bash_script_list) <= 1
-        ), f"Multiple bash files found in {input_program_dir}"
-        if len(input_bash_script_list) == 1:
-            input_bash_script = input_bash_script_list[0]
+        input_config_file = os.path.join(input_program_dir, "config.json")
+        if not os.path.exists(input_config_file):
+            assert (
+                len(input_program_list) == 1
+            ), f"Multiple python files found in {input_program_dir}"
+            input_program = input_program_list[0]
+            assert (
+                len(input_bash_script_list) <= 1
+            ), f"Multiple bash files found in {input_program_dir}"
+            if len(input_bash_script_list) == 1:
+                input_bash_script = input_bash_script_list[0]
+        else:
+            # the info from the config file will override previous configurations
+            try:
+                input_program = input_program_list[0]
+                input_bash_script = input_bash_script_list[0]
+            except Exception:
+                pass
+
+            config = read_config(input_config_file)
+            if "input_program" in config:
+                input_program = os.path.join(input_program_dir, config["input_program"])
+            if "input_bash_script" in config:
+                input_bash_script = os.path.join(
+                    input_program_dir, config["input_bash_script"]
+                )
 
     # if output_dir is not provided, then create a new directory with the script name
     if args.output_dir is None:
