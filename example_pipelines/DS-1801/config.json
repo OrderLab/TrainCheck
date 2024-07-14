@@ -1,0 +1,4 @@
+{
+    "input_program": "/data/ziming/ml-daikon/Megatron-DeepSpeed/pretrain_gpt.py",
+    "input_bash_script": "/data/ziming/ml-daikon/pretrain_gpt2_codeparrot_short.sh"
+}
