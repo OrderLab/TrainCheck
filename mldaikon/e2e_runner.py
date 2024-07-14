@@ -37,6 +37,20 @@ if __name__ == "__main__":
         help="Name of the script to be run",
     )
     parser.add_argument(
+        "--modules_to_instrument",
+        required=False,
+        nargs="*",
+        help="Modules to be instrumented",
+        default=e2e_config.modules_to_instrument,
+    )
+    parser.add_argument(
+        "--proxy_module",
+        required=False,
+        nargs="*",
+        help="Modules to be proxied (model by default)",
+        default=e2e_config.proxy_module,
+    )
+    parser.add_argument(
         "--example_pipelines_dir",
         type=str,
         required=False,
@@ -70,16 +84,18 @@ if __name__ == "__main__":
     script_name = args.script_name
     input_bash_script = ""
     input_program = os.path.join(example_pipelines_dir, f"{script_name}.py")
+    modules_to_instrument = args.modules_to_instrument
     # if input_program is not a file, then it is a directory
     if not os.path.isfile(input_program):
         input_program_dir = os.path.join(example_pipelines_dir, script_name)
         input_program_list = find_files(input_program_dir, prefix="", suffix=".py")
         input_bash_script_list = find_files(input_program_dir, prefix="", suffix=".sh")
         input_config_file = os.path.join(input_program_dir, "config.json")
+        print(f"input_config_file: {input_config_file}")
         if not os.path.exists(input_config_file):
             assert (
                 len(input_program_list) == 1
-            ), f"Multiple python files found in {input_program_dir}"
+            ), f"Multiple python files found in {input_program_dir}, {input_program_list}"
             input_program = input_program_list[0]
             assert (
                 len(input_bash_script_list) <= 1
@@ -88,19 +104,26 @@ if __name__ == "__main__":
                 input_bash_script = input_bash_script_list[0]
         else:
             # the info from the config file will override previous configurations
-            try:
-                input_program = input_program_list[0]
-                input_bash_script = input_bash_script_list[0]
-            except Exception:
-                pass
+            for var_name, var_list in [
+                ("input_program", input_program_list),
+                ("input_bash_script", input_bash_script_list),
+            ]:
+                try:
+                    globals()[var_name] = var_list[0]
+                except Exception:
+                    pass
 
             config = read_config(input_config_file)
-            if "input_program" in config:
+            if "input_program" in config and config["input_program"] != "":
                 input_program = os.path.join(input_program_dir, config["input_program"])
-            if "input_bash_script" in config:
+            if "input_bash_script" in config and config["input_bash_script"] != "":
                 input_bash_script = os.path.join(
                     input_program_dir, config["input_bash_script"]
                 )
+            if "modules_to_instrument" in config:
+                args.modules_to_instrument = config["modules_to_instrument"]
+            if "proxy_module" in config:
+                args.proxy_module = config["proxy_module"]
 
     # if output_dir is not provided, then create a new directory with the script name
     if args.output_dir is None:
@@ -115,11 +138,11 @@ if __name__ == "__main__":
         "input_program": input_program,
         "input_bash_script": input_bash_script,
         "modules_to_instrument": " ".join(modules_to_instrument),
+        "proxy_module": args.proxy_module,
         # "disable_proxy_class": False,
         # "scan_proxy_in_args": False,
         # "allow_disable_dump": False,
         # "funcs_of_inv_interest": None,
-        "proxy_module": "model_transfer",
         "proxy_log_dir": output_dir,
         "API_log_dir": api_log_dir,
         "profiling": str(args.profiling),

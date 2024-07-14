@@ -89,7 +89,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--profiling",
-        type=bool,
+        type=str,
         default=proxy_config.profiling,
         help="Enable to do profiling during the training process,"
         "there would be a train_profiling_results.pstats file generated"
@@ -211,6 +211,11 @@ if __name__ == "__main__":
         tensor_dump_format,  # Ziming: add tensor_dump_format for proxy_wrapper
         delta_dump_config,  # Ziming: add delta_dump_config for proxy_wrapper
     ]
+    profiling = proxy_basic_config["profiling"]
+    if profiling == "True":
+        profiling = True
+    else:
+        profiling = False
     source_code = instrumentor.instrument_file(
         args.pyscript,
         args.modules_to_instrument,
@@ -229,7 +234,7 @@ if __name__ == "__main__":
         args.pyscript,
         args.shscript,
         dry_run=args.only_instrument,
-        profiling=args.profiling,
+        profiling=profiling,
     )
     program_output, return_code = program_runner.run()
 

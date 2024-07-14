@@ -1,4 +1,4 @@
-import inspect
+import inspect  # noqa
 import json
 import os
 import random

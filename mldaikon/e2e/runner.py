@@ -121,10 +121,6 @@ def run_e2e(
     )
     API_trace_files = find_files(api_trace_folder, prefix="_ml_daikon", suffix=".log")
 
-    import pdb
-
-    pdb.set_trace()
-
     infer_engine_script_args: list[str] = [
         "-m",
         "mldaikon.infer_engine",
