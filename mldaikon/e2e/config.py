@@ -4,4 +4,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 modules_to_instrument = ["megatron", "deepspeed", "torch"]
 # should be current_dir + '../../example_pipelines'
 EXAMPLE_PIPELINES_DIR = os.path.join(current_dir, "../../example_pipelines")
-input_env = {"PYTORCH_JIT": "0"}
+input_env = {
+    "PYTORCH_JIT": "0"
+}  # should appear at the start of the mldaikon.collect_trace running command
