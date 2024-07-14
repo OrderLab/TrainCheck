@@ -35,3 +35,6 @@ VAR_ATTR_PREFIX = "attributes."
 
 CONST_CLAUSE_NUM_VALUES_THRESHOLD = 1  # FIXME: ad-hoc
 INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST = 0.001  # only truncate the incomplete function call if it is no earlier than 1ms to the outermost function call's post event
+
+# Ziming: added config for e2e pipeline
+API_log_dir = "."

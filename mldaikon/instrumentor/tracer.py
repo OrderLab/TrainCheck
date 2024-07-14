@@ -59,7 +59,12 @@ def get_trace_API_logger_for_process():
 
     logger = logging.getLogger(f"trace_API_{pid}")
     logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}.log"
+    trace_log_dir = os.getenv("TRACE_LOG_DIR") + "/API"
+    if not os.path.exists(trace_log_dir):
+        os.makedirs(trace_log_dir)
+    log_file = (
+        f"{trace_log_dir}/{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}.log"
+    )
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
@@ -79,7 +84,12 @@ def get_trace_VAR_logger_for_process():
 
     logger = logging.getLogger(f"trace_VAR_{pid}")
     logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}.log"
+    trace_log_dir = os.getenv("TRACE_LOG_DIR") + "/VAR"
+    if not os.path.exists(trace_log_dir):
+        os.makedirs(trace_log_dir)
+    log_file = (
+        f"{trace_log_dir}/{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}.log"
+    )
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
@@ -114,7 +124,10 @@ def get_instrumentation_logger_for_process():
 
     logger = logging.getLogger(f"instrumentation_{pid}")
     logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_instrumentation_{EXP_START_TIME}_{pid}.log"
+    trace_log_dir = os.getenv("TRACE_LOG_DIR") + "/Instrumentation"
+    if not os.path.exists(trace_log_dir):
+        os.makedirs(trace_log_dir)
+    log_file = f"{trace_log_dir}/{script_name}_mldaikon_instrumentation_{EXP_START_TIME}_{pid}.log"
     file_handler = logging.FileHandler(log_file)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)

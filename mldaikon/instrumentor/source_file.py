@@ -112,6 +112,7 @@ def instrument_file(
     disable_proxy_class: bool,
     scan_proxy_in_args: bool,
     allow_disable_dump: bool,
+    API_log_dir: str,
     funcs_of_inv_interest: list[str] | None,
     proxy_module: str,
     adjusted_proxy_config: list[dict[str, int | bool | str]],
@@ -141,9 +142,10 @@ def instrument_file(
         funcs_of_inv_interest,
     )
 
-    logging_code = """
+    logging_code = f"""
 import os
-os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]    
+os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]
+os.environ['TRACE_LOG_DIR'] = "{API_log_dir}"
 """
     proxy_start_code = ""
     auto_observer_code = ""

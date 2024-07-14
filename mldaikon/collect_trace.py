@@ -76,6 +76,12 @@ if __name__ == "__main__":
         help="Path to the log file of the proxy tracer",
     )
     parser.add_argument(
+        "--API_log_dir",
+        type=str,
+        default=config.API_log_dir,
+        help="Path to the log file of the API tracer",
+    )
+    parser.add_argument(
         "--proxy_module",
         type=str,
         default="None",
@@ -211,6 +217,7 @@ if __name__ == "__main__":
         disable_proxy_class,
         args.scan_proxy_in_args,
         args.allow_disable_dump,
+        args.API_log_dir,
         funcs_of_inv_interest,
         args.proxy_module,
         adjusted_proxy_config,  # type: ignore
