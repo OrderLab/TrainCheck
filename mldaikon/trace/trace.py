@@ -133,7 +133,7 @@ class Trace:
 
             assert (
                 thread_id != outermost_func_call_pre["thread_id"]
-            ), "Incomplete function call is not on a different thread. Please Investigate."
+            ), f"Incomplete function call (func_call_id: {record['func_call_id']}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) on process {process_id}. Please Investigate."
 
             outermost_func_call_post = self.events.filter(
                 pl.col("type") == TraceLineType.FUNC_CALL_POST,
