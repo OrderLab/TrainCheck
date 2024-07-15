@@ -21,6 +21,13 @@ def cuda_hash_kernel(data, hash_values, multiplier, increment):
 
 
 def hash_tensor_cuda(x):
+
+    # if x is more than 2D, flatten it to 2D
+    if x.ndim > 2:
+        x = x.flatten(start_dim=0, end_dim=-2)
+    else:
+        # if x is 1D, add a dimension to make it 2D (n x 1)
+        x = x.unsqueeze(0)
     (rows, _) = x.shape
 
     hash_values = cuda.device_array(rows, dtype=np.int64)
