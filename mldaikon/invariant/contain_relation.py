@@ -107,10 +107,6 @@ class APIContainRelation(Relation):
         ] = {}
         func_names = trace.get_func_names()
 
-        func_names = [
-            func_name for func_name in func_names if "adam.step" in func_name.lower()
-        ]
-
         if len(func_names) == 0:
             logger.warning(
                 "No function calls found in the trace, skipping the analysis"
