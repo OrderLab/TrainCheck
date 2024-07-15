@@ -46,7 +46,10 @@ def _unnest_all(schema, separator):
 
 
 def unnest_all(df: pl.DataFrame, separator=".") -> pl.DataFrame:
-    return df.select(_unnest_all(df.schema, separator))
+    logger.info("Unnesting all columns in the DataFrame.")
+    unnested_df = df.select(_unnest_all(df.schema, separator))
+    logger.info("Done unnesting all columns in the DataFrame.")
+    return unnested_df
 
 
 def get_attr_name(col_name: str) -> str:
@@ -74,15 +77,21 @@ class Trace:
             self.events, pl.DataFrame
         ), "events should be a DataFrame, list of DataFrames, or a list of dictionaries."
 
-        try:
-            self.events = self.events.sort("time", descending=False)
-        except pl.PolarsError:
-            raise ValueError(
-                "Failed to sort the events by time. Check if the time column is present in the events."
-            )
+        assert (
+            "time" in self.events.columns
+        ), "time column not found in the events, cannot infer invariants as the analysis does a lot of queries based on time."
+
+        # TODO: we need to handle the schema issue in polars quickly as it will force us to split the traces by schema, which will cause traces from one process to be split into multiple files and thus we will have to sort the entire trace by time, which is costly
+        logger.warn(
+            "Infer engine won't sort the events by time anymore as sorting is costly for large traces. Please make sure every separate file is sorted by time, and traces belong to the same process should be in the same file. For variable traces, we will still be sorting them by time so no need to worry about that."
+        )
 
         if truncate_incomplete_func_calls:
+            logger.info("Truncating incomplete trailing function calls from the trace.")
             self._rm_incomplete_trailing_func_calls()
+            logger.info(
+                "Done truncating incomplete trailing function calls from the trace."
+            )
 
     def _rm_incomplete_trailing_func_calls(self):
         """Remove incomplete trailing function calls from the trace. https://github.com/OrderLab/ml-daikon/issues/31"""
@@ -94,17 +103,19 @@ class Trace:
             )
             return
         # group function calls by func_call_id ## NOTE: BREAKING BEHAVIOR IF FUNC_CALL_ID IS NOT UNIQUE
-        func_call_groups = self.events.groupby("func_call_id").count()
+        func_call_groups = self.events.group_by("func_call_id").count()
         # find the func_call_ids that have only one record
         incomplete_func_call_ids = func_call_groups.filter(pl.col("count") == 1)[
             "func_call_id"
         ]
 
         # retrieve the traces of the incomplete function calls
-        func_call_records = self.events.filter(
+        incomplete_func_call_records = self.events.filter(
             pl.col("func_call_id").is_in(incomplete_func_call_ids)
         )
-        for record in func_call_records.rows(named=True):
+        for record in incomplete_func_call_records.rows(
+            named=True
+        ):  # order of events doesn't matter as we are querying by func_call_id
             assert (
                 record["type"] == TraceLineType.FUNC_CALL_PRE
             ), "Incomplete function call is not a pre-call event."
@@ -118,15 +129,18 @@ class Trace:
                 pl.col("process_id") == process_id,
             ).row(
                 0, named=True
-            )  # events is pre-sorted by time, so no need to sort again
+            )  # order of events does matter here, but as long as each process is ordered by time, we should be fine
 
             assert (
                 thread_id != outermost_func_call_pre["thread_id"]
-            ), "Incomplete function call is not on a different thread. Please Investigate."
+            ), f"Incomplete function call (func_call_id: {record['func_call_id']}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) on process {process_id}. Please Investigate."
 
             outermost_func_call_post = self.events.filter(
+                pl.col("type") == TraceLineType.FUNC_CALL_POST,
                 pl.col("func_call_id") == outermost_func_call_pre["func_call_id"],
-            ).row(1, named=True)
+            ).row(
+                0, named=True
+            )  # order of events does not matter here as the result here is a single row
 
             if (
                 record["time"]
@@ -189,7 +203,9 @@ class Trace:
         func_call_pre_event = self.events.filter(
             pl.col("type") == TraceLineType.FUNC_CALL_PRE,
             pl.col("func_call_id") == func_call_id,
-        ).row(0, named=True)
+        ).row(
+            0, named=True
+        )  # order of events doesn't matter as the result here is a single row
 
         # get the process id of the function call
         assert func_call_pre_event[
@@ -210,7 +226,7 @@ class Trace:
         causally_related_var_ids: set[VarInstId] = set()
         for related_func_call_pre_event in related_func_call_pre_events.rows(
             named=True
-        ):
+        ):  # order of events doesn't matter as we are querying by time when we get the related_func_call_pre_events variable
             # having the assertion failure does not mean that we run into a bug, but it is something that we should investigate
             assert (
                 related_func_call_pre_event["process_id"] == process_id
@@ -276,7 +292,7 @@ class Trace:
         )
 
         self.var_ids = []
-        for var_id in variables.rows(named=True):
+        for var_id in variables.rows(named=True):  # order of events doesn't matter
             self.var_ids.append(
                 VarInstId(
                     var_id["process_id"],
@@ -300,7 +316,9 @@ class Trace:
                 pl.col("process_id") == var_id.process_id,
                 pl.col("var_name") == var_id.var_name,
                 pl.col("var_type") == var_id.var_type,
-            )
+            ).sort(
+                "time"
+            )  # we need to sort the events by time to make sure the order of the events is correct
 
             state_changes = var_inst_states.filter(
                 pl.col("type") == TraceLineType.STATE_CHANGE
@@ -308,7 +326,9 @@ class Trace:
 
             # init attribute values for this variable
             attr_values = {}
-            for state_change in state_changes.rows(named=True):
+            for state_change in state_changes.rows(
+                named=True
+            ):  # order of events matters here as we assume the rows of the events are ordered by time, we can refactor this to use the time column to sort the rows, but it is not necessary as the states for one single var should be on the same process, which is naturally orderred by time
                 for col in state_change:
                     if col.startswith(config.VAR_ATTR_PREFIX):
                         attr_name = get_attr_name(col)
@@ -369,7 +389,9 @@ class Trace:
             pl.col("var_name") == var_id.var_name,
             pl.col("var_type") == var_id.var_type,
             pl.col("time") < time,
-        ).rows(named=True)
+        ).rows(
+            named=True
+        )  # order of events doesn't matter as we already query by time
 
     def get_var_changes(self) -> list[VarChangeEvent]:
         if self.var_changes is not None:
@@ -428,12 +450,16 @@ class Trace:
         func_call_pre_event = self.events.filter(
             pl.col("type") == TraceLineType.FUNC_CALL_PRE,
             pl.col("func_call_id") == func_call_id,
-        ).row(0, named=True)
+        ).row(
+            0, named=True
+        )  # order of events doesn't matter as the result here is a single row
 
         func_call_post_event = self.events.filter(
             pl.col("type") == TraceLineType.FUNC_CALL_POST,
             pl.col("func_call_id") == func_call_id,
-        ).row(0, named=True)
+        ).row(
+            0, named=True
+        )  # order of events doesn't matter as the result here is a single row
 
         return self.query_var_changes_within_time(
             (func_call_pre_event["time"], func_call_post_event["time"])
@@ -480,70 +506,64 @@ class Trace:
 
         return groups
 
-    def get_func_post_call_idx(self, func_pre_call_idx: int) -> int:
-        """Get the post call index of a function given its pre-call index."""
-        # get the first record of the trace at the offset
-        pre_call_record = self.events.row(index=func_pre_call_idx, named=True)
+    def get_pre_func_call_record(self, func_call_id: str) -> dict:
+        """Get the pre call record of a function given its pre-call index."""
+        pre_records = self.events.filter(
+            pl.col("func_call_id") == func_call_id,
+            pl.col("type") == TraceLineType.FUNC_CALL_PRE,
+        )
 
         assert (
-            pre_call_record["type"] == TraceLineType.FUNC_CALL_PRE
-        ), "The record at the given index is not a function call (pre) event."
+            pre_records.height == 1
+        ), f"Multiple pre call events found for {func_call_id}"
+        pre_record = pre_records.row(
+            0, named=True
+        )  # order of events doesn't matter as the result here is a single row
 
-        function = pre_call_record["function"]
-        process_id = pre_call_record["process_id"]
-        thread_id = pre_call_record["thread_id"]
-        func_call_id = pre_call_record["func_call_id"]
+        return pre_record
 
-        # get the idx of the first post-event
-        func_post_call_indices = self.events.select(
-            pl.arg_where(
-                (
-                    pl.col("type").is_in(
-                        [
-                            TraceLineType.FUNC_CALL_POST,
-                            TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                        ]
-                    )
-                )
-                & (pl.col("function") == function)
-                & (pl.col("func_call_id") == func_call_id)
-                & (pl.col("process_id") == process_id)
-                & (pl.col("thread_id") == thread_id)
-            )
-        ).to_series()
+    def get_post_func_call_record(self, func_call_id: str) -> dict:
+        """Get the post call record of a function given its pre-call index."""
+        post_records = self.events.filter(
+            pl.col("func_call_id") == func_call_id,
+            pl.col("type").is_in(
+                [TraceLineType.FUNC_CALL_POST, TraceLineType.FUNC_CALL_POST_EXCEPTION]
+            ),
+        )
 
-        # find the first post-idx > offset as there might be multiple calls with the same func_call_id
-        func_post_call_idx = [
-            idx for idx in func_post_call_indices if idx > func_pre_call_idx
-        ][0]
-        return func_post_call_idx
+        assert (
+            post_records.height == 1
+        ), f"Multiple post call events found for {func_call_id}"
+        post_record = post_records.row(
+            0, named=True
+        )  # order of events doesn't matter as the result here is a single row
+
+        return post_record
 
     def query_func_call_events_within_time(
         self, time_range: tuple[int, int], process_id: int, thread_id: int
     ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
         """Extract all function call events from the trace."""
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
-        func_pre_call_event_indices = (
-            self.events.select(
-                pl.arg_where(
-                    (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
-                    & (
-                        pl.col("time").is_between(
-                            time_range[0], time_range[1], closed="none"
-                        )
+        func_call_ids = (
+            self.events.filter(
+                (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
+                & (
+                    pl.col("time").is_between(
+                        time_range[0], time_range[1], closed="none"
                     )
-                    & (pl.col("process_id") == process_id)
-                    & (pl.col("thread_id") == thread_id)
                 )
+                & (pl.col("process_id") == process_id)
+                & (pl.col("thread_id") == thread_id)
             )
+            .select(pl.col("func_call_id"))
             .to_series()
             .to_list()
         )
 
-        for func_pre_call_idx in func_pre_call_event_indices:
-            func_post_call_idx = self.get_func_post_call_idx(func_pre_call_idx)
-            pre_record = self.events.row(index=func_pre_call_idx, named=True)
-            post_record = self.events.row(index=func_post_call_idx, named=True)
+        for func_call_id in func_call_ids:
+            pre_record = self.get_pre_func_call_record(func_call_id)
+            post_record = self.get_post_func_call_record(func_call_id)
             assert (
                 post_record["time"] < time_range[1]
             ), f"Post call event found after the time range {time_range}"
@@ -569,17 +589,32 @@ class Trace:
 
         return high_level_func_call_events + high_level_var_change_events
 
+    def get_time_precentage(self, time: int) -> float:
+        return (time - self.get_start_time()) / (
+            self.get_end_time() - self.get_start_time()
+        )
+
 
 def read_trace_file(
     file_path: str | list[str], truncate_incomplete_func_calls=True
 ) -> Trace:
     """Reads the trace file and returns the trace instance."""
     if isinstance(file_path, list):
-        events = pl.concat(
-            [pl.read_ndjson(f) for f in file_path], how="diagonal_relaxed"
-        )
+        dfs = []
+        for f in file_path:
+            try:
+                dfs.append(pl.read_ndjson(f))
+                logger.info(f"Done reading {f}")
+            except Exception as e:
+                logger.error(f"Failed to read {f} due to {e}. aborting")
+                raise e
+        logger.info("Concatenating the DataFrames")
+        events = pl.concat(dfs, how="diagonal_relaxed")
+        logger.info("Done concatenating the DataFrames")
     else:
         events = pl.read_ndjson(file_path)
+        logger.info(f"Done reading {file_path}")
+
     return Trace(
         unnest_all(events),
         truncate_incomplete_func_calls=truncate_incomplete_func_calls,
