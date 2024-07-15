@@ -33,7 +33,7 @@ jobs:
     - name: Merge with main
       working-directory: tmp
       run: |
-        git pull ${{env.MASTER_REPO}} ${{env.MASTER_BRANCH}}
+        git pull ${{env.MY_REPO}} ${{env.MASTER_BRANCH}}
     - name: Push changes
       working-directory: tmp
       run: |
