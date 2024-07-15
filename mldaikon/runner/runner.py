@@ -68,6 +68,8 @@ class ProgramRunner(object):
             return "Dry run. Program not executed.", 0
 
         if self._tmp_sh_script_path is not None:
+            if self.profiling:
+                raise ValueError("Profiling is not supported with shell scripts.")
             # change to the directory of the sh script
             current_dir = os.getcwd()
             os.chdir(os.path.dirname(self._tmp_sh_script_path))
