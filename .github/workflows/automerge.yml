@@ -26,12 +26,15 @@ jobs:
         git clone ${{env.MY_REPO}} -b ${{env.MY_BRANCH}} tmp
         cd tmp
     - name: Configure git
+      working-directory: tmp
       run: |
         git config user.name "Automerge Bot"
         git config user.email "bot@example.com"
     - name: Merge with main
+      working-directory: tmp
       run: |
         git pull ${{env.MASTER_REPO}} ${{env.MASTER_BRANCH}}
     - name: Push changes
+      working-directory: tmp
       run: |
         git push
