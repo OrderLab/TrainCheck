@@ -1,0 +1,37 @@
+name: Automerge
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+env:
+  MY_REPO: https://x-access-token:${{secrets.GITHUB_TOKEN}}@github.com/OrderLab/ml-daikon.git
+
+  MY_BRANCH: e2e
+  MASTER_REPO: https://github.com/OrderLab/ml-daikon.git
+
+  MASTER_BRANCH: main
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout e2e branch
+      run: |
+        git clone ${{env.MY_REPO}} -b ${{env.MY_BRANCH}} tmp
+        cd tmp
+    - name: Configure git
+      run: |
+        git config user.name "Automerge Bot"
+        git config user.email "bot@example.com"
+    - name: Merge with main
+      run: |
+        git pull ${{env.MASTER_REPO}} ${{env.MASTER_BRANCH}}
+    - name: Push changes
+      run: |
+        git push
