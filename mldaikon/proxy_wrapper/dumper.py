@@ -1,9 +1,10 @@
 import inspect
 import json
-from typing import Any, Dict
+from typing import Dict
 
 import torch
 
+from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.hash import tensor_hash
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.proxy_config import (
@@ -16,8 +17,7 @@ from mldaikon.proxy_wrapper.proxy_config import (
 )
 from mldaikon.proxy_wrapper.utils import print_debug
 
-# from mldaikon.instrumentor.tracer import meta_vars
-meta_vars: dict[str, Any] = {}
+# meta_vars: dict[str, Any] = {}
 delta_dump = delta_dump_config["delta_dump"]
 delta_dump_attributes = delta_dump_config["delta_dump_attributes"]
 delta_dump_meta_var = delta_dump_config["delta_dump_meta_var"]
@@ -189,7 +189,7 @@ def dump_attributes(obj, value):
     return result
 
 
-def dump_meta_vars(obj, level=8, proxy_file_path=""):
+def dump_meta_vars(obj, level=20, proxy_file_path=""):
     frame = inspect.currentframe()
     while (
         frame.f_code.co_filename == proxy_file_path
