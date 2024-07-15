@@ -17,7 +17,6 @@ from mldaikon.proxy_wrapper.proxy_config import (
 )
 from mldaikon.proxy_wrapper.utils import print_debug
 
-# meta_vars: dict[str, Any] = {}
 delta_dump = delta_dump_config["delta_dump"]
 delta_dump_attributes = delta_dump_config["delta_dump_attributes"]
 delta_dump_meta_var = delta_dump_config["delta_dump_meta_var"]

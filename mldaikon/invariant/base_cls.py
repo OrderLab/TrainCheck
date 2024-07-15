@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 import json
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Hashable, Iterable, Optional, Type
@@ -312,6 +313,17 @@ class GroupedPreconditions:
     def get_group_names(self) -> set[str]:
         return set(self.grouped_preconditions.keys())
 
+    def verify_for_group(self, example: list, group_name: str) -> bool:
+        assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
+        if len(self.grouped_preconditions[group_name]) == 0:
+            logger = logging.getLogger(__name__)
+            logger.debug("No preconditions found for group %s", group_name)
+            return True
+        for precondition in self.grouped_preconditions[group_name]:
+            if precondition.verify(example):
+                return True
+        return False
+
     @staticmethod
     def from_dict(precondition_dict: dict) -> GroupedPreconditions:
         grouped_preconditions: dict[str, list[Precondition]] = {}
@@ -389,11 +401,11 @@ class Invariant:
         precondition = GroupedPreconditions.from_dict(invariant_dict["precondition"])
         return Invariant(relation, params, precondition, text_description)
 
-    def check(self, trace: Trace) -> CheckerResult:
+    def check(self, trace: Trace, check_relation_first: bool) -> CheckerResult:
         assert (
             self.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
-        return self.relation.static_check_all(trace, self)
+        return self.relation.static_check_all(trace, self, check_relation_first)
 
 
 class CheckerResult:
@@ -561,7 +573,9 @@ class Relation(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def static_check_all(trace: Trace, inv: Invariant) -> CheckerResult:
+    def static_check_all(
+        trace: Trace, inv: Invariant, check_relation_first: bool
+    ) -> CheckerResult:
         """Given a trace and an invariant, should return a boolean value
         indicating whether the invariant holds on the trace.
 
