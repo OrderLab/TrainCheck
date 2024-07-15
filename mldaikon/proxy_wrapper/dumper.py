@@ -188,7 +188,7 @@ def dump_attributes(obj, value):
     return result
 
 
-def dump_meta_vars(obj, level=8, proxy_file_path=""):
+def dump_meta_vars(obj, level=20, proxy_file_path=""):
     frame = inspect.currentframe()
     while (
         frame.f_code.co_filename == proxy_file_path
