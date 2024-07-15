@@ -25,7 +25,7 @@ def hash_tensor_cuda(x):
     # if x is more than 2D, flatten it to 2D
     if x.ndim > 2:
         x = x.flatten(start_dim=0, end_dim=-2)
-    else:
+    elif x.ndim == 1:
         # if x is 1D, add a dimension to make it 2D (n x 1)
         x = x.unsqueeze(0)
     (rows, _) = x.shape
@@ -135,7 +135,7 @@ if __name__ == "__main__":
         tensor = torch.arange(size * size).reshape(size, size).bfloat16()
         tensors.append(tensor)
     # change the tensor type to bfloat16
-    for _ in range(200):
+    for _ in range(1):
         for tensor in tensors:
             print(f"Tensor size: {tensor.size()}")
             # time
