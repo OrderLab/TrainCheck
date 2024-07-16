@@ -17,5 +17,6 @@ setup(
         "polars>=1.0.0",
         "torch",
         "tqdm",
+        "numba",
     ],
 )
