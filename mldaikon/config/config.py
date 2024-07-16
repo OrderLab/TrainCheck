@@ -35,3 +35,5 @@ VAR_ATTR_PREFIX = "attributes."
 
 CONST_CLAUSE_NUM_VALUES_THRESHOLD = 1  # FIXME: ad-hoc
 INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST = 0.001  # only truncate the incomplete function call if it is no earlier than 1ms to the outermost function call's post event
+
+POSITIVE_EXAMPLES_THRESHOLD = 2  # in ConsistencyRelation, we need to see at least two positive examples on one pair of variables to add a hypothesis for their types

@@ -112,8 +112,21 @@ class ConsistencyRelation(Relation):
             logger.warning("No variables found in the trace.")
             return []
 
+        def is_hypo_already_in_hypothesis(hypo: tuple, hypothesis: set) -> bool:
+            return (
+                hypo in hypothesis or (hypo[2], hypo[3], hypo[0], hypo[1]) in hypothesis
+            )
+
+        def skip_attrs_with_different_dtypes(attr1, attr2):
+            return (
+                trace.events[tracker_var_field_prefix + attr1].dtype
+                != trace.events[tracker_var_field_prefix + attr2].dtype
+            )
+
         ## 2. Hypothesis Generation Based on Liveness Overlapping
-        hypothesis = set()  # {(var_type1, attr1, var_type2, attr2)}
+        hypothesis: set[tuple[str, str, str, str]] = (
+            set()
+        )  # {(var_type1, attr1, var_type2, attr2)}
         for var_inst, other_var_inst in tqdm(
             combinations(var_insts, 2),
             desc="Generating Hypothesis",
@@ -125,31 +138,30 @@ class ConsistencyRelation(Relation):
                         # skipping the same variable instance's same attribute
                         continue
 
-                    # if we already have such hypothesis, skipping
-                    if (
+                    hypo = (
                         var_inst.var_type,
                         attr,
                         other_var_inst.var_type,
                         other_attr,
-                    ) in hypothesis:
+                    )
+                    if is_hypo_already_in_hypothesis(hypo, hypothesis):
                         continue
 
-                    if (
-                        other_var_inst.var_type,
-                        other_attr,
-                        var_inst.var_type,
-                        attr,
-                    ) in hypothesis:
+                    if skip_attrs_with_different_dtypes(attr, other_attr):
                         continue
 
-                    if (
-                        trace.events[tracker_var_field_prefix + attr].dtype
-                        != trace.events[tracker_var_field_prefix + other_attr].dtype
+                    is_skipping_init_values = False
+                    if skip_init_values(var_inst.var_type) or skip_init_values(
+                        other_var_inst.var_type
                     ):
-                        continue
+                        is_skipping_init_values = True
+                        logger.debug(
+                            f"Skipping init values for {var_inst.var_type} and {other_var_inst.var_type}"
+                        )
 
                     # for each pair of attributes, calculate the liveness overlapping
                     done_creating_hypothesis = False
+                    seen_positive_examples = 0
                     for value in var_insts[var_inst][attr]:
                         saw_overlap = False
                         if done_creating_hypothesis:
@@ -163,17 +175,16 @@ class ConsistencyRelation(Relation):
                                 if compare_with_fp_tolerance(
                                     value.value, other_value.value
                                 ):
-                                    hypothesis.add(
-                                        (
-                                            var_inst.var_type,
-                                            attr,
-                                            other_var_inst.var_type,
-                                            other_attr,
-                                        )
-                                    )
+                                    seen_positive_examples += 1
+
+                                if (
+                                    seen_positive_examples
+                                    >= config.POSITIVE_EXAMPLES_THRESHOLD
+                                ):
                                     logger.debug(
                                         f"Adding Hypothesis: ({var_inst.var_type}, {attr}, {other_var_inst.var_type}, {other_attr})"
                                     )
+                                    hypothesis.add(hypo)
                                     done_creating_hypothesis = True
                                     break
                             else:
@@ -181,82 +192,7 @@ class ConsistencyRelation(Relation):
                                     # there won't be any more overlap, so we can break
                                     break
 
-        ## 3. Hypothesis Pruning
-        logger.debug(f"Hypothesis: {hypothesis}")
-        logger.debug(f"Number of Hypothesis: {len(hypothesis)}")
-
-        # for each hypothesis, collect number of positive examples seen, if it is below a threshold, prune it
-        filtered_hypothesis = []  # [(var_type1, attr1, var_type2, attr2)]
-        for hypo in hypothesis:
-            var_type1 = hypo[0]
-            attr1 = hypo[1]
-            var_type2 = hypo[2]
-            attr2 = hypo[3]
-
-            # collect all variables that have the same types as var_type1 and var_type2
-            var_type1_vars = [
-                var_inst for var_inst in var_insts if var_inst.var_type == var_type1
-            ]
-            var_type2_vars = [
-                var_inst for var_inst in var_insts if var_inst.var_type == var_type2
-            ]
-
-            positive_examples = 0
-            positive_examples_threshold = 0  # This number should be the total number of varInst pairs on which the hypothesis is applicable
-
-            # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
-            is_skipping_init_values = False
-
-            if skip_init_values(var_type1) or skip_init_values(var_type2):
-                is_skipping_init_values = True
-                logger.debug(f"Skipping init values for {var_type1} and {var_type2}")
-
-            for idx1, var_inst1 in enumerate(
-                tqdm(var_type1_vars, desc=f"Pruning Hypo {hypo}")
-            ):
-                for idx2, var_inst2 in enumerate(var_type2_vars):
-                    if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
-                        continue
-                    found_positive_example = False
-                    if var_inst1 == var_inst2:
-                        continue
-
-                    for val_idx1, value1 in enumerate(var_insts[var_inst1][attr1]):
-                        for val_idx2, value2 in enumerate(var_insts[var_inst2][attr2]):
-                            if is_skipping_init_values and (
-                                val_idx1 == 0 or val_idx2 == 0
-                            ):
-                                # skipping the init values
-                                continue
-
-                            overlap = calc_liveness_overlap(
-                                value1.liveness, value2.liveness
-                            )
-                            if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
-                                if compare_with_fp_tolerance(
-                                    var_insts[var_inst1][attr1][val_idx1].value,
-                                    var_insts[var_inst2][attr2][val_idx2].value,
-                                ):
-                                    positive_examples += 1
-                                    found_positive_example = True
-                    if found_positive_example:
-                        positive_examples_threshold += 1
-
-            if is_skipping_init_values and positive_examples > 0:
-                filtered_hypothesis.append(hypo)
-                logger.debug(
-                    f"Keeping hypothesis (INIT VALUEs SKIPPED): {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
-                )
-            elif positive_examples > positive_examples_threshold:
-                filtered_hypothesis.append(hypo)
-                logger.debug(
-                    f"Keeping hypothesis: {hypo} with num positive examples {positive_examples}, expected threshold: {positive_examples_threshold}"
-                )
-            else:
-                logger.debug(
-                    f"Filtering out hypothesis: {hypo} with num positive examples: {positive_examples}, expected threshold: {positive_examples_threshold}"
-                )
-
+        filtered_hypothesis = hypothesis
         logger.debug(f"Filtered Hypothesis: {filtered_hypothesis}")
         # filtered_hypothesis = [("Parameter", "data", "Parameter", "data")]
 
@@ -305,14 +241,13 @@ class ConsistencyRelation(Relation):
                         continue
                     if var_inst1 == var_inst2:
                         continue
-                    for val_idx1, value1 in enumerate(var_insts[var_inst1][attr1]):
-                        for val_idx2, value2 in enumerate(var_insts[var_inst2][attr2]):
-                            if is_skipping_init_values and (
-                                val_idx1 == 0 or val_idx2 == 0
-                            ):
-                                # skipping the init values
-                                continue
-
+                    for val_idx1, value1 in enumerate(
+                        var_insts[var_inst1][attr1], start=int(is_skipping_init_values)
+                    ):
+                        for val_idx2, value2 in enumerate(
+                            var_insts[var_inst2][attr2],
+                            start=int(is_skipping_init_values),
+                        ):
                             overlap = calc_liveness_overlap(
                                 value1.liveness, value2.liveness
                             )
