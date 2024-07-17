@@ -29,9 +29,34 @@ EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 meta_vars: dict[str, object] = {}
 
-trace_API_loggers: dict[int, logging.Logger] = {}
-trace_VAR_loggers: dict[int, logging.Logger] = {}
+import queue
+trace_API_loggers: dict[int, (queue.Queue, threading.Thread, logging.Logger)] = {}
+trace_VAR_loggers: dict[int, (queue.Queue, threading.Thread, logging.Logger)] = {}
 instrumentation_loggers: dict[int, logging.Logger] = {}
+
+def get_dicts():
+    return trace_API_loggers, trace_VAR_loggers
+
+def log_worker(queue, log_filename, logger):
+    buffer = []
+    level=logging.INFO
+    buffer_size = 10000
+    while True:
+        log_entry = queue.get()
+        if log_entry is None:
+            if buffer:
+                # with open(log_filename, 'a') as f:
+                #     f.write('\n'.join(buffer) + '\n')
+                logger.log(level, '\n'.join(buffer) + '\n')
+            queue.task_done()
+            break
+        buffer.append(log_entry)
+        if len(buffer) >= buffer_size:
+            # with open(log_filename, 'a') as f:
+            #     f.write('\n'.join(buffer) + '\n')
+            logger.log(level, '\n'.join(buffer) + '\n')
+            buffer.clear()
+        queue.task_done()
 
 disable_proxy_class = disable_proxy_class
 
@@ -55,16 +80,20 @@ def get_trace_API_logger_for_process():
     ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
 
     if pid in trace_API_loggers:
-        return trace_API_loggers[pid]
-
+        return trace_API_loggers[pid][0]
+    
+    log_queue = queue.Queue()
+    log_filename = f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}.log"
     logger = logging.getLogger(f"trace_API_{pid}")
     logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}.log"
-    file_handler = logging.FileHandler(log_file)
+    file_handler = logging.FileHandler(log_filename)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
-    trace_API_loggers[pid] = logger
-    return logger
+    log_thread = threading.Thread(target=log_worker, args=(log_queue, log_filename, logger))
+    log_thread.start()
+
+    trace_API_loggers[pid] = (log_queue, log_thread, logger)
+    return log_queue
 
 
 def get_trace_VAR_logger_for_process():
@@ -75,32 +104,35 @@ def get_trace_VAR_logger_for_process():
     ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
 
     if pid in trace_VAR_loggers:
-        return trace_VAR_loggers[pid]
+        return trace_VAR_loggers[pid][0]
 
+    log_queue = queue.Queue()
+    log_filename = f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}.log"
     logger = logging.getLogger(f"trace_VAR_{pid}")
     logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}.log"
-    file_handler = logging.FileHandler(log_file)
+    file_handler = logging.FileHandler(log_filename)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
-    trace_VAR_loggers[pid] = logger
-    return logger
+    log_thread = threading.Thread(target=log_worker, args=(log_queue, log_filename, logger))
+    log_thread.start()
+
+    trace_VAR_loggers[pid] = (log_queue, log_thread, logger)
+    return log_queue
 
 
 def dump_trace_API(trace: dict, level=logging.INFO):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    logger = get_trace_API_logger_for_process()
+    log_queue = get_trace_API_logger_for_process()
     trace["time"] = datetime.datetime.now().timestamp()
-    logger.log(level, json.dumps(trace))
+    log_queue.put(json.dumps(trace))
 
 
 def dump_trace_VAR(trace: dict, level=logging.INFO):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    logger = get_trace_VAR_logger_for_process()
+    log_queue = get_trace_VAR_logger_for_process()
     if "time" not in trace:
         trace["time"] = datetime.datetime.now().timestamp()
-    logger.log(level, json.dumps(trace))
-
+    log_queue.put(json.dumps(trace))
 
 def get_instrumentation_logger_for_process():
     pid = os.getpid()
@@ -866,3 +898,4 @@ class StatelessVarObserver:
                     "time": timestamp,
                 }
             )
+
