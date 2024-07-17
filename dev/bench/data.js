@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721170860254,
+  "lastUpdate": 1721183508717,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1650,6 +1650,72 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5045964870901666",
             "extra": "mean: 236.98849135264754 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zimingzh@umich.edu",
+            "name": "ziming-zh",
+            "username": "ziming-zh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ef39afaf2e4d58b29b5d2faa5f76abe60ac28fa6",
+          "message": "Merge pull request #64 from OrderLab/tensor_hash_accelerate\n\nsupport cuda kernel on Tensor hash acceleration",
+          "timestamp": "2024-07-16T19:23:56-04:00",
+          "tree_id": "571735bff5da06c9c1d34c2fe072493bb4f1bf3e",
+          "url": "https://github.com/OrderLab/ml-daikon/commit/ef39afaf2e4d58b29b5d2faa5f76abe60ac28fa6"
+        },
+        "date": 1721183508216,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_naive",
+            "value": 0.010437760779545373,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19642612686318012",
+            "extra": "mean: 95.8059895336628 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.006981079844762635,
+            "unit": "iter/sec",
+            "range": "stddev: 0.30530450995960623",
+            "extra": "mean: 143.2443149536848 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.008620752118854241,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12765157504551275",
+            "extra": "mean: 115.99915949478745 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0012767614181248919,
+            "unit": "iter/sec",
+            "range": "stddev: 1.6162978649974806",
+            "extra": "mean: 783.2316874586046 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.004322374113317539,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3446586921188709",
+            "extra": "mean: 231.35433763563634 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented_with_scan_proxy_in_args",
+            "value": 0.0042085270203158325,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1122193893110845",
+            "extra": "mean: 237.61282633394003 sec\nrounds: 5"
           }
         ]
       }
