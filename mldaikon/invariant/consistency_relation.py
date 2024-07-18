@@ -155,9 +155,6 @@ class ConsistencyRelation(Relation):
                         other_var_inst.var_type
                     ):
                         is_skipping_init_values = True
-                        logger.debug(
-                            f"Skipping init values for {var_inst.var_type} and {other_var_inst.var_type}"
-                        )
 
                     # for each pair of attributes, calculate the liveness overlapping
                     done_creating_hypothesis = False
@@ -194,7 +191,7 @@ class ConsistencyRelation(Relation):
 
         filtered_hypothesis = hypothesis
         logger.debug(f"Filtered Hypothesis: {filtered_hypothesis}")
-        # filtered_hypothesis = [("Parameter", "data", "Parameter", "data")]
+        # filtered_hypothesis = [("torch.cuda.BFloat16Tensor", "data", "torch.cuda.BFloat16Tensor", "data")]
 
         ## 4.  Positive Examples and Negative Examples Collection
         group_name = VAR_GROUP_NAME
@@ -214,13 +211,13 @@ class ConsistencyRelation(Relation):
             )
             for hypo in filtered_hypothesis
         }
+
         for hypo in hypothesis_with_examples:
             var_type1 = hypo[0]
             attr1 = hypo[1]
             var_type2 = hypo[2]
             attr2 = hypo[3]
 
-            # HACK: if both types are torch types, let's skip the init values (we've seen in DS-1801 that many unrelated layers have the same value due to the initialization at step 0)
             is_skipping_init_values = False
             if skip_init_values(var_type1) or skip_init_values(var_type2):
                 is_skipping_init_values = True
@@ -233,21 +230,21 @@ class ConsistencyRelation(Relation):
                 var_inst for var_inst in var_insts if var_inst.var_type == var_type2
             ]
 
-            for idx1, var_inst1 in tqdm(
-                enumerate(var_type1_vars), desc=f"Collecting Examples for Hypo: {hypo}"
+            for idx1, var_inst1 in enumerate(
+                tqdm(var_type1_vars, desc=f"Collecting Examples for Hypo: {hypo}")
             ):
                 for idx2, var_inst2 in enumerate(var_type2_vars):
                     if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
                         continue
                     if var_inst1 == var_inst2:
                         continue
-                    for val_idx1, value1 in enumerate(
-                        var_insts[var_inst1][attr1], start=int(is_skipping_init_values)
+                    for _, value1 in enumerate(
+                        var_insts[var_inst1][attr1][int(is_skipping_init_values) :]
                     ):
-                        for val_idx2, value2 in enumerate(
-                            var_insts[var_inst2][attr2],
-                            start=int(is_skipping_init_values),
+                        for _, value2 in enumerate(
+                            var_insts[var_inst2][attr2][int(is_skipping_init_values) :]
                         ):
+                            saw_overlap = False
                             overlap = calc_liveness_overlap(
                                 value1.liveness, value2.liveness
                             )
@@ -281,6 +278,10 @@ class ConsistencyRelation(Relation):
                                             }  ## HACK to make preconditions inference work for `step`
                                         )
                                     )
+                            else:
+                                if saw_overlap:
+                                    # there won't be any more overlap, so we can break
+                                    break
 
         ## 5. Precondition Inference TODO: this can be abstracted into a separate function that takes a list of hypothesis and returns those with preconditions
         hypos_to_delete = []
