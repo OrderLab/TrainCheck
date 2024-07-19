@@ -743,7 +743,7 @@ class StatelessVarObserver:
     Only the current state is dumped during each observation, regardless of whether the state has changed or not.
     """
 
-    def __init__(self, var):
+    def __init__(self, var, dump_tensor_hash: bool = True):
         self.step = (
             0  # HACK: this is a hack to get the step number as we observe every step
         )
@@ -766,10 +766,18 @@ class StatelessVarObserver:
 
             **Many of the activations and intermediate tensors are not updated inplace, so this observer will not be able to detect the changes in those tensors.**
         """
-        self.param_versions = {}
+        self.param_versions = {}  # type: ignore
         timestamp = datetime.datetime.now().timestamp()
 
         for param in self._get_state_copy():
+            attributes = param["attributes"]
+            if dump_tensor_hash:
+                from mldaikon.proxy_wrapper.hash import tensor_hash
+
+                for attr_name, attr in attributes.items():
+                    if isinstance(attr, torch.Tensor):
+                        attributes[f"{attr_name}_hash"] = tensor_hash(attr)
+
             dump_trace_VAR(
                 {
                     "process_id": os.getpid(),
@@ -778,7 +786,7 @@ class StatelessVarObserver:
                     "type": TraceLineType.STATE_CHANGE,
                     "var_type": param["type"],
                     "var_name": param["name"],
-                    "attributes": param["attributes"],
+                    "attributes": attributes,
                     "time": timestamp,
                 }
             )

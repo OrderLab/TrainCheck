@@ -68,6 +68,8 @@ class ProgramRunner(object):
             return "Dry run. Program not executed.", 0
 
         if self._tmp_sh_script_path is not None:
+            if self.profiling:
+                raise ValueError("Profiling is not supported with shell scripts.")
             # change to the directory of the sh script
             current_dir = os.getcwd()
             os.chdir(os.path.dirname(self._tmp_sh_script_path))
@@ -123,17 +125,17 @@ class ProgramRunner(object):
                     stderr=subprocess.STDOUT,
                 )
 
-                out_lines = []  # STDERR is redirected to STDOUT
-                assert process.stdout is not None
-                with process.stdout as out:
-                    logging.info("Running the program... below is the output:")
-                    for line_out in out:
-                        decoded_line_out = line_out.decode("utf-8").strip("\n")
-                        program_print(decoded_line_out)
-                        out_lines.append(decoded_line_out)
-                    _, _ = process.communicate()
-                program_output = "\n".join(out_lines)
-                return_code = process.poll()
+        out_lines = []  # STDERR is redirected to STDOUT
+        assert process.stdout is not None
+        with process.stdout as out:
+            logging.info("Running the program... below is the output:")
+            for line_out in out:
+                decoded_line_out = line_out.decode("utf-8").strip("\n")
+                program_print(decoded_line_out)
+                out_lines.append(decoded_line_out)
+            _, _ = process.communicate()
+        program_output = "\n".join(out_lines)
+        return_code = process.poll()
         assert return_code is not None
 
         # XXX: This is a dummy implementation. Replace this with the actual implementation.

@@ -10,3 +10,4 @@ pytest
 pytest-benchmark
 efficientnet_pytorch
 astor
+numba
