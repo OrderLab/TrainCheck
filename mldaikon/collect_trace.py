@@ -6,7 +6,6 @@ import mldaikon.instrumentor as instrumentor
 import mldaikon.proxy_wrapper.proxy_config as proxy_config
 import mldaikon.runner as runner
 from mldaikon.invariant.base_cls import APIParam, Invariant, read_inv_file
-from mldaikon.instrumentor.tracer import get_dicts
 
 
 def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
@@ -239,23 +238,3 @@ if __name__ == "__main__":
         exit(return_code)
 
     logger.info("Trace collection done.")
-
-    trace_API_loggers, trace_VAR_loggers = get_dicts()
-
-    for log_queue, _, _ in trace_API_loggers.values():
-        log_queue.join()
-
-    for log_queue, _, _ in trace_API_loggers.values():
-        log_queue.put(None)
-
-    for _, log_thread, _ in trace_API_loggers.values():
-        log_thread.join()
-
-    for log_queue, _, _ in trace_VAR_loggers.values():
-        log_queue.join()
-
-    for log_queue, _, _ in trace_VAR_loggers.values():
-        log_queue.put(None)
-
-    for _, log_thread, _ in trace_VAR_loggers.values():
-        log_thread.join()

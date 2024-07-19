@@ -8,7 +8,8 @@ import os
 import threading
 import traceback
 import types
-from typing import TYPE_CHECKING, Callable, Optional
+from queue import Queue
+from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
 
 import torch
 import torch.utils
@@ -29,34 +30,43 @@ EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 meta_vars: dict[str, object] = {}
 
-import queue
-trace_API_loggers: dict[int, (queue.Queue, threading.Thread, logging.Logger)] = {}
-trace_VAR_loggers: dict[int, (queue.Queue, threading.Thread, logging.Logger)] = {}
+
+class PTID(NamedTuple):
+    pid: int
+    tid: int
+
+
+class TRACE_MSG(NamedTuple):
+    msg_dict: dict
+    level: int
+
+
+# per process & thread logging
+trace_API_logger_queues: dict[PTID, Queue] = {}
+trace_VAR_logger_queues: dict[PTID, Queue] = {}
+
+# per process logging
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
-def get_dicts():
-    return trace_API_loggers, trace_VAR_loggers
 
-def log_worker(queue, log_filename, logger):
-    buffer = []
-    level=logging.INFO
-    buffer_size = 10000
+def log_worker(task_queue: Queue, log_file_name: str):
+    level = logging.INFO
+    logger = logging.getLogger(log_file_name)
+    file_handler = logging.FileHandler(log_file_name)
+    file_handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(file_handler)
+
+    # main loop
     while True:
-        log_entry = queue.get()
-        if log_entry is None:
-            if buffer:
-                # with open(log_filename, 'a') as f:
-                #     f.write('\n'.join(buffer) + '\n')
-                logger.log(level, '\n'.join(buffer) + '\n')
-            queue.task_done()
-            break
-        buffer.append(log_entry)
-        if len(buffer) >= buffer_size:
-            # with open(log_filename, 'a') as f:
-            #     f.write('\n'.join(buffer) + '\n')
-            logger.log(level, '\n'.join(buffer) + '\n')
-            buffer.clear()
-        queue.task_done()
+        msg = task_queue.get()
+        if msg is None:
+            task_queue.task_done()
+            return
+        msg_dict, level = msg.msg_dict, msg.level
+        msg = json.dumps(msg_dict)
+        logger.log(level, msg)
+        task_queue.task_done()
+
 
 disable_proxy_class = disable_proxy_class
 
@@ -74,49 +84,45 @@ class TraceLineType:
 
 def get_trace_API_logger_for_process():
     pid = os.getpid()
+    tid = threading.current_thread().ident
+
+    ptid = PTID(pid, tid)
+    if ptid in trace_API_logger_queues:
+        return trace_API_logger_queues[ptid]
+
     script_name = os.getenv("MAIN_SCRIPT_NAME")
     assert (
         script_name is not None
     ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
 
-    if pid in trace_API_loggers:
-        return trace_API_loggers[pid][0]
-    
-    log_queue = queue.Queue()
-    log_filename = f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}.log"
-    logger = logging.getLogger(f"trace_API_{pid}")
-    logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler(log_filename)
-    file_handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(file_handler)
-    log_thread = threading.Thread(target=log_worker, args=(log_queue, log_filename, logger))
+    log_queue = Queue()
+    log_file_name = f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}_{tid}.log"
+    log_thread = threading.Thread(target=log_worker, args=(log_queue, log_file_name))
     log_thread.start()
 
-    trace_API_loggers[pid] = (log_queue, log_thread, logger)
+    trace_API_logger_queues[ptid] = log_queue
     return log_queue
 
 
 def get_trace_VAR_logger_for_process():
     pid = os.getpid()
+    tid = threading.current_thread().ident
+
+    ptid = PTID(pid, tid)
+    if ptid in trace_API_logger_queues:
+        return trace_API_logger_queues[ptid]
+
     script_name = os.getenv("MAIN_SCRIPT_NAME")
     assert (
         script_name is not None
     ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
 
-    if pid in trace_VAR_loggers:
-        return trace_VAR_loggers[pid][0]
-
-    log_queue = queue.Queue()
-    log_filename = f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}.log"
-    logger = logging.getLogger(f"trace_VAR_{pid}")
-    logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler(log_filename)
-    file_handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(file_handler)
-    log_thread = threading.Thread(target=log_worker, args=(log_queue, log_filename, logger))
+    log_queue = Queue()
+    log_file_name = f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}_{tid}.log"
+    log_thread = threading.Thread(target=log_worker, args=(log_queue, log_file_name))
     log_thread.start()
 
-    trace_VAR_loggers[pid] = (log_queue, log_thread, logger)
+    trace_VAR_logger_queues[ptid] = log_queue
     return log_queue
 
 
@@ -124,7 +130,8 @@ def dump_trace_API(trace: dict, level=logging.INFO):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     log_queue = get_trace_API_logger_for_process()
     trace["time"] = datetime.datetime.now().timestamp()
-    log_queue.put(json.dumps(trace))
+    msg = TRACE_MSG(trace, level)
+    log_queue.put(msg)
 
 
 def dump_trace_VAR(trace: dict, level=logging.INFO):
@@ -132,7 +139,9 @@ def dump_trace_VAR(trace: dict, level=logging.INFO):
     log_queue = get_trace_VAR_logger_for_process()
     if "time" not in trace:
         trace["time"] = datetime.datetime.now().timestamp()
-    log_queue.put(json.dumps(trace))
+    msg = TRACE_MSG(trace, level)
+    log_queue.put(msg)
+
 
 def get_instrumentation_logger_for_process():
     pid = os.getpid()
@@ -906,4 +915,3 @@ class StatelessVarObserver:
                     "time": timestamp,
                 }
             )
-
