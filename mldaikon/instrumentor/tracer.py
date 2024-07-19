@@ -49,6 +49,14 @@ trace_VAR_logger_queues: dict[PTID, Queue] = {}
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
 
+# to be invoked at the end of the experiment; source_file.py inserts this function at the end of the instrumented file
+def close_logging_threads():
+    for log_queue in trace_API_logger_queues.values():
+        log_queue.put(None)
+    for log_queue in trace_VAR_logger_queues.values():
+        log_queue.put(None)
+
+
 def log_worker(task_queue: Queue, log_file_name: str):
     level = logging.INFO
     logger = logging.getLogger(log_file_name)

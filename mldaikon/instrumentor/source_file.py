@@ -88,7 +88,7 @@ def instrument_source(
     """
     root = ast.parse(source)
 
-    if modules_to_instrument is None:
+    if not modules_to_instrument:
         logger.warning(
             f"modules_to_instrument not provided. Using default value CONSTANTS.INSTR_MODULES_TO_INSTRUMENT: {modules_to_instrument}."
         )
@@ -136,10 +136,18 @@ def instrument_file(
         funcs_of_inv_interest,
     )
 
-    logging_code = """
+    # logging configs
+    logging_start_code = """
 import os
 os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]    
 """
+    # we need to close the child logging threads by sending None to the queues on the main thread
+    logging_end_code = """
+from mldaikon.instrumentor.tracer import close_logging_threads
+close_logging_threads()
+"""
+
+    ## proxy configs
     proxy_start_code = ""
     auto_observer_code = ""
 
@@ -247,10 +255,11 @@ for log_file in log_files:
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
     instrumented_source = (
         instrumented_source.split("\n")[0]
-        + logging_code
+        + logging_start_code
         + proxy_start_code
         + auto_observer_code
         + "\n".join(instrumented_source.split("\n")[1:])
+        + logging_end_code
     )
 
     return instrumented_source
