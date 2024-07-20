@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import torch
 from numba import cuda
@@ -6,9 +8,6 @@ from torch import Tensor
 MULTIPLIER = 6364136223846793005
 INCREMENT = 1
 MODULUS = 2**64
-
-# Define a fixed constant tensor
-FIXED_CONSTANT = torch.tensor([42], dtype=torch.int64)  # Example fixed constant
 
 
 @cuda.jit("void(int64[:, :], int64[:], int64, int64)")
@@ -109,3 +108,47 @@ def tensor_hash(x: Tensor, with_parallel: bool = True, with_cuda: bool = True) -
         import hashlib
 
         return int(hashlib.sha256(x.detach().numpy().tobytes()).hexdigest(), 16)
+
+
+def print_current_memory_usage():
+    current_memory = torch.cuda.memory_allocated()
+    print(f"Current memory usage: {current_memory}")
+
+
+def profile_tensor_hashing(tensor, with_parallel: bool = True, with_cuda: bool = True):
+    start = time.time()
+    print(
+        f"Hashing tensor using parallel approach (with cuda): {tensor_hash(tensor, with_parallel=with_parallel, with_cuda=with_cuda)}"
+    )
+    end = time.time()
+    print(f"Time taken: {end-start}")
+
+
+if __name__ == "__main__":
+    # create tensor with different size and different types, test the time of hashing using parallel and non-parallel approach and compare the results
+    # size: 10*10, 100*100, 1000*1000, 10000*10000, 10000*10000*10000
+    # create a list of tensors
+
+    sizes = [10, 10000]
+    tensors = []
+    for size in sizes:
+        tensor = torch.arange(size * size).reshape(size, size).bfloat16()
+        tensors.append(tensor)
+    # change the tensor type to bfloat16
+    for _ in range(1):
+        for tensor in tensors:
+            print(f"Tensor size: {tensor.size()}")
+            # time
+            tensor = tensor.cuda()
+            # measure the current cuda memory usage
+            print_current_memory_usage()
+
+            profile_tensor_hashing(tensor, with_parallel=True, with_cuda=True)
+
+            print_current_memory_usage()
+
+            profile_tensor_hashing(tensor, with_parallel=True, with_cuda=False)
+
+            print_current_memory_usage()
+
+            print("=============================================")
