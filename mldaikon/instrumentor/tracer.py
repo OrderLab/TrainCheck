@@ -58,11 +58,11 @@ def close_logging_threads():
 
 
 def log_worker(task_queue: Queue, log_file_name: str):
-    level = logging.INFO
     logger = logging.getLogger(log_file_name)
     file_handler = logging.FileHandler(log_file_name)
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
+    logger.setLevel(logging.INFO)
 
     # main loop
     while True:
@@ -140,6 +140,7 @@ def dump_trace_API(trace: dict, level=logging.INFO):
     trace["time"] = datetime.datetime.now().timestamp()
     msg = TRACE_MSG(trace, level)
     log_queue.put(msg)
+    print("Dumping trace API, length of the queue: ", log_queue.qsize())
 
 
 def dump_trace_VAR(trace: dict, level=logging.INFO):
