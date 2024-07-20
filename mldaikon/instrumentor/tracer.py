@@ -117,8 +117,8 @@ def get_trace_VAR_logger_for_process():
     tid = threading.current_thread().ident
 
     ptid = PTID(pid, tid)
-    if ptid in trace_API_logger_queues:
-        return trace_API_logger_queues[ptid]
+    if ptid in trace_VAR_logger_queues:
+        return trace_VAR_logger_queues[ptid]
 
     script_name = os.getenv("MAIN_SCRIPT_NAME")
     assert (
@@ -140,7 +140,6 @@ def dump_trace_API(trace: dict, level=logging.INFO):
     trace["time"] = datetime.datetime.now().timestamp()
     msg = TRACE_MSG(trace, level)
     log_queue.put(msg)
-    print("Dumping trace API, length of the queue: ", log_queue.qsize())
 
 
 def dump_trace_VAR(trace: dict, level=logging.INFO):
