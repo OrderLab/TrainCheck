@@ -8,7 +8,8 @@ import os
 import threading
 import traceback
 import types
-from typing import TYPE_CHECKING, Callable, Optional
+from queue import Queue
+from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
 
 import torch
 import torch.utils
@@ -29,9 +30,39 @@ EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
 meta_vars: dict[str, object] = {}
 
-trace_API_loggers: dict[int, logging.Logger] = {}
-trace_VAR_loggers: dict[int, logging.Logger] = {}
+
+class PTID(NamedTuple):
+    pid: int
+    tid: int
+
+
+# per process & thread logging
+trace_API_logger_queues: dict[PTID, Queue] = {}
+trace_VAR_logger_queues: dict[PTID, Queue] = {}
+
+# per process logging
 instrumentation_loggers: dict[int, logging.Logger] = {}
+
+
+# to be invoked at the end of the experiment; source_file.py inserts this function at the end of the instrumented file
+def close_logging_threads():
+    for trace_queue in trace_API_logger_queues.values():
+        trace_queue.put(None)
+    for trace_queue in trace_VAR_logger_queues.values():
+        trace_queue.put(None)
+
+
+def trace_dumper(task_queue: Queue, trace_file_name: str):
+    with open(trace_file_name, "w") as f:
+        while True:
+            trace = task_queue.get()
+            if trace is None:
+                task_queue.task_done()
+                return
+            trace_str = json.dumps(trace)
+            f.write(f"{trace_str}\n")
+            task_queue.task_done()
+
 
 disable_proxy_class = disable_proxy_class
 
@@ -47,59 +78,71 @@ class TraceLineType:
     STATE_CHANGE = "state_change"
 
 
-def get_trace_API_logger_for_process():
+def get_trace_API_dumper_queue():
     pid = os.getpid()
+    tid = threading.current_thread().ident
+
+    ptid = PTID(pid, tid)
+    if ptid in trace_API_logger_queues:
+        return trace_API_logger_queues[ptid]
+
     script_name = os.getenv("MAIN_SCRIPT_NAME")
     assert (
         script_name is not None
     ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
 
-    if pid in trace_API_loggers:
-        return trace_API_loggers[pid]
+    trace_queue = Queue()
+    trace_file_name = (
+        f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}_{tid}.log"
+    )
+    log_thread = threading.Thread(
+        target=trace_dumper, args=(trace_queue, trace_file_name)
+    )
+    log_thread.start()
 
-    logger = logging.getLogger(f"trace_API_{pid}")
-    logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}.log"
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(file_handler)
-    trace_API_loggers[pid] = logger
-    return logger
+    trace_API_logger_queues[ptid] = trace_queue
+    return trace_queue
 
 
-def get_trace_VAR_logger_for_process():
+def get_trace_VAR_dumper_queue():
     pid = os.getpid()
+    tid = threading.current_thread().ident
+
+    ptid = PTID(pid, tid)
+    if ptid in trace_VAR_logger_queues:
+        return trace_VAR_logger_queues[ptid]
+
     script_name = os.getenv("MAIN_SCRIPT_NAME")
     assert (
         script_name is not None
     ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
 
-    if pid in trace_VAR_loggers:
-        return trace_VAR_loggers[pid]
+    trace_queue = Queue()
+    trace_file_name = (
+        f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}_{tid}.log"
+    )
+    log_thread = threading.Thread(
+        target=trace_dumper, args=(trace_queue, trace_file_name)
+    )
+    log_thread.start()
 
-    logger = logging.getLogger(f"trace_VAR_{pid}")
-    logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}.log"
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(file_handler)
-    trace_VAR_loggers[pid] = logger
-    return logger
+    trace_VAR_logger_queues[ptid] = trace_queue
+    return trace_queue
 
 
-def dump_trace_API(trace: dict, level=logging.INFO):
+def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    logger = get_trace_API_logger_for_process()
+    trace_queue = get_trace_API_dumper_queue()
     trace["time"] = datetime.datetime.now().timestamp()
-    logger.log(level, json.dumps(trace))
+    trace_queue.put(trace)
 
 
-def dump_trace_VAR(trace: dict, level=logging.INFO):
+def dump_trace_VAR(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    logger = get_trace_VAR_logger_for_process()
+    trace_queue = get_trace_VAR_dumper_queue()
     if "time" not in trace:
         trace["time"] = datetime.datetime.now().timestamp()
-    logger.log(level, json.dumps(trace))
+    trace_queue.put(trace)
 
 
 def get_instrumentation_logger_for_process():
@@ -217,7 +260,6 @@ def global_wrapper(
                 "is_bound_method": is_bound_method,
                 "obj_id": None if not is_bound_method else id(args[0]),
             },
-            logging.ERROR,
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
@@ -226,7 +268,7 @@ def global_wrapper(
         pre_record.copy()
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
-    dump_trace_API(post_record, logging.INFO)
+    dump_trace_API(post_record)
 
     return result
 
