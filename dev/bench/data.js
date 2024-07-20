@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721443560214,
+  "lastUpdate": 1721462530928,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -1844,6 +1844,68 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.28997526879912083",
             "extra": "mean: 239.6291961401701 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "OrderLab",
+            "username": "OrderLab"
+          },
+          "committer": {
+            "name": "OrderLab",
+            "username": "OrderLab"
+          },
+          "id": "eb41f1353813133687bc910309f5fd69a3f02a7d",
+          "message": "Aync + Per-thread Trace Dumping",
+          "timestamp": "2024-07-19T01:03:46Z",
+          "url": "https://github.com/OrderLab/ml-daikon/pull/69/commits/eb41f1353813133687bc910309f5fd69a3f02a7d"
+        },
+        "date": 1721462530443,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_naive",
+            "value": 0.010416164540819294,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5891012513011252",
+            "extra": "mean: 96.00462781488895 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.004669997275348523,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8311384001518882",
+            "extra": "mean: 214.13288724571467 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.00671070523421127,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6811935725728014",
+            "extra": "mean: 149.01563473567367 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0011868195410987908,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8684897183223007",
+            "extra": "mean: 842.5880813136697 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.0031718880372187757,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8468836375907984",
+            "extra": "mean: 315.269640121609 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented_with_scan_proxy_in_args",
+            "value": 0.0031441547583673296,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1739470286417624",
+            "extra": "mean: 318.0505022339523 sec\nrounds: 5"
           }
         ]
       }
