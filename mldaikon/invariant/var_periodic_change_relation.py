@@ -1,18 +1,11 @@
 import logging
-from itertools import combinations
-
-from tqdm import tqdm
 import numpy as np
-from mldaikon.config import config
 from mldaikon.invariant.base_cls import (
     Example,
     ExampleList,
     Hypothesis,
     Invariant,
     Relation,
-    GroupedPreconditions,
-    PT,
-    PreconditionClause
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
@@ -28,11 +21,14 @@ def calculate_hypo_value(value) -> str:
         hypo_value = "None"   # TODO: how to represent None, 
     return hypo_value
     
-    
+# TODO: 
+# 1. use var_name or var_type to generate hypothesis
+# 2. figure out how preconditions are related to this Relation
+# 3. whether to use timestamp to implement periodicity feature? How to do that, with time difference? 
+
 class VarPeriodicChangeRelation(Relation):
         
     use_varType = False
-    
     
     def count_num_juistification(hypothesis, count: int):
         # TODO: modify this based on the histo_log
@@ -82,9 +78,9 @@ class VarPeriodicChangeRelation(Relation):
                             negative_examples=ExampleList({group_names}),
                         )
                         hypothesis[var_key][attr_name][hypo_value] = hypo
-                        hypothesis[var_key][attr_name][hypo_value].negative_examples.add_example(example)
+                        hypothesis[var_key][attr_name][hypo_value].negative_examples.add_example(example)   # Initialize with negative examples
                     else:
-                        hypothesis[var_key][attr_name][hypo_value].positive_examples.add_example(example)
+                        hypothesis[var_key][attr_name][hypo_value].positive_examples.add_example(example)   # If a value occurs more than once, mark it as positive
                         
                     
         # var type: mark repeated variable as positive and mark thje rest as negative
@@ -98,7 +94,7 @@ class VarPeriodicChangeRelation(Relation):
                     hypo = hypothesis[var_name][attr_name][hypo_value]
                     hypo.invariant.precondition = find_precondition(hypo)
                     hypo.invariant.text_description = f"Var Change Relation of {var_id.var_name + '.' + attr_name + '.' + hypo_value}.",
-                    
+        
         return list([hypothesis[var_name][attr_name][hypo_value].invariant
                      for var_name in hypothesis
                      for attr_name in hypothesis[var_name]
