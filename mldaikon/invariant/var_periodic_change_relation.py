@@ -6,9 +6,15 @@ from mldaikon.invariant.base_cls import (
     Hypothesis,
     Invariant,
     Relation,
+    VarTypeParam
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+
+def count_num_juistification(occurrences_num: dict[str, dict[str, dict[str, int]]], count: int):
+        # TODO: discuss to find a better way to distinguish between changed values
+        return count > 1
+
 
 def calculate_hypo_value(value) -> str:
     if isinstance(value, (int, float)):
@@ -20,24 +26,12 @@ def calculate_hypo_value(value) -> str:
     else:
         hypo_value = "None"   # TODO: how to represent None, 
     return hypo_value
-    
-# TODO: 
-# 1. use var_name or var_type to generate hypothesis
-# 2. figure out how preconditions are related to this Relation
-# 3. whether to use timestamp to implement periodicity feature? How to do that, with time difference? 
 
 class VarPeriodicChangeRelation(Relation):
         
-    use_varType = False
-    
-    def count_num_juistification(hypothesis, count: int):
-        # TODO: modify this based on the histo_log
-        return count > 1
-
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:
         """Infer Invariants for the VariableChangeRelation."""
-        
         logger = logging.getLogger(__name__)
         ## 1. Pre-scanning: Collecting variable instances and their values from the trace
         # get identifiers of the variables, those variables can be used to query the actual values
@@ -46,54 +40,70 @@ class VarPeriodicChangeRelation(Relation):
             logger.warning("No variables found in the trace.")
             return []
         
-        hypothesis: dict[str, dict[str, dict[str, Hypothesis]]] = {}
-        ## 2.Counting: count the number of each value of every variable attribute
         
+        ## 2.Counting: count the number of each value of every variable attribute
+        # TODO: record the intervals between occurrencess
+        # TODO: improve time and memory efficiency
+        # occurrences_num: dict[str, dict[str, dict[str, (int, list[float])]]] = {}
+        occurrences_num: dict[str, dict[str, dict[str, int]]] = {}
+        is_value_change: dict[str, bool] = {}
         for var_id, attrs in var_insts.items():
             for attr_name, attr_insts in attrs.items():
                 for attr_inst in attr_insts:
                     hypo_value = calculate_hypo_value(attr_inst.value)
                     var_key = var_id.var_name
-                    group_names = var_key + '.' + attr_name + '.' + hypo_value
-                    if VarPeriodicChangeRelation.use_varType:
-                        var_key = var_id.var_type
-                        group_names = "var"
-                    
+                    if var_key not in occurrences_num:
+                        occurrences_num[var_key] = {}
+                    if attr_name not in occurrences_num[var_key]:
+                        occurrences_num[var_key][attr_name] = {}
+                        is_value_change[var_key + attr_name] = False
+                    if hypo_value not in occurrences_num[var_key][attr_name]:
+                        occurrences_num[var_key][attr_name][hypo_value] = 1
+                        if len(occurrences_num[var_key][attr_name]) > 1:
+                            is_value_change[var_key + attr_name] = True
+                    else:
+                        occurrences_num[var_key][attr_name][hypo_value] += 1
+                        
+        # 3. Hypothesis generation
+        hypothesis: dict[str, dict[str, dict[str,Hypothesis]]] = {}
+
+        for var_id, attrs in var_insts.items():
+            for attr_name, attr_insts in attrs.items():
+                for attr_inst in attr_insts:
+                    hypo_value = calculate_hypo_value(attr_inst.value)
+                    var_key = var_id.var_type
+                    group_names = "var"
                     example = Example()
                     example.add_group(group_names, attr_inst.traces)
-                    # TODO: discuss with Yuxuan how to classify positive and negative examples
-                    # Ensure all intermediate keys are properly initialized
                     if var_key not in hypothesis:
                         hypothesis[var_key] = {}
                     if attr_name not in hypothesis[var_key]:
                         hypothesis[var_key][attr_name] = {}
-                    if hypo_value not in hypothesis[var_key][attr_name]:
-                        hypo = Hypothesis(
-                            Invariant(
-                                relation=VarPeriodicChangeRelation,
-                                params=[],
-                                precondition=None,
-                            ),
-                            positive_examples=ExampleList({group_names}),
-                            negative_examples=ExampleList({group_names}),
-                        )
-                        hypothesis[var_key][attr_name][hypo_value] = hypo
-                        hypothesis[var_key][attr_name][hypo_value].negative_examples.add_example(example)   # Initialize with negative examples
-                    else:
-                        hypothesis[var_key][attr_name][hypo_value].positive_examples.add_example(example)   # If a value occurs more than once, mark it as positive
-                        
-                    
-        # var type: mark repeated variable as positive and mark thje rest as negative
-        # var name: 
-        # tmp_positive = {key: value for key, value in hypothesis.items() if value > 1}
-        # logger.debug(f"histogram detail: {tmp_positive}")
-        
+                    if is_value_change[var_id.var_name + attr_name]:
+                        if hypo_value not in hypothesis[var_key][attr_name]:
+                                hypo = Hypothesis(
+                                    Invariant(
+                                        relation=VarPeriodicChangeRelation,
+                                        params=[VarTypeParam(var_key, attr_name)],
+                                        precondition=None,
+                                    ),
+                                    positive_examples=ExampleList({group_names}),
+                                    negative_examples=ExampleList({group_names}),
+                                )
+                                hypothesis[var_key][attr_name][hypo_value] = hypo
+                        if count_num_juistification(occurrences_num, occurrences_num[var_id.var_name][attr_name][hypo_value]):
+                            hypothesis[var_key][attr_name][hypo_value].positive_examples.add_example(example)   # If a value occurs more than once, mark it as positive
+                        else:
+                            # TODO: how to add negative examples so that preconditions inference works
+                            hypothesis[var_key][attr_name][hypo_value].negative_examples.add_example(example)   # If a value occurs only once, mark it as negative
+             
+        # 4. find preconditions
         for var_name in hypothesis:
             for attr_name in hypothesis[var_name]:
                 for hypo_value in hypothesis[var_name][attr_name]:
                     hypo = hypothesis[var_name][attr_name][hypo_value]
                     hypo.invariant.precondition = find_precondition(hypo)
-                    hypo.invariant.text_description = f"Var Change Relation of {var_id.var_name + '.' + attr_name + '.' + hypo_value}.",
+                    hypo.invariant.text_description = f"{var_name + '.' + attr_name} is periodicaly set to {hypo_value}"
         
         return list([hypothesis[var_name][attr_name][hypo_value].invariant
                      for var_name in hypothesis
