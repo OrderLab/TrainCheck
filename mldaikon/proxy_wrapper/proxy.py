@@ -15,7 +15,11 @@ import torch
 import torch.nn.parameter
 
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
-from mldaikon.proxy_wrapper.dumper import dump_attributes, dump_meta_vars
+from mldaikon.proxy_wrapper.dumper import (
+    SkippedDumpingObj,
+    dump_attributes,
+    dump_meta_vars,
+)
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.dumper import torch_serialize
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
@@ -208,17 +212,29 @@ class Proxy:
 
             self.dump_to_trace(self._obj, trace_info)
             return None
+        else:
+            return SkippedDumpingObj(self._obj)
 
     def __deepcopy__(self, memo):
         # Create a new instance of the proxy object
         if isinstance(self._obj, torch.Tensor):
             new_copy = type(self)(self._obj.clone().detach(), from_copy=True)
+
         else:
-            new_copy = type(self)(copy.deepcopy(self._obj, memo))
+            new_copy = type(self)(copy.deepcopy(self._obj, memo), from_copy=True)
 
         # Copy other attributes if necessary
-        new_copy.__dict__.update(copy.deepcopy(self.__dict__, memo))
-
+        new_copy.__dict__["var_name"] = self.__dict__["var_name"]
+        # check every attribute in the object
+        for attr_name, attr_value in self.__dict__.items():
+            if attr_name in ["_obj", "var_name"]:
+                continue
+            if isinstance(attr_value, torch.Tensor):
+                # setattr(new_copy, attr_name, attr_value.clone().detach())
+                new_copy.__dict__[attr_name] = attr_value.clone().detach()
+            else:
+                # setattr(new_copy, attr_name, copy.deepcopy(attr_value, memo))
+                new_copy.__dict__[attr_name] = copy.deepcopy(attr_value, memo)
         return new_copy
 
     def dump_to_trace(self, obj, trace_info):

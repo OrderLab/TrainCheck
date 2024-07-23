@@ -2,7 +2,7 @@ import os
 
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace would work only when you manually add Proxy()
-proxy_update_limit = 0
+proxy_update_limit = 25
 debug_mode = False
 
 delta_dump_config = {
@@ -25,7 +25,7 @@ dump_info_config = {
 
 auto_observer_config = {
     "enable_auto_observer": True,  # automatically add observer to the function
-    "only_dump_when_change": False,  # only dump the variable when it is changed
+    "only_dump_when_change": True,  # only dump the variable when it is changed
     "enable_auto_observer_depth": 3,  # the depth of the function call that we want to observe
     "observe_up_to_depth": False,  # observe up to the depth of the function call, if False, only observe the function call at the depth
     "neglect_hidden_func": True,  # neglect the hidden function (function that starts with '_')
