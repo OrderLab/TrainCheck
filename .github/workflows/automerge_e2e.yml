@@ -1,4 +1,4 @@
-name: Automerge
+name: Automerge_e2e_from_main
 
 on:
   push:
