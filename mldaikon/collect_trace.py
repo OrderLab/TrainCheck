@@ -58,13 +58,6 @@ if __name__ == "__main__":
         default=config.INSTR_MODULES_TO_INSTRUMENT,
     )
     parser.add_argument(
-        "--wrapped_modules",
-        type=list,
-        default=config.INCLUDED_WRAP_LIST,
-        metavar="Module",
-        help="Module to be traced by the proxy wrapper",
-    )
-    parser.add_argument(
         "--scan_proxy_in_args",
         action="store_true",
         help="Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions",
@@ -150,7 +143,6 @@ if __name__ == "__main__":
         help="Enable the observer at the C level",
     )
     args = parser.parse_args()
-    config.INCLUDED_WRAP_LIST = args.wrapped_modules
 
     if args.proxy_module != "None":
         disable_proxy_class = False
