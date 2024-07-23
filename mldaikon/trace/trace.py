@@ -131,6 +131,13 @@ class Trace:
                 0, named=True
             )  # order of events does matter here, but as long as each process is ordered by time, we should be fine
 
+            # if the incomplete function is the outermost function, we should be handling it differently
+            if record["func_call_id"] == outermost_func_call_pre["func_call_id"]:
+                logger.warning(
+                    f"The outermost function call is incomplete: {outermost_func_call_pre['function']} with id {outermost_func_call_pre['func_call_id']}. Will treat it as a complete function call."
+                )
+                continue
+
             assert (
                 thread_id != outermost_func_call_pre["thread_id"]
             ), f"Incomplete function call (func_call_id: {record['func_call_id']}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) on process {process_id}. Please Investigate."
@@ -156,10 +163,32 @@ class Trace:
                     f"Incomplete function call is not close enough to the outermost function call post event: {record}"
                 )
 
-    def get_start_time(self) -> int:
+    def get_start_time(self, process_id=None, thread_id=None) -> int:
+        if process_id is not None and thread_id is not None:
+            return self.events.filter(
+                pl.col("process_id") == process_id, pl.col("thread_id") == thread_id
+            )["time"].min()
+
+        if process_id is not None:
+            return self.events.filter(pl.col("process_id") == process_id)["time"].min()
+
+        if thread_id is not None:
+            return self.events.filter(pl.col("thread_id") == thread_id)["time"].min()
+
         return self.events["time"].min()
 
-    def get_end_time(self) -> int:
+    def get_end_time(self, process_id=None, thread_id=None) -> int:
+        if process_id is not None and thread_id is not None:
+            return self.events.filter(
+                pl.col("process_id") == process_id, pl.col("thread_id") == thread_id
+            )["time"].max()
+
+        if process_id is not None:
+            return self.events.filter(pl.col("process_id") == process_id)["time"].max()
+
+        if thread_id is not None:
+            return self.events.filter(pl.col("thread_id") == thread_id)["time"].max()
+
         return self.events["time"].max()
 
     def get_func_names(self) -> list[str]:
@@ -434,7 +463,7 @@ class Trace:
         ]
 
     def query_var_changes_within_time_and_process(
-        self, time_range: tuple[int, int], process_id: int
+        self, time_range: tuple[int | float, int | float], process_id: int
     ) -> list[VarChangeEvent]:
         var_changes = self.get_var_changes()
         return [
@@ -447,64 +476,22 @@ class Trace:
     def query_var_changes_within_func_call(
         self, func_call_id: str
     ) -> list[VarChangeEvent]:
-        func_call_pre_event = self.events.filter(
-            pl.col("type") == TraceLineType.FUNC_CALL_PRE,
-            pl.col("func_call_id") == func_call_id,
-        ).row(
-            0, named=True
-        )  # order of events doesn't matter as the result here is a single row
+        pre_record = self.get_pre_func_call_record(func_call_id)
+        post_record = self.get_post_func_call_record(func_call_id)
 
-        func_call_post_event = self.events.filter(
-            pl.col("type") == TraceLineType.FUNC_CALL_POST,
-            pl.col("func_call_id") == func_call_id,
-        ).row(
-            0, named=True
-        )  # order of events doesn't matter as the result here is a single row
+        start_time = pre_record["time"]
 
-        return self.query_var_changes_within_time(
-            (func_call_pre_event["time"], func_call_post_event["time"])
-        )
-
-    def scan_to_groups(self, param_selectors: list):
-        """Extract from trace, groups of events
-
-        args:
-            param_selectors: list
-                A list of functions that take an event as input and return a value retrieved from the event.
-                If a value is not found, the function should return None. The length of the list should be equal to
-                the number of variables in the relation.
-        """
-
-        raise NotImplementedError("group method is not implemented yet.")
-
-        groups: list[list[object]] = []
-        group: list[object] = []
-        param_selector_itr = iter(param_selectors)
-        curr_param_selector = next(param_selector_itr, None)
-        assert curr_param_selector is not None, "param_selectors should not be empty"
-
-        for e in self.events:
-            if curr_param_selector is None:
-                groups.append(group)
-                group = []
-                param_selector_itr = iter(param_selectors)
-                curr_param_selector = next(param_selector_itr, None)
-            elif not callable(curr_param_selector):
-                # curr_param_selector is a value
-                group.append(curr_param_selector)
-            elif curr_param_selector(e):
-                group.append(curr_param_selector(e))
-                curr_param_selector = next(param_selector_itr, None)
-
-        # dealing with the left-over group
-        if len(group) == len(param_selectors):
-            groups.append(group)
-        elif len(group) > 0:
-            logger.debug(
-                f"Left-over group: {group} not added to groups as it does not have enough elements."
+        if post_record is None:
+            end_time = (
+                self.get_end_time(pre_record["process_id"], pre_record["thread_id"])
+                + 0.001
             )
+        else:
+            end_time = post_record["time"]
 
-        return groups
+        return self.query_var_changes_within_time_and_process(
+            (start_time, end_time), process_id=pre_record["process_id"]
+        )
 
     def get_pre_func_call_record(self, func_call_id: str) -> dict:
         """Get the pre call record of a function given its pre-call index."""
@@ -515,15 +502,17 @@ class Trace:
 
         assert (
             pre_records.height == 1
-        ), f"Multiple pre call events found for {func_call_id}"
+        ), f"{pre_records.height} pre call events found for {func_call_id}, expected 1"
         pre_record = pre_records.row(
             0, named=True
         )  # order of events doesn't matter as the result here is a single row
 
         return pre_record
 
-    def get_post_func_call_record(self, func_call_id: str) -> dict:
-        """Get the post call record of a function given its pre-call index."""
+    def get_post_func_call_record(self, func_call_id: str) -> dict | None:
+        """Get the post call record of a function given its pre-call index.
+        Returns None if the post call event is not found and the pre-call event is the outermost function call.
+        """
         post_records = self.events.filter(
             pl.col("func_call_id") == func_call_id,
             pl.col("type").is_in(
@@ -532,8 +521,26 @@ class Trace:
         )
 
         assert (
-            post_records.height == 1
-        ), f"Multiple post call events found for {func_call_id}"
+            post_records.height <= 1
+        ), f"{post_records.height} post call events found for {func_call_id}, expected 1"
+
+        if post_records.height == 0:
+            logger.warning(f"No post call event found for {func_call_id}")
+            # check if the pre-call event is the outermost function call
+            pre_record = self.get_pre_func_call_record(func_call_id)
+            outermost_func_call_pre = self.events.filter(
+                pl.col("type") == TraceLineType.FUNC_CALL_PRE,
+                pl.col("process_id") == pre_record["process_id"],
+                pl.col("thread_id") == pre_record["thread_id"],
+            ).row(0, named=True)
+
+            if pre_record["func_call_id"] == outermost_func_call_pre["func_call_id"]:
+                return None
+            else:
+                raise ValueError(
+                    f"No post call event found for {func_call_id}, but it is not the outermost function call."
+                )
+
         post_record = post_records.row(
             0, named=True
         )  # order of events doesn't matter as the result here is a single row
@@ -541,7 +548,10 @@ class Trace:
         return post_record
 
     def query_func_call_events_within_time(
-        self, time_range: tuple[int, int], process_id: int, thread_id: int
+        self,
+        time_range: tuple[int | float, int | float],
+        process_id: int,
+        thread_id: int,
     ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
         """Extract all function call events from the trace."""
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
@@ -564,8 +574,16 @@ class Trace:
         for func_call_id in func_call_ids:
             pre_record = self.get_pre_func_call_record(func_call_id)
             post_record = self.get_post_func_call_record(func_call_id)
+
+            # NOTE: this function is always called to query the events within a specific function, so we should not have the case where the post call event is not found as only the outermost function call can have no post call event
             assert (
-                post_record["time"] < time_range[1]
+                post_record is not None
+            ), f"Post call event not found for {func_call_id}"
+
+            end_time = post_record["time"]
+
+            assert (
+                end_time < time_range[1]
             ), f"Post call event found after the time range {time_range}"
             func_call_events.append(
                 FuncCallEvent(pre_record["function"], pre_record, post_record)
@@ -576,15 +594,42 @@ class Trace:
             )
         return func_call_events
 
-    def query_high_level_events_within_time(
-        self, time_range: tuple[int, int], process_id: int, thread_id: int
+    # def query_high_level_events_within_time(
+    #     self, time_range: tuple[int, int], process_id: int, thread_id: int
+    # ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
+
+    #     high_level_func_call_events = self.query_func_call_events_within_time(
+    #         time_range, process_id, thread_id
+    #     )
+    #     high_level_var_change_events = self.query_var_changes_within_time_and_process(
+    #         time_range, process_id
+    #     )
+
+    #     return high_level_func_call_events + high_level_var_change_events
+
+    def query_high_level_events_within_func_call(
+        self, func_call_id: str
     ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
+        pre_record = self.get_pre_func_call_record(func_call_id)
+        post_record = self.get_post_func_call_record(func_call_id)
+        if post_record is None:
+            logger.warning(f"Post call event not found for {func_call_id}")
+            # let's get the end time of the trace on the specific process and thread
+            end_time = (
+                self.get_end_time(pre_record["process_id"], pre_record["thread_id"])
+                + 0.001
+            )  # adding a small value to make sure the end time is after the last event on the process and thread
+            time_range = (pre_record["time"], end_time)
+        else:
+            time_range = (pre_record["time"], post_record["time"])
+        process_id = pre_record["process_id"]
+        thread_id = pre_record["thread_id"]
 
         high_level_func_call_events = self.query_func_call_events_within_time(
             time_range, process_id, thread_id
         )
-        high_level_var_change_events = self.query_var_changes_within_time_and_process(
-            time_range, process_id
+        high_level_var_change_events = self.query_var_changes_within_func_call(
+            func_call_id
         )
 
         return high_level_func_call_events + high_level_var_change_events

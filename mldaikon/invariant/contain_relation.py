@@ -66,20 +66,8 @@ def events_scanner(
             - the function call id of the parent function, which should correspond to two events (entry and exit)
     """
     entry_time = time.time()
-
-    pre_call_record = trace.get_pre_func_call_record(func_call_id)
-    post_call_record = trace.get_post_func_call_record(func_call_id)
-
-    process_id = pre_call_record["process_id"]
-    thread_id = pre_call_record["thread_id"]
-
-    time_range = (
-        pre_call_record["time"],
-        post_call_record["time"],
-    )
-
-    events = trace.query_high_level_events_within_time(
-        time_range=time_range, process_id=process_id, thread_id=thread_id
+    events = trace.query_high_level_events_within_func_call(
+        func_call_id=func_call_id,
     )
     exit_time = time.time()
     logger = logging.getLogger(__name__)
