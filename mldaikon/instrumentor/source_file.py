@@ -143,10 +143,10 @@ def instrument_file(
     )
 
     # logging configs
-    logging_start_code = """
+    logging_start_code = f"""
 import os
 os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]
-
+os.environ['TRACE_LOG_DIR'] = "{API_log_dir}"
 import atexit
 from mldaikon.instrumentor.tracer import close_logging_threads
 # handle exceptions and close the logging threads
