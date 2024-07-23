@@ -2,13 +2,18 @@ import argparse
 import datetime
 import json
 import logging
+import random
 import time
 
+import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import Invariant
 from mldaikon.invariant.relation_pool import relation_pool
 from mldaikon.trace.trace import Trace, read_trace_file
 
 logger = logging.getLogger(__name__)
+
+# set random seed
+random.seed(0)
 
 
 class InferEngine:
@@ -60,6 +65,17 @@ if __name__ == "__main__":
         default="invariants.json",
         help="Output file to save invariants",
     )
+    parser.add_argument(
+        "--disable_precond_sampling",
+        action="store_true",
+        help="Disable sampling of positive and negative examples for precondition inference [By default sampling is enabled]",
+    )
+    parser.add_argument(
+        "--precond_sampling_threshold",
+        type=int,
+        default=config.PRECOND_SAMPLING_THRESHOLD,
+        help="The number of samples to take for precondition inference, if the number of samples is larger than this threshold, we will sample this number of samples [Default: 10000]",
+    )
     args = parser.parse_args()
 
     if args.debug:
@@ -73,6 +89,9 @@ if __name__ == "__main__":
         level=log_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+    config.ENABLE_PRECOND_SAMPLING = not args.disable_precond_sampling
+    config.PRECOND_SAMPLING_THRESHOLD = args.precond_sampling_threshold
 
     time_start = time.time()
     logger.info("Reading traces from %s", "\n".join(args.traces))

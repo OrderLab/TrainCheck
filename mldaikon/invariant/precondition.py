@@ -1,13 +1,11 @@
 import logging
+import random
 from itertools import combinations
 from typing import Hashable
 
 from tqdm import tqdm
 
-from mldaikon.config.config import (
-    CONST_CLAUSE_NUM_VALUES_THRESHOLD,
-    NOT_USE_AS_CLAUSE_FIELDS,
-)
+import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import (
     PT,
     GroupedPreconditions,
@@ -32,7 +30,7 @@ def _find_local_clauses(
     clauses = []
     # find properties that have only one value in the example
     for prop in example[0]:
-        if prop in NOT_USE_AS_CLAUSE_FIELDS:
+        if prop in config.NOT_USE_AS_CLAUSE_FIELDS:
             # skip meta_info about each event
             continue
 
@@ -159,7 +157,7 @@ def _merge_clauses(
             continue
 
         if (
-            len(seen_constant_values) > CONST_CLAUSE_NUM_VALUES_THRESHOLD
+            len(seen_constant_values) > config.CONST_CLAUSE_NUM_VALUES_THRESHOLD
             and prop_dtype is not bool
         ):
             consistent_clause = PreconditionClause(
@@ -255,6 +253,30 @@ def find_precondition_from_single_group(
         )
         return [UnconditionalPrecondition()]
 
+    # if there are too many positive examples, let's sample a subset of them
+    if (
+        len(positive_examples) > config.PRECOND_SAMPLING_THRESHOLD
+        and config.ENABLE_PRECOND_SAMPLING
+    ):  # TODO: this should probably change for each relation as each might have different statistical significance requirements
+        # TODO: why can we do this? Partial clauses usually are at around 20% to 80%, so statistically, sampling should be fine.
+        logger.warning(
+            f"Too many positive examples: {len(positive_examples)}, sampling to {config.PRECOND_SAMPLING_THRESHOLD} examples, sampling ratio: {config.PRECOND_SAMPLING_THRESHOLD / len(positive_examples) * 100}%"
+        )
+        positive_examples = random.sample(
+            positive_examples, config.PRECOND_SAMPLING_THRESHOLD
+        )
+
+    if (
+        len(negative_examples) > config.PRECOND_SAMPLING_THRESHOLD
+        and config.ENABLE_PRECOND_SAMPLING
+    ):
+        logger.warning(
+            f"Too many negative examples: {len(negative_examples)}, sampling to {config.PRECOND_SAMPLING_THRESHOLD} examples, sampling ratio: {config.PRECOND_SAMPLING_THRESHOLD / len(negative_examples) * 100}%"
+        )
+        negative_examples = random.sample(
+            negative_examples, config.PRECOND_SAMPLING_THRESHOLD
+        )
+
     ## 1. Find the properties (meta_vars and variable local attributes) that consistently shows up positive examples
     all_local_clauses = []
 
@@ -270,6 +292,19 @@ def find_precondition_from_single_group(
             print("example: ", example)
             raise ValueError(
                 "No clauses can be found in the example, precondition will be empty."
+            )
+
+        found_step = False
+        for clause in local_clauses:
+            # if clause.prop_name == "meta_vars.step":
+            if "var_name" in clause.prop_name and clause.type == PT.CONSTANT:
+                found_step = True
+                # print("found step in clause:", clause.to_dict())
+                break
+        if not found_step:
+            print("example: ", example)
+            raise ValueError(
+                "No step clause found in the example, precondition will be empty."
             )
 
         all_local_clauses.append(local_clauses)
