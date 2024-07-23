@@ -236,7 +236,10 @@ if __name__ == "__main__":
         dry_run=args.only_instrument,
         profiling=profiling,
     )
-    program_output, return_code = program_runner.run()
+    try:
+        program_output, return_code = program_runner.run()
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
     # dump the log
     with open("program_output.txt", "w") as f:

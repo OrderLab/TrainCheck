@@ -73,6 +73,23 @@ class FuncCallEvent(HighLevelEvent):
 
 
 @dataclass
+class IncompleteFuncCallEvent(HighLevelEvent):
+    """An outermost function call event, but without the post record."""
+
+    def __init__(self, func_name: str, pre_record: dict, potential_end_time: int):
+        self.func_name = func_name
+        self.pre_record = pre_record
+        self.potential_end_time = potential_end_time
+        assert pre_record["type"] == TraceLineType.FUNC_CALL_PRE
+
+    def __str__(self):
+        return f"IncompleteFuncCallEvent: {self.func_name}"
+
+    def get_traces(self):
+        return [self.pre_record]
+
+
+@dataclass
 class FuncCallExceptionEvent(HighLevelEvent):
     def __init__(self, func_name: str, pre_record: dict, post_record: dict):
         self.func_name = func_name

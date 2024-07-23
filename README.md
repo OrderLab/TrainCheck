@@ -1,5 +1,46 @@
-# ML-DAIKON
 
+# Improvement on Logging
+1. Create separate threads for each logger in each process (pid)
+2. Realize asynchronous logging:   
+Record trace in a buffer. If the buffer size attains a certain length (currently set to 10000), the corresponding logger will log into file once. The aim is to avoid frequently switching between logging threads and pipeline threads to decrease large overhead caused by <method 'acquire' of '_thread.lock' objects>.
+
+NOTE: Since the encoding part is not accomplished yet, we need to add the following code manually to the instrumented pipeline after the ```main()``` function:  
+```python
+if __name__ == '__main__':
+    main()
+    from mldaikon.instrumentor.tracer import get_dicts
+    trace_API_loggers, trace_VAR_loggers = get_dicts()
+
+    for log_queue, _, _ in trace_API_loggers.values():
+        log_queue.join()
+
+    for log_queue, _, _ in trace_API_loggers.values():
+        log_queue.put(None)
+
+    for _, log_thread, _ in trace_API_loggers.values():
+        log_thread.join()
+
+    for log_queue, _, _ in trace_VAR_loggers.values():
+        log_queue.join()
+
+    for log_queue, _, _ in trace_VAR_loggers.values():
+        log_queue.put(None)
+
+    for _, log_thread, _ in trace_VAR_loggers.values():
+        log_thread.join()
+```
+
+# Evaluate new logging on image-classification pipeline (7 epochs)
+## Total runtime comparison
+Total time for sync profile: 741.49 seconds
+Total time for async profile: 436.29 seconds
+## Files runtime comparison
+![alt text](sync_vs_async_files.png)
+## Function calls runtime comparison
+![alt text](sync_vs_async_functions.png)
+
+
+# ML-DAIKON
 [![Pre-commit checks](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml)
 
 [![Instrumentor Benchmark](https://github.com/OrderLab/ml-daikon/actions/workflows/bench-instr-e2e.yml/badge.svg)](https://github.com/OrderLab/ml-daikon/actions/workflows/bench-instr-e2e.yml)
