@@ -7,7 +7,7 @@ from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
 def observe_proxy_var(
     var, phase, only_dump_when_change=True, pre_observed_var=None, trace_info=None
 ):
-    if hasattr(var, "is_ml_daikon_proxied_obj"):
+    if is_proxied(var):
         if only_dump_when_change:
             if phase == "pre_observe":
                 trace_info = var.dump_trace(phase, only_dump_when_change)
@@ -51,11 +51,15 @@ def add_observer_to_func(func, unproxy=False):
 
                 try:
                     pre_observed_var = copy.deepcopy(var)
-                except Exception:
+                except Exception as e:
+                    import traceback
+
                     raise Exception(
-                        f"Error in deepcopy for {var} of type {type(var)},"
+                        f"Error in deepcopy for {var} of type {type(var._obj)},"
                         f"please implement deepcopy for the class,"
                         f"or set only_dump_when_change=False"
+                        f"Error: {e}"
+                        f"Stack Trace: {traceback.format_exc()}"
                     )
             else:
                 pre_observed_var = var
