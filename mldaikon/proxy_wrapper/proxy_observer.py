@@ -22,7 +22,8 @@ def observe_proxy_var(
                 var.dump_trace(
                     phase, only_dump_when_change, pre_observed_var, trace_info
                 )
-        var.dump_trace(phase)
+        else:
+            var.dump_trace(phase)
         return None
     else:
         NotImplementedError(f"observe method not implemented for {var}")
