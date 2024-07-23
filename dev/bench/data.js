@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721498458430,
+  "lastUpdate": 1721716937283,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2034,6 +2034,72 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9439241230402652",
             "extra": "mean: 236.0137252420187 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31838999+Essoz@users.noreply.github.com",
+            "name": "Yuxuan",
+            "username": "Essoz"
+          },
+          "committer": {
+            "email": "lessoxx@gmail.com",
+            "name": "Yuxuan Jiang",
+            "username": "Essoz"
+          },
+          "distinct": true,
+          "id": "71ebaf433d1bc91c668e9a3b65452ff1297f1a2f",
+          "message": "Merge pull request #66 from OrderLab/speed_improve_infer_engine\n\nSampling as a temporary solution to make the inference pipeline run through",
+          "timestamp": "2024-07-22T22:47:07-04:00",
+          "tree_id": "81f6cf8ef22275b9c3fa80f0c4d894f19e52f0fc",
+          "url": "https://github.com/OrderLab/ml-daikon/commit/71ebaf433d1bc91c668e9a3b65452ff1297f1a2f"
+        },
+        "date": 1721716936706,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_naive",
+            "value": 0.01044885870935871,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1818699359687371",
+            "extra": "mean: 95.70423218607903 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.006534654688636097,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4027173680415486",
+            "extra": "mean: 153.0302743829787 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.00788903484882097,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1749709663488091",
+            "extra": "mean: 126.75821810439228 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0012864636370064364,
+            "unit": "iter/sec",
+            "range": "stddev: 1.3871404307997266",
+            "extra": "mean: 777.3247305512429 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.004322490043333976,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7620731320666129",
+            "extra": "mean: 231.34813266769052 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented_with_scan_proxy_in_args",
+            "value": 0.004243240865268727,
+            "unit": "iter/sec",
+            "range": "stddev: 0.34821125715303963",
+            "extra": "mean: 235.66892188116907 sec\nrounds: 5"
           }
         ]
       }
