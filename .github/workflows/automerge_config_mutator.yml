@@ -1,0 +1,41 @@
+name: Automerge_config_mutator_from_e2e
+
+on:
+  push:
+    branches:
+      - e2e
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+env:
+  MY_REPO: https://x-access-token:${{secrets.GITHUB_TOKEN}}@github.com/OrderLab/ml-daikon.git
+
+  MY_BRANCH: config_mutator
+  MASTER_REPO: https://github.com/OrderLab/ml-daikon.git
+
+  MASTER_BRANCH: e2e
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout config_mutator branch
+      run: |
+        git clone ${{env.MY_REPO}} -b ${{env.MY_BRANCH}} tmp
+        cd tmp
+    - name: Configure git
+      working-directory: tmp
+      run: |
+        git config user.name "Automerge Bot"
+        git config user.email "bot@example.com"
+        git config pull.rebase false
+    - name: Merge with e2e
+      working-directory: tmp
+      run: |
+        git pull ${{env.MY_REPO}} ${{env.MASTER_BRANCH}}
+    - name: Push changes
+      working-directory: tmp
+      run: |
+        git push
