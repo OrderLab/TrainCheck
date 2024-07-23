@@ -22,7 +22,7 @@ from mldaikon.proxy_wrapper.dumper import (
 )
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.dumper import torch_serialize
-from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 from mldaikon.proxy_wrapper.proxy_config import (
     debug_mode,
     dump_info_config,
@@ -176,7 +176,11 @@ class Proxy:
             > proxy_update_limit
         ):
             dump_pre_and_post_trace = False
-            if only_record and status == "post_observe":
+            if (
+                only_record
+                and status == "post_observe"
+                and not isinstance(prev_obj, SkippedDumpingObj)
+            ):
                 assert (
                     prev_obj is not None and prev_trace_info is not None
                 ), "prev_obj and prev_trace_info should not be None"
@@ -191,11 +195,14 @@ class Proxy:
                     if prev_obj._obj != self._obj:
                         dump_pre_and_post_trace = True
 
-            if only_record and status == "post_observe":
                 if not dump_pre_and_post_trace:
                     return None
                 else:
+                    current_time = time.time()
+                    self.__dict__["last_update_timestamp"] = current_time
                     self.dump_to_trace(prev_obj, prev_trace_info)
+
+            # record the trace info
             frame = inspect.currentframe()
             frame_array = self.get_frame_array(frame)
             dumped_frame_array = json.dumps(frame_array)
@@ -205,7 +212,6 @@ class Proxy:
                 "status": status,
                 "frame_array": dumped_frame_array,
             }
-            self.__dict__["last_update_timestamp"] = current_time
 
             if only_record and status == "pre_observe":
                 return trace_info
@@ -265,6 +271,10 @@ class Proxy:
                     == Proxy.var_dict[self.__dict__["var_name"]]._obj._version
                 ):
                     return
+        if is_proxied(obj):
+            var_type = type(obj.__dict__["_obj"])
+        else:
+            var_type = type(obj)
 
         if not issubclass(type(obj), torch.nn.Module):
             dumped_val = str(torch_serialize(obj))
@@ -274,7 +284,7 @@ class Proxy:
                 current_time,
                 dump_meta_vars(self, proxy_file_path=__file__),
                 self.__dict__["dumped_varname_list"],
-                type(obj).__name__,
+                var_type.__name__,
                 dumped_val,
                 status,
                 dump_attributes(self, obj),
