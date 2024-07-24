@@ -159,11 +159,15 @@ class ConsistencyRelation(Relation):
                     # for each pair of attributes, calculate the liveness overlapping
                     done_creating_hypothesis = False
                     seen_positive_examples = 0
-                    for value in var_insts[var_inst][attr]:
+                    for value in var_insts[var_inst][attr][
+                        int(is_skipping_init_values) :
+                    ]:
                         saw_overlap = False
                         if done_creating_hypothesis:
                             break
-                        for other_value in var_insts[other_var_inst][other_attr]:
+                        for other_value in var_insts[other_var_inst][other_attr][
+                            int(is_skipping_init_values) :
+                        ]:
                             overlap = calc_liveness_overlap(
                                 value.liveness, other_value.liveness
                             )
