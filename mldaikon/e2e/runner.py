@@ -125,9 +125,17 @@ def run_e2e(
         "-m",
         "mldaikon.infer_engine",
         "-t",
-        " ".join(processed_proxy_files),
-        " ".join(API_trace_files),
+        # " ".join(processed_proxy_files),
+        # " ".join(API_trace_files),
     ]
+
+    if input_config["only_var"] == "True":
+        infer_engine_script_args.append(" ".join(processed_proxy_files))
+    elif input_config["only_func"] == "True":
+        infer_engine_script_args.append(" ".join(API_trace_files))
+    else:
+        infer_engine_script_args.append(" ".join(processed_proxy_files))
+        infer_engine_script_args.append(" ".join(API_trace_files))
 
     return_code = run_python_script(
         python_path, infer_engine_script_args, {}, output_dir

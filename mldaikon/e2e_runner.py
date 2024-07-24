@@ -76,6 +76,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Enable profiling during the trace collection",
     )
+    parser.add_argument(
+        "--only_var",
+        action="store_true",
+        help="Only check variable related invariants",
+    )
+    parser.add_argument(
+        "--only_func",
+        action="store_true",
+        help="Only check function related invariants",
+    )
 
     args = parser.parse_args()
     example_pipelines_dir = args.example_pipelines_dir
@@ -146,6 +156,8 @@ if __name__ == "__main__":
         "proxy_log_dir": output_dir,
         "API_log_dir": api_log_dir,
         "profiling": str(args.profiling),
+        "only_var": str(args.only_var),
+        "only_func": str(args.only_func),
     }
     # run the e2e pipeline
     run_e2e(
