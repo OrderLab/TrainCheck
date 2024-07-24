@@ -22,7 +22,7 @@ from mldaikon.proxy_wrapper.dumper import (
 )
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.dumper import torch_serialize
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
+from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
 from mldaikon.proxy_wrapper.proxy_config import (
     debug_mode,
     dump_info_config,
@@ -271,10 +271,8 @@ class Proxy:
                     == Proxy.var_dict[self.__dict__["var_name"]]._obj._version
                 ):
                     return
-        if is_proxied(obj):
-            var_type = type(obj.__dict__["_obj"])
-        else:
-            var_type = type(obj)
+        # Strong assertion: the previous type and current type of the object should be the same
+        var_type = type(self._obj)
 
         if not issubclass(type(obj), torch.nn.Module):
             dumped_val = str(torch_serialize(obj))

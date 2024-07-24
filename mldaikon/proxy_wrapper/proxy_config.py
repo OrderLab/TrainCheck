@@ -2,7 +2,7 @@ import os
 
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace would work only when you manually add Proxy()
-proxy_update_limit = 25
+proxy_update_limit = 5
 debug_mode = False
 
 delta_dump_config = {
@@ -33,7 +33,7 @@ auto_observer_config = {
     "observe_then_unproxy": True,  # observe the function call and then unproxy the arguments
 }
 
-enable_C_level_observer = True  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
+enable_C_level_observer = False  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
 
 primitive_types = {
     int,
@@ -58,6 +58,14 @@ meta_var_black_list = [
     "thread_id",
     "dumped_frame_array",
     "func_call_id",
+    "mldaikon_folder",
+    "enable_auto_observer_depth",
+    "neglect_hidden_func",
+    "neglect_hidden_module",
+    "observe_then_unproxy",
+    "observe_up_to_depth",
+    "log_file",
+    "log_dir",
 ]
 tensor_attribute_black_list = [
     "T",
