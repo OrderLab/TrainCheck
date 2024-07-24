@@ -294,19 +294,6 @@ def find_precondition_from_single_group(
                 "No clauses can be found in the example, precondition will be empty."
             )
 
-        found_step = False
-        for clause in local_clauses:
-            # if clause.prop_name == "meta_vars.step":
-            if "var_name" in clause.prop_name and clause.type == PT.CONSTANT:
-                found_step = True
-                # print("found step in clause:", clause.to_dict())
-                break
-        if not found_step:
-            print("example: ", example)
-            raise ValueError(
-                "No step clause found in the example, precondition will be empty."
-            )
-
         all_local_clauses.append(local_clauses)
 
     ## merge the local clauses: 1) group by the clause target and 2) merge into consistent if too many values are found
