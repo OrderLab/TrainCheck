@@ -11,6 +11,11 @@ from mldaikon.invariant.base_cls import (
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 
+class RepeatLog:
+    def __init__(self, last_value: float):
+        self.last_value = last_value
+        self.is_value_change = False
+
 def count_num_juistification(occurrences_num: dict[str, dict[str, dict[str, int]]], count: int):
         # TODO: discuss to find a better way to distinguish between changed values
         return count > 1
@@ -46,7 +51,7 @@ class VarPeriodicChangeRelation(Relation):
         # TODO: improve time and memory efficiency
         # occurrences_num: dict[str, dict[str, dict[str, (int, list[float])]]] = {}
         occurrences_num: dict[str, dict[str, dict[str, int]]] = {}
-        is_value_change: dict[str, bool] = {}
+        is_repeated: dict[str, RepeatLog] = {}
         for var_id, attrs in var_insts.items():
             for attr_name, attr_insts in attrs.items():
                 for attr_inst in attr_insts:
@@ -56,13 +61,15 @@ class VarPeriodicChangeRelation(Relation):
                         occurrences_num[var_key] = {}
                     if attr_name not in occurrences_num[var_key]:
                         occurrences_num[var_key][attr_name] = {}
-                        is_value_change[var_key + attr_name] = False
+                        is_repeated[var_key + attr_name] = RepeatLog(hypo_value)
                     if hypo_value not in occurrences_num[var_key][attr_name]:
                         occurrences_num[var_key][attr_name][hypo_value] = 1
                         if len(occurrences_num[var_key][attr_name]) > 1:
-                            is_value_change[var_key + attr_name] = True
+                            is_repeated[var_key + attr_name].is_value_change = True
                     else:
-                        occurrences_num[var_key][attr_name][hypo_value] += 1
+                        if is_repeated[var_key + attr_name].last_value != hypo_value:
+                            occurrences_num[var_key][attr_name][hypo_value] += 1
+                            is_repeated[var_key + attr_name].last_value = hypo_value
                         
         # 3. Hypothesis generation
         hypothesis: dict[str, dict[str, dict[str,Hypothesis]]] = {}
@@ -79,7 +86,7 @@ class VarPeriodicChangeRelation(Relation):
                         hypothesis[var_key] = {}
                     if attr_name not in hypothesis[var_key]:
                         hypothesis[var_key][attr_name] = {}
-                    if is_value_change[var_id.var_name + attr_name]:
+                    if is_repeated[var_id.var_name + attr_name]:
                         if hypo_value not in hypothesis[var_key][attr_name]:
                                 hypo = Hypothesis(
                                     Invariant(
