@@ -140,16 +140,6 @@ def instrument_file(
     logging_start_code = """
 import os
 os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]
-
-import atexit
-from mldaikon.instrumentor.tracer import close_logging_threads
-# handle exceptions and close the logging threads
-atexit.register(close_logging_threads)
-"""
-    # we need to close the child logging threads by sending None to the queues on the main thread
-    logging_end_code = """
-# no exception, close the logging threads
-close_logging_threads()
 """
 
     ## proxy configs
@@ -264,7 +254,6 @@ for log_file in log_files:
         + proxy_start_code
         + auto_observer_code
         + "\n".join(instrumented_source.split("\n")[1:])
-        + logging_end_code
     )
 
     return instrumented_source

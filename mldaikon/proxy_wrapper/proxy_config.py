@@ -2,7 +2,7 @@ import os
 
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace would work only when you manually add Proxy()
-proxy_update_limit = 0
+proxy_update_limit = 5
 debug_mode = False
 
 delta_dump_config = {
@@ -25,7 +25,7 @@ dump_info_config = {
 
 auto_observer_config = {
     "enable_auto_observer": True,  # automatically add observer to the function
-    "only_dump_when_change": False,  # only dump the variable when it is changed
+    "only_dump_when_change": True,  # only dump the variable when it is changed
     "enable_auto_observer_depth": 3,  # the depth of the function call that we want to observe
     "observe_up_to_depth": False,  # observe up to the depth of the function call, if False, only observe the function call at the depth
     "neglect_hidden_func": True,  # neglect the hidden function (function that starts with '_')
@@ -33,7 +33,7 @@ auto_observer_config = {
     "observe_then_unproxy": True,  # observe the function call and then unproxy the arguments
 }
 
-enable_C_level_observer = True  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
+enable_C_level_observer = False  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
 
 primitive_types = {
     int,
@@ -58,6 +58,14 @@ meta_var_black_list = [
     "thread_id",
     "dumped_frame_array",
     "func_call_id",
+    "mldaikon_folder",
+    "enable_auto_observer_depth",
+    "neglect_hidden_func",
+    "neglect_hidden_module",
+    "observe_then_unproxy",
+    "observe_up_to_depth",
+    "log_file",
+    "log_dir",
 ]
 tensor_attribute_black_list = [
     "T",

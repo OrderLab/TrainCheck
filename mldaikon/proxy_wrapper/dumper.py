@@ -32,6 +32,14 @@ class Singleton(type):
         return cls._instances[cls]
 
 
+class SkippedDumpingObj:
+    def __init__(self, obj):
+        self._obj = obj
+
+    def __repr__(self):
+        return f"Skipped Dumping Object: ({self._obj})"
+
+
 class json_dumper(metaclass=Singleton):
     # singleton pattern for shared state
     _shared_state = False

@@ -8,7 +8,7 @@ import os
 import threading
 import traceback
 import types
-from queue import Queue
+from queue import Empty, Queue
 from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
 
 import torch
@@ -37,28 +37,30 @@ class PTID(NamedTuple):
 
 
 # per process & thread logging
-trace_API_logger_queues: dict[PTID, Queue] = {}
-trace_VAR_logger_queues: dict[PTID, Queue] = {}
+stop_event = threading.Event()
+monitoring_thread = None
+trace_API_dumper_queues: dict[PTID, Queue] = {}
+trace_VAR_dumper_queues: dict[PTID, Queue] = {}
 
 # per process logging
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
 
-# to be invoked at the end of the experiment; source_file.py inserts this function at the end of the instrumented file
-def close_logging_threads():
-    for trace_queue in trace_API_logger_queues.values():
-        trace_queue.put(None)
-    for trace_queue in trace_VAR_logger_queues.values():
-        trace_queue.put(None)
+def monitor_main_thread(main_thread, stop_event):
+    main_thread.join()  # Wait for the main thread to finish
+    print("Main thread has finished or encountered an exception")
+    stop_event.set()  # Signal the logging threads to stop
 
 
-def trace_dumper(task_queue: Queue, trace_file_name: str):
+def trace_dumper(task_queue: Queue, trace_file_name: str, stop_event: threading.Event):
     with open(trace_file_name, "w") as f:
         while True:
-            trace = task_queue.get()
-            if trace is None:
-                task_queue.task_done()
-                return
+            try:
+                trace = task_queue.get(timeout=0.5)
+            except Empty:
+                if stop_event.is_set():
+                    break
+                continue
             trace_str = json.dumps(trace)
             f.write(f"{trace_str}\n")
             task_queue.task_done()
@@ -79,12 +81,19 @@ class TraceLineType:
 
 
 def get_trace_API_dumper_queue():
+    global monitoring_thread
+    if monitoring_thread is None:
+        monitoring_thread = threading.Thread(
+            target=monitor_main_thread, args=(threading.main_thread(), stop_event)
+        )
+        monitoring_thread.start()
+
     pid = os.getpid()
     tid = threading.current_thread().ident
 
     ptid = PTID(pid, tid)
-    if ptid in trace_API_logger_queues:
-        return trace_API_logger_queues[ptid]
+    if ptid in trace_API_dumper_queues:
+        return trace_API_dumper_queues[ptid]
 
     script_name = os.getenv("MAIN_SCRIPT_NAME")
     assert (
@@ -96,21 +105,28 @@ def get_trace_API_dumper_queue():
         f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}_{tid}.log"
     )
     log_thread = threading.Thread(
-        target=trace_dumper, args=(trace_queue, trace_file_name)
+        target=trace_dumper, args=(trace_queue, trace_file_name, stop_event)
     )
     log_thread.start()
 
-    trace_API_logger_queues[ptid] = trace_queue
+    trace_API_dumper_queues[ptid] = trace_queue
     return trace_queue
 
 
 def get_trace_VAR_dumper_queue():
+    global monitoring_thread
+    if monitoring_thread is None:
+        monitoring_thread = threading.Thread(
+            target=monitor_main_thread, args=(threading.main_thread(), stop_event)
+        )
+        monitoring_thread.start()
+
     pid = os.getpid()
     tid = threading.current_thread().ident
 
     ptid = PTID(pid, tid)
-    if ptid in trace_VAR_logger_queues:
-        return trace_VAR_logger_queues[ptid]
+    if ptid in trace_VAR_dumper_queues:
+        return trace_VAR_dumper_queues[ptid]
 
     script_name = os.getenv("MAIN_SCRIPT_NAME")
     assert (
@@ -122,11 +138,11 @@ def get_trace_VAR_dumper_queue():
         f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}_{tid}.log"
     )
     log_thread = threading.Thread(
-        target=trace_dumper, args=(trace_queue, trace_file_name)
+        target=trace_dumper, args=(trace_queue, trace_file_name, stop_event)
     )
     log_thread.start()
 
-    trace_VAR_logger_queues[ptid] = trace_queue
+    trace_VAR_dumper_queues[ptid] = trace_queue
     return trace_queue
 
 
