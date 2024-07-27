@@ -1,24 +1,30 @@
 import logging
+
 import numpy as np
+
 from mldaikon.invariant.base_cls import (
     Example,
     ExampleList,
     Hypothesis,
     Invariant,
     Relation,
-    VarTypeParam
+    VarTypeParam,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+
 
 class RepeatLog:
     def __init__(self, last_value: float):
         self.last_value = last_value
         self.is_value_change = False
 
-def count_num_juistification(occurrences_num: dict[str, dict[str, dict[str, int]]], count: int):
-        # TODO: discuss to find a better way to distinguish between changed values
-        return count > 1
+
+def count_num_juistification(
+    occurrences_num: dict[str, dict[str, dict[str, int]]], count: int
+):
+    # TODO: discuss to find a better way to distinguish between changed values
+    return count > 1
 
 
 def calculate_hypo_value(value) -> str:
@@ -29,11 +35,12 @@ def calculate_hypo_value(value) -> str:
     elif isinstance(value, str):
         hypo_value = value
     else:
-        hypo_value = "None"   # TODO: how to represent None, 
+        hypo_value = "None"  # TODO: how to represent None,
     return hypo_value
 
+
 class VarPeriodicChangeRelation(Relation):
-        
+
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:
         """Infer Invariants for the VariableChangeRelation."""
@@ -44,8 +51,7 @@ class VarPeriodicChangeRelation(Relation):
         if len(var_insts) == 0:
             logger.warning("No variables found in the trace.")
             return []
-        
-        
+
         ## 2.Counting: count the number of each value of every variable attribute
         # TODO: record the intervals between occurrencess
         # TODO: improve time and memory efficiency
@@ -70,9 +76,9 @@ class VarPeriodicChangeRelation(Relation):
                         if is_repeated[var_key + attr_name].last_value != hypo_value:
                             occurrences_num[var_key][attr_name][hypo_value] += 1
                             is_repeated[var_key + attr_name].last_value = hypo_value
-                        
+
         # 3. Hypothesis generation
-        hypothesis: dict[str, dict[str, dict[str,Hypothesis]]] = {}
+        hypothesis: dict[str, dict[str, dict[str, Hypothesis]]] = {}
 
         for var_id, attrs in var_insts.items():
             for attr_name, attr_insts in attrs.items():
@@ -88,22 +94,33 @@ class VarPeriodicChangeRelation(Relation):
                         hypothesis[var_key][attr_name] = {}
                     if is_repeated[var_id.var_name + attr_name]:
                         if hypo_value not in hypothesis[var_key][attr_name]:
-                                hypo = Hypothesis(
-                                    Invariant(
-                                        relation=VarPeriodicChangeRelation,
-                                        params=[VarTypeParam(var_key, attr_name)],
-                                        precondition=None,
-                                    ),
-                                    positive_examples=ExampleList({group_names}),
-                                    negative_examples=ExampleList({group_names}),
-                                )
-                                hypothesis[var_key][attr_name][hypo_value] = hypo
-                        if count_num_juistification(occurrences_num, occurrences_num[var_id.var_name][attr_name][hypo_value]):
-                            hypothesis[var_key][attr_name][hypo_value].positive_examples.add_example(example)   # If a value occurs more than once, mark it as positive
+                            hypo = Hypothesis(
+                                Invariant(
+                                    relation=VarPeriodicChangeRelation,
+                                    params=[VarTypeParam(var_key, attr_name)],
+                                    precondition=None,
+                                ),
+                                positive_examples=ExampleList({group_names}),
+                                negative_examples=ExampleList({group_names}),
+                            )
+                            hypothesis[var_key][attr_name][hypo_value] = hypo
+                        if count_num_juistification(
+                            occurrences_num,
+                            occurrences_num[var_id.var_name][attr_name][hypo_value],
+                        ):
+                            hypothesis[var_key][attr_name][
+                                hypo_value
+                            ].positive_examples.add_example(
+                                example
+                            )  # If a value occurs more than once, mark it as positive
                         else:
                             # TODO: how to add negative examples so that preconditions inference works
-                            hypothesis[var_key][attr_name][hypo_value].negative_examples.add_example(example)   # If a value occurs only once, mark it as negative
-             
+                            hypothesis[var_key][attr_name][
+                                hypo_value
+                            ].negative_examples.add_example(
+                                example
+                            )  # If a value occurs only once, mark it as negative
+
         # 4. find preconditions
         for var_name in hypothesis:
             for attr_name in hypothesis[var_name]:
@@ -111,11 +128,14 @@ class VarPeriodicChangeRelation(Relation):
                     hypo = hypothesis[var_name][attr_name][hypo_value]
                     hypo.invariant.precondition = find_precondition(hypo)
                     hypo.invariant.text_description = f"{var_name + '.' + attr_name} is periodicaly set to {hypo_value}"
-        
-        return list([hypothesis[var_name][attr_name][hypo_value].invariant
-                     for var_name in hypothesis
-                     for attr_name in hypothesis[var_name]
-                     for hypo_value in hypothesis[var_name][attr_name]
-                     if hypothesis[var_name][attr_name][hypo_value].invariant.precondition is not None
-                     ])
-        
+
+        return list(
+            [
+                hypothesis[var_name][attr_name][hypo_value].invariant
+                for var_name in hypothesis
+                for attr_name in hypothesis[var_name]
+                for hypo_value in hypothesis[var_name][attr_name]
+                if hypothesis[var_name][attr_name][hypo_value].invariant.precondition
+                is not None
+            ]
+        )
