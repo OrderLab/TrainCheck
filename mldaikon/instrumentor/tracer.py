@@ -186,7 +186,12 @@ def is_c_level_function(original_function):
 
 
 def global_wrapper(
-    original_function, is_bound_method, scan_proxy_in_args, *args, **kwargs
+    original_function,
+    is_bound_method,
+    scan_proxy_in_args,
+    dump_stack_trace,
+    *args,
+    **kwargs,
 ):
     import uuid
 
@@ -215,6 +220,9 @@ def global_wrapper(
             ["", ""]
         ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
     }
+
+    if dump_stack_trace:
+        pre_record["stack_trace"] = traceback.format_stack()
 
     C_level_call = is_c_level_function(original_function)
 
@@ -311,14 +319,25 @@ def core_wrapper(original_function, *args, **kwargs):
     return original_function(*args, **kwargs)
 
 
-def wrapper(original_function, is_bound_method, scan_proxy_in_args, disable_dump=False):
+def wrapper(
+    original_function,
+    is_bound_method,
+    scan_proxy_in_args,
+    dump_stack_trace,
+    disable_dump=False,
+):
     if not disable_dump:
         METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(typename(original_function))
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
             return global_wrapper(
-                original_function, is_bound_method, scan_proxy_in_args, *args, **kwargs
+                original_function,
+                is_bound_method,
+                scan_proxy_in_args,
+                dump_stack_trace,
+                *args,
+                **kwargs,
             )
 
     else:
@@ -442,6 +461,7 @@ class Instrumentor:
         scan_proxy_in_args: bool,
         allow_disable_dump: bool,
         funcs_of_inv_interest: Optional[list[str]] = None,
+        API_dump_stack_trace: bool = False,
     ):
         """
         Instruments the specified target with additional tracing functionality.
@@ -492,6 +512,7 @@ class Instrumentor:
         self.scan_proxy_in_args = scan_proxy_in_args
         self.allow_disable_dump = allow_disable_dump
         self.funcs_of_inv_interest = funcs_of_inv_interest
+        self.API_dump_stack_trace = API_dump_stack_trace
 
         if self.funcs_of_inv_interest is not None and not self.allow_disable_dump:
             get_instrumentation_logger_for_process().fatal(
@@ -742,6 +763,7 @@ class Instrumentor:
                     is_bound_method=is_API_bound_method(attr),
                     scan_proxy_in_args=self.scan_proxy_in_args,
                     disable_dump=self.should_disable_dump(attr),
+                    dump_stack_trace=self.API_dump_stack_trace,
                 )
                 try:
                     setattr(pymodule, attr_name, wrapped)
