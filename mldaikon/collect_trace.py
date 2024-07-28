@@ -95,9 +95,15 @@ if __name__ == "__main__":
         help="The threshold for updating the proxy object",
     )
     parser.add_argument(
+        "-d",
         "--debug_mode",
         action="store_true",
         help="Enable debug mode for the program",
+    )
+    parser.add_argument(
+        "--API_dump_stack_trace",
+        action="store_true",
+        help="Dump the stack trace for API calls",
     )
     parser.add_argument(
         "-i",
@@ -218,6 +224,7 @@ if __name__ == "__main__":
         funcs_of_inv_interest,
         args.proxy_module,
         adjusted_proxy_config,  # type: ignore
+        args.API_dump_stack_trace,
     )
 
     # call into the program runner
