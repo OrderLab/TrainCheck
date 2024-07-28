@@ -76,6 +76,7 @@ def run_e2e(
         api_log_dir,
         "--profiling",
         profiling,
+        "--allow_disable_dump",
     ]
     # clear up the output directory
     if os.path.exists(output_dir):
