@@ -3,6 +3,7 @@ import logging
 import numpy as np
 
 from mldaikon.invariant.base_cls import (
+    CheckerResult,
     Example,
     ExampleList,
     Hypothesis,
@@ -14,13 +15,7 @@ from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 
 
-class RepeatLog:
-    def __init__(self, last_value: float):
-        self.last_value = last_value
-        self.is_value_change = False
-
-
-def count_num_juistification(
+def count_num_justification(
     occurrences_num: dict[str, dict[str, dict[str, int]]], count: int
 ):
     # TODO: discuss to find a better way to distinguish between changed values
@@ -32,8 +27,8 @@ def calculate_hypo_value(value) -> str:
         hypo_value = f"{value:.7f}"
     elif isinstance(value, (list)):
         hypo_value = f"{np.linalg.norm(value, ord=1):.7f}"  # l1-norm
-    elif isinstance(value, str):
-        hypo_value = value
+    elif isinstance(value, (str, bool)):
+        hypo_value = f"{value}"
     else:
         hypo_value = "None"  # TODO: how to represent None,
     return hypo_value
@@ -57,7 +52,7 @@ class VarPeriodicChangeRelation(Relation):
         # TODO: improve time and memory efficiency
         # occurrences_num: dict[str, dict[str, dict[str, (int, list[float])]]] = {}
         occurrences_num: dict[str, dict[str, dict[str, int]]] = {}
-        is_repeated: dict[str, RepeatLog] = {}
+        is_value_change: dict[str, bool] = {}
         for var_id, attrs in var_insts.items():
             for attr_name, attr_insts in attrs.items():
                 for attr_inst in attr_insts:
@@ -67,15 +62,13 @@ class VarPeriodicChangeRelation(Relation):
                         occurrences_num[var_key] = {}
                     if attr_name not in occurrences_num[var_key]:
                         occurrences_num[var_key][attr_name] = {}
-                        is_repeated[var_key + attr_name] = RepeatLog(hypo_value)
+                        is_value_change[var_key + attr_name] = False
                     if hypo_value not in occurrences_num[var_key][attr_name]:
                         occurrences_num[var_key][attr_name][hypo_value] = 1
                         if len(occurrences_num[var_key][attr_name]) > 1:
-                            is_repeated[var_key + attr_name].is_value_change = True
+                            is_value_change[var_key + attr_name] = True
                     else:
-                        if is_repeated[var_key + attr_name].last_value != hypo_value:
-                            occurrences_num[var_key][attr_name][hypo_value] += 1
-                            is_repeated[var_key + attr_name].last_value = hypo_value
+                        occurrences_num[var_key][attr_name][hypo_value] += 1
 
         # 3. Hypothesis generation
         hypothesis: dict[str, dict[str, dict[str, Hypothesis]]] = {}
@@ -92,7 +85,7 @@ class VarPeriodicChangeRelation(Relation):
                         hypothesis[var_key] = {}
                     if attr_name not in hypothesis[var_key]:
                         hypothesis[var_key][attr_name] = {}
-                    if is_repeated[var_id.var_name + attr_name]:
+                    if is_value_change[var_id.var_name + attr_name]:
                         if hypo_value not in hypothesis[var_key][attr_name]:
                             hypo = Hypothesis(
                                 Invariant(
@@ -104,7 +97,7 @@ class VarPeriodicChangeRelation(Relation):
                                 negative_examples=ExampleList({group_names}),
                             )
                             hypothesis[var_key][attr_name][hypo_value] = hypo
-                        if count_num_juistification(
+                        if count_num_justification(
                             occurrences_num,
                             occurrences_num[var_id.var_name][attr_name][hypo_value],
                         ):
@@ -139,3 +132,31 @@ class VarPeriodicChangeRelation(Relation):
                 is not None
             ]
         )
+
+    @staticmethod
+    def evaluate(value_group: list) -> bool:
+        """Given a group of values, should return a boolean value
+        indicating whether the relation holds or not.
+
+        args:
+            value_group: list
+                A list of values to evaluate the relation on. The length of the list
+                should be equal to the number of variables in the relation.
+        """
+        return True
+
+    @staticmethod
+    def static_check_all(
+        trace: Trace, inv: Invariant, check_relation_first: bool
+    ) -> CheckerResult:
+        """Given a trace and an invariant, should return a boolean value
+        indicating whether the invariant holds on the trace.
+
+        args:
+            trace: Trace
+                A trace to check the invariant on.
+            inv: Invariant
+                The invariant to check on the trace.
+        """
+
+        return CheckerResult(None, inv, True)
