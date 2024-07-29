@@ -74,6 +74,8 @@ def run_e2e(
         api_log_dir,
         "--profiling",
         profiling,
+        "--allow_disable_dump",
+        # "--API_dump_stack_trace"
     ]
     if "input_bash_script" in input_config and input_config["input_bash_script"] != "":
         trace_collector_script_args += ["-s", input_config["input_bash_script"]]

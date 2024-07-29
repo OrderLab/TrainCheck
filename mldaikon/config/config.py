@@ -11,6 +11,11 @@ WRAP_WITHOUT_DUMP = [
     "torch._C",
     "torch._jit",
     "torch.jit",
+    "torch._tensor_str",
+    # "torch.is_grad_enabled",
+    # "torch.autograd.grad_mode",
+    # "torch._VariableFunctionsClass",
+    # "torch.get_default_dtype",
 ]
 
 # consistency relation configs
