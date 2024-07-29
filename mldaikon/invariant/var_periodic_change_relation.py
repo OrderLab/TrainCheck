@@ -46,13 +46,11 @@ class VarPeriodicChangeRelation(Relation):
         if len(var_insts) == 0:
             logger.warning("No variables found in the trace.")
             return []
-
         ## 2.Counting: count the number of each value of every variable attribute
         # TODO: record the intervals between occurrencess
         # TODO: improve time and memory efficiency
         # occurrences_num: dict[str, dict[str, dict[str, (int, list[float])]]] = {}
         occurrences_num: dict[str, dict[str, dict[str, int]]] = {}
-        is_value_change: dict[str, bool] = {}
         for var_id, attrs in var_insts.items():
             for attr_name, attr_insts in attrs.items():
                 for attr_inst in attr_insts:
@@ -62,17 +60,13 @@ class VarPeriodicChangeRelation(Relation):
                         occurrences_num[var_key] = {}
                     if attr_name not in occurrences_num[var_key]:
                         occurrences_num[var_key][attr_name] = {}
-                        is_value_change[var_key + attr_name] = False
                     if hypo_value not in occurrences_num[var_key][attr_name]:
                         occurrences_num[var_key][attr_name][hypo_value] = 1
-                        if len(occurrences_num[var_key][attr_name]) > 1:
-                            is_value_change[var_key + attr_name] = True
                     else:
                         occurrences_num[var_key][attr_name][hypo_value] += 1
 
         # 3. Hypothesis generation
         hypothesis: dict[str, dict[str, dict[str, Hypothesis]]] = {}
-
         for var_id, attrs in var_insts.items():
             for attr_name, attr_insts in attrs.items():
                 for attr_inst in attr_insts:
@@ -85,7 +79,10 @@ class VarPeriodicChangeRelation(Relation):
                         hypothesis[var_key] = {}
                     if attr_name not in hypothesis[var_key]:
                         hypothesis[var_key][attr_name] = {}
-                    if is_value_change[var_id.var_name + attr_name]:
+                    if count_num_justification(
+                        occurrences_num,
+                        occurrences_num[var_id.var_name][attr_name][hypo_value],
+                    ):
                         if hypo_value not in hypothesis[var_key][attr_name]:
                             hypo = Hypothesis(
                                 Invariant(
@@ -97,22 +94,19 @@ class VarPeriodicChangeRelation(Relation):
                                 negative_examples=ExampleList({group_names}),
                             )
                             hypothesis[var_key][attr_name][hypo_value] = hypo
-                        if count_num_justification(
-                            occurrences_num,
-                            occurrences_num[var_id.var_name][attr_name][hypo_value],
-                        ):
-                            hypothesis[var_key][attr_name][
-                                hypo_value
-                            ].positive_examples.add_example(
-                                example
-                            )  # If a value occurs more than once, mark it as positive
-                        else:
-                            # TODO: how to add negative examples so that preconditions inference works
-                            hypothesis[var_key][attr_name][
-                                hypo_value
-                            ].negative_examples.add_example(
-                                example
-                            )  # If a value occurs only once, mark it as negative
+
+                        hypothesis[var_key][attr_name][
+                            hypo_value
+                        ].positive_examples.add_example(
+                            example
+                        )  # If a value occurs more than once, mark it as positive
+                    # else:
+                    #     # TODO: how to add negative examples so that preconditions inference works
+                    #     hypothesis[var_key][attr_name][
+                    #         hypo_value
+                    #     ].negative_examples.add_example(
+                    #         example
+                    #     )  # If a value occurs only once, mark it as negative
 
         # 4. find preconditions
         for var_name in hypothesis:

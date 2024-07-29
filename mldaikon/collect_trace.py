@@ -144,10 +144,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if args.proxy_module != "None":
-        disable_proxy_class = False
-    else:
-        disable_proxy_class = True
+    # if args.proxy_module != "None":
+    #     disable_proxy_class = False
+    # else:
+    #     disable_proxy_class = True
+    disable_proxy_class = False
 
     # set up adjusted proxy_config
     proxy_basic_config: dict[str, int | bool] = {}
