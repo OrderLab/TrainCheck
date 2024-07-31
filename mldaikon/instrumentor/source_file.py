@@ -114,7 +114,6 @@ def instrument_file(
     disable_proxy_class: bool,
     scan_proxy_in_args: bool,
     use_full_instr: bool,
-    API_log_dir: str,
     funcs_of_inv_interest: list[str] | None,
     proxy_module: str,
     adjusted_proxy_config: list[dict[str, int | bool | str]],

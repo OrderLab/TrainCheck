@@ -45,7 +45,6 @@ def run_e2e(
     python_path: str,
     input_config: dict[str, str],
     input_env: dict[str, str],
-    output_dir: str,
 ) -> int:
     # this is the end to end invariant generation pipeline for mldaikon project
     # input_program: the path to the python script to be run (should be uninstrumented user's script)
@@ -54,8 +53,7 @@ def run_e2e(
     input_program: str = input_config["input_program"]  # with -p flag
     modules_to_instrument: str = input_config["modules_to_instrument"]  # with -t flag
     proxy_module = input_config["proxy_module"]  # with --proxy_module flag
-    proxy_log_dir = input_config["proxy_log_dir"]  # with --proxy_log_dir flag
-    api_log_dir = input_config["API_log_dir"]  # with --API_log_dir flag
+    output_dir = input_config["output_dir"]  # with --output_dir flag
     profiling = input_config["profiling"]  # with --profiling flag
 
     # run the script with the given arguments and environment variables
@@ -68,10 +66,8 @@ def run_e2e(
         modules_to_instrument,
         "--proxy-module",
         proxy_module,
-        "--proxy-log-dir",
-        proxy_log_dir,
-        "--API-log-dir",
-        api_log_dir,
+        "--output-dir",
+        output_dir,
         "--profiling",
         profiling,
         "--use-full-instr",
@@ -83,7 +79,6 @@ def run_e2e(
     if os.path.exists(output_dir):
         os.system(f"rm -r {output_dir}")
     os.makedirs(output_dir)
-    os.makedirs(api_log_dir)
 
     # run the script with the given arguments and environment variables
     return_code = run_python_script(
@@ -113,15 +108,15 @@ def run_e2e(
 
     ## Activate the Infer Engine
     # example: python -m mldaikon.infer_engine -t <proxy_folder>/proxy_trace_processed_* <trace_folder>/<path_to_API_trace>
-    trace_folder = os.path.join(output_dir, "trace_log")
+    # trace_folder = os.path.join(output_dir, "trace_log")
     proxy_folder = os.path.join(output_dir, "processed_proxy_traces")
 
-    api_trace_folder = os.path.join(trace_folder, "API")
+    # api_trace_folder = os.path.join(trace_folder, "API")
 
     processed_proxy_files = find_files(
         proxy_folder, prefix="proxy_trace_processed_", suffix=".json"
     )
-    API_trace_files = find_files(api_trace_folder, prefix="_ml_daikon", suffix=".log")
+    API_trace_files = find_files(output_dir, prefix="trace_API_", suffix=".log")
 
     infer_engine_script_args: list[str] = [
         "-m",

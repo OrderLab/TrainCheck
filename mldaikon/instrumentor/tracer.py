@@ -26,8 +26,6 @@ from mldaikon.proxy_wrapper.proxy_config import (
 )
 from mldaikon.utils import typename
 
-EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
 meta_vars: dict[str, object] = {}
 
 
@@ -95,18 +93,16 @@ def get_trace_API_dumper_queue():
     if ptid in trace_API_dumper_queues:
         return trace_API_dumper_queues[ptid]
 
-    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
-        script_name is not None
-    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+        output_dir is not None
+    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
 
     trace_queue = Queue()
-    trace_log_dir = os.getenv("TRACE_LOG_DIR") + "/API"
-    if not os.path.exists(trace_log_dir):
-        os.makedirs(trace_log_dir)
-    trace_file_name = f"{trace_log_dir}/{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}_{tid}.log"
+    trace_file_name = f"trace_API_{pid}_{tid}.log"
+    trace_file_full_path = os.path.join(output_dir, trace_file_name)
     log_thread = threading.Thread(
-        target=trace_dumper, args=(trace_queue, trace_file_name, stop_event)
+        target=trace_dumper, args=(trace_queue, trace_file_full_path, stop_event)
     )
     log_thread.start()
 
@@ -129,18 +125,16 @@ def get_trace_VAR_dumper_queue():
     if ptid in trace_VAR_dumper_queues:
         return trace_VAR_dumper_queues[ptid]
 
-    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
-        script_name is not None
-    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+        output_dir is not None
+    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
 
     trace_queue = Queue()
-    trace_log_dir = os.getenv("TRACE_LOG_DIR") + "/VAR"
-    if not os.path.exists(trace_log_dir):
-        os.makedirs(trace_log_dir)
-    trace_file_name = f"{trace_log_dir}/{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}_{tid}.log"
+    trace_file_name = f"trace_VAR_{pid}_{tid}.log"
+    trace_file_full_path = os.path.join(output_dir, trace_file_name)
     log_thread = threading.Thread(
-        target=trace_dumper, args=(trace_queue, trace_file_name, stop_event)
+        target=trace_dumper, args=(trace_queue, trace_file_full_path, stop_event)
     )
     log_thread.start()
 
@@ -165,21 +159,18 @@ def dump_trace_VAR(trace: dict):
 
 def get_instrumentation_logger_for_process():
     pid = os.getpid()
-    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
-        script_name is not None
-    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+        output_dir is not None
+    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
 
     if pid in instrumentation_loggers:
         return instrumentation_loggers[pid]
 
     logger = logging.getLogger(f"instrumentation_{pid}")
     logger.setLevel(logging.INFO)
-    trace_log_dir = os.getenv("TRACE_LOG_DIR") + "/Instrumentation"
-    if not os.path.exists(trace_log_dir):
-        os.makedirs(trace_log_dir)
-    log_file = f"{trace_log_dir}/{script_name}_mldaikon_instrumentation_{EXP_START_TIME}_{pid}.log"
-    file_handler = logging.FileHandler(log_file)
+    log_file = f"instrumentation_{pid}.log"
+    file_handler = logging.FileHandler(os.path.join(output_dir, log_file))
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
     instrumentation_loggers[pid] = logger

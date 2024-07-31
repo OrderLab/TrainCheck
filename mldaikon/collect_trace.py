@@ -221,7 +221,6 @@ if __name__ == "__main__":
         disable_proxy_class,
         not args.disable_scan_proxy_in_args,
         args.use_full_instr,
-        args.API_log_dir,
         funcs_of_inv_interest,
         args.proxy_module,
         adjusted_proxy_config,  # type: ignore

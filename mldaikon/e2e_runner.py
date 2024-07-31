@@ -153,7 +153,7 @@ if __name__ == "__main__":
         # "scan_proxy_in_args": False,
         # "allow_disable_dump": False,
         # "funcs_of_inv_interest": None,
-        "proxy_log_dir": output_dir,
+        "output_dir": output_dir,
         "API_log_dir": api_log_dir,
         "profiling": str(args.profiling),
         "only_var": str(args.only_var),
@@ -164,5 +164,4 @@ if __name__ == "__main__":
         python_path=python_path,
         input_config=input_config,
         input_env=input_env,
-        output_dir=output_dir,
     )
