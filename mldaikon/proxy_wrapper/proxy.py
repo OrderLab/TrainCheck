@@ -27,7 +27,6 @@ from mldaikon.proxy_wrapper.proxy_config import (
     debug_mode,
     dump_info_config,
     exclude_file_names,
-    proxy_log_dir,
     proxy_update_limit,
 )
 from mldaikon.proxy_wrapper.proxy_handler import handled_obj_type
@@ -93,17 +92,10 @@ def proxy_handler(
 
 class Proxy:
     var_dict: Dict[str, typing.Any] = {}
-    logger_proxy = logging.getLogger("proxy")
     loglevel = logging.INFO
-    # if proxy_log_dir is a directory, then create "proxy_log.json" in the directory
-    if os.path.isdir(proxy_log_dir):
-        proxy_log_dir = os.path.join(proxy_log_dir, "proxy_log.json")
-    logdir = proxy_log_dir
-    jsondumper = dumper(proxy_log_dir)
-    handler = logging.FileHandler(logdir)
-    handler.setLevel(loglevel)
-    logger_proxy.handlers.clear()
-    logger_proxy.addHandler(handler)
+    jsondumper = dumper(
+        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR"), "proxy_log.json")  # type: ignore
+    )
 
     empty_name_counts = 0
     non_empty_name_counts = 0

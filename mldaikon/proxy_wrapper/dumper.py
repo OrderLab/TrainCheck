@@ -46,7 +46,6 @@ class json_dumper(metaclass=Singleton):
 
     def __init__(self, json_file_path):
         self.json_file = open(json_file_path, "a")
-        self.json_file.write("[\n")
 
     def dump_json(
         self,
