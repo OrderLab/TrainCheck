@@ -1,7 +1,7 @@
 import ast
 import logging
 
-from mldaikon.config.config import INSTR_MODULES_TO_INSTRUMENT
+from mldaikon.config.config import INSTR_MODULES_TO_INSTR
 
 logger = logging.getLogger(__name__)
 
@@ -13,39 +13,37 @@ Methods for reading and instrumenting source files.
 class InsertTracerVisitor(ast.NodeTransformer):
     def __init__(
         self,
-        modules_to_instrument: list[str],
+        modules_to_instr: list[str],
         scan_proxy_in_args: bool,
-        allow_disable_dump: bool,
+        use_full_instr: bool,
         funcs_of_inv_interest: list[str] | None,
         API_dump_stack_trace: bool,
     ):
         super().__init__()
-        if not modules_to_instrument:
-            logger.warning(
-                "modules_to_instrument is empty, not instrumenting any module."
-            )
-            self.modules_to_instrument = []
+        if not modules_to_instr:
+            logger.warning("modules_to_instr is empty, not instrumenting any module.")
+            self.modules_to_instr = []
         else:
-            self.modules_to_instrument = modules_to_instrument
+            self.modules_to_instr = modules_to_instr
         self.scan_proxy_in_args = scan_proxy_in_args
-        self.allow_disable_dump = allow_disable_dump
+        self.use_full_instr = use_full_instr
         self.funcs_of_inv_interest = funcs_of_inv_interest
         self.API_dump_stack_trace = API_dump_stack_trace
 
     def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, allow_disable_dump={self.allow_disable_dump}, funcs_of_inv_interest={str(self.funcs_of_inv_interest)}, API_dump_stack_trace={self.API_dump_stack_trace}).instrument()"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_of_inv_interest={str(self.funcs_of_inv_interest)}, API_dump_stack_trace={self.API_dump_stack_trace}).instrument()"
         ).body
 
     def visit_Import(self, node):
         instrument_nodes = []
         for n in node.names:
             if not (
-                n.name in self.modules_to_instrument
-                or n.name.split(".")[0] in self.modules_to_instrument
+                n.name in self.modules_to_instr
+                or n.name.split(".")[0] in self.modules_to_instr
             ):
                 logger.debug(
-                    f"Skipping module {n.name} as it is not in the list of modules to instrument: {self.modules_to_instrument}."
+                    f"Skipping module {n.name} as it is not in the list of modules to instrument: {self.modules_to_instr}."
                 )
                 continue
             if n.asname:
@@ -60,11 +58,11 @@ class InsertTracerVisitor(ast.NodeTransformer):
         instrument_nodes = []
         for n in node.names:
             if not (
-                node.module in self.modules_to_instrument
-                or node.module.split(".")[0] in self.modules_to_instrument
+                node.module in self.modules_to_instr
+                or node.module.split(".")[0] in self.modules_to_instr
             ):
                 logger.debug(
-                    f"Skipping module {node.module} as it is not in the list of modules to instrument: {self.modules_to_instrument}."
+                    f"Skipping module {node.module} as it is not in the list of modules to instrument: {self.modules_to_instr}."
                 )
                 continue
 
@@ -77,9 +75,9 @@ class InsertTracerVisitor(ast.NodeTransformer):
 
 def instrument_source(
     source: str,
-    modules_to_instrument: list[str],
+    modules_to_instr: list[str],
     scan_proxy_in_args: bool,
-    allow_disable_dump: bool,
+    use_full_instr: bool,
     funcs_of_inv_interest: list[str] | None,
     API_dump_stack_trace: bool,
 ) -> str:
@@ -91,16 +89,16 @@ def instrument_source(
     """
     root = ast.parse(source)
 
-    if not modules_to_instrument:
+    if not modules_to_instr:
         logger.warning(
-            f"modules_to_instrument not provided. Using default value CONSTANTS.INSTR_MODULES_TO_INSTRUMENT: {modules_to_instrument}."
+            f"modules_to_instr not provided. Using default value CONSTANTS.INSTR_MODULES_TO_INSTR: {modules_to_instr}."
         )
-        modules_to_instrument = INSTR_MODULES_TO_INSTRUMENT
+        modules_to_instr = INSTR_MODULES_TO_INSTR
 
     visitor = InsertTracerVisitor(
-        modules_to_instrument,
+        modules_to_instr,
         scan_proxy_in_args,
-        allow_disable_dump,
+        use_full_instr,
         funcs_of_inv_interest,
         API_dump_stack_trace,
     )
@@ -112,10 +110,10 @@ def instrument_source(
 
 def instrument_file(
     path: str,
-    modules_to_instrument: list[str],
+    modules_to_instr: list[str],
     disable_proxy_class: bool,
     scan_proxy_in_args: bool,
-    allow_disable_dump: bool,
+    use_full_instr: bool,
     API_log_dir: str,
     funcs_of_inv_interest: list[str] | None,
     proxy_module: str,
@@ -141,9 +139,9 @@ def instrument_file(
     # instrument APIs
     instrumented_source = instrument_source(
         source,
-        modules_to_instrument,
+        modules_to_instr,
         scan_proxy_in_args,
-        allow_disable_dump,
+        use_full_instr,
         funcs_of_inv_interest,
         API_dump_stack_trace,
     )
