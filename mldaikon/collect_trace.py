@@ -40,36 +40,30 @@ if __name__ == "__main__":
         If not provided, the python script will be run directly.""",
     )
     parser.add_argument(
-        "--only-instrument",
+        "--only-instr",
         action="store_true",
         help="Only instrument and dump the modified file",
     )
     parser.add_argument(
-        "--skip-api", action="store_true", help="Skip API invariant analysis"
-    )
-    parser.add_argument(
-        "--skip-variable", action="store_true", help="Skip variable invariant analysis"
-    )
-    parser.add_argument(
         "-t",
-        "--modules_to_instrument",
+        "--modules-to-instr",
         nargs="*",
         help="Modules to be instrumented",
-        default=config.INSTR_MODULES_TO_INSTRUMENT,
+        default=config.INSTR_MODULES_TO_INSTR,
     )
     parser.add_argument(
-        "--scan_proxy_in_args",
+        "--disable-scan-proxy-in-args",
         action="store_true",
-        help="Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions",
+        help="NOT Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions",
     )
     parser.add_argument(
-        "--proxy_log_dir",
+        "--proxy-log-dir",
         type=str,
         default="proxy_log.log",
         help="Path to the log file of the proxy tracer",
     )
     parser.add_argument(
-        "--proxy_module",
+        "--proxy-module",
         type=str,
         default="None",
         help="The module to be traced by the proxy wrapper",
@@ -83,19 +77,19 @@ if __name__ == "__main__":
         "in the current directory",
     )
     parser.add_argument(
-        "--proxy_update_limit",
+        "--proxy-update-limit",
         type=float,
         default=proxy_config.proxy_update_limit,
         help="The threshold for updating the proxy object",
     )
     parser.add_argument(
         "-d",
-        "--debug_mode",
+        "--debug-mode",
         action="store_true",
         help="Enable debug mode for the program",
     )
     parser.add_argument(
-        "--API_dump_stack_trace",
+        "--API-dump-stack-trace",
         action="store_true",
         help="Dump the stack trace for API calls",
     )
@@ -103,41 +97,41 @@ if __name__ == "__main__":
         "-i",
         "--invariants",
         nargs="*",
-        help="Invariant files produced by the inference engine. If provided, we will only collect traces for APIs and variables that are related to the invariants. This can be used to speed up the trace collection. HAS TO BE USED WITH --allow_disable_dump for the optimization to work properly.",
+        help="Invariant files produced by the inference engine. If provided, we will only collect traces for APIs and variables that are related to the invariants. This can be used to speed up the trace collection. HAS TO BE USED WITHOUT `--use-full-instr` for the optimization to work properly.",
         default=None,
     )
     parser.add_argument(
-        "--allow_disable_dump",
+        "--use-full-instr",
         action="store_true",
-        help="Allow the instrumentor to disable API dump for certain APIs that are not helpful for the invariant analysis",
+        help="Use full instrumentation for the instrumentor, if not set, the instrumentor may not dump traces for certain APIs in modules deemed not important (e.g. jit in torch)",
     )
     parser.add_argument(
-        "--tensor_dump_format",
+        "--tensor-dump-format",
         choices=["hash", "stats", "full", "version"],
         type=str,
         default="hash",
         help="The format for dumping tensors. Choose from 'hash'(default), 'stats', 'full' or 'version'(deprecated).",
     )
     parser.add_argument(
-        "--delta_dump",
+        "--delta-dump",
         type=bool,
         default=proxy_config.delta_dump_config["delta_dump"],
         help="Only dump the changed part of the object",
     )
     parser.add_argument(
-        "--delta_dump_meta_var",
+        "--delta-dump-meta-var",
         type=bool,
         default=proxy_config.delta_dump_config["delta_dump_meta_var"],
         help="Only dump the changed part of the meta_var",
     )
     parser.add_argument(
-        "--delta_dump_attributes",
+        "--delta-dump-attributes",
         type=bool,
         default=proxy_config.delta_dump_config["delta_dump_attributes"],
         help="Only dump the changed part of the attribute",
     )
     parser.add_argument(
-        "--enable_C_level_observer",
+        "--enable-C-level-observer",
         type=bool,
         default=proxy_config.enable_C_level_observer,
         help="Enable the observer at the C level",
@@ -205,10 +199,10 @@ if __name__ == "__main__":
     ]
     source_code = instrumentor.instrument_file(
         args.pyscript,
-        args.modules_to_instrument,
+        args.modules_to_instr,
         disable_proxy_class,
-        args.scan_proxy_in_args,
-        args.allow_disable_dump,
+        not args.disable_scan_proxy_in_args,
+        args.use_full_instr,
         funcs_of_inv_interest,
         args.proxy_module,
         adjusted_proxy_config,  # type: ignore
@@ -220,7 +214,7 @@ if __name__ == "__main__":
         source_code,
         args.pyscript,
         args.shscript,
-        dry_run=args.only_instrument,
+        dry_run=args.only_instr,
         profiling=args.profiling,
     )
     try:

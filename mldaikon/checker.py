@@ -60,12 +60,12 @@ if __name__ == "__main__":
         help="Enable debug logging",
     )
     parser.add_argument(
-        "--report_only_failed",
+        "--report-only-failed",
         action="store_true",
         help="Only report the failed invariants",
     )
     parser.add_argument(
-        "--check_relation_first",
+        "--check-relation-first",
         action="store_true",
         help="""Check the relation first, otherwise, the precondition will be checked first. 
             Enabling this flag will make the checker slower, but enables the checker to catch 

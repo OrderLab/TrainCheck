@@ -66,12 +66,12 @@ if __name__ == "__main__":
         help="Output file to save invariants",
     )
     parser.add_argument(
-        "--disable_precond_sampling",
+        "--disable-precond-sampling",
         action="store_true",
         help="Disable sampling of positive and negative examples for precondition inference [By default sampling is enabled]",
     )
     parser.add_argument(
-        "--precond_sampling_threshold",
+        "--precond-sampling-threshold",
         type=int,
         default=config.PRECOND_SAMPLING_THRESHOLD,
         help="The number of samples to take for precondition inference, if the number of samples is larger than this threshold, we will sample this number of samples [Default: 10000]",
