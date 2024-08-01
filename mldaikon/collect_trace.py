@@ -1,5 +1,7 @@
 import argparse
+import datetime
 import logging
+import os
 
 import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
@@ -40,6 +42,13 @@ if __name__ == "__main__":
         If not provided, the python script will be run directly.""",
     )
     parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="",
+        help="""Directory to store the output files, if not provided, it will be 
+        defaulted to mldaikon_run_{pyscript_name}_{timestamp}""",
+    )
+    parser.add_argument(
         "--only-instr",
         action="store_true",
         help="Only instrument and dump the modified file",
@@ -57,21 +66,9 @@ if __name__ == "__main__":
         help="NOT Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions",
     )
     parser.add_argument(
-        "--proxy-log-dir",
-        type=str,
-        default="proxy_log.log",
-        help="Path to the log file of the proxy tracer",
-    )
-    parser.add_argument(
-        "--API-log-dir",
-        type=str,
-        default=config.API_log_dir,
-        help="Path to the log file of the API tracer",
-    )
-    parser.add_argument(
         "--proxy-module",
         type=str,
-        default="None",
+        default="",
         help="The module to be traced by the proxy wrapper",
     )
     parser.add_argument(
@@ -144,25 +141,52 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    if args.proxy_module != "None":
+    START_TIME = datetime.datetime.now()
+
+    output_dir = args.output_dir
+    if not args.output_dir:
+        pyfile_basename = os.path.basename(args.pyscript).split(".")[0]
+        output_dir = (
+            f"mldaikon_run_{pyfile_basename}_{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}"
+        )
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # set up logging
+    if args.debug_mode:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    logger = logging.getLogger(__name__)
+
+    funcs_of_inv_interest = None
+    if args.invariants is not None:
+        invariants = read_inv_file(args.invariants)
+        funcs_of_inv_interest = get_list_of_funcs_from_invariants(invariants)
+
+    # set up proxy class configuration
+    if args.proxy_module:
         disable_proxy_class = False
     else:
         disable_proxy_class = True
 
     # set up adjusted proxy_config
-    proxy_basic_config: dict[str, int | bool] = {}
+    proxy_basic_config: dict[str, int | bool | str] = {}
     if proxy_config.disable_proxy_class != disable_proxy_class:
         proxy_basic_config["disable_proxy_class"] = disable_proxy_class
     for configs in [
         "proxy_update_limit",
         "profiling",
         "debug_mode",
-        "proxy_log_dir",
         "enable_C_level_observer",
     ]:
         if getattr(proxy_config, configs) != getattr(args, configs):
             proxy_basic_config[configs] = getattr(args, configs)
             print(f"Setting {configs} to {getattr(args, configs)}")
+    proxy_log_output_dir = os.path.join(output_dir, "proxy_log.json")
+    proxy_basic_config["proxy_log_dir"] = proxy_log_output_dir
+    print(f"Setting proxy_log_dir to {proxy_log_output_dir}")
 
     # set up tensor_dump_format
     tensor_dump_format: dict[str, int | bool] = {}
@@ -182,32 +206,15 @@ if __name__ == "__main__":
             delta_dump_config[configs] = getattr(args, configs)
             print(f"Setting {configs} to {getattr(args, configs)}")
 
-    # set up logging
-    if args.debug_mode:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    logger = logging.getLogger(__name__)
-
-    funcs_of_inv_interest = None
-    if args.invariants is not None:
-        invariants = read_inv_file(args.invariants)
-        funcs_of_inv_interest = get_list_of_funcs_from_invariants(invariants)
-
     auto_observer_config = proxy_config.auto_observer_config
     # call into the instrumentor
-    adjusted_proxy_config: list[dict[str, int | bool]] = [
+    adjusted_proxy_config: list[dict] = [
         auto_observer_config,  # Ziming: add auto_observer_config for proxy_wrapper
         proxy_basic_config,  # Ziming: add proxy_basic_config for proxy_wrapper
         tensor_dump_format,  # Ziming: add tensor_dump_format for proxy_wrapper
         delta_dump_config,  # Ziming: add delta_dump_config for proxy_wrapper
     ]
-    profiling = proxy_basic_config["profiling"]
-    if profiling == "True":
-        profiling = True
-    else:
-        profiling = False
+
     source_code = instrumentor.instrument_file(
         args.pyscript,
         args.modules_to_instr,
@@ -219,6 +226,7 @@ if __name__ == "__main__":
         args.proxy_module,
         adjusted_proxy_config,  # type: ignore
         args.API_dump_stack_trace,
+        output_dir,
     )
 
     # call into the program runner
@@ -228,18 +236,15 @@ if __name__ == "__main__":
         args.shscript,
         dry_run=args.only_instr,
         profiling=args.profiling,
+        output_dir=output_dir,
     )
+
     try:
         program_output, return_code = program_runner.run()
     except Exception as e:
         print(f"An error occurred: {e}")
 
-    # dump the log
-    with open("program_output.txt", "w") as f:
-        f.write(program_output)
-
     if return_code != 0:
         logging.error(f"Program exited with code {return_code}, skipping analysis.")
-        exit(return_code)
 
     logger.info("Trace collection done.")

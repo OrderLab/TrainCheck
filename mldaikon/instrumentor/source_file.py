@@ -119,6 +119,7 @@ def instrument_file(
     proxy_module: str,
     adjusted_proxy_config: list[dict[str, int | bool | str]],
     API_dump_stack_trace: bool,
+    output_dir: str,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -149,8 +150,7 @@ def instrument_file(
     # logging configs
     logging_start_code = f"""
 import os
-os.environ['MAIN_SCRIPT_NAME'] = os.path.basename(__file__).split(".")[0]
-os.environ['TRACE_LOG_DIR'] = "{API_log_dir}"
+os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
 """
 
     ## proxy configs

@@ -19,6 +19,7 @@ class ProgramRunner(object):
         sh_script_path: str | None = None,
         dry_run: bool = False,
         profiling: bool = False,
+        output_dir: str = "",
     ):
         self.python = (
             sys.executable
@@ -26,8 +27,12 @@ class ProgramRunner(object):
         self.dry_run = dry_run
         self._tmp_sh_script_path: str | None
         self._tmp_py_script_path: str
-
+        self.output_dir = output_dir
         self.profiling = profiling
+
+        output_dir = os.path.abspath(output_dir) if output_dir else ""
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
         # create temp files to write the source code to
         py_script_path = os.path.abspath(py_script_path)
@@ -39,6 +44,12 @@ class ProgramRunner(object):
         # write the source code to the temp file
         with open(self._tmp_py_script_path, "w") as file:
             file.write(source_code)
+
+        if output_dir:
+            # write the source code also to the output directory (for debugging)
+            with open(os.path.join(self.output_dir, _tmp_py_script_name), "w") as file:
+                file.write(source_code)
+
         if sh_script_path is None:
             self._tmp_sh_script_path = None
         else:
@@ -58,6 +69,13 @@ class ProgramRunner(object):
             sh_script = sh_script.replace(py_script_name, _tmp_py_script_name)
             with open(self._tmp_sh_script_path, "w") as file:
                 file.write(sh_script)
+
+            if output_dir:
+                # write the sh script also to the output directory (for debugging)
+                with open(
+                    os.path.join(self.output_dir, _tmp_sh_script_name), "w"
+                ) as file:
+                    file.write(sh_script)
 
     def run(self) -> tuple[str, int]:
         """
@@ -138,5 +156,9 @@ class ProgramRunner(object):
         return_code = process.poll()
         assert return_code is not None
 
-        # XXX: This is a dummy implementation. Replace this with the actual implementation.
+        # write the program output to a file
+        with open(os.path.join(self.output_dir, "program_output.txt"), "w") as file:
+            file.write(program_output)
+            file.write(f"\n\nProgram exited with code {return_code}")
+
         return program_output, return_code
