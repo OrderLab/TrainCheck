@@ -51,3 +51,6 @@ NOT_USE_AS_CLAUSE_FIELDS = [
     "stack_trace",
 ]
 CONST_CLAUSE_NUM_VALUES_THRESHOLD = 1  # FIXME: ad-hoc
+VAR_INV_TYPE = (
+    "type"  # how to describe the variable in the invariant, can be "type" or "name"
+)

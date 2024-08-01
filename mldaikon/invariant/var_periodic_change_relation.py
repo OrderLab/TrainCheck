@@ -1,7 +1,9 @@
 import logging
+from collections import defaultdict
 
 import numpy as np
 
+import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import (
     CheckerResult,
     Example,
@@ -9,15 +11,14 @@ from mldaikon.invariant.base_cls import (
     Hypothesis,
     Invariant,
     Relation,
+    VarNameParam,
     VarTypeParam,
 )
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Trace
+from mldaikon.trace.trace import Trace, VarInstId
 
 
-def count_num_justification(
-    occurrences_num: dict[str, dict[str, dict[str, int]]], count: int
-):
+def count_num_justification(count: int):
     # TODO: discuss to find a better way to distinguish between changed values
     return count > 1
 
@@ -35,7 +36,6 @@ def calculate_hypo_value(value) -> str:
 
 
 class VarPeriodicChangeRelation(Relation):
-
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:
         """Infer Invariants for the VariableChangeRelation."""
@@ -49,83 +49,96 @@ class VarPeriodicChangeRelation(Relation):
         ## 2.Counting: count the number of each value of every variable attribute
         # TODO: record the intervals between occurrencess
         # TODO: improve time and memory efficiency
-        # occurrences_num: dict[str, dict[str, dict[str, (int, list[float])]]] = {}
-        occurrences_num: dict[str, dict[str, dict[str, int]]] = {}
+
+        occur_count: dict[VarInstId, dict[str, dict[str, int]]] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict(int))
+        )  # var_id -> attr_name -> hypo_value -> count
         for var_id, attrs in var_insts.items():
             for attr_name, attr_insts in attrs.items():
                 for attr_inst in attr_insts:
                     hypo_value = calculate_hypo_value(attr_inst.value)
-                    var_key = var_id.var_name
-                    if var_key not in occurrences_num:
-                        occurrences_num[var_key] = {}
-                    if attr_name not in occurrences_num[var_key]:
-                        occurrences_num[var_key][attr_name] = {}
-                    if hypo_value not in occurrences_num[var_key][attr_name]:
-                        occurrences_num[var_key][attr_name][hypo_value] = 1
-                    else:
-                        occurrences_num[var_key][attr_name][hypo_value] += 1
+                    occur_count[var_id][attr_name][hypo_value] += 1
 
         # 3. Hypothesis generation
-        hypothesis: dict[str, dict[str, dict[str, Hypothesis]]] = {}
-        for var_id, attrs in var_insts.items():
-            for attr_name, attr_insts in attrs.items():
-                for attr_inst in attr_insts:
-                    hypo_value = calculate_hypo_value(attr_inst.value)
-                    var_key = var_id.var_type
-                    group_names = "var"
-                    example = Example()
-                    example.add_group(group_names, attr_inst.traces)
-                    if var_key not in hypothesis:
-                        hypothesis[var_key] = {}
-                    if attr_name not in hypothesis[var_key]:
-                        hypothesis[var_key][attr_name] = {}
-                    if count_num_justification(
-                        occurrences_num,
-                        occurrences_num[var_id.var_name][attr_name][hypo_value],
-                    ):
-                        if hypo_value not in hypothesis[var_key][attr_name]:
-                            hypo = Hypothesis(
-                                Invariant(
-                                    relation=VarPeriodicChangeRelation,
-                                    params=[VarTypeParam(var_key, attr_name)],
-                                    precondition=None,
-                                ),
-                                positive_examples=ExampleList({group_names}),
-                                negative_examples=ExampleList({group_names}),
-                            )
-                            hypothesis[var_key][attr_name][hypo_value] = hypo
+        all_hypothesis: dict[tuple[VarTypeParam | VarNameParam, str], Hypothesis] = {}
+        var_group_name = "var"
+        for var_id in occur_count:
+            for attr_name in occur_count[var_id]:
+                param: VarTypeParam | VarNameParam = (
+                    VarNameParam(var_id.var_type, var_id.var_name, attr_name)
+                    if config.VAR_INV_TYPE == "name"
+                    else VarTypeParam(var_id.var_type, attr_name)
+                )
+                for hypo_value in occur_count[var_id][attr_name]:
+                    key: tuple[VarTypeParam | VarNameParam, str] = (param, hypo_value)
+                    if key in all_hypothesis:
+                        continue
 
-                        hypothesis[var_key][attr_name][
-                            hypo_value
-                        ].positive_examples.add_example(
-                            example
-                        )  # If a value occurs more than once, mark it as positive
-                    # else:
-                    #     # TODO: how to add negative examples so that preconditions inference works
-                    #     hypothesis[var_key][attr_name][
-                    #         hypo_value
-                    #     ].negative_examples.add_example(
-                    #         example
-                    #     )  # If a value occurs only once, mark it as negative
+                    if count_num_justification(
+                        occur_count[var_id][attr_name][hypo_value],
+                    ):
+                        hypothesis = Hypothesis(  # TODO: encode information about the hypo value to the hypothesis
+                            Invariant(
+                                text_description=f"{var_id.var_name + '.' + attr_name} is periodicaly set to {hypo_value}",
+                                relation=VarPeriodicChangeRelation,
+                                params=[param],
+                                precondition=None,
+                            ),
+                            positive_examples=ExampleList({var_group_name}),
+                            negative_examples=ExampleList({var_group_name}),
+                        )
+                        all_hypothesis[key] = hypothesis
+                    else:
+                        logger.debug(
+                            f"Skip the value {hypo_value} of {var_id.var_name}.{attr_name} because it didn't have enough number of occurrences."
+                        )
+
+        # 4. Positive and negative examples collection
+        for param, hypo_value in all_hypothesis:
+            hypothesis = all_hypothesis[(param, hypo_value)]
+            relevant_var_ids = [
+                var_id for var_id in occur_count if param.check_var_id_match(var_id)
+            ]
+            for var_id in relevant_var_ids:
+                for attr_name in occur_count[var_id]:
+                    if hypo_value not in occur_count[var_id][
+                        attr_name
+                    ] or not count_num_justification(
+                        occur_count[var_id][attr_name][hypo_value]
+                    ):
+                        # negative example
+                        hypothesis.negative_examples.add_example(
+                            Example(
+                                {
+                                    var_group_name: [
+                                        attr_inst.traces[0]
+                                        for attr_inst in var_insts[var_id][attr_name]
+                                    ]  # TODO: getting the first trace of every attribute instance is a bit arbitrary
+                                }
+                            )
+                        )
+                    else:
+                        # positive example
+                        hypothesis.positive_examples.add_example(
+                            Example(
+                                {
+                                    var_group_name: [
+                                        attr_inst.traces[0]
+                                        for attr_inst in var_insts[var_id][attr_name]
+                                    ]
+                                }
+                            )
+                        )
 
         # 4. find preconditions
-        for var_name in hypothesis:
-            for attr_name in hypothesis[var_name]:
-                for hypo_value in hypothesis[var_name][attr_name]:
-                    hypo = hypothesis[var_name][attr_name][hypo_value]
-                    hypo.invariant.precondition = find_precondition(hypo)
-                    hypo.invariant.text_description = f"{var_name + '.' + attr_name} is periodicaly set to {hypo_value}"
+        valid_invariants = []
+        for hypothesis in all_hypothesis.values():
+            preconditions = find_precondition(hypothesis)
+            if preconditions:
+                hypothesis.invariant.precondition = preconditions
+                valid_invariants.append(hypothesis.invariant)
 
-        return list(
-            [
-                hypothesis[var_name][attr_name][hypo_value].invariant
-                for var_name in hypothesis
-                for attr_name in hypothesis[var_name]
-                for hypo_value in hypothesis[var_name][attr_name]
-                if hypothesis[var_name][attr_name][hypo_value].invariant.precondition
-                is not None
-            ]
-        )
+        return valid_invariants
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
