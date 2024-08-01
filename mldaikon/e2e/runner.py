@@ -66,15 +66,15 @@ def run_e2e(
         input_program,
         "-t",
         modules_to_instrument,
-        "--proxy_module",
+        "--proxy-module",
         proxy_module,
-        "--proxy_log_dir",
+        "--proxy-log-dir",
         proxy_log_dir,
-        "--API_log_dir",
+        "--API-log-dir",
         api_log_dir,
         "--profiling",
         profiling,
-        "--allow_disable_dump",
+        "--use-full-instr",
         # "--API_dump_stack_trace"
     ]
     if "input_bash_script" in input_config and input_config["input_bash_script"] != "":
