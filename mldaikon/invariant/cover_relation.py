@@ -112,8 +112,8 @@ class FunctionCoverRelation(Relation):
             pre_record_A = []
             pre_record_B = []
             for event in tqdm(events.iter_rows(named=True)):
-                # pre_record_A.append(event)
-                # pre_record_B.append(event)
+                if event['type'] != 'function_call (pre)':
+                    continue
 
                 if func_A == event['function']:
                     flag_A = event['time']
@@ -133,9 +133,9 @@ class FunctionCoverRelation(Relation):
                     flag_B = event['time']
                     if flag_A == None:
                         valid_relations[(func_A, func_B)] = False
-                        # neg = Example()
-                        # neg.add_group("func", pre_record_A)
-                        # hypothesis_with_examples[(func_A, func_B)].negative_examples.add_example(neg)
+                        neg = Example()
+                        neg.add_group("func", [event])
+                        hypothesis_with_examples[(func_A, func_B)].negative_examples.add_example(neg)
                     else:
                         pos = Example()
                         pos.add_group("func", pre_record_A)
