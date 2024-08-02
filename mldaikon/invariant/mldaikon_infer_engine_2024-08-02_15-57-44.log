@@ -1,0 +1,1437 @@
+2024-08-02 15:57:44,724 - __main__ - INFO - Reading traces from /Users/xuboyu/ml-daikon/mldaikon/invariant/_ml_daikon_run_image_classification_mldaikon_trace_API_2024-07-17_14-23-29_103459.log
+2024-08-02 15:57:45,192 - mldaikon.trace.trace - INFO - Done reading /Users/xuboyu/ml-daikon/mldaikon/invariant/_ml_daikon_run_image_classification_mldaikon_trace_API_2024-07-17_14-23-29_103459.log
+2024-08-02 15:57:45,192 - mldaikon.trace.trace - INFO - Concatenating the DataFrames
+2024-08-02 15:57:45,192 - mldaikon.trace.trace - INFO - Done concatenating the DataFrames
+2024-08-02 15:57:45,192 - mldaikon.trace.trace - INFO - Unnesting all columns in the DataFrame.
+2024-08-02 15:57:45,193 - mldaikon.trace.trace - INFO - Done unnesting all columns in the DataFrame.
+2024-08-02 15:57:45,193 - mldaikon.trace.trace - WARNING - Infer engine won't sort the events by time anymore as sorting is costly for large traces. Please make sure every separate file is sorted by time, and traces belong to the same process should be in the same file. For variable traces, we will still be sorting them by time so no need to worry about that.
+2024-08-02 15:57:45,193 - mldaikon.trace.trace - INFO - Truncating incomplete trailing function calls from the trace.
+2024-08-02 15:57:45,319 - mldaikon.trace.trace - INFO - Done truncating incomplete trailing function calls from the trace.
+2024-08-02 15:57:45,319 - __main__ - INFO - Traces read successfully in 0.5953249931335449 seconds.
+2024-08-02 15:57:45,319 - __main__ - INFO - Infering invariants for relation: FunctionCoverRelation
+2024-08-02 16:00:42,679 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,679 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,680 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,680 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,680 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 5
+2024-08-02 16:00:42,681 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,681 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,681 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 213
+2024-08-02 16:00:42,682 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,682 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,682 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 3
+2024-08-02 16:00:42,682 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.optim.optimizer.Optimizer.add_param_group'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,682 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.optim.adamw.adamw
+2024-08-02 16:00:42,682 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 67
+2024-08-02 16:00:42,683 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,683 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,683 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 1
+2024-08-02 16:00:42,683 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.to'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,683 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,683 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,683 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,683 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.autograd.backward'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.autograd.backward
+2024-08-02 16:00:42,683 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 33
+2024-08-02 16:00:42,684 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,684 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,684 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,684 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,684 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,685 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 9077
+2024-08-02 16:00:42,713 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,714 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.add_module', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.nn.modules.module.Module.add_module and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,714 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 33
+2024-08-02 16:00:42,714 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.add_module', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208171984}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.add_module'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,714 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,714 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,714 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,714 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,714 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,714 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,714 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 4
+2024-08-02 16:00:42,715 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LRScheduler.step'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530205684304}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,715 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,715 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 195
+2024-08-02 16:00:42,716 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LRScheduler.step'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530205684304}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,716 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,716 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 3
+2024-08-02 16:00:42,716 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,716 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.optimizer.Optimizer.add_param_group'):
+None
+2024-08-02 16:00:42,716 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.optimizer.Optimizer.add_param_group')
+2024-08-02 16:00:42,716 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.optim.adamw.adamw
+2024-08-02 16:00:42,716 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 51
+2024-08-02 16:00:42,717 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LRScheduler.step'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530205684304}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,717 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,717 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 1
+2024-08-02 16:00:42,717 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,717 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.to'):
+None
+2024-08-02 16:00:42,717 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.to')
+2024-08-02 16:00:42,717 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,717 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 18
+2024-08-02 16:00:42,718 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LRScheduler.step'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530205684304}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,718 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.autograd.backward'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.autograd.backward
+2024-08-02 16:00:42,718 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,718 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LRScheduler.step'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530205684304}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,718 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,718 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 18
+2024-08-02 16:00:42,719 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LRScheduler.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,719 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,719 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 9059
+2024-08-02 16:00:42,734 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LRScheduler.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,734 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.optim.lr_scheduler.LRScheduler.step and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,734 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,735 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LRScheduler.step', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LRScheduler.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,735 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,735 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,735 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,735 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,735 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,735 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,735 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,735 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208790096}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,735 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,735 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 3, 
+# negative examples: 210
+2024-08-02 16:00:42,736 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,736 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,736 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 3
+2024-08-02 16:00:42,737 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.optim.optimizer.Optimizer.add_param_group'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208790096}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,737 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.optim.adamw.adamw
+2024-08-02 16:00:42,737 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 67
+2024-08-02 16:00:42,737 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208790096}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,737 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,737 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 1
+2024-08-02 16:00:42,738 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.to'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,738 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,738 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,738 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,738 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.autograd.backward'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.autograd.backward
+2024-08-02 16:00:42,738 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 33
+2024-08-02 16:00:42,738 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,738 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,738 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,739 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,739 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,739 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 4, 
+# negative examples: 9074
+2024-08-02 16:00:42,754 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,754 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.eval', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.nn.modules.module.Module.eval and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,754 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 33
+2024-08-02 16:00:42,754 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.eval', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.eval'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,755 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,755 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,755 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,755 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,755 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,755 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,755 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 18
+2024-08-02 16:00:42,755 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,755 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,755 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 3, 
+# negative examples: 3
+2024-08-02 16:00:42,756 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,756 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,756 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 3
+2024-08-02 16:00:42,756 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.optimizer.Optimizer.add_param_group'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,756 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.optim.adamw.adamw
+2024-08-02 16:00:42,756 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 51
+2024-08-02 16:00:42,757 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,757 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,757 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 1
+2024-08-02 16:00:42,757 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.to'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,757 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,757 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 36, 
+# negative examples: 0
+2024-08-02 16:00:42,757 - Precondition - WARNING - No negative examples found, assigning unconditional precondition
+2024-08-02 16:00:42,757 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+Unconditional Precondition
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,757 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.autograd.backward'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.autograd.backward
+2024-08-02 16:00:42,757 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,758 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,758 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,758 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 18
+2024-08-02 16:00:42,758 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,758 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,759 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 20, 
+# negative examples: 9058
+2024-08-02 16:00:42,773 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,773 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.nn.modules.module.Module.named_parameters and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,773 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,774 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.named_parameters', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.named_parameters'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,774 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,774 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,774 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,774 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,774 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,774 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,774 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,775 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530206010128}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,775 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,775 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 4
+2024-08-02 16:00:42,775 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530206010128}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,775 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,775 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 212
+2024-08-02 16:00:42,776 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530206010128}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,776 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.optim.adamw.adamw
+2024-08-02 16:00:42,776 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 67
+2024-08-02 16:00:42,777 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530206010128}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,777 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,777 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 1
+2024-08-02 16:00:42,777 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,777 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.to'):
+None
+2024-08-02 16:00:42,777 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.to')
+2024-08-02 16:00:42,777 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,777 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,777 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530206010128}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,777 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.autograd.backward'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.autograd.backward
+2024-08-02 16:00:42,777 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 33
+2024-08-02 16:00:42,778 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530206010128}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,778 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,778 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,778 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530206010128}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,778 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,779 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 9076
+2024-08-02 16:00:42,807 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530206010128}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,807 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.optim.optimizer.Optimizer.add_param_group and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,807 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 33
+2024-08-02 16:00:42,807 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.optimizer.Optimizer.add_param_group', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.optimizer.Optimizer.add_param_group'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,807 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,807 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,808 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,808 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,808 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,808 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,808 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,808 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: is_bound_method, Type: PreconditionClauseType.CONSTANT, Values: {False}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.adamw'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,808 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,808 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 4
+2024-08-02 16:00:42,808 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: is_bound_method, Type: PreconditionClauseType.CONSTANT, Values: {False}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.adamw'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,808 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,809 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 196
+2024-08-02 16:00:42,810 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: is_bound_method, Type: PreconditionClauseType.CONSTANT, Values: {False}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.adamw'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,810 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,810 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 3
+2024-08-02 16:00:42,810 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,810 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.optim.optimizer.Optimizer.add_param_group'):
+None
+2024-08-02 16:00:42,810 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.adamw.adamw', 'torch.optim.optimizer.Optimizer.add_param_group')
+2024-08-02 16:00:42,810 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,810 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 1
+2024-08-02 16:00:42,810 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,810 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.to'):
+None
+2024-08-02 16:00:42,810 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.to')
+2024-08-02 16:00:42,810 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,810 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,811 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: is_bound_method, Type: PreconditionClauseType.CONSTANT, Values: {False}
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.adamw'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,811 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.autograd.backward'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.autograd.backward
+2024-08-02 16:00:42,811 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 16, 
+# negative examples: 17
+2024-08-02 16:00:42,811 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.adamw'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,811 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,811 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,812 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.adamw'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,812 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,812 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 9060
+2024-08-02 16:00:42,827 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.adamw'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,827 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.adamw', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.optim.adamw.adamw and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,827 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 16
+2024-08-02 16:00:42,827 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.adamw', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.adamw'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,827 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,828 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,828 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,828 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,828 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,828 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,828 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,828 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,828 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,828 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 4
+2024-08-02 16:00:42,828 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,828 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,829 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 212
+2024-08-02 16:00:42,829 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,829 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,829 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 3
+2024-08-02 16:00:42,830 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.optim.optimizer.Optimizer.add_param_group'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,830 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.optim.adamw.adamw
+2024-08-02 16:00:42,830 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 67
+2024-08-02 16:00:42,830 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,830 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,830 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,830 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,830 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.autograd.backward'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.autograd.backward
+2024-08-02 16:00:42,831 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 33
+2024-08-02 16:00:42,831 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,831 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,831 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 35
+2024-08-02 16:00:42,831 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,831 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,832 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 9076
+2024-08-02 16:00:42,846 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,846 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.to', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.nn.modules.module.Module.to and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,846 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 33
+2024-08-02 16:00:42,847 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.to', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.to'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,847 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,847 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,847 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,847 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,847 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,847 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,847 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,848 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.zero_grad'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,848 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,848 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 4
+2024-08-02 16:00:42,848 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.zero_grad'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,848 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,848 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 36, 
+# negative examples: 177
+2024-08-02 16:00:42,849 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.zero_grad'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,849 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,849 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 3
+2024-08-02 16:00:42,850 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,850 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.optimizer.Optimizer.add_param_group'):
+None
+2024-08-02 16:00:42,850 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.optimizer.Optimizer.add_param_group')
+2024-08-02 16:00:42,850 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.optim.adamw.adamw
+2024-08-02 16:00:42,850 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 51
+2024-08-02 16:00:42,850 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.zero_grad'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,850 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,850 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 1
+2024-08-02 16:00:42,851 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,851 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.to'):
+None
+2024-08-02 16:00:42,851 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.to')
+2024-08-02 16:00:42,851 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.autograd.backward'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.autograd.backward
+2024-08-02 16:00:42,851 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,851 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.zero_grad'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,851 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,851 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,852 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.zero_grad'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,852 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,852 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 9059
+2024-08-02 16:00:42,880 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.zero_grad'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,881 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.nn.modules.module.Module.zero_grad and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,881 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,881 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.zero_grad', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.zero_grad'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,881 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.autograd.backward and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,881 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,881 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,881 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,881 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.autograd.backward', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,881 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.autograd.backward and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,881 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,882 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.autograd.backward'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,882 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.autograd.backward and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,882 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 4
+2024-08-02 16:00:42,882 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.autograd.backward'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,882 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.autograd.backward and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,882 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 196
+2024-08-02 16:00:42,883 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.autograd.backward'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,883 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.autograd.backward and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,883 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 3
+2024-08-02 16:00:42,883 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,883 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.optim.optimizer.Optimizer.add_param_group'):
+None
+2024-08-02 16:00:42,883 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.autograd.backward', 'torch.optim.optimizer.Optimizer.add_param_group')
+2024-08-02 16:00:42,883 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.autograd.backward and torch.optim.adamw.adamw
+2024-08-02 16:00:42,883 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 51
+2024-08-02 16:00:42,884 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.autograd.backward'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,884 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.autograd.backward and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,884 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 1
+2024-08-02 16:00:42,884 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,884 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.nn.modules.module.Module.to'):
+None
+2024-08-02 16:00:42,884 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.autograd.backward', 'torch.nn.modules.module.Module.to')
+2024-08-02 16:00:42,884 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.autograd.backward and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,884 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,885 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.autograd.backward'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,885 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.autograd.backward and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,885 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,885 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.autograd.backward'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,885 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.autograd.backward and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,886 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 9060
+2024-08-02 16:00:42,900 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.autograd.backward'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,900 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.autograd.backward', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.autograd.backward and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,900 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,901 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.autograd.backward', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.autograd.backward'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,901 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,901 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,901 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,901 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,901 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,901 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,901 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 17
+2024-08-02 16:00:42,902 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LambdaLR.get_lr'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,902 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,902 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 4
+2024-08-02 16:00:42,902 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LambdaLR.get_lr'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,902 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,902 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 195
+2024-08-02 16:00:42,903 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LambdaLR.get_lr'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,903 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,903 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 3
+2024-08-02 16:00:42,903 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,903 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.optimizer.Optimizer.add_param_group'):
+None
+2024-08-02 16:00:42,903 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.optimizer.Optimizer.add_param_group')
+2024-08-02 16:00:42,903 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.optim.adamw.adamw
+2024-08-02 16:00:42,903 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 51
+2024-08-02 16:00:42,903 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LambdaLR.get_lr'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,903 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,904 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 1
+2024-08-02 16:00:42,904 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,904 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.to'):
+None
+2024-08-02 16:00:42,904 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.to')
+2024-08-02 16:00:42,904 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,904 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 18
+2024-08-02 16:00:42,904 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LambdaLR.get_lr'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,904 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.autograd.backward'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.autograd.backward
+2024-08-02 16:00:42,904 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,905 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LambdaLR.get_lr'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,905 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,906 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 9059
+2024-08-02 16:00:42,920 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LambdaLR.get_lr'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,920 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.optim.lr_scheduler.LambdaLR.get_lr and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,920 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,920 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.lr_scheduler.LambdaLR.get_lr', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.lr_scheduler.LambdaLR.get_lr'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,920 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,920 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,921 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,921 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,921 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,921 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,921 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 18
+2024-08-02 16:00:42,921 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,921 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,921 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 4, 
+# negative examples: 1
+2024-08-02 16:00:42,921 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,922 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,922 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 20, 
+# negative examples: 193
+2024-08-02 16:00:42,922 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,922 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,922 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 3
+2024-08-02 16:00:42,923 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.optim.optimizer.Optimizer.add_param_group'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,923 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.optim.adamw.adamw
+2024-08-02 16:00:42,923 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 51
+2024-08-02 16:00:42,923 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,923 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,923 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 1
+2024-08-02 16:00:42,924 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.to'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,924 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,924 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 18
+2024-08-02 16:00:42,924 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,924 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.autograd.backward'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.autograd.backward
+2024-08-02 16:00:42,924 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,925 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,925 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,925 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 18, 
+# negative examples: 18
+2024-08-02 16:00:42,925 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,926 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.nn.modules.module.Module.train', 'torch.optim.adamw.AdamW.step'): FunctionCoverRelation between torch.nn.modules.module.Module.train and torch.optim.adamw.AdamW.step
+2024-08-02 16:00:42,926 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 17
+2024-08-02 16:00:42,926 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.nn.modules.module.Module.train', 'torch.optim.adamw.AdamW.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.nn.modules.module.Module.train'}
+Prop: obj_id, Type: PreconditionClauseType.CONSTANT, Values: {140530208795600}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,926 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.add_module'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.nn.modules.module.Module.add_module
+2024-08-02 16:00:42,926 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 23
+2024-08-02 16:00:42,926 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,926 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.add_module'):
+None
+2024-08-02 16:00:42,926 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.add_module')
+2024-08-02 16:00:42,926 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.optim.lr_scheduler.LRScheduler.step'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.optim.lr_scheduler.LRScheduler.step
+2024-08-02 16:00:42,926 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,927 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.optim.lr_scheduler.LRScheduler.step'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.AdamW.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,927 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.eval'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.nn.modules.module.Module.eval
+2024-08-02 16:00:42,927 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 1, 
+# negative examples: 4
+2024-08-02 16:00:42,927 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.eval'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.AdamW.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,927 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.named_parameters'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.nn.modules.module.Module.named_parameters
+2024-08-02 16:00:42,927 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 196
+2024-08-02 16:00:42,928 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.named_parameters'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.AdamW.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,928 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.optim.optimizer.Optimizer.add_param_group'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.optim.optimizer.Optimizer.add_param_group
+2024-08-02 16:00:42,928 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 3
+2024-08-02 16:00:42,928 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,928 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.optim.optimizer.Optimizer.add_param_group'):
+None
+2024-08-02 16:00:42,928 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.adamw.AdamW.step', 'torch.optim.optimizer.Optimizer.add_param_group')
+2024-08-02 16:00:42,928 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.optim.adamw.adamw'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.optim.adamw.adamw
+2024-08-02 16:00:42,929 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 51
+2024-08-02 16:00:42,929 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.optim.adamw.adamw'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.AdamW.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,929 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.to'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.nn.modules.module.Module.to
+2024-08-02 16:00:42,929 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 0, 
+# negative examples: 1
+2024-08-02 16:00:42,929 - Precondition - DEBUG - No partial preconditions found, cannot infer further
+2024-08-02 16:00:42,929 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.to'):
+None
+2024-08-02 16:00:42,929 - mldaikon.invariant.cover_relation - DEBUG - Precondition not found for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.to')
+2024-08-02 16:00:42,929 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.zero_grad'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.nn.modules.module.Module.zero_grad
+2024-08-02 16:00:42,929 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,930 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.zero_grad'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.AdamW.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,930 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.autograd.backward'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.autograd.backward
+2024-08-02 16:00:42,930 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 16, 
+# negative examples: 17
+2024-08-02 16:00:42,930 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.autograd.backward'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.AdamW.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,930 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.optim.lr_scheduler.LambdaLR.get_lr'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.optim.lr_scheduler.LambdaLR.get_lr
+2024-08-02 16:00:42,930 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 18
+2024-08-02 16:00:42,931 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.optim.lr_scheduler.LambdaLR.get_lr'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.AdamW.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,931 - mldaikon.invariant.cover_relation - DEBUG - Finding Precondition for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.train'): FunctionCoverRelation between torch.optim.adamw.AdamW.step and torch.nn.modules.module.Module.train
+2024-08-02 16:00:42,931 - Precondition - DEBUG - Calling precondition inference with 
+# positive examples: 17, 
+# negative examples: 9060
+2024-08-02 16:00:42,946 - mldaikon.invariant.cover_relation - DEBUG - Preconditions for ('torch.optim.adamw.AdamW.step', 'torch.nn.modules.module.Module.train'):
+====================== Start of Grouped Precondition ======================
+Group: func
+** Start of Precondition **
+Prop: function, Type: PreconditionClauseType.CONSTANT, Values: {'torch.optim.adamw.AdamW.step'}
+** End of Preconditions **
+====================== End of Grouped Precondition ======================
+2024-08-02 16:00:42,972 - __main__ - INFO - Found 108 invariants for relation: FunctionCoverRelation
+2024-08-02 16:00:42,972 - __main__ - INFO - Found 108 invariants.
+2024-08-02 16:00:42,972 - __main__ - INFO - Inference completed in 177.6532211303711 seconds.
