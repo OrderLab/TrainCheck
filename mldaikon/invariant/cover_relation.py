@@ -45,24 +45,16 @@ class FunctionCoverRelation(Relation):
         if not required_columns.issubset(events.columns):
             raise ValueError(f"Missing column: {required_columns - set(events.columns)}")
         
-        # for event in events.iter_rows(named=True):
-        #     if event['function'] in function_pool:
-        #         func_id = event['func_call_id']
-        #         function_id_map[event['function']].append(func_id)
+        for event in events.iter_rows(named=True):
+            if event['function'] in function_pool:
+                func_id = event['func_call_id']
+                function_id_map[event['function']].append(func_id)
 
-        #         if event['type'] == 'function_call (pre)':
-        #             function_times[func_id]['start'] = event['time']
-        #             function_times[func_id]['function'] = event['function']
-        #         elif event['type'] in ['function_call (post)', 'function_call (post) (exception)']:
-        #             function_times[func_id]['end'] = event['time']
-        
-        # group_by_time = []
-        # for func_id, times in function_times.items():
-        #     if 'start' in times and 'end' in times:
-        #         group_by_time.append((times['start'], 'start', times['function']))
-        #         group_by_time.append((times['end'], 'end', times['function']))
-
-        # group_by_time.sort()
+                if event['type'] == 'function_call (pre)':
+                    function_times[func_id]['start'] = event['time']
+                    function_times[func_id]['function'] = event['function']
+                elif event['type'] in ['function_call (post)', 'function_call (post) (exception)']:
+                    function_times[func_id]['end'] = event['time']
 
         def check_same_level(funcA: str, funcB: str):
             if funcA == funcB:
@@ -83,18 +75,17 @@ class FunctionCoverRelation(Relation):
         
         same_level_func = defaultdict(list)
 
-        for funcA in function_pool:
-            for funcB in function_pool:
-                if check_same_level(funcA, funcB):
-                    same_level_func[funcA].append(funcB)
+        for funcA, funcB in combinations(function_pool, 2):
+            if check_same_level(funcA, funcB):
+                same_level_func[funcA].append(funcB)
 
-        active_counts = Counter()
+     
         valid_relations = defaultdict(lambda: True)
 
         for func_A in function_pool:
             for func_B in same_level_func[func_A]:
                 valid_relations[(func_A, func_B)] = True
-        
+    
         #Generating hypothesis
         group_name = "func"
         hypothesis_with_examples = {
@@ -114,20 +105,13 @@ class FunctionCoverRelation(Relation):
             for (func_A, func_B), _ in valid_relations.items()
         }
 
-        # for time, event_type, function in group_by_time:
-        #     if event_type == 'start':
-        #         active_counts[function] += 1
-        #         for other_function in same_level_func[function]:
-        #             if active_counts[other_function] < active_counts[function]:
-        #                 valid_relations[(other_function, function)] = False
-
-        #add positive and negative examples
+        #Add positive and negative examples
         for (func_A, func_B), _ in valid_relations.items():
             flag_A = None
             flag_B = None
             pre_record_A = []
             pre_record_B = []
-            for event in events.iter_rows(named=True):
+            for event in tqdm(events.iter_rows(named=True)):
                 # pre_record_A.append(event)
                 # pre_record_B.append(event)
 
@@ -139,10 +123,11 @@ class FunctionCoverRelation(Relation):
                 if func_B == event['function']:
                     if flag_B != None:
                         valid_relations[(func_A, func_B)] = False
-                        # neg = Example()
-                        # neg.add_group("func", pre_record_B)
-                        # hypothesis_with_examples[(func_A, func_B)].negative_examples.add_example(neg)
-                        # pre_record_B = [event]
+                        neg = Example()
+                        neg.add_group("func", pre_record_B)
+                        hypothesis_with_examples[(func_A, func_B)].negative_examples.add_example(neg)
+                        pre_record_B = [event]
+                        flag_B = event['time']
                         continue
 
                     flag_B = event['time']
@@ -157,7 +142,7 @@ class FunctionCoverRelation(Relation):
                         hypothesis_with_examples[(func_A, func_B)].positive_examples.add_example(pos)
                     
                     pre_record_B = [event]
-
+       
         #precondition inference
         hypos_to_delete = []
         for hypo in hypothesis_with_examples:

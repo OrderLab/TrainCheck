@@ -387,7 +387,7 @@ class Invariant:
         return {
             "text_description": self.text_description,
             "relation": self.relation.__name__,
-            "params": [param.to_dict() for param in self.params],
+            "params": [param for param in self.params],
             "precondition": self.precondition.to_dict(),
         }
 
