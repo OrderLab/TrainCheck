@@ -3,7 +3,6 @@ from __future__ import annotations
 import abc
 import json
 import logging
-from dataclasses import dataclass
 from enum import Enum
 from typing import Hashable, Iterable, Optional, Type
 
@@ -16,9 +15,17 @@ from mldaikon.trace.types import (
 )
 
 
-@dataclass
 class Param:
     # param_type: str  # ["func", "var_type", "var_name"]
+
+    def __hash__(self) -> int:
+        return hash(frozenset(self.to_dict().items()))
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Param):
+            return False
+        return self.to_dict() == other.to_dict()
+
     def to_dict(self):
         self_dict = {
             "param_type": self.__class__.__name__,
@@ -45,7 +52,6 @@ class Param:
         raise NotImplementedError("check_event_match method is not implemented yet.")
 
 
-@dataclass
 class APIParam(Param):
     def __init__(self, api_full_name: str):
         self.api_full_name = api_full_name
@@ -61,7 +67,6 @@ class APIParam(Param):
         return event.func_name == self.api_full_name
 
 
-@dataclass
 class VarTypeParam(Param):
     def __init__(self, var_type: str, attr_name: str):
         self.var_type = var_type
@@ -83,7 +88,6 @@ class VarTypeParam(Param):
         return var_id.var_type == self.var_type
 
 
-@dataclass
 class VarNameParam(Param):
     def __init__(self, var_type: str, var_name: str, attr_name: str):
         self.var_type = var_type

@@ -23,7 +23,6 @@ from mldaikon.proxy_wrapper.dumper import (
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.dumper import torch_serialize
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
-import mldaikon.proxy_wrapper.proxy_config as proxy_config
 from mldaikon.proxy_wrapper.proxy_config import (
     debug_mode,
     dump_info_config,
@@ -96,7 +95,9 @@ class Proxy:
     logger_proxy = logging.getLogger("proxy")
     logdir = "proxy_logs.log"
     loglevel = logging.INFO
-    jsondumper = dumper(os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR"), "proxy_log.json"))
+    jsondumper = dumper(
+        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR", ""), "proxy_log.json")
+    )
     handler = logging.FileHandler(logdir)
     handler.setLevel(loglevel)
     logger_proxy.handlers.clear()
