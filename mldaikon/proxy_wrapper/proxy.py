@@ -92,16 +92,10 @@ def proxy_handler(
 
 class Proxy:
     var_dict: Dict[str, typing.Any] = {}
-    logger_proxy = logging.getLogger("proxy")
-    logdir = "proxy_logs.log"
     loglevel = logging.INFO
     jsondumper = dumper(
-        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR", ""), "proxy_log.json")
+        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR"), "proxy_log.json")  # type: ignore
     )
-    handler = logging.FileHandler(logdir)
-    handler.setLevel(loglevel)
-    logger_proxy.handlers.clear()
-    logger_proxy.addHandler(handler)
 
     empty_name_counts = 0
     non_empty_name_counts = 0
