@@ -3,11 +3,10 @@ from __future__ import annotations
 import abc
 import json
 import logging
-from dataclasses import dataclass
 from enum import Enum
 from typing import Hashable, Iterable, Optional, Type
 
-from mldaikon.trace.trace import Trace
+from mldaikon.trace.trace import Trace, VarInstId
 from mldaikon.trace.types import (
     FuncCallEvent,
     FuncCallExceptionEvent,
@@ -16,9 +15,17 @@ from mldaikon.trace.types import (
 )
 
 
-@dataclass
 class Param:
     # param_type: str  # ["func", "var_type", "var_name"]
+
+    def __hash__(self) -> int:
+        return hash(frozenset(self.to_dict().items()))
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Param):
+            return False
+        return self.to_dict() == other.to_dict()
+
     def to_dict(self):
         self_dict = {
             "param_type": self.__class__.__name__,
@@ -45,7 +52,6 @@ class Param:
         raise NotImplementedError("check_event_match method is not implemented yet.")
 
 
-@dataclass
 class APIParam(Param):
     def __init__(self, api_full_name: str):
         self.api_full_name = api_full_name
@@ -61,7 +67,6 @@ class APIParam(Param):
         return event.func_name == self.api_full_name
 
 
-@dataclass
 class VarTypeParam(Param):
     def __init__(self, var_type: str, attr_name: str):
         self.var_type = var_type
@@ -79,24 +84,35 @@ class VarTypeParam(Param):
             event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
         )
 
+    def check_var_id_match(self, var_id: VarInstId) -> bool:
+        return var_id.var_type == self.var_type
 
-@dataclass
+
 class VarNameParam(Param):
-    def __init__(self, var_name: str, attr_name: str):
+    def __init__(self, var_type: str, var_name: str, attr_name: str):
+        self.var_type = var_type
         self.var_name = var_name
         self.attr_name = attr_name
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
         if "var_type" not in trace_line:
             return False
-        return trace_line["var_name"] == self.var_name
+        return (
+            trace_line["var_type"] == self.var_type
+            and trace_line["var_name"] == self.var_name
+        )
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         if not isinstance(event, VarChangeEvent):
             return False
         return (
-            event.var_id.var_name == self.var_name and event.attr_name == self.attr_name
+            event.var_id.var_type == self.var_type
+            and event.var_id.var_name == self.var_name
+            and event.attr_name == self.attr_name
         )
+
+    def check_var_id_match(self, var_id: VarInstId) -> bool:
+        return var_id.var_type == self.var_type and var_id.var_name == self.var_name
 
 
 class PreconditionClauseType(Enum):
