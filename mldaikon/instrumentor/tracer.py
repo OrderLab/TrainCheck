@@ -26,8 +26,6 @@ from mldaikon.proxy_wrapper.proxy_config import (
 )
 from mldaikon.utils import typename
 
-EXP_START_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
 meta_vars: dict[str, object] = {}
 
 
@@ -95,17 +93,16 @@ def get_trace_API_dumper_queue():
     if ptid in trace_API_dumper_queues:
         return trace_API_dumper_queues[ptid]
 
-    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
-        script_name is not None
-    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+        output_dir is not None
+    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
 
     trace_queue = Queue()
-    trace_file_name = (
-        f"{script_name}_mldaikon_trace_API_{EXP_START_TIME}_{pid}_{tid}.log"
-    )
+    trace_file_name = f"trace_API_{pid}_{tid}.log"
+    trace_file_full_path = os.path.join(output_dir, trace_file_name)
     log_thread = threading.Thread(
-        target=trace_dumper, args=(trace_queue, trace_file_name, stop_event)
+        target=trace_dumper, args=(trace_queue, trace_file_full_path, stop_event)
     )
     log_thread.start()
 
@@ -128,17 +125,16 @@ def get_trace_VAR_dumper_queue():
     if ptid in trace_VAR_dumper_queues:
         return trace_VAR_dumper_queues[ptid]
 
-    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
-        script_name is not None
-    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+        output_dir is not None
+    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
 
     trace_queue = Queue()
-    trace_file_name = (
-        f"{script_name}_mldaikon_trace_VAR_{EXP_START_TIME}_{pid}_{tid}.log"
-    )
+    trace_file_name = f"trace_VAR_{pid}_{tid}.log"
+    trace_file_full_path = os.path.join(output_dir, trace_file_name)
     log_thread = threading.Thread(
-        target=trace_dumper, args=(trace_queue, trace_file_name, stop_event)
+        target=trace_dumper, args=(trace_queue, trace_file_full_path, stop_event)
     )
     log_thread.start()
 
@@ -163,18 +159,18 @@ def dump_trace_VAR(trace: dict):
 
 def get_instrumentation_logger_for_process():
     pid = os.getpid()
-    script_name = os.getenv("MAIN_SCRIPT_NAME")
+    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
-        script_name is not None
-    ), "MAIN_SCRIPT_NAME is not set, examine the instrumented code to see if os.environ['MAIN_SCRIPT_NAME'] is set in the main function"
+        output_dir is not None
+    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
 
     if pid in instrumentation_loggers:
         return instrumentation_loggers[pid]
 
     logger = logging.getLogger(f"instrumentation_{pid}")
     logger.setLevel(logging.INFO)
-    log_file = f"{script_name}_mldaikon_instrumentation_{EXP_START_TIME}_{pid}.log"
-    file_handler = logging.FileHandler(log_file)
+    log_file = f"instrumentation_{pid}.log"
+    file_handler = logging.FileHandler(os.path.join(output_dir, log_file))
     file_handler.setFormatter(logging.Formatter("%(message)s"))
     logger.addHandler(file_handler)
     instrumentation_loggers[pid] = logger
@@ -459,7 +455,7 @@ class Instrumentor:
             | types.BuiltinMethodType
         ),
         scan_proxy_in_args: bool,
-        allow_disable_dump: bool,
+        use_full_instr: bool,
         funcs_of_inv_interest: Optional[list[str]] = None,
         API_dump_stack_trace: bool = False,
     ):
@@ -475,13 +471,13 @@ class Instrumentor:
                 Enabling this will allow the instrumentor to log the proxy objects in the function arguments,
                 which can be useful to establish the causal relationship between the proxy objects and the function calls.
                 Enabling this leads to a mild 2% overhead on 84911.
-            allow_disable_dump (bool):
-                Whether to allow disabling the dump of the trace on certain functions. Regardless of this flag, the function will still be instrumented.
+            use_full_instr (bool):
+                Whether to dump trace for all APIs. If False, APIs in certain modules deemed to be not important (e.g. `jit` in `torch`) will not have trace being dumped.
                 Refer to WRAP_WITHOUT_DUMP in config.py for the list of functions/modules that will have the dump disabled.
             funcs_of_inv_interest (Optional[List[Callable]]):
                 An optional list of functions that are of interest for invariant inference.
                 If provided, all functions not in this list will be instrumented with dump disabled,
-                and the functions in this list will be instrumented with dump enabled. NOTE: If this list is provided, allow_disable_dump must be set to True. WRAP_WITHOUT_DUMP will be ignored.
+                and the functions in this list will be instrumented with dump enabled. NOTE: If this list is provided, use_full_str must be set to False. WRAP_WITHOUT_DUMP will be ignored.
 
         Returns:
             None
@@ -510,16 +506,16 @@ class Instrumentor:
         self.instrumented_count = 0
         self.target = target
         self.scan_proxy_in_args = scan_proxy_in_args
-        self.allow_disable_dump = allow_disable_dump
+        self.use_full_instr = use_full_instr
         self.funcs_of_inv_interest = funcs_of_inv_interest
         self.API_dump_stack_trace = API_dump_stack_trace
 
-        if self.funcs_of_inv_interest is not None and not self.allow_disable_dump:
+        if self.funcs_of_inv_interest is not None and self.use_full_instr:
             get_instrumentation_logger_for_process().fatal(
-                "Invariants are provided but allow_disable_dump is False. Selective instrumentation cannot be done. Please set allow_disable_dump to True or remove the invariants"
+                "Invariants are provided but use_full_instr is True. Selective instrumentation cannot be done. Please remove the `--use-full-instr` flag or remove the invariants"
             )
             raise ValueError(
-                "Invariants are provided but allow_disable_dump is False. Selective instrumentation cannot be done. Please set allow_disable_dump to True or remove the invariants"
+                "Invariants are provided but use_full_instr is True. Selective instrumentation cannot be done. Please remove the `--use-full-instr` flag or remove the invariants"
             )
 
         if self.funcs_of_inv_interest is not None:
@@ -660,12 +656,12 @@ class Instrumentor:
 
     def should_disable_dump(self, attr) -> bool:
         """Check if the dump should be disabled for the attribute.
-        If allow_disable_dump is False, then the dump will not be disabled.
+        If use_full_instr is True, then the dump will not be disabled.
         If funcs_of_inv_interest is provided, then the dump will be disabled for all functions except the ones in funcs_of_inv_interest.
         If the attribute is in WRAP_WITHOUT_DUMP, then the dump will be disabled. Otherwise, the dump will not be disabled.
         """
 
-        if not self.allow_disable_dump:
+        if self.use_full_instr:
             return False
 
         if self.funcs_of_inv_interest is not None:

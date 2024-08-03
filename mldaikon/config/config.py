@@ -2,7 +2,7 @@ import polars as pl
 
 # tracer + instrumentor configs
 TMP_FILE_PREFIX = "_ml_daikon_"
-INSTR_MODULES_TO_INSTRUMENT = ["torch"]
+INSTR_MODULES_TO_INSTR = ["torch"]
 INSTR_MODULES_TO_SKIP = [
     "torch.fx",
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method

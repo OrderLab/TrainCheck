@@ -28,7 +28,7 @@ def main():
 
     # call into the instrumentor
     source_code, _log_file = instrumentor.instrument_file(
-        PATH, instrumentor.INSTR_MODULES_TO_INSTRUMENT
+        PATH, instrumentor.INSTR_MODULES_TO_INSTR
     )
 
     print(
