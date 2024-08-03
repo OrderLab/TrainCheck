@@ -24,6 +24,9 @@ def count_num_justification(count: int):
 
 
 def calculate_hypo_value(value) -> str:
+    if value is None:
+        return "None"
+
     if isinstance(value, (int, float)):
         hypo_value = f"{value:.7f}"
     elif isinstance(value, (list)):
@@ -31,7 +34,8 @@ def calculate_hypo_value(value) -> str:
     elif isinstance(value, (str, bool)):
         hypo_value = f"{value}"
     else:
-        hypo_value = "None"  # TODO: how to represent None,
+        hypo_value = str(value)
+
     return hypo_value
 
 
@@ -95,40 +99,40 @@ class VarPeriodicChangeRelation(Relation):
 
         # 4. Positive and negative examples collection
         for param, hypo_value in all_hypothesis:
+            attr_name = param.attr_name
             hypothesis = all_hypothesis[(param, hypo_value)]
             relevant_var_ids = [
                 var_id for var_id in occur_count if param.check_var_id_match(var_id)
             ]
             for var_id in relevant_var_ids:
-                for attr_name in occur_count[var_id]:
-                    if hypo_value not in occur_count[var_id][
-                        attr_name
-                    ] or not count_num_justification(
-                        occur_count[var_id][attr_name][hypo_value]
-                    ):
-                        # negative example
+                if hypo_value not in occur_count[var_id][
+                    attr_name
+                ] or not count_num_justification(
+                    occur_count[var_id][attr_name][hypo_value]
+                ):
+                    # negative example
+                    for attr_inst in var_insts[var_id][attr_name][1:]:
                         hypothesis.negative_examples.add_example(
                             Example(
                                 {
                                     var_group_name: [
-                                        attr_inst.traces[0]
-                                        for attr_inst in var_insts[var_id][attr_name]
+                                        attr_inst.traces[-1]
                                     ]  # TODO: getting the first trace of every attribute instance is a bit arbitrary
                                 }
                             )
                         )
-                    else:
-                        # positive example
-                        hypothesis.positive_examples.add_example(
-                            Example(
-                                {
-                                    var_group_name: [
-                                        attr_inst.traces[0]
-                                        for attr_inst in var_insts[var_id][attr_name]
-                                    ]
-                                }
-                            )
+                else:
+                    # positive example
+                    hypothesis.positive_examples.add_example(
+                        Example(
+                            {
+                                var_group_name: [
+                                    attr_inst.traces[-1]
+                                    for attr_inst in var_insts[var_id][attr_name]
+                                ]
+                            }
                         )
+                    )
 
         # 4. find preconditions
         valid_invariants = []
