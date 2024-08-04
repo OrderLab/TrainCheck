@@ -1,4 +1,5 @@
 import logging
+import random
 import time
 
 import polars as pl
@@ -76,6 +77,24 @@ def events_scanner(
     )
     return events
 
+def skip_func_call(total_func_calls, list_num_events_scanned: list[int]):
+    logger = logging.getLogger(__name__)
+
+    MAX_FUNC_CALLS = 1000
+    threshold_skip = min(MAX_FUNC_CALLS / total_func_calls, 1)
+    # if num_events_scanned is always the same (TODO: does having the same number of events indicate same set of events?), we should skip the function call (@BEIJIE: static analysis)
+
+
+    if len(list_num_events_scanned) > 10 and len(set(list_num_events_scanned[-10:])) == 1:
+        # look at the last 10 number of events scanned, if they are all the same, skip the function call with a probability
+        threshold_skip /= 100
+        logger.debug(f"Same number of events observed in the last 10 attempts: {list_num_events_scanned[0]}, reducing the skipping threshold to: {threshold_skip}")
+
+    is_skipping = random.random() > threshold_skip
+    if is_skipping:
+        logger.debug(f"Skipping the function call due to sampling with a probability of: {threshold_skip}")
+    return is_skipping
+
 
 class APIContainRelation(Relation):
     """Relation that checks if the API contain relation holds.
@@ -118,15 +137,20 @@ class APIContainRelation(Relation):
             logger.debug(
                 f"Found {len(parent_func_call_ids)} invocations for the function: {parent}"
             )
-            all_contained_events: list[
+            all_contained_events: dict[str, 
                 list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
-            ] = []
+            ] = {}
+
+            num_events_scanned = []
             for parent_func_call_id in parent_func_call_ids:
                 # get all contained events (can be any child function calls, var changes, etc.)
+                if skip_func_call(len(parent_func_call_ids), num_events_scanned):
+                    continue
                 contained_events = events_scanner(
                     trace=trace, func_call_id=parent_func_call_id
                 )
-                all_contained_events.append(contained_events)
+                num_events_scanned.append(len(contained_events))
+                all_contained_events[parent_func_call_id] = contained_events
 
             """Create hypothesis for each "kind" of contained events
                 For FuncCall events, the "kind" is defined by the function name
@@ -134,7 +158,7 @@ class APIContainRelation(Relation):
             """
             hypothesis[parent] = {}
             hypothesis_should_use_causal_vars_for_negative_examples[parent] = {}
-            for local_contained_events in all_contained_events:
+            for local_contained_events in all_contained_events.values():
                 for event in local_contained_events:
                     high_level_event_type = typename(event)
                     target: str | tuple[str, ...] = (
@@ -200,9 +224,7 @@ class APIContainRelation(Relation):
                         """
 
             # scan the child_func_names for positive and negative examples
-            for parent_func_call_id, local_contained_events in zip(
-                parent_func_call_ids, all_contained_events
-            ):
+            for parent_func_call_id, local_contained_events in all_contained_events.items():
                 touched: dict[str, set] = {}
                 pre_record = trace.get_pre_func_call_record(parent_func_call_id)
                 for event in local_contained_events:
