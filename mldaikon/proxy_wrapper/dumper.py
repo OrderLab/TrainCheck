@@ -176,9 +176,9 @@ def dump_attributes(obj, value):
                 # dump out all tensors inside the nn.Module
                 for name, param in attr.named_parameters():
                     result[attr_name] += f"\n{name}: {dump_tensor(param)}"
-        except Exception as e:
+        except Exception as e:  # noqa
             print_debug(
-                f"Failed to get attribute {attr_name} of object type {type(value)}, skipping it. Error: {e}"
+                lambda: f"Failed to get attribute {attr_name} of object type {type(value)}, skipping it. Error: {e}."  # noqa
             )
 
     if delta_dump and delta_dump_attributes:
