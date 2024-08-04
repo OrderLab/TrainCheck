@@ -24,7 +24,6 @@ from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.dumper import torch_serialize
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
 from mldaikon.proxy_wrapper.proxy_config import (
-    debug_mode,
     dump_info_config,
     exclude_file_names,
     primitive_types,
@@ -97,32 +96,6 @@ class Proxy:
     jsondumper = dumper(
         os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR"), "proxy_log.json")  # type: ignore
     )
-
-    empty_name_counts = 0
-    non_empty_name_counts = 0
-
-    @staticmethod
-    def print_tensor(value):
-        if debug_mode:
-            print_debug("logger_proxy: " + f"Tensor with shape'{value.shape}'")
-            print_debug("logger_proxy: " + f"Minimum value: {torch.min(value)}")
-            print_debug("logger_proxy: " + f"Maximum value: {torch.max(value)}")
-
-    @staticmethod
-    def print_update(old_value, value, attr_name=None):
-        if debug_mode:
-            print_debug("logger_proxy: " + f"Updating the attribute '{attr_name}'")
-            print_debug("logger_proxy: " + "From:")
-            if type(old_value) is torch.Tensor:
-                Proxy.print_tensor(old_value)
-            else:
-                print_debug("logger_proxy: " + f"'{old_value}'")
-
-            print_debug("logger_proxy: " + "To:")
-            if type(value) is torch.Tensor:
-                Proxy.print_tensor(value)
-            else:
-                print_debug("logger_proxy: " + f"'{value}'")
 
     @staticmethod
     def proxy_parameters(module, parent_name="", from_iter=False):
@@ -348,12 +321,6 @@ class Proxy:
         frame = inspect.currentframe()
         frame_array = self.get_frame_array(frame)
         dumped_frame_array = json.dumps(frame_array)
-
-        # print_debug the variable name list of the object
-        print_debug("logger_proxy: " + f"Empty name counts: {Proxy.empty_name_counts}")
-        print_debug(
-            "logger_proxy: " + f"Non-empty name counts: {Proxy.non_empty_name_counts}"
-        )
         # inherit the var_name from the parent object
         if self.__dict__["var_name"] is not None:
             current_var_name_list = self.__dict__["var_name"]
@@ -363,7 +330,7 @@ class Proxy:
 
         if self.__dict__["is_root"]:
             print(
-                "logger_proxy: " + f"ROOT proxy object for '{obj.__class__.__name__}'"
+                lambda: f"logger_proxy: ROOT proxy object for '{obj.__class__.__name__}'"
             )
         # Ziming: here we still seperate the handling of tensor and other objects
         # however, despite the dumping logic these two are identical and could be merged
@@ -436,12 +403,11 @@ class Proxy:
         else:  # if the object is proxied already
             if type(obj) not in [int, float, str, bool] and obj is not None:
                 print_debug(
-                    "logger_proxy: "
-                    + f"Object '{obj.__class__.__name__}' is already proxied"
+                    lambda: f"logger_proxy: Object '{obj.__class__.__name__}' is already proxied"
                 )
 
             print_debug(
-                f'Time elapse: {time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"]}'
+                lambda: f'Time elapse: {time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"]}'
             )
             self.__dict__["_obj"] = obj
             if (
@@ -486,15 +452,11 @@ class Proxy:
 
     def __call__(self, *args, **kwargs):
         print_debug(
-            "logger_proxy: " + f"Go to __call__ for object '{self.__class__.__name__}'"
-        )
-        print_debug(
-            "logger_proxy: "
-            + f"Calling '{self.__class__.__name__}' for obj: '{self.__dict__['var_name']}' (type '{typename(self._obj)}')"
+            lambda: f"logger_proxy: Calling '{self.__class__.__name__}' for obj: '{self.__dict__['var_name']}' (type '{typename(self._obj)}')"
         )
         result = self._obj(*args, **kwargs)
         print_debug(
-            "logger_proxy: " + f"Result type of __call__ is '{typename(result)}'"
+            lambda: f"logger_proxy: Result type of __call__ is '{typename(result)}'"
         )
 
         return proxy_handler(
@@ -506,7 +468,7 @@ class Proxy:
         )
 
     def __getattr__(self, name):
-        print_debug("logger_proxy: " + f"Accessing attribute '{name}'")
+        print_debug(lambda: f"logger_proxy: Accessing attribute '{name}'")
         if name == "logdir":
             return self.__dict__.get("logdir", None)  # in order to pass down the dir
         if name == "_obj":
@@ -531,7 +493,7 @@ class Proxy:
                 Proxy.var_dict[self.__dict__["var_name"]] = self
 
             print_debug(
-                f"Time elapse: {time.time() - Proxy.var_dict[self.__dict__['var_name']].__dict__['last_update_timestamp']}"
+                lambda: f"Time elapse: {time.time() - Proxy.var_dict[self.__dict__['var_name']].__dict__['last_update_timestamp']}"
             )
 
             if self.__dict__["var_name"] == "":
@@ -539,7 +501,7 @@ class Proxy:
             else:
                 var_name = self.__dict__["var_name"] + "." + name
 
-            print_debug("<logger_proxy: " + f"Setting attribute '{name}' to '{value}'")
+            print_debug(lambda: f"Setting attribute '{name}' to '{value}'")
 
             # if self._obj is a tensor already, then deproxify the value
             if issubclass(type(self._obj), torch.Tensor):
@@ -563,11 +525,15 @@ class Proxy:
 
     def __getitem__(self, key):
         # Intercept item retrieval
-        print_debug("logger_proxy: " + f"Getting item with key '{key}'")
+        print_debug(
+            lambda: f"logger_proxy: Getting item with key '{key}' for object '{self.__class__.__name__}'"
+        )
         return Proxy(self._obj[key])
 
     def __iter__(self):
-        print_debug("logger_proxy: " + "Calling __iter__")
+        print_debug(
+            lambda: f"logger_proxy: Calling __iter__ for object '{self.__class__.__name__}'"
+        )
         for element in self._obj:
             yield proxy_handler(
                 element,
@@ -610,9 +576,9 @@ class Proxy:
 
     def print_proxy_dict(self, proxy_dict):
         # for debugging purpose: print the var_dict of the proxy object
-        print_debug("logger_proxy: " + "Dump Proxy Dict: ")
+        print_debug(lambda: "logger_proxy: Dump Proxy Dict: ")
         for k, value in proxy_dict.items():
             if isinstance(value, torch.Tensor):
                 self.print_tensor(value)
             else:
-                print_debug("logger_proxy: " + f"{k}: {value}")
+                print_debug(lambda: f"logger_proxy: {k}: {value}")
