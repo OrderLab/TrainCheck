@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import (
+    APIParam,
     CheckerResult,
     Example,
     ExampleList,
@@ -47,10 +48,14 @@ class FunctionCoverRelation(Relation):
 
         for event in events.iter_rows(named=True):
             if event["function"] in function_pool:
+                if event["function"] not in function_id_map:
+                    function_id_map[event["function"]] = []
                 func_id = event["func_call_id"]
                 function_id_map[event["function"]].append(func_id)
 
                 if event["type"] == "function_call (pre)":
+                    if func_id not in function_times:
+                        function_times[func_id] = {}
                     function_times[func_id]["start"] = event["time"]
                     function_times[func_id]["function"] = event["function"]
                 elif event["type"] in [
@@ -95,8 +100,8 @@ class FunctionCoverRelation(Relation):
                 invariant=Invariant(
                     relation=FunctionCoverRelation,
                     params=[
-                        func_A,
-                        func_B,
+                        APIParam(func_A),
+                        APIParam(func_B),
                     ],
                     precondition=None,
                     text_description=f"FunctionCoverRelation between {func_A} and {func_B}",
