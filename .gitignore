@@ -49,3 +49,5 @@ results/1_0.01/case_1_confusion_matrix.csv
 codeparrot*
 Deepspeed/
 !config.json
+# local dummy files from yijun's branch
+84911_100_proxy_trace
