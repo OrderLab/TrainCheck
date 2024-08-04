@@ -230,9 +230,6 @@ def global_wrapper(
                 if is_proxied(
                     arg
                 ):  # Ziming: get rid of directly import Proxy from external module, use proxy_basics instead
-                    print(
-                        f"Found proxy {arg.__dict__['var_name']} in function {func_name}"
-                    )
                     proxy_in_args.append(arg)
                 elif type(arg) in [list, tuple]:
                     find_proxy_in_args(arg)
