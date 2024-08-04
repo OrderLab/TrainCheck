@@ -638,8 +638,6 @@ class Trace:
         return (time - self.get_start_time()) / (
             self.get_end_time() - self.get_start_time()
         )
-    
-    
 
 
 def read_trace_file(
@@ -666,4 +664,3 @@ def read_trace_file(
         unnest_all(events),
         truncate_incomplete_func_calls=truncate_incomplete_func_calls,
     )
-
