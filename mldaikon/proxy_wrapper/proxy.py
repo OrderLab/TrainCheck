@@ -27,6 +27,7 @@ from mldaikon.proxy_wrapper.proxy_config import (
     debug_mode,
     dump_info_config,
     exclude_file_names,
+    primitive_types,
     proxy_update_limit,
 )
 from mldaikon.proxy_wrapper.proxy_handler import handled_obj_type
@@ -156,7 +157,12 @@ class Proxy:
         return frame_array
 
     def dump_trace(
-        self, status, only_record=False, prev_obj=None, prev_trace_info=None
+        self,
+        status,
+        only_record=False,
+        prev_obj=None,
+        prev_trace_info=None,
+        disable_sampling=False,
     ):
         if Proxy.var_dict.get(self.__dict__["var_name"]) is None:
             # create
@@ -169,6 +175,7 @@ class Proxy:
                 "last_update_timestamp"
             ]
             > proxy_update_limit
+            or disable_sampling
         ):
             dump_pre_and_post_trace = False
             if (
@@ -549,7 +556,10 @@ class Proxy:
                     ),
                 )
             # dump frame array
-            self.dump_trace("update")
+            if type(value) in primitive_types:
+                self.dump_trace("update", disable_sampling=True)
+            else:
+                self.dump_trace("update")
 
     def __getitem__(self, key):
         # Intercept item retrieval
