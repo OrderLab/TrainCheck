@@ -239,6 +239,8 @@ class Proxy:
         return new_copy
 
     def dump_to_trace(self, obj, trace_info):
+        if isinstance(trace_info, SkippedDumpingObj):
+            return
         # version based filtering
         if "time" in trace_info:
             current_time = trace_info["time"]
