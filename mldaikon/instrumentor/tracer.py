@@ -29,7 +29,9 @@ from mldaikon.proxy_wrapper.proxy_config import (
 )
 from mldaikon.utils import typename
 
-meta_vars: dict[str, object] = {}
+meta_vars: dict[str, object] = (
+    {}
+)  # TODO: this is actually `global_vars` and should not be dumped with every function call.
 
 
 class PTID(NamedTuple):
@@ -201,15 +203,19 @@ def get_meta_vars() -> dict:
             file_full_path = file_full_path.split("/site-packages/")[1]
         file_full_path = file_full_path.strip("/home/")
 
-        all_frame_vars[file_full_path] = {
+        frame_vars = {
             name: value
             for name, value in frame_vars.items()
             # Ziming: only dump primitive types, block the var name on the black list
             if isinstance(value, (int, float, str, bool)) and not name.startswith("__")
         }
+
+        if frame_vars:
+            all_frame_vars[file_full_path] = frame_vars
+
         frame = frame.f_back
 
-    return all_frame_vars | meta_vars
+    return all_frame_vars
 
 
 def global_wrapper(
