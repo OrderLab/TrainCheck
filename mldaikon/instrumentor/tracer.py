@@ -184,6 +184,34 @@ def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
 
+def get_meta_vars() -> dict:
+    frame = inspect.currentframe()
+
+    all_frame_vars = {}
+    # get the file name list inside the repo
+    while frame is not None:
+        if "mldaikon" in frame.f_code.co_filename:
+            frame = frame.f_back
+            continue
+
+        frame_vars = frame.f_locals
+
+        file_full_path = frame.f_code.co_filename.strip(".py")
+        if "/site-packages/" in file_full_path:
+            file_full_path = file_full_path.split("/site-packages/")[1]
+        file_full_path = file_full_path.strip("/home/")
+
+        all_frame_vars[file_full_path] = {
+            name: value
+            for name, value in frame_vars.items()
+            # Ziming: only dump primitive types, block the var name on the black list
+            if isinstance(value, (int, float, str, bool)) and not name.startswith("__")
+        }
+        frame = frame.f_back
+
+    return all_frame_vars | meta_vars
+
+
 def global_wrapper(
     original_function,
     is_bound_method,
@@ -210,7 +238,7 @@ def global_wrapper(
         "func_call_id": func_call_id,
         "thread_id": thread_id,
         "process_id": process_id,
-        "meta_vars": meta_vars,
+        "meta_vars": get_meta_vars(),
         "type": TraceLineType.FUNC_CALL_PRE,
         "function": func_name,
         "is_bound_method": is_bound_method,
@@ -272,7 +300,7 @@ def global_wrapper(
                 "func_call_id": func_call_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
-                "meta_vars": meta_vars,
+                "meta_vars": get_meta_vars(),
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": func_name,
                 "args": [f"{arg}" for arg in args],
@@ -291,6 +319,7 @@ def global_wrapper(
         pre_record.copy()
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
+    post_record["meta_vars"] = get_meta_vars()
     dump_trace_API(post_record)
 
     return result
@@ -823,10 +852,6 @@ class StatelessVarObserver:
     """
 
     def __init__(self, var, dump_tensor_hash: bool = True):
-        self.step = (
-            0  # HACK: this is a hack to get the step number as we observe every step
-        )
-        meta_vars.update({"step": self.step})
         # Get the current thread object
         if isinstance(var, list):
             assert (
@@ -861,7 +886,7 @@ class StatelessVarObserver:
                 {
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
-                    "meta_vars": meta_vars,
+                    "meta_vars": get_meta_vars(),
                     "type": TraceLineType.STATE_CHANGE,
                     "var_type": param["type"],
                     "var_name": param["name"],
@@ -934,8 +959,6 @@ class StatelessVarObserver:
         1. Get the current state of the model
         2. Log the state
         """
-        self.step += 1
-        meta_vars.update({"step": self.step})
 
         timestamp = datetime.datetime.now().timestamp()
 
@@ -944,7 +967,7 @@ class StatelessVarObserver:
                 {
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
-                    "meta_vars": meta_vars,
+                    "meta_vars": get_meta_vars(),
                     "type": TraceLineType.STATE_CHANGE,
                     # "var": self.var.__class__.__name__,
                     "var_type": param["type"],  # FIXME: hardcoding the type for now
