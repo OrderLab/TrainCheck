@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722809552096,
+  "lastUpdate": 1722823172092,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2526,6 +2526,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7040456737099495",
             "extra": "mean: 132.58197926208376 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "zimingzh@umich.edu",
+            "name": "zimingzh",
+            "username": "ziming-zh"
+          },
+          "committer": {
+            "email": "zimingzh@umich.edu",
+            "name": "zimingzh",
+            "username": "ziming-zh"
+          },
+          "distinct": true,
+          "id": "3b8e34a90b2cbc7868963fcad9174ed9e52a0f14",
+          "message": "fix: enhance print_debug utility, change the msg inside to a lambda function to avoid object formatting from f-string",
+          "timestamp": "2024-08-04T19:26:15-04:00",
+          "tree_id": "8deac27acfd908463c53c13d2f0dbb02f81cda9a",
+          "url": "https://github.com/OrderLab/ml-daikon/commit/3b8e34a90b2cbc7868963fcad9174ed9e52a0f14"
+        },
+        "date": 1722823171648,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.006636836331354639,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4109923387886495",
+            "extra": "mean: 150.67419928312302 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.007862748640649016,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5869200215193447",
+            "extra": "mean: 127.18198758512736 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0013217379714011673,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1085651545690378",
+            "extra": "mean: 756.5796108134091 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.00754782987473412,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6672138647462356",
+            "extra": "mean: 132.48841277509928 sec\nrounds: 5"
           }
         ]
       }
