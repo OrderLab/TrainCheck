@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1722851602726,
+  "lastUpdate": 1722987457350,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -2682,6 +2682,58 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.41585104952074964",
             "extra": "mean: 178.00294043272734 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lessoxx@gmail.com",
+            "name": "Yuxuan Jiang",
+            "username": "Essoz"
+          },
+          "committer": {
+            "email": "lessoxx@gmail.com",
+            "name": "Yuxuan Jiang",
+            "username": "Essoz"
+          },
+          "distinct": true,
+          "id": "5fe150cc67db8a56469bc1b49752e3ae2767e6ab",
+          "message": "fix: forbid hash dumping for tensor on platforms without CUDA",
+          "timestamp": "2024-08-06T16:59:14-04:00",
+          "tree_id": "9f0fd39e1a378ef7980e222c74ac77bd7a81a2aa",
+          "url": "https://github.com/OrderLab/ml-daikon/commit/5fe150cc67db8a56469bc1b49752e3ae2767e6ab"
+        },
+        "date": 1722987456875,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.004450847917532575,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23873991445255732",
+            "extra": "mean: 224.67629056945444 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.006255847835017341,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6756657351844975",
+            "extra": "mean: 159.85043536424638 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0012623447818367742,
+            "unit": "iter/sec",
+            "range": "stddev: 1.078525786139114",
+            "extra": "mean: 792.1766021363437 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.0056182158342390365,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4094480963592095",
+            "extra": "mean: 177.99244982823728 sec\nrounds: 5"
           }
         ]
       }
