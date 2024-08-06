@@ -60,6 +60,23 @@ def get_attr_name(col_name: str) -> str:
 
 class Trace:
     def __init__(self, events, truncate_incomplete_func_calls=True):
+        """Initializes the trace instance.
+
+        Args:
+            events (pl.DataFrame | list[pl.DataFrame] | list[dict]): The events (underlying object containing all the records) of the trace. It can be
+                - a single DataFrame
+                - a list of DataFrames (will be concatnated into one ), or
+                - a list of dictionaries (will be converted into a DataFrame)
+            truncate_incomplete_func_calls (bool, optional): Whether to truncate incomplete trailing function calls from the trace. Defaults to True.
+                look at the doc of `_rm_incomplete_trailing_func_calls` for more information.
+
+        What this function does:
+            - Concatenates the DataFrames if the events is a list of DataFrames.
+            - Converts the list of dictionaries into a DataFrame if the events is a list of dictionaries.
+            - Truncates incomplete trailing function calls from the trace if `truncate_incomplete_func_calls` is True.
+            - Checks if the time column is present in the events DataFrame.
+        """
+
         self.events = events
         self.var_ids = None
         self.var_insts = None
@@ -94,7 +111,22 @@ class Trace:
             )
 
     def _rm_incomplete_trailing_func_calls(self):
-        """Remove incomplete trailing function calls from the trace. https://github.com/OrderLab/ml-daikon/issues/31"""
+        """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
+
+        This function would group the function calls by `func_call_id` which is unique for each function call. Thus, each `func_call_id` should
+        exactly correspond to two trace records (one pre-call and one post-call/exception). If there is only one record for a `func_call_id`,
+        the function is "incomplete" and should be handled with care.
+
+        For each incomplete function call, there will be three cases:
+        1. The function call is the outermost function call of the process: In this case, we will treat it as a complete function call and ignore it.
+        2. The function call is not the outermost function call of the process,
+           2.1 If the function call is on a sub-thread and close enough to the outermost function call post event (config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST), we will remove it.
+           2.2 If the function call is on the main-thread or on a sub-thread but not close enough to the outermost function call post event, we will raise an error.
+
+        Raises:
+            ValueError: If an incomplete function call is not close enough to the outermost function call post event.
+            AssertionError: If the incomplete function call is not on a different thread than the outermost function call.
+        """
         logger = logging.getLogger(__name__)
 
         if "function" not in self.events.columns:
@@ -164,6 +196,7 @@ class Trace:
                 )
 
     def get_start_time(self, process_id=None, thread_id=None) -> int:
+        """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
         if process_id is not None and thread_id is not None:
             return self.events.filter(
                 pl.col("process_id") == process_id, pl.col("thread_id") == thread_id
@@ -178,6 +211,8 @@ class Trace:
         return self.events["time"].min()
 
     def get_end_time(self, process_id=None, thread_id=None) -> int:
+        """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
+
         if process_id is not None and thread_id is not None:
             return self.events.filter(
                 pl.col("process_id") == process_id, pl.col("thread_id") == thread_id
@@ -203,7 +238,19 @@ class Trace:
         )
 
     def get_func_is_bound_method(self, func_name: str) -> bool:
-        """Check if a function is bound to a class."""
+        """Check if a function is bound to a class (i.e. method of a object).
+
+        Args:
+            func_name (str): The name of the function.
+
+        Returns:
+            bool: True if the function is bound to a class, False otherwise.
+
+        Raises:
+            AssertionError: If the boundness information is not found for the function.
+
+        A function is bound to a class if *all* the function calls of the function are made on an object.
+        """
         if "function" not in self.events.columns:
             logger.warning(
                 "function column not found in the events, no function related invariants will be extracted."
@@ -226,7 +273,9 @@ class Trace:
         return is_bound_method[0]
 
     def get_causally_related_vars(self, func_call_id) -> set[VarInstId]:
-        """Find all variables that are causally related to a function call."""
+        """Find all variables that are causally related to a function call.
+        By casually related, we mean that the variables have been accessed or modified by the object (with another method) that the function call is made on.
+        """
 
         # get the pre-call event of the function call
         func_call_pre_event = self.events.filter(
@@ -240,7 +289,9 @@ class Trace:
         assert func_call_pre_event[
             "is_bound_method"
         ], f"Causal relation extraction is only supported for bound methods, got {func_call_pre_event['function']} which is not"
-        obj_id = func_call_pre_event["obj_id"]
+        obj_id = func_call_pre_event[
+            "obj_id"
+        ]  # the object id (address) of the object that the function is bound to
 
         # find all function calls that are related to this object prior to the function call
         related_func_call_pre_events = self.events.filter(
@@ -276,6 +327,10 @@ class Trace:
         var_type: str | None = None,
         attr_name: str | None = None,
     ) -> list[VarInstId]:
+        """Find all variables that are causally related to a function call but not changed within the function call.
+
+        Casually related vars: Variables are accessed or modified by the object that the function call is bound to.
+        """
         related_vars = self.get_causally_related_vars(func_call_id)
         changed_vars = self.query_var_changes_within_func_call(func_call_id)
 
@@ -332,6 +387,20 @@ class Trace:
         return self.var_ids
 
     def get_var_insts(self) -> dict[VarInstId, dict[str, list[AttrState]]]:
+        """Index and get all variable instances from the trace.
+
+        Returns:
+            dict[VarInstId, dict[str, list[AttrState]]]: A dictionary mapping variable instances to their attributes and their states.
+            {
+                VarInstId(process_id, var_name, var_type): {
+                    attr_name: [AttrState(value, liveness, traces), ...],
+                    ...
+                },
+            }
+
+        Consecutive traces reporting the same value will be merged into one `AttrState` object. So consecutive AttrState objects will not have the same value.
+        """
+
         if self.var_insts is not None:
             return self.var_insts
 
@@ -412,7 +481,7 @@ class Trace:
         return self.var_insts
 
     def get_var_raw_event_before_time(self, var_id: VarInstId, time: int) -> list[dict]:
-        """Get all raw events of a variable."""
+        """Get all original trace records of a variable before time."""
         return self.events.filter(
             pl.col("process_id") == var_id.process_id,
             pl.col("var_name") == var_id.var_name,
@@ -423,6 +492,14 @@ class Trace:
         )  # order of events doesn't matter as we already query by time
 
     def get_var_changes(self) -> list[VarChangeEvent]:
+        """Get all variable changes events from the trace.
+
+        Essentially, this function will comprise consecutive states of the same variable attribute as a single change event.
+
+        Returns:
+            list[VarChangeEvent]: A list of all variable change events.
+        """
+
         if self.var_changes is not None:
             return self.var_changes
 
@@ -454,7 +531,7 @@ class Trace:
     def query_var_changes_within_time(
         self, time_range: tuple[int, int]
     ) -> list[VarChangeEvent]:
-
+        """Extract all variable change events from the trace, within a specific time range."""
         var_changes = self.get_var_changes()
         return [
             var_change
@@ -465,6 +542,7 @@ class Trace:
     def query_var_changes_within_time_and_process(
         self, time_range: tuple[int | float, int | float], process_id: int
     ) -> list[VarChangeEvent]:
+        """Extract all variable change events from the trace, within a specific time range and process."""
         var_changes = self.get_var_changes()
         return [
             var_change
@@ -476,6 +554,7 @@ class Trace:
     def query_var_changes_within_func_call(
         self, func_call_id: str
     ) -> list[VarChangeEvent]:
+        """Extract all variable change events from the trace, within the duration of a specific function call."""
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
 
@@ -494,7 +573,7 @@ class Trace:
         )
 
     def get_pre_func_call_record(self, func_call_id: str) -> dict:
-        """Get the pre call record of a function given its pre-call index."""
+        """Get the pre call record of a function given its func_call_id."""
         pre_records = self.events.filter(
             pl.col("func_call_id") == func_call_id,
             pl.col("type") == TraceLineType.FUNC_CALL_PRE,
@@ -510,8 +589,8 @@ class Trace:
         return pre_record
 
     def get_post_func_call_record(self, func_call_id: str) -> dict | None:
-        """Get the post call record of a function given its pre-call index.
-        Returns None if the post call event is not found and the pre-call event is the outermost function call.
+        """Get the post call record of a function given its func_call_id.
+        Returns None if the post call event is not found and the pre-call event is the outermost function call. (see the doc of `_rm_incomplete_trailing_func_calls`)
         """
         post_records = self.events.filter(
             pl.col("func_call_id") == func_call_id,
@@ -553,7 +632,7 @@ class Trace:
         process_id: int,
         thread_id: int,
     ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
-        """Extract all function call events from the trace."""
+        """Extract all function call events from the trace, within a specific time range, process and thread."""
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
         func_call_ids = (
             self.events.filter(
@@ -610,6 +689,7 @@ class Trace:
     def query_high_level_events_within_func_call(
         self, func_call_id: str
     ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
+        """Extract all high-level events (function calls and variable changes) within a specific function call."""
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
         if post_record is None:
@@ -643,7 +723,18 @@ class Trace:
 def read_trace_file(
     file_path: str | list[str], truncate_incomplete_func_calls=True
 ) -> Trace:
-    """Reads the trace file and returns the trace instance."""
+    """Reads the trace file and returns the trace instance.
+
+    Args:
+        file_path (str | list[str]): The path to the trace file or a list of paths to the trace files.
+        truncate_incomplete_func_calls (bool, optional): Whether to truncate incomplete trailing function calls from the trace. Defaults to True.
+            look at the doc of `_rm_incomplete_trailing_func_calls` for more information.
+
+    Returns:
+        Trace: The trace instance.
+
+    Note that nested structures will be flattened and all files passed as input will be concatenated into one trace object.
+    """
     if isinstance(file_path, list):
         dfs = []
         for f in file_path:
