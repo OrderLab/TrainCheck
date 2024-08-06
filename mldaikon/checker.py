@@ -24,12 +24,12 @@ def check_engine(
                 inv.precondition is not None
             ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
             logger.info("=====================================")
-            # logger.debug("Checking invariant %s on trace %s", inv, trace)
+            logger.debug("Checking invariant %s", inv.text_description)
             res = inv.check(trace, check_relation_first)
             res.calc_and_set_time_precentage(
                 trace.get_start_time(), trace.get_end_time()
             )
-            logger.info("Invariant %s on trace %s: %s", inv, trace, res)
+            # logger.info("Invariant %s on trace %s: %s", inv, trace, res)
             results.append(res)
 
     return results

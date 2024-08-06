@@ -77,6 +77,7 @@ def events_scanner(
     )
     return events
 
+
 def skip_func_call(total_func_calls, list_num_events_scanned: list[int]):
     logger = logging.getLogger(__name__)
 
@@ -84,15 +85,21 @@ def skip_func_call(total_func_calls, list_num_events_scanned: list[int]):
     threshold_skip = min(MAX_FUNC_CALLS / total_func_calls, 1)
     # if num_events_scanned is always the same (TODO: does having the same number of events indicate same set of events?), we should skip the function call (@BEIJIE: static analysis)
 
-
-    if len(list_num_events_scanned) > 10 and len(set(list_num_events_scanned[-10:])) == 1:
+    if (
+        len(list_num_events_scanned) > 10
+        and len(set(list_num_events_scanned[-10:])) == 1
+    ):
         # look at the last 10 number of events scanned, if they are all the same, skip the function call with a probability
         threshold_skip /= 100
-        logger.debug(f"Same number of events observed in the last 10 attempts: {list_num_events_scanned[0]}, reducing the skipping threshold to: {threshold_skip}")
+        logger.debug(
+            f"Same number of events observed in the last 10 attempts: {list_num_events_scanned[0]}, reducing the skipping threshold to: {threshold_skip}"
+        )
 
     is_skipping = random.random() > threshold_skip
     if is_skipping:
-        logger.debug(f"Skipping the function call due to sampling with a probability of: {threshold_skip}")
+        logger.debug(
+            f"Skipping the function call due to sampling with a probability of: {threshold_skip}"
+        )
     return is_skipping
 
 
@@ -137,11 +144,11 @@ class APIContainRelation(Relation):
             logger.debug(
                 f"Found {len(parent_func_call_ids)} invocations for the function: {parent}"
             )
-            all_contained_events: dict[str, 
-                list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
+            all_contained_events: dict[
+                str, list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
             ] = {}
 
-            num_events_scanned = []
+            num_events_scanned: list[int] = []
             for parent_func_call_id in parent_func_call_ids:
                 # get all contained events (can be any child function calls, var changes, etc.)
                 if skip_func_call(len(parent_func_call_ids), num_events_scanned):
@@ -224,7 +231,10 @@ class APIContainRelation(Relation):
                         """
 
             # scan the child_func_names for positive and negative examples
-            for parent_func_call_id, local_contained_events in all_contained_events.items():
+            for (
+                parent_func_call_id,
+                local_contained_events,
+            ) in all_contained_events.items():
                 touched: dict[str, set] = {}
                 pre_record = trace.get_pre_func_call_record(parent_func_call_id)
                 for event in local_contained_events:
@@ -362,7 +372,7 @@ class APIContainRelation(Relation):
 
         assert (
             len(inv.params) == 2
-        ), "Expected 2 parameters for APIContainRelation, one for the parent function name, and one for the child event name"
+        ), f"Expected 2 parameters for APIContainRelation, one for the parent function name, and one for the child event name: {inv.params[0].to_dict()}"
 
         parent_param, child_param = inv.params[0], inv.params[1]
         assert isinstance(
@@ -409,7 +419,9 @@ Defaulting to skip the var preconditon check for now.
                 skip_var_unchanged_check = True
 
         # the main checking loop: the online checker function will be the body of this loop, which will be called repeatedly
-        for parent_func_call_id in parent_func_call_ids:
+        for parent_func_call_id in tqdm(
+            parent_func_call_ids, desc=f"Checking invariants for {inv.text_description}"
+        ):
             # check for parent precondition
             parent_pre_record = trace.get_pre_func_call_record(parent_func_call_id)
 

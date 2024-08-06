@@ -10,7 +10,6 @@ from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
 ## ML-DAIKON Instrumentation
-from mldaikon.instrumentor import meta_vars
 
 
 class Net(nn.Module):
@@ -63,7 +62,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
             )
             if args.dry_run:
                 break
-        if steps == 20:
+        if steps == 200:
             # ML-DAIKON Instrumentation
             break
 
@@ -166,8 +165,6 @@ def main():
         help="For Saving the current Model",
     )
 
-    meta_vars["stage"] = "parsing_args"
-
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
@@ -188,7 +185,6 @@ def main():
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
-    meta_vars["stage"] = "data_preparation"
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
@@ -197,43 +193,14 @@ def main():
     train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
     test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
 
-    meta_vars["stage"] = "defining_model_optimizer"
     model = Net().to(device)
-    optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
-
-    ## ML-DAIKON Instrumentation
-    from mldaikon.instrumentor import tracer
-
-    observer = tracer.StateVarObserver(model)
-
-    def update_meta_vars():
-        import os
-        import threading
-
-        meta_vars["process_id"] = os.getpid()
-        meta_vars["thread_id"] = threading.get_ident()
-
-    update_meta_vars()
-    optimizer.register_step_post_hook(
-        lambda optimizer, *args, **kwargs: update_meta_vars()
-    )
-    optimizer.register_step_post_hook(
-        lambda optimizer, *args, **kwargs: observer.observe()
-    )
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     for epoch in range(1, args.epochs + 1):
-        meta_vars["stage"] = "training"
-        meta_vars["epoch"] = epoch
         train(args, model, device, train_loader, optimizer, epoch)
-        meta_vars["stage"] = "testing"
         test(model, device, test_loader)
-        meta_vars["stage"] = "updating_scheduler"
         scheduler.step()
-
-    update_meta_vars()
-    meta_vars["stage"] = "saving_model"
-    del meta_vars["epoch"]
 
     if args.save_model:
         torch.save(model.state_dict(), "mnist_cnn.pt")

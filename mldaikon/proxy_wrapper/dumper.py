@@ -5,7 +5,9 @@ from typing import Dict
 import torch
 
 from mldaikon.instrumentor.tracer import meta_vars
-from mldaikon.proxy_wrapper.hash import tensor_hash
+
+if torch.cuda.is_available():
+    from mldaikon.proxy_wrapper.hash import tensor_hash
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
@@ -127,6 +129,10 @@ def dump_tensor(value):
         if tensor_dump_format["dump_tensor_statistics"]:
             param_list = tensor_stats(value)
         if tensor_dump_format["dump_tensor_hash"]:
+            if not torch.cuda.is_available():
+                raise Exception(
+                    "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full', 'stats' or 'version'."
+                )
             param_list = tensor_hash(value)
         else:
             param_list = value.detach().flatten().tolist()
