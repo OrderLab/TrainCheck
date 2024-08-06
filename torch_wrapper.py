@@ -1,5 +1,6 @@
 import csv
 import inspect
+import logging
 import re
 from collections import defaultdict, deque
 
@@ -42,9 +43,6 @@ def get_functions(module, visited=None):
         except AttributeError:
             continue
     return funcs
-
-
-import logging
 
 
 # Build the call graph
