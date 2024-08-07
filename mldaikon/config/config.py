@@ -54,6 +54,7 @@ NOT_USE_AS_CLAUSE_FIELDS = [
     "type",
     "mode",
     "stack_trace",
+    "obj_id",
 ]
 CONST_CLAUSE_NUM_VALUES_THRESHOLD = 1  # FIXME: ad-hoc
 VAR_INV_TYPE = (

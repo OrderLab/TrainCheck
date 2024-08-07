@@ -350,14 +350,14 @@ def find_precondition_from_single_group(
                 if not clause_ever_false_in_neg[clause]
             }
         )
-        print("Base Precondition Clauses After Pruning")
-        print(str(Precondition(base_precond_clauses)))
+        # print("Base Precondition Clauses After Pruning")
+        # print(str(Precondition(base_precond_clauses)))
     else:
         # skip pruning is necessary when we are inferring on a reduced set of negative examples as many clauses may not be violated and thus pruned unnecessarily
         assert (
             _pruned_clauses
         ), "_pruned_clauses must be provided if pruning process are to skipped"
-        print("Skipping Pruning")
+        # print("Skipping Pruning")
 
     # success if no negative examples are passing
     if not passing_neg_exps:
@@ -393,39 +393,39 @@ def find_precondition_from_single_group(
                 found_relevant = True
                 break
             if set_top_level_ids.issubset(set_exp_ids):
-                print(
-                    "Replace top-level example ids from group",
-                    grouped_clauses[top_level_exp_ids[ids]],
-                    "with",
-                    grouped_clauses[exp_ids],
-                )
+                # print(
+                #     "Replace top-level example ids from group",
+                #     grouped_clauses[top_level_exp_ids[ids]],
+                #     "with",
+                #     grouped_clauses[exp_ids],
+                # )
                 top_level_exp_ids[ids] = exp_ids
                 found_relevant = True
                 break
         if not found_relevant:
-            print(
-                "Adding new top-level example ids from group", grouped_clauses[exp_ids]
-            )
+            # print(
+            #     "Adding new top-level example ids from group", grouped_clauses[exp_ids]
+            # )
             top_level_exp_ids.append(exp_ids)
 
-    # construct the top-level preconditions
-    print(f"Splitting into {len(top_level_exp_ids)} sub-hypotheses")
-    print("Length of the top-level examples")
-    for exp_ids in top_level_exp_ids:
-        print(len(exp_ids), len(exp_ids) / len(positive_examples))
+    # # construct the top-level preconditions
+    # logger.debug(f"Splitting into {len(top_level_exp_ids)} sub-hypotheses")
+    # logger.debug("Length of the top-level examples")
+    # for exp_ids in top_level_exp_ids:
+    #     logger.debug(f"{len(exp_ids)}, {len(exp_ids) / len(positive_examples)}")
 
-    print("Partial Clauses")
-    for clause in partial_merged_clauses_and_exp_ids:
-        print("==============================")
-        print("values", clause.values)
-        print("type", clause.type)
-        print("target", clause.prop_name)
-        print("Examples", len(partial_merged_clauses_and_exp_ids[clause]))
-        print(
-            "%examples",
-            len(partial_merged_clauses_and_exp_ids[clause]) / len(positive_examples),
-        )
-    print("==============================")
+    # logger.debug("Partial Clauses")
+    # for clause in partial_merged_clauses_and_exp_ids:
+    #     print("==============================")
+    #     print("values", clause.values)
+    #     print("type", clause.type)
+    #     print("target", clause.prop_name)
+    #     print("Examples", len(partial_merged_clauses_and_exp_ids[clause]))
+    #     print(
+    #         "%examples",
+    #         len(partial_merged_clauses_and_exp_ids[clause]) / len(positive_examples),
+    #     )
+    # print("==============================")
 
     # construct the sub-hypothesis with the top-level partial examples
     preconditions: list[Precondition] = []
@@ -460,21 +460,21 @@ def find_precondition_from_single_group(
     # verify that the sub-preconditions covers all the positive examples
     for exp in positive_examples:
         if not any(precond.verify(exp) for precond in preconditions):
-            print(
-                "Warning: sub-preconditions do not cover all the positive examples",
-                len(positive_examples),
-            )
-            print("No precondition found for this sub-hypothesis")
-            print("Sub-preconditions")
-            for precond in preconditions:
-                print(precond)
+            # print(
+            #     "Warning: sub-preconditions do not cover all the positive examples",
+            #     len(positive_examples),
+            # )
+            # print("No precondition found for this sub-hypothesis")
+            # print("Sub-preconditions")
+            # for precond in preconditions:
+            #     print(precond)
 
-            print("==============================")
-            print("Example")
-            print(exp)
-            print("Example Clauses")
-            print(_find_local_clauses(exp, key_to_skip=keys_to_skip))
-            print("==============================")
+            # print("==============================")
+            # print("Example")
+            # print(exp)
+            # print("Example Clauses")
+            # print(_find_local_clauses(exp, key_to_skip=keys_to_skip))
+            # print("==============================")
 
             # raise ValueError("Sub-preconditions do not cover all the positive examples")
             return []
