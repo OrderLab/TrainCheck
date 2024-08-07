@@ -634,36 +634,38 @@ class Trace:
     ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
         """Extract all function call events from the trace, within a specific time range, process and thread."""
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
-        func_call_ids = (
-            self.events.filter(
-                (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
-                & (
-                    pl.col("time").is_between(
-                        time_range[0], time_range[1], closed="none"
-                    )
+        func_call_records = self.events.filter(
+            (
+                pl.col("type").is_in(
+                    [
+                        TraceLineType.FUNC_CALL_PRE,
+                        TraceLineType.FUNC_CALL_POST,
+                        TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    ]
                 )
-                & (pl.col("process_id") == process_id)
-                & (pl.col("thread_id") == thread_id)
             )
-            .select(pl.col("func_call_id"))
-            .to_series()
-            .to_list()
+            & (pl.col("time").is_between(time_range[0], time_range[1], closed="none"))
+            & (pl.col("process_id") == process_id)
+            & (pl.col("thread_id") == thread_id)
         )
 
-        for func_call_id in func_call_ids:
-            pre_record = self.get_pre_func_call_record(func_call_id)
-            post_record = self.get_post_func_call_record(func_call_id)
-
-            # NOTE: this function is always called to query the events within a specific function, so we should not have the case where the post call event is not found as only the outermost function call can have no post call event
+        # group function calls by func_call_id
+        func_call_groups = func_call_records.group_by("func_call_id")
+        for func_call_id, func_call_records in func_call_groups:
             assert (
-                post_record is not None
-            ), f"Post call event not found for {func_call_id}"
-
-            end_time = post_record["time"]
+                func_call_records.height == 2
+            ), f"Function call records is not 2 for {func_call_id}"
+            pre_record = func_call_records.row(0, named=True)
+            post_record = func_call_records.row(1, named=True)
 
             assert (
-                end_time < time_range[1]
-            ), f"Post call event found after the time range {time_range}"
+                pre_record["type"] == TraceLineType.FUNC_CALL_PRE
+            ), f"First record for {func_call_id} is not pre, got {pre_record['type']}"
+            assert post_record["type"] in [
+                TraceLineType.FUNC_CALL_POST,
+                TraceLineType.FUNC_CALL_POST_EXCEPTION,
+            ], f"Second record for {func_call_id} is not post, got {post_record['type']}"
+
             func_call_events.append(
                 FuncCallEvent(pre_record["function"], pre_record, post_record)
                 if post_record["type"] == TraceLineType.FUNC_CALL_POST
