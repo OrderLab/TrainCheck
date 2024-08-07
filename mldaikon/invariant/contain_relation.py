@@ -26,6 +26,13 @@ PARENT_GROUP_NAME = "parent_func_call_pre"
 VAR_GROUP_NAME = "var_events"
 
 
+""" Possible Optimizations for Inference Speed of the APIContainRelation:
+    - Parallelization
+    - Checking lower level function calls first and use the results to infer the higher level function calls (i.e. module.to should reuse the results from module._apply)
+    - Heuristics to handle recursive function calls (module._apply can have ~4000 lines of trace which contains many recursive calls). The get_func_call_events utility should provide an option to skip the recursive calls.
+"""
+
+
 def can_func_be_bound_method(
     trace: Trace,
     func_name: str,

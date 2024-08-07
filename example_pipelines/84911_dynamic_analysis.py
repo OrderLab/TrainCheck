@@ -16,8 +16,6 @@ from PIL import ImageFile
 from torchvision import datasets
 from tqdm import tqdm
 
-from mldaikon.proxy_wrapper.proxy import Proxy
-
 shape = (224, 224)
 log_dir = f"runs/{shape[0]}"
 os.makedirs("runs", exist_ok=True)
@@ -115,11 +113,6 @@ for param in model_transfer._conv_stem.parameters():
 for param in model_transfer._fc.parameters():
     param.requires_grad = True
 
-model_transfer = Proxy(
-    model_transfer, is_root=True
-)  # has to be after the requires_grad lines in order for the `new` traces to report _conv_stem have requires_grad=False`
-print(model_transfer._fc.in_features)
-
 nb_classes = num_classes
 
 
@@ -148,7 +141,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["train"], desc="Training")
         ):
             iters += 1
-            if iters > 5:
+            if iters > 50:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
