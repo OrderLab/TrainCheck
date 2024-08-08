@@ -108,13 +108,27 @@ class Trace:
 
             filtered_events_pre = self.events[
                 (self.events["type"] == TraceLineType.FUNC_CALL_PRE) &
-                (self.events["process_id"] == process_id)
+                (self.events["process_id"] == process_id) &
+                (self.events["time"] == self.get_start_time(process_id))
             ]
 
             if not filtered_events_pre.empty:
                 outermost_func_call_pre = filtered_events_pre.iloc[0]
             else:
                 outermost_func_call_pre = None
+
+            filtered_events_post = self.events[
+                (self.events["type"] == TraceLineType.FUNC_CALL_POST) &
+                (self.events["func_call_id"] == outermost_func_call_pre["func_call_id"])
+            ]
+
+            outermost_incomplete = False
+            if not filtered_events_post.empty:
+                outermost_func_call_post = filtered_events_post.iloc[0]
+            else:
+                outermost_incomplete = True
+                outermost_func_call_post = None
+
 
             if row["func_call_id"] == outermost_func_call_pre["func_call_id"]:
                 logger.warning(
@@ -123,36 +137,72 @@ class Trace:
                 # print(f"The outermost function call is incomplete: {outermost_func_call_pre['function']} with id {outermost_func_call_pre['func_call_id']}. Will treat it as a complete function call.")
                 continue
 
-            assert (
-                thread_id != outermost_func_call_pre["thread_id"]
-            ), f"Incomplete function call (func_call_id: {row['func_call_id']}) (name: {row["function"]}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) (name: {outermost_func_call_pre["function"]}) on process {process_id}. Please Investigate."
+            if not outermost_incomplete:
+                assert (
+                    thread_id != outermost_func_call_pre["thread_id"]
+                ), f"Incomplete function call (func_call_id: {row['func_call_id']}) (name: {row["function"]}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) (name: {outermost_func_call_pre["function"]}) on process {process_id}. Please Investigate."
 
-
-            filtered_events_post = self.events[
-                (self.events["type"] == TraceLineType.FUNC_CALL_POST) &
-                (self.events["func_call_id"] == outermost_func_call_pre["func_call_id"])
-            ]
-
-            if not filtered_events_post.empty:
-                outermost_func_call_post = filtered_events_post.iloc[0]
+                if (
+                    row["time"]
+                    > outermost_func_call_post["time"]
+                    - config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST
+                ):
+                    logger.warning(f"Removing incomplete function call: {row}")
+                    self.events = self.events[self.events["func_call_id"] != row["func_call_id"]]
+                else:
+                    raise ValueError(
+                        f"Incomplete function call is not close enough to the outermost function call post event: {row}"
+                    )
+                
             else:
-                outermost_func_call_post = None
+                assert row["time"] == self.get_end_time(
+                    process_id, thread_id
+                ), f"Incomplete function call is not the last event for the process {process_id} and thread {thread_id}."
 
-            if (
-                row["time"]
-                > outermost_func_call_post["time"]
-                - config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST
-            ):
-                logger.warning(f"Removing incomplete function call: {row}")
-                self.events = self.events[self.events["func_call_id"] != row["func_call_id"]]
-            else:
-                raise ValueError(
-                    f"Incomplete function call is not close enough to the outermost function call post event: {row}"
+                logger.warning(
+                    f"Removing incomplete function call: {row} as the outermost function call is also incomplete."
                 )
-        
-        # test_dump(self.events)
-            
 
+                self.events = self.events[self.events["func_call_id"] != row["func_call_id"]]
+                logger.warning(f"Removing incomplete function call: {row}")
+
+        
+
+        # test_dump(self.events)
+
+    def get_start_time(self, process_id=None, thread_id=None) -> int:
+        """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
+        if process_id is not None and thread_id is not None:
+            return self.events[
+                (self.events["process_id"] == process_id)
+                & (self.events["thread_id"] == thread_id)
+            ]["time"].min()
+
+        if process_id is not None:
+            return self.events[self.events["process_id"] == process_id]["time"].min()
+
+        if thread_id is not None:
+            return self.events[self.events["thread_id"] == thread_id]["time"].min()
+
+        return self.events["time"].min()
+
+    def get_end_time(self, process_id=None, thread_id=None) -> int:
+        """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
+
+        if process_id is not None and thread_id is not None:
+            return self.events[
+                (self.events["process_id"] == process_id)
+                & (self.events["thread_id"] == thread_id)
+            ]["time"].max()
+
+        if process_id is not None:
+            return self.events[self.events["process_id"] == process_id]["time"].max()
+
+        if thread_id is not None:
+            return self.events[self.events["thread_id"] == thread_id]["time"].max()
+
+        return self.events["time"].max()
+            
 
 def read_trace_file(
     file_path: str | list[str], truncate_incomplete_func_calls=True
