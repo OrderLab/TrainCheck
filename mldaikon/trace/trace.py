@@ -156,43 +156,67 @@ class Trace:
             thread_id = record["thread_id"]
 
             # assert the incomplete function call happens after or before  the outermost function call on that process
-            outermost_func_call_pre = self.events.filter(
+            outermost_func_call_pre_record = self.events.filter(
                 pl.col("type") == TraceLineType.FUNC_CALL_PRE,
                 pl.col("process_id") == process_id,
-            ).row(
-                0, named=True
-            )  # order of events does matter here, but as long as each process is ordered by time, we should be fine
+                pl.col("time") == self.get_start_time(process_id),
+            ).row(0, named=True)
 
-            # if the incomplete function is the outermost function, we should be handling it differently
-            if record["func_call_id"] == outermost_func_call_pre["func_call_id"]:
-                logger.warning(
-                    f"The outermost function call is incomplete: {outermost_func_call_pre['function']} with id {outermost_func_call_pre['func_call_id']}. Will treat it as a complete function call."
-                )
-                continue
-
-            assert (
-                thread_id != outermost_func_call_pre["thread_id"]
-            ), f"Incomplete function call (func_call_id: {record['func_call_id']}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) on process {process_id}. Please Investigate."
-
+            # see if the outermost function is also incomplete
             outermost_func_call_post = self.events.filter(
                 pl.col("type") == TraceLineType.FUNC_CALL_POST,
-                pl.col("func_call_id") == outermost_func_call_pre["func_call_id"],
-            ).row(
-                0, named=True
-            )  # order of events does not matter here as the result here is a single row
+                pl.col("func_call_id")
+                == outermost_func_call_pre_record["func_call_id"],
+            )
 
-            if (
-                record["time"]
-                > outermost_func_call_post["time"]
-                - config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST
-            ):
-                logger.warning(f"Removing incomplete function call: {record}")
+            outermost_incomplete = False
+            
+            if outermost_func_call_post.height == 0:
+                outermost_incomplete = True
+            else:
+                outermost_func_call_post_record = outermost_func_call_post.row(
+                    0, named=True
+                )
+
+            # if the incomplete function is the outermost function, we should be handling it differently
+            if record["func_call_id"] == outermost_func_call_pre_record["func_call_id"]:
+                logger.warning(
+                    f"The outermost function call is incomplete: {outermost_func_call_pre_record['function']} with id {outermost_func_call_pre_record['func_call_id']}. Will treat it as a complete function call."
+                )
+                # nothing is done here at the pre-processing stage, incomplete outermost call is handled in other query functions
+                continue
+
+            if not outermost_incomplete:
+                # if outermost function is complete, everything inside on the same thread should also be complete
+                assert (
+                    thread_id != outermost_func_call_pre_record["thread_id"]
+                ), f"Incomplete function call (func_call_id: {record['func_call_id']}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre_record['func_call_id']}) on process {process_id}. Please Investigate."
+
+                if (
+                    record["time"]
+                    > outermost_func_call_post_record["time"]
+                    - config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST
+                ):
+                    logger.warning(f"Removing incomplete function call: {record}")
+                    self.events = self.events.filter(
+                        pl.col("func_call_id") != record["func_call_id"]
+                    )
+                else:
+                    raise ValueError(
+                        f"Incomplete function call is not close enough to the outermost function call post event: {record}"
+                    )
+
+            else:
+                # the outermost function is also incomplete, just make sure this incomplete function call is the last event for the process and thread
+                assert record["time"] == self.get_end_time(
+                    process_id, thread_id
+                ), f"Incomplete function call is not the last event for the process {process_id} and thread {thread_id}."
+
+                logger.warning(
+                    f"Removing incomplete function call: {record} as the outermost function call is also incomplete."
+                )
                 self.events = self.events.filter(
                     pl.col("func_call_id") != record["func_call_id"]
-                )
-            else:
-                raise ValueError(
-                    f"Incomplete function call is not close enough to the outermost function call post event: {record}"
                 )
 
     def get_start_time(self, process_id=None, thread_id=None) -> int:
@@ -634,36 +658,38 @@ class Trace:
     ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
         """Extract all function call events from the trace, within a specific time range, process and thread."""
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
-        func_call_ids = (
-            self.events.filter(
-                (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
-                & (
-                    pl.col("time").is_between(
-                        time_range[0], time_range[1], closed="none"
-                    )
+        func_call_records = self.events.filter(
+            (
+                pl.col("type").is_in(
+                    [
+                        TraceLineType.FUNC_CALL_PRE,
+                        TraceLineType.FUNC_CALL_POST,
+                        TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    ]
                 )
-                & (pl.col("process_id") == process_id)
-                & (pl.col("thread_id") == thread_id)
             )
-            .select(pl.col("func_call_id"))
-            .to_series()
-            .to_list()
+            & (pl.col("time").is_between(time_range[0], time_range[1], closed="none"))
+            & (pl.col("process_id") == process_id)
+            & (pl.col("thread_id") == thread_id)
         )
 
-        for func_call_id in func_call_ids:
-            pre_record = self.get_pre_func_call_record(func_call_id)
-            post_record = self.get_post_func_call_record(func_call_id)
-
-            # NOTE: this function is always called to query the events within a specific function, so we should not have the case where the post call event is not found as only the outermost function call can have no post call event
+        # group function calls by func_call_id
+        func_call_groups = func_call_records.group_by("func_call_id")
+        for func_call_id, func_call_records in func_call_groups:
             assert (
-                post_record is not None
-            ), f"Post call event not found for {func_call_id}"
-
-            end_time = post_record["time"]
+                func_call_records.height == 2
+            ), f"Function call records is not 2 for {func_call_id}"
+            pre_record = func_call_records.row(0, named=True)
+            post_record = func_call_records.row(1, named=True)
 
             assert (
-                end_time < time_range[1]
-            ), f"Post call event found after the time range {time_range}"
+                pre_record["type"] == TraceLineType.FUNC_CALL_PRE
+            ), f"First record for {func_call_id} is not pre, got {pre_record['type']}"
+            assert post_record["type"] in [
+                TraceLineType.FUNC_CALL_POST,
+                TraceLineType.FUNC_CALL_POST_EXCEPTION,
+            ], f"Second record for {func_call_id} is not post, got {post_record['type']}"
+
             func_call_events.append(
                 FuncCallEvent(pre_record["function"], pre_record, post_record)
                 if post_record["type"] == TraceLineType.FUNC_CALL_POST

@@ -56,7 +56,7 @@ class Trace:
         logger.warning(
             "Infer engine won't sort the events by time anymore as sorting is costly for large traces. Please make sure every separate file is sorted by time, and traces belong to the same process should be in the same file. For variable traces, we will still be sorting them by time so no need to worry about that."
         )
-        
+        # test_dump(self.events)
         if truncate_incomplete_func_calls:
             logger.info("Truncating incomplete trailing function calls from the trace.")
             self._rm_incomplete_trailing_func_calls()
@@ -203,6 +203,52 @@ class Trace:
 
         return self.events["time"].max()
             
+            
+    def get_func_names(self) -> list[str]:
+        """Find all function names from the trace."""
+        if "function" not in self.events.columns:
+            logger.warning(
+                "function column not found in the events, no function related invariants will be extracted."
+            )
+            return []
+        return self.events["function"].dropna().unique().tolist()
+    
+
+    def get_func_is_bound_method(self, func_name: str) -> bool:
+        """Check if a function is bound to a class (i.e. method of a object).
+
+        Args:
+            func_name (str): The name of the function.
+
+        Returns:
+            bool: True if the function is bound to a class, False otherwise.
+
+        Raises:
+            AssertionError: If the boundness information is not found for the function.
+
+        A function is bound to a class if *all* the function calls of the function are made on an object.
+        """
+        if "function" not in self.events.columns:
+            logger.warning(
+                "function column not found in the events, no function related invariants will be extracted."
+            )
+            return False
+
+        is_bound_method = (
+            self.events[self.events["function"] == func_name]["is_bound_method"]
+            .dropna()
+            .tolist()
+        )
+
+        assert (
+            None not in is_bound_method
+        ), f"Boundness information not found for {func_name}"
+        assert all(
+            is_bound_method[0] == is_bound_method[i]
+            for i in range(1, len(is_bound_method))
+        ), f"Boundness information is not consistent for {func_name}"
+        return is_bound_method[0]
+
 
 def read_trace_file(
     file_path: str | list[str], truncate_incomplete_func_calls=True
