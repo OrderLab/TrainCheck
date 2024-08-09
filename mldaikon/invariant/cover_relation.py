@@ -1,7 +1,6 @@
 import logging
-from collections import defaultdict
 from itertools import combinations
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from tqdm import tqdm
 
@@ -32,11 +31,11 @@ class FunctionCoverRelation(Relation):
 
         logger = logging.getLogger(__name__)
 
-        # pre-process
+        # 1. Pre-process all the events
         function_pool = read_function_pool("function_pool.txt")
 
-        function_times: Dict[str, Dict[str, Any]] = {}
-        function_id_map: Dict[str, List[str]] = {}
+        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
 
         events = trace.events
 
@@ -46,34 +45,63 @@ class FunctionCoverRelation(Relation):
                 f"Missing column: {required_columns - set(events.columns)}"
             )
 
-        for event in events.iter_rows(named=True):
-            if event["function"] in function_pool:
-                if event["function"] not in function_id_map:
-                    function_id_map[event["function"]] = []
-                func_id = event["func_call_id"]
-                function_id_map[event["function"]].append(func_id)
+        group_by_events = events.group_by(["process_id", "thread_id"])
 
-                if event["type"] == "function_call (pre)":
-                    if func_id not in function_times:
-                        function_times[func_id] = {}
-                    function_times[func_id]["start"] = event["time"]
-                    function_times[func_id]["function"] = event["function"]
-                elif event["type"] in [
-                    "function_call (post)",
-                    "function_call (post) (exception)",
-                ]:
-                    function_times[func_id]["end"] = event["time"]
+        for group_events in group_by_events:
+            (process_id, thread_id), evs = group_events
+            sorted_group_events = evs.sort("time")
+            if (process_id, thread_id) not in function_id_map:
+                function_id_map[(process_id, thread_id)] = {}
 
-        def check_same_level(funcA: str, funcB: str):
+            if (process_id, thread_id) not in function_times:
+                function_times[(process_id, thread_id)] = {}
+
+            for event in sorted_group_events.iter_rows(named=True):
+                if event["function"] in function_pool:
+                    if (
+                        event["function"]
+                        not in function_id_map[(process_id, thread_id)]
+                    ):
+                        function_id_map[(process_id, thread_id)][event["function"]] = []
+                    func_id = event["func_call_id"]
+                    function_id_map[(process_id, thread_id)][event["function"]].append(
+                        func_id
+                    )
+
+                    if event["type"] == "function_call (pre)":
+                        if func_id not in function_times[(process_id, thread_id)]:
+                            function_times[(process_id, thread_id)][func_id] = {}
+                        function_times[(process_id, thread_id)][func_id]["start"] = (
+                            event["time"]
+                        )
+                        function_times[(process_id, thread_id)][func_id]["function"] = (
+                            event["function"]
+                        )
+                    elif event["type"] in [
+                        "function_call (post)",
+                        "function_call (post) (exception)",
+                    ]:
+                        function_times[(process_id, thread_id)][func_id]["end"] = event[
+                            "time"
+                        ]
+
+        # 2. Check if two function on the same level for each thread and process
+        def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
             if funcA == funcB:
                 return False
 
-            for idA in function_id_map[funcA]:
-                for idB in function_id_map[funcB]:
-                    preA = function_times[idA]["start"]
-                    postA = function_times[idA]["end"]
-                    preB = function_times[idB]["start"]
-                    postB = function_times[idB]["end"]
+            if funcA not in function_id_map[(process_id, thread_id)]:
+                return False
+
+            if funcB not in function_id_map[(process_id, thread_id)]:
+                return False
+
+            for idA in function_id_map[(process_id, thread_id)][funcA]:
+                for idB in function_id_map[(process_id, thread_id)][funcB]:
+                    preA = function_times[(process_id, thread_id)][idA]["start"]
+                    postA = function_times[(process_id, thread_id)][idA]["end"]
+                    preB = function_times[(process_id, thread_id)][idB]["start"]
+                    postB = function_times[(process_id, thread_id)][idB]["end"]
                     if preB >= postA:
                         break
                     if postB <= preA:
@@ -81,19 +109,20 @@ class FunctionCoverRelation(Relation):
                     return False
             return True
 
-        same_level_func = defaultdict(list)
+        same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        valid_relations: Dict[Tuple[str, str], bool] = {}
 
-        for funcA, funcB in combinations(function_pool, 2):
-            if check_same_level(funcA, funcB):
-                same_level_func[funcA].append(funcB)
+        for group_events in group_by_events:
+            (process_id, thread_id), _ = group_events
+            same_level_func[(process_id, thread_id)] = {}
+            for funcA, funcB in combinations(function_pool, 2):
+                if check_same_level(funcA, funcB, process_id, thread_id):
+                    if funcA not in same_level_func[(process_id, thread_id)]:
+                        same_level_func[(process_id, thread_id)][funcA] = []
+                    same_level_func[(process_id, thread_id)][funcA].append(funcB)
+                    valid_relations[(funcA, funcB)] = True
 
-        valid_relations = defaultdict(lambda: True)
-
-        for func_A in function_pool:
-            for func_B in same_level_func[func_A]:
-                valid_relations[(func_A, func_B)] = True
-
-        # Generating hypothesis
+        # 3. Generating hypothesis
         group_name = "func"
         hypothesis_with_examples = {
             (func_A, func_B): Hypothesis(
@@ -112,51 +141,63 @@ class FunctionCoverRelation(Relation):
             for (func_A, func_B), _ in valid_relations.items()
         }
 
-        # Add positive and negative examples
-        for (func_A, func_B), _ in valid_relations.items():
-            flag_A = None
-            flag_B = None
-            pre_record_A = []
-            pre_record_B = []
-            for event in tqdm(events.iter_rows(named=True)):
-                if event["type"] != "function_call (pre)":
+        # 4. Add positive and negative examples
+        for group_events in group_by_events:
+            (process_id, thread_id), evs = group_events
+            sorted_group_events = evs.sort("time")
+
+            for (func_A, func_B), _ in valid_relations.items():
+
+                if func_A not in same_level_func[(process_id, thread_id)]:
                     continue
 
-                if func_A == event["function"]:
-                    flag_A = event["time"]
-                    flag_B = None
-                    pre_record_A = [event]
+                if func_B not in same_level_func[(process_id, thread_id)][func_A]:
+                    continue
 
-                if func_B == event["function"]:
-                    if flag_B is not None:
-                        valid_relations[(func_A, func_B)] = False
-                        neg = Example()
-                        neg.add_group("func", pre_record_B)
-                        hypothesis_with_examples[
-                            (func_A, func_B)
-                        ].negative_examples.add_example(neg)
-                        pre_record_B = [event]
-                        flag_B = event["time"]
+                flag_A = None
+                flag_B = None
+                pre_record_A = []
+                pre_record_B = []
+
+                for event in tqdm(sorted_group_events.iter_rows(named=True)):
+                    if event["type"] != "function_call (pre)":
                         continue
 
-                    flag_B = event["time"]
-                    if flag_A is None:
-                        valid_relations[(func_A, func_B)] = False
-                        neg = Example()
-                        neg.add_group("func", [event])
-                        hypothesis_with_examples[
-                            (func_A, func_B)
-                        ].negative_examples.add_example(neg)
-                    else:
-                        pos = Example()
-                        pos.add_group("func", pre_record_A)
-                        hypothesis_with_examples[
-                            (func_A, func_B)
-                        ].positive_examples.add_example(pos)
+                    if func_A == event["function"]:
+                        flag_A = event["time"]
+                        flag_B = None
+                        pre_record_A = [event]
 
-                    pre_record_B = [event]
+                    if func_B == event["function"]:
+                        if flag_B is not None:
+                            valid_relations[(func_A, func_B)] = False
+                            neg = Example()
+                            neg.add_group("func", pre_record_B)
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].negative_examples.add_example(neg)
+                            pre_record_B = [event]
+                            flag_B = event["time"]
+                            continue
 
-        # precondition inference
+                        flag_B = event["time"]
+                        if flag_A is None:
+                            valid_relations[(func_A, func_B)] = False
+                            neg = Example()
+                            neg.add_group("func", [event])
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].negative_examples.add_example(neg)
+                        else:
+                            pos = Example()
+                            pos.add_group("func", pre_record_A)
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].positive_examples.add_example(pos)
+
+                        pre_record_B = [event]
+
+        # 5. Precondition inference
         hypos_to_delete = []
         for hypo in hypothesis_with_examples:
             logger.debug(
@@ -207,8 +248,8 @@ class FunctionCoverRelation(Relation):
         funcA = inv.params[0]
         funcB = inv.params[1]
 
-        assert isinstance(funcA, str) and isinstance(
-            funcB, str
+        assert isinstance(funcA, APIParam) and isinstance(
+            funcB, APIParam
         ), "Invariant parameters should be string."
 
         all_functions = trace.get_func_names()
