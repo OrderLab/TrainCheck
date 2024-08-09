@@ -205,16 +205,11 @@ class Trace:
                     )
 
             else:
-                # the outermost function is also incomplete, just make sure this incomplete function call is the last event for the process and thread
-                assert record["time"] == self.get_end_time(
-                    process_id, thread_id
-                ), f"Incomplete function call is not the last event for the process {process_id} and thread {thread_id}."
-
-                logger.warning(
-                    f"Removing incomplete function call: {record} as the outermost function call is also incomplete."
-                )
+                # the outermost function is also incomplete, just delete the current incomplete function call and everything after it on the same thread and process FIXME: this can make the end time estimation (i.e. the end time) of the outermost function call even more inaccurate
                 self.events = self.events.filter(
-                    pl.col("func_call_id") != record["func_call_id"]
+                    (pl.col("process_id") != process_id)
+                    | (pl.col("thread_id") != thread_id)
+                    | (pl.col("time") >= record["time"])
                 )
 
     def get_start_time(self, process_id=None, thread_id=None) -> int:
