@@ -209,7 +209,7 @@ class Trace:
                 self.events = self.events.filter(
                     (pl.col("process_id") != process_id)
                     | (pl.col("thread_id") != thread_id)
-                    | (pl.col("time") >= record["time"])
+                    | (pl.col("time") <= record["time"])
                 )
 
     def get_start_time(self, process_id=None, thread_id=None) -> int:
