@@ -17,12 +17,6 @@ from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 
 
-def read_function_pool(file_path):
-    with open(file_path, "r") as file:
-        functions = file.readlines()
-    return set(func.strip() for func in functions)
-
-
 class FunctionCoverRelation(Relation):
 
     @staticmethod
@@ -32,12 +26,25 @@ class FunctionCoverRelation(Relation):
         logger = logging.getLogger(__name__)
 
         # 1. Pre-process all the events
-        function_pool = read_function_pool("function_pool.txt")
-
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
 
         events = trace.events
+
+        function_pool_df = events.filter(
+            (
+                (events["function"].str.starts_with("torch.optim"))
+                | (events["function"].str.starts_with("torch.nn"))
+                | (events["function"].str.starts_with("torch.autograd"))
+            )
+            & (~events["function"].str.contains("._"))
+        )
+
+        function_pool = set(function_pool_df["function"].unique().to_list())
+
+        with open("check_function_pool.txt", "w") as file:
+            for function in function_pool:
+                file.write(f"{function}\n")
 
         required_columns = {"function", "func_call_id", "type", "time"}
         if not required_columns.issubset(events.columns):
