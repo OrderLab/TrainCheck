@@ -243,6 +243,33 @@ class Trace:
 
         return self.events["time"].max()
 
+    def get_process_ids(self) -> list[int]:
+        """Find all process ids from the trace."""
+        return (
+            self.events.select("process_id").drop_nulls().unique().to_series().to_list()
+        )
+
+    def get_thread_ids(self) -> list[int]:
+        """Find all thread ids from the trace."""
+        return (
+            self.events.select("thread_id").drop_nulls().unique().to_series().to_list()
+        )
+
+    def get_func_call_ids(self) -> list[str]:
+        """Find all function call ids from the trace."""
+        if "func_call_id" not in self.events.columns:
+            logger.warning(
+                "func_call_id column not found in the events, no function call related invariants will be extracted."
+            )
+            return []
+        return (
+            self.events.select("func_call_id")
+            .drop_nulls()
+            .unique()
+            .to_series()
+            .to_list()
+        )
+
     def get_func_names(self) -> list[str]:
         """Find all function names from the trace."""
         if "function" not in self.events.columns:

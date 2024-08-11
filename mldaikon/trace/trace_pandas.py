@@ -1,10 +1,9 @@
 import logging
 import re
 
-import polars as pl
 import modin.pandas as pd
-from tqdm import tqdm
 from modin.pandas import json_normalize
+from tqdm import tqdm
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
@@ -19,10 +18,12 @@ from mldaikon.trace.types import (
 
 logger = logging.getLogger(__name__)
 
+
 # TODO: formalize the trace schema for efficient polars processing
 def test_dump(df):
-    df = df.sort_values(by='func_call_id')
-    df.to_json('pandas_trace.json', orient='records', lines=True)
+    df = df.sort_values(by="func_call_id")
+    df.to_json("pandas_trace.json", orient="records", lines=True)
+
 
 def get_attr_name(col_name: str) -> str:
     if config.VAR_ATTR_PREFIX not in col_name:
@@ -30,7 +31,7 @@ def get_attr_name(col_name: str) -> str:
     return col_name[len(config.VAR_ATTR_PREFIX) :]
 
 
-class Trace:
+class Trace_Pandas:
     def __init__(self, events, truncate_incomplete_func_calls=True):
         self.events = events
         self.var_ids = None
@@ -43,7 +44,7 @@ class Trace:
             self.events = pd.concat(events, ignore_index=True)
         elif isinstance(events, list) and all([isinstance(e, dict) for e in events]):
             self.events = pd.DataFrame(events)
-            self.events = json_normalize(self.events.to_dict(orient='records'), sep=".")
+            self.events = json_normalize(self.events.to_dict(orient="records"), sep=".")
 
         assert isinstance(
             self.events, pd.DataFrame
@@ -63,8 +64,6 @@ class Trace:
             logger.info(
                 "Done truncating incomplete trailing function calls from the trace."
             )
-
-
 
     def _rm_incomplete_trailing_func_calls(self):
         """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
@@ -90,15 +89,21 @@ class Trace:
                 "function column not found in the events, no function related invariants will be extracted."
             )
             return
-        
-        func_call_groups = self.events.groupby("func_call_id").size().reset_index(name='count')
 
-        incomplete_func_call_ids = func_call_groups[func_call_groups["count"] == 1]["func_call_id"]
+        func_call_groups = (
+            self.events.groupby("func_call_id").size().reset_index(name="count")
+        )
+
+        incomplete_func_call_ids = func_call_groups[func_call_groups["count"] == 1][
+            "func_call_id"
+        ]
 
         # print(incomplete_func_call_ids)
-        incomplete_func_call_records = self.events[self.events["func_call_id"].isin(incomplete_func_call_ids)]
+        incomplete_func_call_records = self.events[
+            self.events["func_call_id"].isin(incomplete_func_call_ids)
+        ]
         # test_dump(incomplete_func_call_records)
-        for _, row in incomplete_func_call_records.iterrows():  
+        for _, row in incomplete_func_call_records.iterrows():
             assert (
                 row["type"] == TraceLineType.FUNC_CALL_PRE
             ), "Incomplete function call is not a pre-call event."
@@ -107,9 +112,9 @@ class Trace:
             thread_id = row["thread_id"]
 
             filtered_events_pre = self.events[
-                (self.events["type"] == TraceLineType.FUNC_CALL_PRE) &
-                (self.events["process_id"] == process_id) &
-                (self.events["time"] == self.get_start_time(process_id))
+                (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+                & (self.events["process_id"] == process_id)
+                & (self.events["time"] == self.get_start_time(process_id))
             ]
 
             if not filtered_events_pre.empty:
@@ -118,8 +123,11 @@ class Trace:
                 outermost_func_call_pre = None
 
             filtered_events_post = self.events[
-                (self.events["type"] == TraceLineType.FUNC_CALL_POST) &
-                (self.events["func_call_id"] == outermost_func_call_pre["func_call_id"])
+                (self.events["type"] == TraceLineType.FUNC_CALL_POST)
+                & (
+                    self.events["func_call_id"]
+                    == outermost_func_call_pre["func_call_id"]
+                )
             ]
 
             outermost_incomplete = False
@@ -128,7 +136,6 @@ class Trace:
             else:
                 outermost_incomplete = True
                 outermost_func_call_post = None
-
 
             if row["func_call_id"] == outermost_func_call_pre["func_call_id"]:
                 logger.warning(
@@ -140,7 +147,7 @@ class Trace:
             if not outermost_incomplete:
                 assert (
                     thread_id != outermost_func_call_pre["thread_id"]
-                ), f"Incomplete function call (func_call_id: {row['func_call_id']}) (name: {row["function"]}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) (name: {outermost_func_call_pre["function"]}) on process {process_id}. Please Investigate."
+                ), f"""Incomplete function call (func_call_id: {row['func_call_id']}) (name: {row["function"]}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) (name: {outermost_func_call_pre["function"]}) on process {process_id}. Please Investigate."""
 
                 if (
                     row["time"]
@@ -148,12 +155,14 @@ class Trace:
                     - config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST
                 ):
                     logger.warning(f"Removing incomplete function call: {row}")
-                    self.events = self.events[self.events["func_call_id"] != row["func_call_id"]]
+                    self.events = self.events[
+                        self.events["func_call_id"] != row["func_call_id"]
+                    ]
                 else:
                     raise ValueError(
                         f"Incomplete function call is not close enough to the outermost function call post event: {row}"
                     )
-                
+
             else:
                 # assert row["time"] == self.get_end_time(
                 #     process_id, thread_id
@@ -166,12 +175,10 @@ class Trace:
                 # self.events = self.events[self.events["func_call_id"] != row["func_call_id"]]
                 # logger.warning(f"Removing incomplete function call: {row}")
                 self.events = self.events[
-                    (self.events["process_id"] != process_id) |
-                    (self.events["thread_id"] != thread_id) |
-                    (self.events["time"] < row["time"])
+                    (self.events["process_id"] != process_id)
+                    | (self.events["thread_id"] != thread_id)
+                    | (self.events["time"] < row["time"])
                 ]
-
-        
 
         # test_dump(self.events)
 
@@ -207,8 +214,34 @@ class Trace:
             return self.events[self.events["thread_id"] == thread_id]["time"].max()
 
         return self.events["time"].max()
-            
-            
+
+    def get_process_ids(self) -> list[int]:
+        """Find all process ids from the trace."""
+        if "process_id" not in self.events.columns:
+            logger.warning(
+                "process_id column not found in the events, no process related invariants will be extracted."
+            )
+            return []
+        return self.events["process_id"].dropna().unique().tolist()
+
+    def get_thread_ids(self) -> list[int]:
+        """Find all thread ids from the trace."""
+        if "thread_id" not in self.events.columns:
+            logger.warning(
+                "thread_id column not found in the events, no thread related invariants will be extracted."
+            )
+            return []
+        return self.events["thread_id"].dropna().unique().tolist()
+
+    def get_func_call_ids(self) -> list[str]:
+        """Find all function call ids from the trace."""
+        if "func_call_id" not in self.events.columns:
+            logger.warning(
+                "func_call_id column not found in the events, no function related invariants will be extracted."
+            )
+            return []
+        return self.events["func_call_id"].dropna().unique().tolist()
+
     def get_func_names(self) -> list[str]:
         """Find all function names from the trace."""
         if "function" not in self.events.columns:
@@ -217,7 +250,6 @@ class Trace:
             )
             return []
         return self.events["function"].dropna().unique().tolist()
-    
 
     def get_func_is_bound_method(self, func_name: str) -> bool:
         """Check if a function is bound to a class (i.e. method of a object).
@@ -233,7 +265,7 @@ class Trace:
 
         A function is bound to a class if *all* the function calls of the function are made on an object.
         """
-        #TODO: check if this is correct
+        # TODO: check if this is correct
         if "function" not in self.events.columns:
             logger.warning(
                 "function column not found in the events, no function related invariants will be extracted."
@@ -254,13 +286,12 @@ class Trace:
             for i in range(1, len(is_bound_method))
         ), f"Boundness information is not consistent for {func_name}"
         return is_bound_method[0]
-    
 
     def get_causally_related_vars(self, func_call_id) -> set[VarInstId]:
         """Find all variables that are causally related to a function call.
         By casually related, we mean that the variables have been accessed or modified by the object (with another method) that the function call is made on.
         """
-        #TODO: check if this is correct
+        # TODO: check if this is correct
 
         # get the pre-call event of the function call
         # func_call_pre_event = self.events.filter(
@@ -272,11 +303,10 @@ class Trace:
 
         # func_call_pre_event = self.events[(self.events["type"] == TraceLineType.FUNC_CALL_PRE) & (self.events["func_call_id"] == func_call_id)].iloc[0]
         filtered_events = self.events[
-            (self.events["type"] == TraceLineType.FUNC_CALL_PRE) &
-            (self.events["func_call_id"] == func_call_id)
+            (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+            & (self.events["func_call_id"] == func_call_id)
         ]
 
-        
         if not filtered_events.empty:
             func_call_pre_event = filtered_events.iloc[0].to_dict()
         else:
@@ -286,7 +316,7 @@ class Trace:
         assert func_call_pre_event[
             "is_bound_method"
         ], f"Causal relation extraction is only supported for bound methods, got {func_call_pre_event['function']} which is not"
-        
+
         obj_id = func_call_pre_event[
             "obj_id"
         ]  # the object id (address) of the object that the function is bound to
@@ -294,16 +324,21 @@ class Trace:
         # find all function calls that are related to this object prior to the function call
 
         related_func_call_pre_events = self.events[
-            (self.events["type"] == TraceLineType.FUNC_CALL_PRE) &
-            (self.events["obj_id"] == obj_id) &
-            (self.events["time"] < func_call_pre_event["time"])
+            (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+            & (self.events["obj_id"] == obj_id)
+            & (self.events["time"] < func_call_pre_event["time"])
         ]
 
         process_id = func_call_pre_event["process_id"]
         thread_id = func_call_pre_event["thread_id"]
 
         causally_related_var_ids: set[VarInstId] = set()
-        for _, related_func_call_pre_event in related_func_call_pre_events.iterrows():  # order of events doesn't matter as we are querying by time when we get the related_func_call_pre_events variable
+        for (
+            _,
+            related_func_call_pre_event,
+        ) in (
+            related_func_call_pre_events.iterrows()
+        ):  # order of events doesn't matter as we are querying by time when we get the related_func_call_pre_events variable
             # having the assertion failure does not mean that we run into a bug, but it is something that we should investigate
             assert (
                 related_func_call_pre_event["process_id"] == process_id
@@ -317,7 +352,6 @@ class Trace:
                 causally_related_var_ids.add(VarInstId(process_id, var_name, var_type))
 
         return causally_related_var_ids
-    
 
     def get_var_ids_unchanged_but_causally_related(
         self,
@@ -329,7 +363,7 @@ class Trace:
 
         Casually related vars: Variables are accessed or modified by the object that the function call is bound to.
         """
-        #no change
+        # no change
         related_vars = self.get_causally_related_vars(func_call_id)
         changed_vars = self.query_var_changes_within_func_call(func_call_id)
 
@@ -359,7 +393,7 @@ class Trace:
     def get_var_ids(self) -> list[VarInstId]:
         """Find all variables (uniquely identified by name, type and process id) from the trace."""
         # Identification of Variables --> (variable_name, process_id)
-        #TODO: check if this is correct
+        # TODO: check if this is correct
         if self.var_ids is not None:
             return self.var_ids
 
@@ -384,7 +418,7 @@ class Trace:
                     var_id["var_type"],
                 )
             )
-        #TODO: possible faster manipulation, need test, if it is faster, change all iterrows to apply
+        # TODO: possible faster manipulation, need test, if it is faster, change all iterrows to apply
         # self.var_ids.extend(
         #     variables.apply(
         #         lambda var_id: VarInstId(var_id["process_id"], var_id["var_name"], var_id["var_type"]),
@@ -408,7 +442,7 @@ class Trace:
 
         Consecutive traces reporting the same value will be merged into one `AttrState` object. So consecutive AttrState objects will not have the same value.
         """
-        #TODO: check if this is correct
+        # TODO: check if this is correct
         if self.var_insts is not None:
             return self.var_insts
 
@@ -420,9 +454,9 @@ class Trace:
 
         for var_id in tqdm(var_ids, desc="Indexing Variable Instances"):
             var_inst_states = self.events[
-                (self.events["process_id"] == var_id.process_id) &
-                (self.events["var_name"] == var_id.var_name) &
-                (self.events["var_type"] == var_id.var_type)
+                (self.events["process_id"] == var_id.process_id)
+                & (self.events["var_name"] == var_id.var_name)
+                & (self.events["var_type"] == var_id.var_type)
             ].sort_values(
                 "time"
             )  # we need to sort the events by time to make sure the order of the events is correct
@@ -437,7 +471,7 @@ class Trace:
                 for col in state_change.index:
                     if col.startswith(config.VAR_ATTR_PREFIX):
                         attr_name = get_attr_name(col)
-                        
+
                         if any(
                             [
                                 re.match(pattern, attr_name) is not None
@@ -461,7 +495,9 @@ class Trace:
                             ]
                         else:
                             if attr_values[attr_name][-1].value != state_change[col]:
-                                attr_values[attr_name][-1].liveness.end_time = state_change["time"]
+                                attr_values[attr_name][-1].liveness.end_time = (
+                                    state_change["time"]
+                                )
                                 attr_values[attr_name].append(
                                     AttrState(
                                         state_change[col],
@@ -470,7 +506,9 @@ class Trace:
                                     )
                                 )
                             else:
-                                attr_values[attr_name][-1].traces.append(state_change.to_dict())
+                                attr_values[attr_name][-1].traces.append(
+                                    state_change.to_dict()
+                                )
 
             # set end time for the last state change
             for attr_name in attr_values:
@@ -487,17 +525,16 @@ class Trace:
 
     def get_var_raw_event_before_time(self, var_id: VarInstId, time: int) -> list[dict]:
         """Get all original trace records of a variable before time."""
-        #TODO: check if this is correct
+        # TODO: check if this is correct
         filtered_events = self.events[
-            (self.events["process_id"] == var_id.process_id) &
-            (self.events["var_name"] == var_id.var_name) &
-            (self.events["var_type"] == var_id.var_type) &
-            (self.events["time"] < time)
+            (self.events["process_id"] == var_id.process_id)
+            & (self.events["var_name"] == var_id.var_name)
+            & (self.events["var_type"] == var_id.var_type)
+            & (self.events["time"] < time)
         ]
 
-        return [row.to_dict() for _, row in filtered_events.iterrows()] 
+        return [row.to_dict() for _, row in filtered_events.iterrows()]
         # order of events doesn't matter as we already query by time
-
 
     def get_var_changes(self) -> list[VarChangeEvent]:
         """Get all variable changes events from the trace.
@@ -507,7 +544,7 @@ class Trace:
         Returns:
             list[VarChangeEvent]: A list of all variable change events.
         """
-        #no change
+        # no change
         if self.var_changes is not None:
             return self.var_changes
 
@@ -540,7 +577,7 @@ class Trace:
         self, time_range: tuple[int, int]
     ) -> list[VarChangeEvent]:
         """Extract all variable change events from the trace, within a specific time range."""
-        #no change
+        # no change
         var_changes = self.get_var_changes()
         return [
             var_change
@@ -552,7 +589,7 @@ class Trace:
         self, time_range: tuple[int | float, int | float], process_id: int
     ) -> list[VarChangeEvent]:
         """Extract all variable change events from the trace, within a specific time range and process."""
-        #no change 
+        # no change
         var_changes = self.get_var_changes()
         return [
             var_change
@@ -565,7 +602,7 @@ class Trace:
         self, func_call_id: str
     ) -> list[VarChangeEvent]:
         """Extract all variable change events from the trace, within the duration of a specific function call."""
-        #no change
+        # no change
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
 
@@ -585,42 +622,55 @@ class Trace:
 
     def get_pre_func_call_record(self, func_call_id: str) -> dict:
         """Get the pre call record of a function given its func_call_id."""
-        #TODO: check if this is correct
+        # TODO: check if this is correct
         pre_records = self.events[
-            (self.events["func_call_id"] == func_call_id) &
-            (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+            (self.events["func_call_id"] == func_call_id)
+            & (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
         ]
-        
-        assert len(pre_records) == 1, f"{len(pre_records)} pre call events found for {func_call_id}, expected 1"
-        
+
+        assert (
+            len(pre_records) == 1
+        ), f"{len(pre_records)} pre call events found for {func_call_id}, expected 1"
+
         pre_record = pre_records.iloc[0].to_dict()
-        
+
         return pre_record
 
     def get_post_func_call_record(self, func_call_id: str) -> dict | None:
         """Get the post call record of a function given its func_call_id.
         Returns None if the post call event is not found and the pre-call event is the outermost function call. (see the doc of `_rm_incomplete_trailing_func_calls`)
         """
-        #TODO: check if this is correct
+        # TODO: check if this is correct
         post_records = self.events[
-            (self.events["func_call_id"] == func_call_id) &
-            (self.events["type"].isin([TraceLineType.FUNC_CALL_POST, TraceLineType.FUNC_CALL_POST_EXCEPTION]))
+            (self.events["func_call_id"] == func_call_id)
+            & (
+                self.events["type"].isin(
+                    [
+                        TraceLineType.FUNC_CALL_POST,
+                        TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    ]
+                )
+            )
         ]
 
         assert (
             len(post_records) <= 1
         ), f"{post_records.height} post call events found for {func_call_id}, expected 1"
 
-        if len(post_records) ==0:
+        if len(post_records) == 0:
             logger.warning(f"No post call event found for {func_call_id}")
             # check if the pre-call event is the outermost function call
             pre_record = self.get_pre_func_call_record(func_call_id)
-            
-            outermost_func_call_pre = self.events[
-                (self.events["type"] == TraceLineType.FUNC_CALL_PRE) &
-                (self.events["process_id"] == pre_record["process_id"]) &
-                (self.events["thread_id"] == pre_record["thread_id"])
-            ].iloc[0].to_dict()
+
+            outermost_func_call_pre = (
+                self.events[
+                    (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+                    & (self.events["process_id"] == pre_record["process_id"])
+                    & (self.events["thread_id"] == pre_record["thread_id"])
+                ]
+                .iloc[0]
+                .to_dict()
+            )
 
             if pre_record["func_call_id"] == outermost_func_call_pre["func_call_id"]:
                 return None
@@ -629,7 +679,9 @@ class Trace:
                     f"No post call event found for {func_call_id}, but it is not the outermost function call."
                 )
 
-        post_record = post_records.iloc[0].to_dict()  # order of events doesn't matter as the result here is a single row
+        post_record = post_records.iloc[
+            0
+        ].to_dict()  # order of events doesn't matter as the result here is a single row
 
         return post_record
 
@@ -640,18 +692,24 @@ class Trace:
         thread_id: int,
     ) -> list[FuncCallEvent | FuncCallExceptionEvent]:
         """Extract all function call events from the trace, within a specific time range, process and thread."""
-        #TODO: check if this is correct
+        # TODO: check if this is correct
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
 
         func_call_records = self.events[
-            (self.events["type"].isin(
-                [
-                    TraceLineType.FUNC_CALL_PRE,
-                    TraceLineType.FUNC_CALL_POST,
-                    TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                ]
-            ))
-            & (self.events["time"].between(time_range[0], time_range[1], inclusive="neither"))
+            (
+                self.events["type"].isin(
+                    [
+                        TraceLineType.FUNC_CALL_PRE,
+                        TraceLineType.FUNC_CALL_POST,
+                        TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    ]
+                )
+            )
+            & (
+                self.events["time"].between(
+                    time_range[0], time_range[1], inclusive="neither"
+                )
+            )
             & (self.events["process_id"] == process_id)
             & (self.events["thread_id"] == thread_id)
         ]
@@ -663,14 +721,14 @@ class Trace:
             assert (
                 len(func_call_records) == 2
             ), f"Function call records is not 2 for {func_call_id}"
-            
+
             pre_record = func_call_records.iloc[0].to_dict()
             post_record = func_call_records.iloc[1].to_dict()
 
             assert (
                 pre_record["type"] == TraceLineType.FUNC_CALL_PRE
             ), f"First record for {func_call_id} is not pre, got {pre_record['type']}"
-            
+
             assert post_record["type"] in [
                 TraceLineType.FUNC_CALL_POST,
                 TraceLineType.FUNC_CALL_POST_EXCEPTION,
@@ -703,7 +761,7 @@ class Trace:
         self, func_call_id: str
     ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
         """Extract all high-level events (function calls and variable changes) within a specific function call."""
-        #no change
+        # no change
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
         if post_record is None:
@@ -734,15 +792,9 @@ class Trace:
         )
 
 
-
-
-
-
-    
-
-def read_trace_file(
+def read_trace_file_Pandas(
     file_path: str | list[str], truncate_incomplete_func_calls=True
-) -> Trace:
+) -> Trace_Pandas:
     """Reads the trace file and returns the trace instance."""
     if isinstance(file_path, list):
         dfs = []
@@ -759,15 +811,13 @@ def read_trace_file(
     else:
         events = pd.read_json(file_path, lines=True)
         logger.info(f"Done reading {file_path}")
-    
-    
-    events = json_normalize(events.to_dict(orient='records'), sep=".")
+
+    events = json_normalize(events.to_dict(orient="records"), sep=".")
     # TODO: normalize abandon the empty dicts, check whether it matters
 
     # events.to_json('pandas_events.json', orient='records', lines=True)
 
-    return Trace(
+    return Trace_Pandas(
         events,
         truncate_incomplete_func_calls=truncate_incomplete_func_calls,
     )
-
