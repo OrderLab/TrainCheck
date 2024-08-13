@@ -66,6 +66,20 @@ class APIParam(Param):
             return False
         return event.func_name == self.api_full_name
 
+    def __eq__(self, other):
+        if isinstance(other, APIParam):
+            return self.api_full_name == other.api_full_name
+        return False
+
+    def __hash__(self):
+        return hash(self.api_full_name)
+
+    def __str__(self):
+        return self.api_full_name
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class VarTypeParam(Param):
     def __init__(self, var_type: str, attr_name: str):
@@ -269,6 +283,14 @@ class Precondition:
     def to_dict(self) -> dict:
         return {"clauses": [clause.to_dict() for clause in self.clauses]}
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Precondition):
+            return False
+        return self.clauses == other.clauses
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.clauses))
+
 
 class UnconditionalPrecondition(Precondition):
     def __init__(self):
@@ -339,6 +361,17 @@ class GroupedPreconditions:
             if precondition.verify(example):
                 return True
         return False
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, GroupedPreconditions):
+            return False
+        return self.grouped_preconditions == other.grouped_preconditions
+
+    def __hash__(self) -> int:
+        items = tuple(
+            (k, tuple(v)) for k, v in sorted(self.grouped_preconditions.items())
+        )
+        return hash(items)
 
     @staticmethod
     def from_dict(precondition_dict: dict) -> GroupedPreconditions:

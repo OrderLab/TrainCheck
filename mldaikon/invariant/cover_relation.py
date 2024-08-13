@@ -1,6 +1,6 @@
 import logging
 from itertools import combinations
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from tqdm import tqdm
 
@@ -9,12 +9,55 @@ from mldaikon.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
+    GroupedPreconditions,
     Hypothesis,
     Invariant,
     Relation,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+
+
+def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIParam]]:
+    graph: Dict[APIParam, List[APIParam]] = {}
+    indegree: Dict[APIParam, int] = {}
+
+    for a, b in pairs:
+        if a not in graph:
+            graph[a] = []
+        if b not in graph:
+            graph[b] = []
+        graph[a].append(b)
+
+        if b in indegree:
+            indegree[b] += 1
+        else:
+            indegree[b] = 1
+
+        if a not in indegree:
+            indegree[a] = 0
+
+    start_nodes: List[APIParam] = [node for node in indegree if indegree[node] == 0]
+
+    paths: List[List[APIParam]] = []
+
+    def dfs(node: APIParam, path: List[APIParam], visited: Set[APIParam]) -> None:
+        path.append(node)
+        visited.add(node)
+        if node in graph:
+            for neighbor in graph[node]:
+                if neighbor not in visited:
+                    dfs(neighbor, path, visited)
+        if not graph.get(node):
+            paths.append(path.copy())
+        path.pop()
+        visited.remove(node)
+
+    for start_node in start_nodes:
+        dfs(start_node, [], set())
+
+    print(paths)
+    return paths
 
 
 class FunctionCoverRelation(Relation):
@@ -222,7 +265,40 @@ class FunctionCoverRelation(Relation):
         for hypo in hypos_to_delete:
             del hypothesis_with_examples[hypo]
 
-        return list([hypo.invariant for hypo in hypothesis_with_examples.values()])
+        # 5. Merge invariants
+        relation_pool: Dict[
+            GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
+        ] = {}
+        for hypo in hypothesis_with_examples:
+            if (
+                hypothesis_with_examples[hypo].invariant.precondition
+                not in relation_pool
+            ):
+                relation_pool[hypothesis_with_examples[hypo].invariant.precondition] = (
+                    []
+                )
+            relation_pool[hypothesis_with_examples[hypo].invariant.precondition].append(
+                (APIParam(hypo[0]), APIParam(hypo[1]))
+            )
+
+        merged_relations: Dict[GroupedPreconditions | None, List[List[APIParam]]] = {}
+
+        for key, values in relation_pool.items():
+            merged_relations[key] = merge_relations(values)
+
+        merged_ininvariants = []
+
+        for key, merged_values in merged_relations.items():
+            for merged_value in merged_values:
+                new_invariant = Invariant(
+                    relation=FunctionCoverRelation,
+                    params=[param for param in merged_value],
+                    precondition=key,
+                    text_description="Merges FunctionCoverRelation in Ordered List",
+                )
+                merged_ininvariants.append(new_invariant)
+
+        return merged_ininvariants
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
