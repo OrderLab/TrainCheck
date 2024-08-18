@@ -61,6 +61,11 @@ def can_func_be_bound_method(
     return True
 
 
+cache_events_scanner: dict[
+    str, list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
+] = {}
+
+
 def events_scanner(
     trace: Trace, func_call_id: str
 ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
@@ -73,12 +78,18 @@ def events_scanner(
         func_call_id: str
             - the function call id of the parent function, which should correspond to two events (entry and exit)
     """
+    logger = logging.getLogger(__name__)
+
+    # implement cache for the events
+    if func_call_id in cache_events_scanner:
+        logger.debug(f"Using cached events for the function call: {func_call_id}")
+        return cache_events_scanner[func_call_id]
     entry_time = time.time()
     events = trace.query_high_level_events_within_func_call(
         func_call_id=func_call_id,
     )
+    cache_events_scanner[func_call_id] = events
     exit_time = time.time()
-    logger = logging.getLogger(__name__)
     logger.debug(
         f"Scanned the trace for events, return {len(events)} events, took {exit_time - entry_time} seconds"
     )
