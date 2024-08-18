@@ -224,7 +224,7 @@ class APIContainRelation(Relation):
                             )
 
                             # params.append(VarNameParam(event.var_id.var_type, event.attr_name)) # TODO: add a switch to enable using the attribute name as a parameter
-                        elif isinstance(event, FuncCallEvent):
+                        elif isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
                             params.append(APIParam(event.func_name))
 
                         hypothesis[parent][high_level_event_type][target] = Hypothesis(
