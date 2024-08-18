@@ -426,9 +426,13 @@ Defaulting to skip the var preconditon check for now.
                 skip_var_unchanged_check = True
 
         # the main checking loop: the online checker function will be the body of this loop, which will be called repeatedly
+        num_events_scanned: list[int] = []
         for parent_func_call_id in tqdm(
             parent_func_call_ids, desc=f"Checking invariants for {inv.text_description}"
         ):
+            if skip_func_call(len(parent_func_call_ids), num_events_scanned):
+                continue
+
             # check for parent precondition
             parent_pre_record = trace.get_pre_func_call_record(parent_func_call_id)
 
@@ -446,17 +450,17 @@ Defaulting to skip the var preconditon check for now.
                     continue
 
                 # invariant check
-                for event in events_scanner(
-                    trace=trace, func_call_id=parent_func_call_id
-                ):
+                events = events_scanner(trace=trace, func_call_id=parent_func_call_id)
+                num_events_scanned.append(len(events))
+                for event in events:
                     if child_param.check_event_match(event):
                         found_expected_child_event = True
                         break
             else:
                 # invariant check
-                for event in events_scanner(
-                    trace=trace, func_call_id=parent_func_call_id
-                ):
+                events = events_scanner(trace=trace, func_call_id=parent_func_call_id)
+                num_events_scanned.append(len(events))
+                for event in events:
                     if child_param.check_event_match(event):
                         found_expected_child_event = True
                         break
