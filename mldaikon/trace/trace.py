@@ -206,11 +206,22 @@ class Trace:
 
             else:
                 # the outermost function is also incomplete, just delete the current incomplete function call and everything after it on the same thread and process FIXME: this can make the end time estimation (i.e. the end time) of the outermost function call even more inaccurate
+                logger.warning(
+                    f"Removing incomplete function call and everything after it on the same thread and process: {record}"
+                )
                 self.events = self.events.filter(
                     (pl.col("process_id") != process_id)
                     | (pl.col("thread_id") != thread_id)
-                    | (pl.col("time") <= record["time"])
+                    | (pl.col("time") < record["time"])
                 )
+
+                # assert the record's func_call_id is no longer in the events
+                assert (
+                    self.events.filter(
+                        pl.col("func_call_id") == record["func_call_id"]
+                    ).height
+                    == 0
+                ), f"Incomplete function call is not removed: {record}"
 
     def get_start_time(self, process_id=None, thread_id=None) -> int:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
@@ -669,6 +680,28 @@ class Trace:
         # group function calls by func_call_id
         func_call_groups = func_call_records.group_by("func_call_id")
         for func_call_id, func_call_records in func_call_groups:
+            if func_call_records.height == 1:
+                # check if it is the outermost function call
+                pre_record = func_call_records.row(0, named=True)
+                outermost_func_call_pre = self.events.filter(
+                    pl.col("type") == TraceLineType.FUNC_CALL_PRE,
+                    pl.col("process_id") == pre_record["process_id"],
+                    pl.col("thread_id") == pre_record["thread_id"],
+                ).row(0, named=True)
+
+                if (
+                    pre_record["func_call_id"]
+                    == outermost_func_call_pre["func_call_id"]
+                ):
+                    func_call_events.append(
+                        FuncCallEvent(pre_record["function"], pre_record, None)  # type: ignore
+                    )
+                    continue
+                else:
+                    raise ValueError(
+                        f"No post call event found for {func_call_id}, but it is not the outermost function call."
+                    )
+
             assert (
                 func_call_records.height == 2
             ), f"Function call records is not 2 for {func_call_id}"
