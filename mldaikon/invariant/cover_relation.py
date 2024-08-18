@@ -364,6 +364,21 @@ class FunctionCoverRelation(Relation):
                 sequence_cache[pair] = {}
                 sequence_cache[pair]["sequence"] = current_sequence
                 sequence_cache[pair]["precondition"] = current_precondition
+
+                # Add pruning logic
+                for i in range(len(current_sequence) - 1):
+                    for j in range(i + 1, len(current_sequence)):
+                        sub_pair = (current_sequence[i], current_sequence[j])
+                        if sub_pair not in sequence_cache:
+                            sub_sequence = []
+                            sub_sequence.append(current_sequence[i])
+                            sub_sequence.extend(current_sequence[j:])
+                            sequence_cache[sub_pair] = {}
+                            sequence_cache[sub_pair]["sequence"] = sub_sequence
+                            sequence_cache[sub_pair][
+                                "precondition"
+                            ] = current_precondition
+
                 return sequence_cache[pair]
 
             pairs: List[Tuple[APIParam, APIParam]] = [
