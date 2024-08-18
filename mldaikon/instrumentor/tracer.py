@@ -634,9 +634,19 @@ class Instrumentor:
         # do some simple checking for correctness:
         # 1. if funcs_of_inv_interest is provided, then METRIC_INSTRUMENTED_FUNC_LIST["dump"] should be equal to funcs_of_inv_interest
         if self.funcs_of_inv_interest is not None:
-            assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) == set(
+            # assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) == set(
+            #     self.funcs_of_inv_interest
+            # ), f"METRIC_INSTRUMENTED_FUNC_LIST['dump'] != funcs_of_inv_interest, diff: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+            assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]).issubset(
+                set(self.funcs_of_inv_interest)
+            ), f"Actual functions being instrumented are not a subset of the functions required by the provided invariants, diff: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+
+            if set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) != set(
                 self.funcs_of_inv_interest
-            ), "METRIC_INSTRUMENTED_FUNC_LIST['dump'] != funcs_of_inv_interest"
+            ):
+                get_instrumentation_logger_for_process().warning(
+                    f"Not all functions required by the provided invariants are instrumented (e.g. due to transfering ), some invariants might not be active at all, funcs not instrumented: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+                )  # TODO: report a number of functions not instrumented and thus the invariants that will not be active
 
         return self.instrumented_count
 
