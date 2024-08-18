@@ -22,6 +22,23 @@ def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
     return sorted(list(funcs))
 
 
+def dump_env(output_dir: str):
+    with open(os.path.join(output_dir, "env_dump.txt"), "w") as f:
+        f.write("Arguments:\n")
+        for arg in vars(args):
+            f.write(f"{arg}: {getattr(args, arg)}\n")
+        f.write("\n")
+        f.write("Environment Variables:\n")
+        for key, value in os.environ.items():
+            f.write(f"{key}: {value}\n")
+        f.write("\n")
+        f.write("Python Version:\n")
+        f.write(f"{os.popen('python --version').read()}\n")
+        f.write("\n")
+        f.write("Library Versions:\n")
+        f.write(f"{os.popen('conda list').read()}\n")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Invariant Finder for ML Pipelines in Python"
@@ -151,6 +168,8 @@ if __name__ == "__main__":
         )
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
+
+    dump_env(output_dir)
 
     # set up logging
     if args.debug_mode:

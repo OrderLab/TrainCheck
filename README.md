@@ -14,6 +14,7 @@ To install the instrumentor:
 git clone git@github.com:OrderLab/ml-daikon.git
 cd ml-daikon
 pip3 install -e .
+conda install cudatoolkit
 ```
 
 A typical instrumentor invocation looks like

@@ -26,6 +26,13 @@ PARENT_GROUP_NAME = "parent_func_call_pre"
 VAR_GROUP_NAME = "var_events"
 
 
+""" Possible Optimizations for Inference Speed of the APIContainRelation:
+    - Parallelization
+    - Checking lower level function calls first and use the results to infer the higher level function calls (i.e. module.to should reuse the results from module._apply)
+    - Heuristics to handle recursive function calls (module._apply can have ~4000 lines of trace which contains many recursive calls). The get_func_call_events utility should provide an option to skip the recursive calls.
+"""
+
+
 def can_func_be_bound_method(
     trace: Trace,
     func_name: str,
@@ -54,6 +61,11 @@ def can_func_be_bound_method(
     return True
 
 
+cache_events_scanner: dict[
+    str, list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
+] = {}
+
+
 def events_scanner(
     trace: Trace, func_call_id: str
 ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
@@ -66,12 +78,18 @@ def events_scanner(
         func_call_id: str
             - the function call id of the parent function, which should correspond to two events (entry and exit)
     """
+    logger = logging.getLogger(__name__)
+
+    # implement cache for the events
+    if func_call_id in cache_events_scanner:
+        logger.debug(f"Using cached events for the function call: {func_call_id}")
+        return cache_events_scanner[func_call_id]
     entry_time = time.time()
     events = trace.query_high_level_events_within_func_call(
         func_call_id=func_call_id,
     )
+    cache_events_scanner[func_call_id] = events
     exit_time = time.time()
-    logger = logging.getLogger(__name__)
     logger.debug(
         f"Scanned the trace for events, return {len(events)} events, took {exit_time - entry_time} seconds"
     )
@@ -419,9 +437,13 @@ Defaulting to skip the var preconditon check for now.
                 skip_var_unchanged_check = True
 
         # the main checking loop: the online checker function will be the body of this loop, which will be called repeatedly
+        num_events_scanned: list[int] = []
         for parent_func_call_id in tqdm(
             parent_func_call_ids, desc=f"Checking invariants for {inv.text_description}"
         ):
+            if skip_func_call(len(parent_func_call_ids), num_events_scanned):
+                continue
+
             # check for parent precondition
             parent_pre_record = trace.get_pre_func_call_record(parent_func_call_id)
 
@@ -439,17 +461,17 @@ Defaulting to skip the var preconditon check for now.
                     continue
 
                 # invariant check
-                for event in events_scanner(
-                    trace=trace, func_call_id=parent_func_call_id
-                ):
+                events = events_scanner(trace=trace, func_call_id=parent_func_call_id)
+                num_events_scanned.append(len(events))
+                for event in events:
                     if child_param.check_event_match(event):
                         found_expected_child_event = True
                         break
             else:
                 # invariant check
-                for event in events_scanner(
-                    trace=trace, func_call_id=parent_func_call_id
-                ):
+                events = events_scanner(trace=trace, func_call_id=parent_func_call_id)
+                num_events_scanned.append(len(events))
+                for event in events:
                     if child_param.check_event_match(event):
                         found_expected_child_event = True
                         break
