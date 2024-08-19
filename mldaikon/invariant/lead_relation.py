@@ -72,7 +72,7 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
     return paths
 
 
-class FunctionCoverRelation(Relation):
+class FunctionLeadRelation(Relation):
 
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:
@@ -188,17 +188,17 @@ class FunctionCoverRelation(Relation):
                     valid_relations[(funcA, funcB)] = True
 
         # 3. Generating hypothesis
-        group_name = "func"
+        group_name = "func_lead"
         hypothesis_with_examples = {
             (func_A, func_B): Hypothesis(
                 invariant=Invariant(
-                    relation=FunctionCoverRelation,
+                    relation=FunctionLeadRelation,
                     params=[
                         APIParam(func_A),
                         APIParam(func_B),
                     ],
                     precondition=None,
-                    text_description=f"FunctionCoverRelation between {func_A} and {func_B}",
+                    text_description=f"FunctionLeadRelation between {func_A} and {func_B}",
                 ),
                 positive_examples=ExampleList({group_name}),
                 negative_examples=ExampleList({group_name}),
@@ -220,47 +220,53 @@ class FunctionCoverRelation(Relation):
                     continue
 
                 flag_A = None
-                flag_B = None
+                # flag_B = None
                 pre_record_A = []
-                pre_record_B = []
+                # pre_record_B = []
 
                 for event in tqdm(sorted_group_events.iter_rows(named=True)):
                     if event["type"] != "function_call (pre)":
                         continue
 
                     if func_A == event["function"]:
-                        flag_A = event["time"]
-                        flag_B = None
-                        pre_record_A = [event]
-
-                    if func_B == event["function"]:
-                        if flag_B is not None:
-                            valid_relations[(func_A, func_B)] = False
-                            neg = Example()
-                            neg.add_group("func", pre_record_B)
-                            hypothesis_with_examples[
-                                (func_A, func_B)
-                            ].negative_examples.add_example(neg)
-                            pre_record_B = [event]
-                            flag_B = event["time"]
+                        if flag_A is None:
+                            flag_A = event["time"]
+                            # flag_B = None
+                            pre_record_A = [event]
                             continue
 
-                        flag_B = event["time"]
-                        if flag_A is None:
-                            valid_relations[(func_A, func_B)] = False
-                            neg = Example()
-                            neg.add_group("func", [event])
-                            hypothesis_with_examples[
-                                (func_A, func_B)
-                            ].negative_examples.add_example(neg)
-                        else:
-                            pos = Example()
-                            pos.add_group("func", pre_record_A)
-                            hypothesis_with_examples[
-                                (func_A, func_B)
-                            ].positive_examples.add_example(pos)
+                        valid_relations[(func_A, func_B)] = False
+                        neg = Example()
+                        neg.add_group("func_lead", pre_record_A)
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].negative_examples.add_example(neg)
+                        pre_record_A = [event]
+                        continue
 
-                        pre_record_B = [event]
+                    if func_B == event["function"]:
+                        # pre_record_B = [event]
+                        # flag_B = event["time"]
+                        if flag_A is None:
+                            continue
+
+                        pos = Example()
+                        pos.add_group("func_lead", pre_record_A)
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].positive_examples.add_example(pos)
+
+                        flag_A = None
+                        pre_record_A = []
+
+                if flag_A is not None:
+                    flag_A = None
+                    neg = Example()
+                    neg.add_group("func_lead", pre_record_A)
+                    hypothesis_with_examples[
+                        (func_A, func_B)
+                    ].negative_examples.add_example(neg)
+                    pre_record_A = []
 
         # 5. Precondition inference
         brief_moode = False
@@ -320,10 +326,10 @@ class FunctionCoverRelation(Relation):
             for key, merged_values in merged_relations.items():
                 for merged_value in merged_values:
                     new_invariant = Invariant(
-                        relation=FunctionCoverRelation,
+                        relation=FunctionLeadRelation,
                         params=[param for param in merged_value],
                         precondition=key,
-                        text_description="Merged FunctionCoverRelation in Ordered List",
+                        text_description="Merged FunctionLeadRelation in Ordered List",
                     )
                     merged_ininvariants.append(new_invariant)
 
@@ -427,10 +433,10 @@ class FunctionCoverRelation(Relation):
             for key, merged_values in merged_sequences.items():
                 for merged_value in merged_values:
                     new_invariant = Invariant(
-                        relation=FunctionCoverRelation,
+                        relation=FunctionLeadRelation,
                         params=[param for param in merged_value],
                         precondition=key,
-                        text_description="Merged FunctionCoverRelation in Ordered List",
+                        text_description="Merged FunctionLeadRelation in Ordered List",
                     )
                     merged_ininvariants.append(new_invariant)
 
@@ -482,30 +488,37 @@ class FunctionCoverRelation(Relation):
             # check
             events = trace.events
             flag_A = None
-            flag_B = None
             for event in events.iter_rows(named=True):
 
                 if funcA == event["function"]:
-                    flag_A = event["time"]
-                    flag_B = None
+                    if flag_A is None:
+                        flag_A = event["time"]
+                        # flag_B = None
+                        continue
+
+                    if inv.precondition.verify([trace], "func_lead"):
+                        return CheckerResult(
+                            trace=trace.events,
+                            invariant=inv,
+                            check_passed=False,
+                        )
 
                 if funcB == event["function"]:
-                    if flag_B is not None:
-                        if inv.precondition.verify([trace], "func"):
-                            return CheckerResult(
-                                trace=trace.events,
-                                invariant=inv,
-                                check_passed=False,
-                            )
-
-                    flag_B = event["time"]
+                    # pre_record_B = [event]
+                    # flag_B = event["time"]
                     if flag_A is None:
-                        if inv.precondition.verify([trace], "func"):
-                            return CheckerResult(
-                                trace=trace.events,
-                                invariant=inv,
-                                check_passed=False,
-                            )
+                        continue
+
+                    flag_A = None
+
+            if flag_A is not None:
+                flag_A = None
+                if inv.precondition.verify([trace], "func_lead"):
+                    return CheckerResult(
+                        trace=trace.events,
+                        invariant=inv,
+                        check_passed=False,
+                    )
 
         return CheckerResult(
             trace=trace.events,
