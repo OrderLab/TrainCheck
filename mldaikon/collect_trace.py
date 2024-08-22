@@ -36,7 +36,9 @@ def dump_env(output_dir: str):
         f.write(f"{os.popen('python --version').read()}\n")
         f.write("\n")
         f.write("Library Versions:\n")
-        f.write(f"{os.popen('conda list').read()}\n")
+        f.write(
+            f"{os.popen('conda list').read()}\n"
+        )  # FIXME: conda list here doesn't work in OSX, >>> import os; >>> os.popen('conda list').read(); /bin/sh: conda: command not found
 
 
 if __name__ == "__main__":
