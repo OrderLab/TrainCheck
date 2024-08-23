@@ -18,6 +18,7 @@ class InsertTracerVisitor(ast.NodeTransformer):
         use_full_instr: bool,
         funcs_of_inv_interest: list[str] | None,
         API_dump_stack_trace: bool,
+        cond_dump: bool,
     ):
         super().__init__()
         if not modules_to_instr:
@@ -29,10 +30,11 @@ class InsertTracerVisitor(ast.NodeTransformer):
         self.use_full_instr = use_full_instr
         self.funcs_of_inv_interest = funcs_of_inv_interest
         self.API_dump_stack_trace = API_dump_stack_trace
+        self.cond_dump = cond_dump
 
     def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_of_inv_interest={str(self.funcs_of_inv_interest)}, API_dump_stack_trace={self.API_dump_stack_trace}).instrument()"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_of_inv_interest={str(self.funcs_of_inv_interest)}, API_dump_stack_trace={self.API_dump_stack_trace}, cond_dump={self.cond_dump}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -80,6 +82,7 @@ def instrument_source(
     use_full_instr: bool,
     funcs_of_inv_interest: list[str] | None,
     API_dump_stack_trace: bool,
+    cond_dump: bool,
 ) -> str:
     """
     Instruments the given source code and returns the instrumented source code.
@@ -101,6 +104,7 @@ def instrument_source(
         use_full_instr,
         funcs_of_inv_interest,
         API_dump_stack_trace,
+        cond_dump,
     )
     root = visitor.visit(root)
     source = ast.unparse(root)
@@ -118,6 +122,7 @@ def instrument_file(
     proxy_module: str,
     adjusted_proxy_config: list[dict[str, int | bool]],
     API_dump_stack_trace: bool,
+    cond_dump: bool,
     output_dir: str,
 ) -> str:
     """
@@ -139,6 +144,7 @@ def instrument_file(
         use_full_instr,
         funcs_of_inv_interest,
         API_dump_stack_trace,
+        cond_dump,
     )
 
     # logging configs

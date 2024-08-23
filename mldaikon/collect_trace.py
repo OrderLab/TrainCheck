@@ -41,10 +41,39 @@ def dump_env(output_dir: str):
         )  # FIXME: conda list here doesn't work in OSX, >>> import os; >>> os.popen('conda list').read(); /bin/sh: conda: command not found
 
 
+def get_default_output_folder(args: argparse.Namespace) -> str:
+    """Get the default output directory for the trace collection
+    Note that the output is only the folder name, not an absolute path
+    """
+    pyfile_basename = os.path.basename(args.pyscript).split(".")[0]
+    # get also the versions of the modules specified in `-t`
+    modules = args.modules_to_instr
+    modules_and_versions = []
+    for module in modules:
+        try:
+            # this may not work if the module is not installed (e.g. only used locally)
+            version = (
+                os.popen(f"pip show {module} | grep Version")
+                .read()
+                .strip()
+                .split(": ")[1]
+            )
+        except Exception as e:
+            logger.warning(f"Could not get version of module {module}: {e}")
+            version = "unknown"
+        modules_and_versions.append(f"{module}_{version}")
+    # sort the modules and versions
+    modules_and_versions.sort()
+    output_folder = f"mldaikon_run_{pyfile_basename}_{'_'.join(modules_and_versions)}_{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}"
+    return output_folder
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Invariant Finder for ML Pipelines in Python"
     )
+
+    ## general configs
     parser.add_argument(
         "-p",
         "--pyscript",
@@ -73,6 +102,22 @@ if __name__ == "__main__":
         help="Only instrument and dump the modified file",
     )
     parser.add_argument(
+        "--profiling",
+        type=bool,
+        default=proxy_config.profiling,
+        help="Enable to do profiling during the training process,"
+        "there would be a train_profiling_results.pstats file generated"
+        "in the current directory",
+    )
+    parser.add_argument(
+        "-d",
+        "--debug-mode",
+        action="store_true",
+        help="Enable debug mode for the program",
+    )
+
+    ## instrumentor configs
+    parser.add_argument(
         "-t",
         "--modules-to-instr",
         nargs="*",
@@ -83,32 +128,6 @@ if __name__ == "__main__":
         "--disable-scan-proxy-in-args",
         action="store_true",
         help="NOT Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions",
-    )
-    parser.add_argument(
-        "--proxy-module",
-        type=str,
-        default="",
-        help="The module to be traced by the proxy wrapper",
-    )
-    parser.add_argument(
-        "--profiling",
-        type=bool,
-        default=proxy_config.profiling,
-        help="Enable to do profiling during the training process,"
-        "there would be a train_profiling_results.pstats file generated"
-        "in the current directory",
-    )
-    parser.add_argument(
-        "--proxy-update-limit",
-        type=float,
-        default=proxy_config.proxy_update_limit,
-        help="The threshold for updating the proxy object",
-    )
-    parser.add_argument(
-        "-d",
-        "--debug-mode",
-        action="store_true",
-        help="Enable debug mode for the program",
     )
     parser.add_argument(
         "--API-dump-stack-trace",
@@ -126,6 +145,25 @@ if __name__ == "__main__":
         "--use-full-instr",
         action="store_true",
         help="Use full instrumentation for the instrumentor, if not set, the instrumentor may not dump traces for certain APIs in modules deemed not important (e.g. jit in torch)",
+    )
+    parser.add_argument(
+        "--cond-dump",
+        action="store_true",
+        help="Dump the conditions for the APIs conditionally, currently only dumps an API if meta_var has changed since the last dump",
+    )
+
+    ## variable tracker configs
+    parser.add_argument(
+        "--proxy-module",
+        type=str,
+        default="",
+        help="The module to be traced by the proxy wrapper",
+    )
+    parser.add_argument(
+        "--proxy-update-limit",
+        type=float,
+        default=proxy_config.proxy_update_limit,
+        help="The threshold for updating the proxy object",
     )
     parser.add_argument(
         "--tensor-dump-format",
@@ -158,6 +196,7 @@ if __name__ == "__main__":
         default=proxy_config.enable_C_level_observer,
         help="Enable the observer at the C level",
     )
+
     args = parser.parse_args()
 
     # set up logging
@@ -171,36 +210,15 @@ if __name__ == "__main__":
     START_TIME = datetime.datetime.now()
 
     output_dir = args.output_dir
-    if not args.output_dir:
-        pyfile_basename = os.path.basename(args.pyscript).split(".")[0]
-        # get also the versions of the modules specified in `-t`
-        modules = args.modules_to_instr
-        modules_and_versions = []
-        for module in modules:
-            try:
-                # this may not work if the module is not installed (e.g. only used locally)
-                version = (
-                    os.popen(f"pip show {module} | grep Version")
-                    .read()
-                    .strip()
-                    .split(": ")[1]
-                )
-            except Exception as e:
-                logger.warning(f"Could not get version of module {module}: {e}")
-                version = "unknown"
-            modules_and_versions.append(f"{module}_{version}")
-        # sort the modules and versions
-        modules_and_versions.sort()
-        output_dir = f"mldaikon_run_{pyfile_basename}_{'_'.join(modules_and_versions)}_{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}"
-
-    # change output_dir to absolute path
+    if not output_dir:
+        output_dir = get_default_output_folder(args)
     output_dir = os.path.abspath(output_dir)
-
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
     dump_env(output_dir)
 
+    # selective instrumentation if invariants are provided, only funcs_of_inv_interest will be instrumented with trace collection
     funcs_of_inv_interest = None
     if args.invariants is not None:
         invariants = read_inv_file(args.invariants)
@@ -266,6 +284,7 @@ if __name__ == "__main__":
         args.proxy_module,
         adjusted_proxy_config,  # type: ignore
         args.API_dump_stack_trace,
+        args.cond_dump,
         output_dir,
     )
 

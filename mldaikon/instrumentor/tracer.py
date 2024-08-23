@@ -8,6 +8,8 @@ import os
 import threading
 import traceback
 import types
+import uuid
+from collections import defaultdict
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
 
@@ -34,6 +36,9 @@ meta_vars: dict[str, object] = (
 class PTID(NamedTuple):
     pid: int
     tid: int
+
+
+cache_meta_vars: dict[PTID, dict[str, dict]] = defaultdict(lambda: defaultdict(dict))
 
 
 # per process & thread logging
@@ -220,28 +225,49 @@ def global_wrapper(
     is_bound_method,
     scan_proxy_in_args,
     dump_stack_trace,
+    cond_dump,
     *args,
     **kwargs,
 ):
-    import uuid
+    """Instrumentation for APIs
 
-    func_call_id = uuid.uuid4().hex
+    Pre-call Phase
+    1. Log the pre-call information
+    2. Unproxy the arguments if the function is a C level function -- Proxy objects passed to built-in functions will cause segfault
+    3. Add additional 'observer' (monitoring whether the input arguments have changed after the function call) to the function if specified
+
+    Call Phase
+    1. Calls the original function
+    2. If an exception is raised, log the exception and re-raise it
+
+    Post-call Phase
+    1. Log the post-call information
+    """
 
     logger = logging.getLogger(__name__)
 
-    # Get the current thread object
-    current_thread = threading.current_thread()
-    # Get the thread ID
-    thread_id = current_thread.ident
+    func_call_id = uuid.uuid4().hex
+    thread_id = threading.current_thread().ident
     process_id = os.getpid()
-
     func_name = typename(original_function)
+    pre_meta_vars = get_meta_vars()
+
+    if pre_meta_vars != cache_meta_vars[PTID(process_id, thread_id)][func_name]:
+        cache_meta_vars[PTID(process_id, thread_id)][func_name] = pre_meta_vars
+        cond_is_dumping = True
+    else:
+        cond_is_dumping = False
+
+    if cond_dump and not cond_is_dumping:
+        # logger.debug(f"Skipping dump for {func_name} as meta_vars have not changed")
+        print(f"Skipping dump for {func_name} as meta_vars have not changed")
+        return core_wrapper(original_function, *args, **kwargs)
 
     pre_record = {
         "func_call_id": func_call_id,
         "thread_id": thread_id,
         "process_id": process_id,
-        "meta_vars": get_meta_vars(),
+        "meta_vars": pre_meta_vars,
         "type": TraceLineType.FUNC_CALL_PRE,
         "function": func_name,
         "is_bound_method": is_bound_method,
@@ -254,6 +280,7 @@ def global_wrapper(
     if dump_stack_trace:
         pre_record["stack_trace"] = traceback.format_stack()
 
+    # proxy class handling logics
     C_level_call = is_c_level_function(original_function)
 
     if scan_proxy_in_args:
@@ -352,6 +379,7 @@ def wrapper(
     is_bound_method,
     scan_proxy_in_args,
     dump_stack_trace,
+    cond_dump,
     disable_dump=False,
 ):
     if not disable_dump:
@@ -364,6 +392,7 @@ def wrapper(
                 is_bound_method,
                 scan_proxy_in_args,
                 dump_stack_trace,
+                cond_dump,
                 *args,
                 **kwargs,
             )
@@ -490,6 +519,7 @@ class Instrumentor:
         use_full_instr: bool,
         funcs_of_inv_interest: Optional[list[str]] = None,
         API_dump_stack_trace: bool = False,
+        cond_dump: bool = False,
     ):
         """
         Instruments the specified target with additional tracing functionality.
@@ -510,9 +540,11 @@ class Instrumentor:
                 An optional list of functions that are of interest for invariant inference.
                 If provided, all functions not in this list will be instrumented with dump disabled,
                 and the functions in this list will be instrumented with dump enabled. NOTE: If this list is provided, use_full_str must be set to False. WRAP_WITHOUT_DUMP will be ignored.
-
-        Returns:
-            None
+            API_dump_stack_trace (bool):
+                Whether to dump the stack trace of the function call. Enabling this will add the stack trace to the trace log.
+            cond_dump (bool):
+                Whether to dump the trace conditionally. If True, the trace will only be dumped if meta_vars have changed since the last call of this particular function.
+                This might cause additional overhead (cpu and memory) as the meta_vars will be compared with the previous call, and meta_vars will have to be cached in memory.
         """
 
         self.instrumenting = True
@@ -541,6 +573,7 @@ class Instrumentor:
         self.use_full_instr = use_full_instr
         self.funcs_of_inv_interest = funcs_of_inv_interest
         self.API_dump_stack_trace = API_dump_stack_trace
+        self.cond_dump = cond_dump
 
         if self.funcs_of_inv_interest is not None and self.use_full_instr:
             get_instrumentation_logger_for_process().fatal(
@@ -802,6 +835,7 @@ class Instrumentor:
                     scan_proxy_in_args=self.scan_proxy_in_args,
                     disable_dump=self.should_disable_dump(attr),
                     dump_stack_trace=self.API_dump_stack_trace,
+                    cond_dump=self.cond_dump,
                 )
                 try:
                     setattr(pymodule, attr_name, wrapped)
