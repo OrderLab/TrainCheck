@@ -178,7 +178,7 @@ delta_dump_config.update({delta_dump_config})
 """
 
         if auto_observer_config["enable_auto_observer"]:
-            auto_observer_code = """
+            auto_observer_code = f"""
 import glob
 import importlib
 from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
@@ -198,20 +198,21 @@ if observe_up_to_depth:
     print("observe up to the depth of the function call")
 else:
     print("observe only the function call at the depth")
-from mldaikon.static_analyzer.graph_generator.call_graph_parser import call_graph_parser
+from mldaikon.static_analyzer.graph_generator.call_graph_parser import add_observer_given_call_graph
 
 log_files = glob.glob(
     os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
 )
 print("log_files: ", log_files)
 for log_file in log_files:
-    call_graph_parser(
+    add_observer_given_call_graph(
         log_file,
         depth=enable_auto_observer_depth,
         observe_up_to_depth=observe_up_to_depth,
         neglect_hidden_func=neglect_hidden_func,
         neglect_hidden_module=neglect_hidden_module,
         observe_then_unproxy=observe_then_unproxy,
+        cond_dump={cond_dump}
     )
 """
         # find the main() function

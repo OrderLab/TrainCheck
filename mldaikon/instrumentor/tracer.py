@@ -11,7 +11,7 @@ import types
 import uuid
 from collections import defaultdict
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
 
 import torch
 import torch.utils
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import (
     disable_proxy_class,
     enable_C_level_observer,
@@ -214,15 +214,69 @@ def get_meta_vars() -> dict:
 
         if frame_vars:
             all_frame_vars[file_full_path] = frame_vars
-
         frame = frame.f_back
-
     return all_frame_vars
+
+
+def should_dump_trace(
+    cond_dump: bool,
+    ptid: PTID | None,
+    key,
+    meta_vars: dict[str, Any] | None,
+    meta_vars_targets: list[str] | None,
+    update_cache: bool = True,
+) -> bool:
+    """Determine if trace dumping should be enabled for this particular function call
+    - cond_dump (bool): whether conditional dumping should be enabled at all, if False, always return True
+    - ptid (PTID): process and thread id, if None, will be inferred from the current process and thread
+    - key (str): a unique key that can identify the function or the variable to be dumped
+    - meta_vars (dict[str, Any]): the current meta_vars, if None, will be inferred from the current frame
+    - meta_vars_targets (list[str]|None): a subset of keys in meta_vars that should be used to determine if the trace should be dumped
+    - update_cache (bool): whether to update the cache_meta_vars with the current meta_vars if the trace should be dumped
+
+    If True is returned, cache_meta_vars will be updated with the current meta_vars
+    """
+
+    if not cond_dump:
+        return True
+
+    if ptid is None:
+        tid = threading.current_thread().ident
+        assert tid is not None, "threading.current_thread().ident is None"
+        ptid = PTID(os.getpid(), tid)
+
+    if meta_vars is None:
+        meta_vars = get_meta_vars()
+
+    prev_meta_vars = cache_meta_vars[ptid][key]
+    if not prev_meta_vars:
+        # print(f"prev_meta_vars is None for {key}")
+        if update_cache:
+            cache_meta_vars[ptid][key] = meta_vars
+        return True
+
+    prev_targets = prev_meta_vars
+    targets = meta_vars
+    if meta_vars_targets:
+        prev_targets = {
+            k: v for k, v in prev_meta_vars.items() if k in meta_vars_targets
+        }
+        targets = {k: v for k, v in meta_vars.items() if k in meta_vars_targets}
+
+    # only if the meta_vars have changed, we will dump the trace
+    if prev_targets != targets:
+        if update_cache:
+            cache_meta_vars[ptid][key] = meta_vars
+        # print(f"meta_vars have changed for {key}")
+        return True
+
+    return False
 
 
 def global_wrapper(
     original_function,
     is_bound_method,
+    is_builtin,
     scan_proxy_in_args,
     dump_stack_trace,
     cond_dump,
@@ -252,16 +306,20 @@ def global_wrapper(
     func_name = typename(original_function)
     pre_meta_vars = get_meta_vars()
 
-    if pre_meta_vars != cache_meta_vars[PTID(process_id, thread_id)][func_name]:
-        cache_meta_vars[PTID(process_id, thread_id)][func_name] = pre_meta_vars
-        cond_is_dumping = True
-    else:
-        cond_is_dumping = False
+    # determine at runtime whether to dump the trace
+    is_dumping = should_dump_trace(
+        cond_dump,
+        PTID(process_id, thread_id),
+        f"API_{func_name}",  # any key that can uniquely identify the function or the variable to be dumped
+        meta_vars=pre_meta_vars,
+        meta_vars_targets=None,  # can be used to restrain the meta_vars to a subset of keys
+        update_cache=True,
+    )
 
-    if cond_dump and not cond_is_dumping:
+    if not is_dumping:
         # logger.debug(f"Skipping dump for {func_name} as meta_vars have not changed")
-        print(f"Skipping dump for {func_name} as meta_vars have not changed")
-        return core_wrapper(original_function, *args, **kwargs)
+        # print(f"Skipping dump for {func_name} as meta_vars have not changed")
+        return core_wrapper(original_function, is_builtin, *args, **kwargs)
 
     pre_record = {
         "func_call_id": func_call_id,
@@ -280,17 +338,12 @@ def global_wrapper(
     if dump_stack_trace:
         pre_record["stack_trace"] = traceback.format_stack()
 
-    # proxy class handling logics
-    C_level_call = is_c_level_function(original_function)
-
     if scan_proxy_in_args:
         proxy_in_args = []
 
         def find_proxy_in_args(args):
             for i, arg in enumerate(args):
-                if is_proxied(
-                    arg
-                ):  # Ziming: get rid of directly import Proxy from external module, use proxy_basics instead
+                if is_proxied(arg):
                     proxy_in_args.append(arg)
                 elif type(arg) in [list, tuple]:
                     find_proxy_in_args(arg)
@@ -312,13 +365,16 @@ def global_wrapper(
                 )
 
     dump_trace_API(pre_record)
-    if enable_C_level_observer and C_level_call:
+    if enable_C_level_observer and is_builtin:
         from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
 
-        original_function = add_observer_to_func(original_function, unproxy=True)
-    elif C_level_call:
-        args = [unproxy_arg(arg) for arg in args]
-        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+        original_function = add_observer_to_func(
+            original_function, cond_dump=cond_dump, unproxy=True
+        )
+    elif is_builtin:
+        # proxy objects being passed to backend will cause seg fault: TODO: replace with unproxy func
+        original_function = unproxy_func(original_function)
+
     try:
         result = original_function(*args, **kwargs)
     except Exception as e:
@@ -352,25 +408,12 @@ def global_wrapper(
     return result
 
 
-def core_wrapper(original_function, *args, **kwargs):
+def core_wrapper(original_function, is_builtin, *args, **kwargs):
     """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
     We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
     """
-    C_level_call = is_c_level_function(original_function)
-    if C_level_call:
-
-        def unproxy_arg(arg):
-            if hasattr(arg, "is_ml_daikon_proxied_obj"):
-                return unproxy_arg(arg._obj)
-            elif type(arg) in [list]:
-                return [unproxy_arg(element) for element in arg]
-            elif type(arg) in [tuple]:
-                return tuple(unproxy_arg(element) for element in arg)
-            else:
-                return arg
-
-        args = [unproxy_arg(arg) for arg in args]
-        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+    if is_builtin:
+        original_function = unproxy_func(original_function)
     return original_function(*args, **kwargs)
 
 
@@ -382,14 +425,18 @@ def wrapper(
     cond_dump,
     disable_dump=False,
 ):
+    is_builtin = is_c_level_function(original_function)
+
+    # determine statically whether to dump the trace
     if not disable_dump:
         METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(typename(original_function))
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
-            return global_wrapper(
+            return global_wrapper(  # the wrapper cannot be invoked with named parameters as *args has to be after the named parameters
                 original_function,
                 is_bound_method,
+                is_builtin,
                 scan_proxy_in_args,
                 dump_stack_trace,
                 cond_dump,
@@ -402,7 +449,7 @@ def wrapper(
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
-            return core_wrapper(original_function, *args, **kwargs)
+            return core_wrapper(original_function, is_builtin, *args, **kwargs)
 
     wrapped._ml_daikon_original_function = original_function
     wrapped._ml_daikon_instrumented = True
