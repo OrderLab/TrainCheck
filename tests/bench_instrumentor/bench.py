@@ -46,6 +46,20 @@ def run_naive_instrumented_with_jit_and_c_tracing_disabled():
     return res
 
 
+def run_naive_instrumented_with_cond_dump_jit_and_c_tracing_disabled():
+    res = subprocess.run(
+        [
+            "python",
+            "-m",
+            "mldaikon.collect_trace",
+            "-p",
+            f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_naive.py",
+            "--cond-dump",
+        ]
+    )
+    return res
+
+
 def run_sampler_instrumented():
     res = subprocess.run(
         [
@@ -67,6 +81,8 @@ def run_proxy_instrumented():
             "mldaikon.collect_trace",
             "-p",
             f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_proxy.py",
+            "--proxy-module",
+            "model_transfer",
         ]
     )
     return res
