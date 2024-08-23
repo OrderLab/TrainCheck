@@ -133,6 +133,12 @@ def test_instrumented_with_jit_and_c_tracing_disabled(benchmark):
     cleanup()
 
 
+def test_instrumented_with_cond_dump_jit_and_c_tracing_disabled(benchmark):
+    res = benchmark(run_naive_instrumented_with_cond_dump_jit_and_c_tracing_disabled)
+    assert res.returncode == 0
+    cleanup()
+
+
 def test_sampler_instrumented(benchmark):
     res = benchmark(run_sampler_instrumented)
     assert res.returncode == 0
