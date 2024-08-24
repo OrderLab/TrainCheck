@@ -55,7 +55,7 @@ class json_dumper(metaclass=Singleton):
         thread_id,
         time,
         meta_vars,
-        variable_name,
+        var_name,
         var_type,
         var_value,
         change_type,
@@ -80,7 +80,7 @@ class json_dumper(metaclass=Singleton):
 
         data = {
             # "value": var_value,
-            "var_name": variable_name,
+            "var_name": var_name,
             "var_type": var_type,
             "mode": change_type,  # "new", "update"
             "stack_trace": stack_trace,
@@ -126,16 +126,20 @@ def dump_tensor(value):
             # import pdb; pdb.set_trace()
             param_list = value._version
         # dump out the tensor data to a list and flatten it to a 1D list
-        if tensor_dump_format["dump_tensor_statistics"]:
+        elif tensor_dump_format["dump_tensor_stats"]:
             param_list = tensor_stats(value)
-        if tensor_dump_format["dump_tensor_hash"]:
+        elif tensor_dump_format["dump_tensor_hash"]:
             if not torch.cuda.is_available():
                 raise Exception(
                     "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full', 'stats' or 'version'."
                 )
             param_list = tensor_hash(value)
-        else:
+        elif tensor_dump_format["dump_tensor_full"]:
             param_list = value.detach().flatten().tolist()
+        else:
+            raise ValueError(
+                "Invalid tensor dump format, please set '--tensor-dump-format' to 'full', 'stats', 'version' or 'hash'."
+            )
 
     return param_list
 
@@ -152,11 +156,6 @@ def dump_attributes(obj, value):
 
     # currently only dump primitive types, tensors and nn.Module
     attr_names = [name for name in dir(value) if not name.startswith("__")]
-    dump_tensor_version = tensor_dump_format["dump_tensor_version"]
-    if dump_tensor_version and isinstance(value, torch.nn.parameter.Parameter):
-        result = value._version
-        return result
-
     for attr_name in attr_names:
         # don't track the attr_name starts with a _ (private variable)
         if attr_name.startswith("_"):
