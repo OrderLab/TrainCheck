@@ -121,23 +121,19 @@ def tensor_stats(tensor):
 def dump_tensor(value):
     param_list = None
     if isinstance(value, torch.Tensor):
-        if tensor_dump_format["dump_tensor_version"]:
-            # import pdb; pdb.set_trace()
-            param_list = value._version
-        # dump out the tensor data to a list and flatten it to a 1D list
-        elif tensor_dump_format["dump_tensor_stats"]:
+        if tensor_dump_format["dump_tensor_stats"]:
             param_list = tensor_stats(value)
         elif tensor_dump_format["dump_tensor_hash"]:
             if not torch.cuda.is_available():
                 raise Exception(
-                    "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full', 'stats' or 'version'."
+                    "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full' or 'stats'."
                 )
             param_list = tensor_hash(value)
         elif tensor_dump_format["dump_tensor_full"]:
             param_list = value.detach().flatten().tolist()
         else:
             raise ValueError(
-                "Invalid tensor dump format, please set '--tensor-dump-format' to 'full', 'stats', 'version' or 'hash'."
+                "Invalid tensor dump format, please set '--tensor-dump-format' to 'full', 'stats' or 'hash'."
             )
 
     return param_list

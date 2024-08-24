@@ -167,10 +167,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--tensor-dump-format",
-        choices=["hash", "stats", "full", "version"],
+        choices=["hash", "stats", "full"],
         type=str,
         default="hash",
-        help="The format for dumping tensors. Choose from 'hash'(default), 'stats', 'full' or 'version'(deprecated).",
+        help="The format for dumping tensors. Choose from 'hash'(default), 'stats' or 'full'.",
     )
     parser.add_argument(
         "--delta-dump",

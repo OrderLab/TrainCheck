@@ -9,7 +9,6 @@ delta_dump_config = {
     "delta_dump_attributes": True,  # only dump the changed part of the attribute
 }
 tensor_dump_format = {
-    "dump_tensor_version": False,  # only dump the _version attribute of tensor
     "dump_tensor_hash": True,  # dump the hash of the tensor
     "dump_tensor_statistics": False,  # dump the statistics of tensor {min, max, mean, shape}
     "dump_tensor_full": False,  # dump the full tensor
