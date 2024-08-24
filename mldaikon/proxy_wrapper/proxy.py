@@ -25,7 +25,6 @@ from mldaikon.proxy_wrapper.dumper import torch_serialize
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
 from mldaikon.proxy_wrapper.proxy_config import (
     dump_info_config,
-    exclude_file_names,
     primitive_types,
     proxy_update_limit,
 )
@@ -114,7 +113,7 @@ class Proxy:
     def get_frame_array(frame):
         frame_array = []
         while frame:
-            if frame.f_code.co_filename in exclude_file_names:
+            if "mldaikon" in frame.f_code.co_filename:
                 frame = frame.f_back
                 continue
 
@@ -249,21 +248,23 @@ class Proxy:
                 ):
                     return
         # Strong assertion: the previous type and current type of the object should be the same
-        var_type = type(self._obj)
+        assert typename(obj) == typename(
+            self._obj
+        ), f"Type of the object is changed from {typename(self._obj)} to {typename(obj)}, needs careful check"
 
         if not issubclass(type(obj), torch.nn.Module):
             dumped_val = str(torch_serialize(obj))
             self.jsondumper.dump_json(
-                self.process_id,
-                self.thread_id,
-                current_time,
-                dump_meta_vars(self, proxy_file_path=__file__),
-                self.__dict__["dumped_varname_list"],
-                var_type.__name__,
-                dumped_val,
-                status,
-                dump_attributes(self, obj),
-                dumped_frame_array,
+                process_id=self.process_id,
+                thread_id=self.thread_id,
+                time=current_time,
+                meta_vars=dump_meta_vars(self, proxy_file_path=__file__),
+                var_name=self.__dict__["dumped_varname_list"],
+                var_type=typename(obj),
+                var_value=dumped_val,
+                change_type=status,
+                var_attributes=dump_attributes(self, obj),
+                stack_trace=dumped_frame_array,
             )
 
     def __init__(

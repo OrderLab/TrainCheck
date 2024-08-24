@@ -12,7 +12,6 @@ from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
     delta_dump_config,
-    exclude_file_names,
     meta_var_black_list,
     primitive_types,
     tensor_dump_format,
@@ -201,6 +200,7 @@ def dump_attributes(obj, value):
 
 
 def dump_meta_vars(obj, level=20, proxy_file_path=""):
+    # TODO: duplicated logic in proxy.py: get_frame_array and tracer.py: get_meta_vars
     frame = inspect.currentframe()
     while (
         frame.f_code.co_filename == proxy_file_path
@@ -212,7 +212,7 @@ def dump_meta_vars(obj, level=20, proxy_file_path=""):
     # get the file name list inside the repo
     i = 0
     while i < level and frame is not None:
-        if frame.f_code.co_filename in exclude_file_names:
+        if "mldaikon" in frame.f_code.co_filename:
             frame = frame.f_back
             continue
 
