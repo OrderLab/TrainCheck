@@ -222,6 +222,7 @@ def dump_meta_vars(obj, level=20, proxy_file_path=""):
                 if isinstance(frame_vars[key], (int, float, str, bool))
                 and key not in meta_var_black_list
                 and key not in important_vars
+                and "mldaikon" not in key
             }
         )
 

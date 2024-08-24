@@ -209,7 +209,8 @@ def get_meta_vars() -> dict:
             name: value
             for name, value in frame_vars.items()
             # Ziming: only dump primitive types, block the var name on the black list
-            if isinstance(value, (int, float, str, bool)) and not name.startswith("__")
+            if isinstance(value, (int, float, str, bool))
+            and (not name.startswith("__") and "mldaikon" not in name)
         }
 
         if frame_vars:
