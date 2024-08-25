@@ -26,6 +26,7 @@ from mldaikon.proxy_wrapper.proxy_config import (
     disable_proxy_class,
     enable_C_level_observer,
 )
+from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
 from mldaikon.utils import typename
 
 meta_vars: dict[str, object] = (
@@ -367,11 +368,10 @@ def global_wrapper(
 
     dump_trace_API(pre_record)
     if enable_C_level_observer and is_builtin:
-        from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
-
         original_function = add_observer_to_func(
             original_function, cond_dump=cond_dump, unproxy=True
         )
+
     elif is_builtin:
         # proxy objects being passed to backend will cause seg fault: TODO: replace with unproxy func
         original_function = unproxy_func(original_function)

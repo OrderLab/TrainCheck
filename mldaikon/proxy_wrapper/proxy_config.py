@@ -1,6 +1,6 @@
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace would work only when you manually add Proxy()
-proxy_update_limit = 5
+proxy_update_limit = 999999999
 debug_mode = False
 
 delta_dump_config = {
