@@ -188,7 +188,7 @@ class FunctionCoverRelation(Relation):
                     valid_relations[(funcA, funcB)] = True
 
         # 3. Generating hypothesis
-        group_name = "func"
+        group_name = "func_cover"
         hypothesis_with_examples = {
             (func_A, func_B): Hypothesis(
                 invariant=Invariant(
@@ -237,7 +237,7 @@ class FunctionCoverRelation(Relation):
                         if flag_B is not None:
                             valid_relations[(func_A, func_B)] = False
                             neg = Example()
-                            neg.add_group("func", pre_record_B)
+                            neg.add_group(group_name, pre_record_B)
                             hypothesis_with_examples[
                                 (func_A, func_B)
                             ].negative_examples.add_example(neg)
@@ -249,13 +249,13 @@ class FunctionCoverRelation(Relation):
                         if flag_A is None:
                             valid_relations[(func_A, func_B)] = False
                             neg = Example()
-                            neg.add_group("func", [event])
+                            neg.add_group(group_name, [event])
                             hypothesis_with_examples[
                                 (func_A, func_B)
                             ].negative_examples.add_example(neg)
                         else:
                             pos = Example()
-                            pos.add_group("func", pre_record_A)
+                            pos.add_group(group_name, pre_record_A)
                             hypothesis_with_examples[
                                 (func_A, func_B)
                             ].positive_examples.add_example(pos)
@@ -461,54 +461,144 @@ class FunctionCoverRelation(Relation):
             inv: Invariant
                 The invariant to check on the trace.
         """
-        assert len(inv.params) == 2, "Invariant should have exactly two parameters."
         assert inv.precondition is not None, "Invariant should have a precondition."
 
         invariant_length = len(inv.params)
 
-        for i in range(invariant_length - 1):
-            funcA = inv.params[i]
-            funcB = inv.params[i + 1]
+        events = trace.events
 
-            assert isinstance(funcA, APIParam) and isinstance(
-                funcB, APIParam
+        function_pool = []
+
+        for i in range(invariant_length):
+            func = inv.params[i]
+            assert isinstance(
+                func, APIParam
+            ), "Invariant parameters should be APIParam."
+            function_pool.append(func.api_full_name)
+
+        required_columns = {"function", "func_call_id", "type", "time"}
+        if not required_columns.issubset(events.columns):
+            raise ValueError(
+                f"Missing column: {required_columns - set(events.columns)}"
+            )
+
+        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+
+        group_by_events = events.group_by(["process_id", "thread_id"])
+
+        for group_events in group_by_events:
+            (process_id, thread_id), evs = group_events
+            sorted_group_events = evs.sort("time")
+            if (process_id, thread_id) not in function_id_map:
+                function_id_map[(process_id, thread_id)] = {}
+
+            if (process_id, thread_id) not in function_times:
+                function_times[(process_id, thread_id)] = {}
+
+            for event in sorted_group_events.iter_rows(named=True):
+                if event["function"] in function_pool:
+                    if (
+                        event["function"]
+                        not in function_id_map[(process_id, thread_id)]
+                    ):
+                        function_id_map[(process_id, thread_id)][event["function"]] = []
+                    func_id = event["func_call_id"]
+                    function_id_map[(process_id, thread_id)][event["function"]].append(
+                        func_id
+                    )
+
+                    if event["type"] == "function_call (pre)":
+                        if func_id not in function_times[(process_id, thread_id)]:
+                            function_times[(process_id, thread_id)][func_id] = {}
+                        function_times[(process_id, thread_id)][func_id]["start"] = (
+                            event["time"]
+                        )
+                        function_times[(process_id, thread_id)][func_id]["function"] = (
+                            event["function"]
+                        )
+                    elif event["type"] in [
+                        "function_call (post)",
+                        "function_call (post) (exception)",
+                    ]:
+                        function_times[(process_id, thread_id)][func_id]["end"] = event[
+                            "time"
+                        ]
+
+        def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
+            if funcA == funcB:
+                return False
+
+            if funcA not in function_id_map[(process_id, thread_id)]:
+                return False
+
+            if funcB not in function_id_map[(process_id, thread_id)]:
+                return False
+
+            for idA in function_id_map[(process_id, thread_id)][funcA]:
+                for idB in function_id_map[(process_id, thread_id)][funcB]:
+                    preA = function_times[(process_id, thread_id)][idA]["start"]
+                    postA = function_times[(process_id, thread_id)][idA]["end"]
+                    preB = function_times[(process_id, thread_id)][idB]["start"]
+                    postB = function_times[(process_id, thread_id)][idB]["end"]
+                    if preB >= postA:
+                        break
+                    if postB <= preA:
+                        continue
+                    return False
+            return True
+
+        for i in range(invariant_length - 1):
+            func_A = inv.params[i]
+            func_B = inv.params[i + 1]
+
+            assert isinstance(func_A, APIParam) and isinstance(
+                func_B, APIParam
             ), "Invariant parameters should be string."
 
-            all_functions = trace.get_func_names()
+            for group_events in group_by_events:
+                (_, _), evs = group_events
+                sorted_group_events = evs.sort("time")
 
-            if funcB not in all_functions:
-                continue
+                funcA = func_A.api_full_name
+                funcB = func_B.api_full_name
 
-            # check
-            events = trace.events
-            flag_A = None
-            flag_B = None
-            for event in events.iter_rows(named=True):
+                if not check_same_level(funcA, funcB, process_id, thread_id):
+                    continue
 
-                if funcA == event["function"]:
-                    flag_A = event["time"]
-                    flag_B = None
+                # check
+                # flag_A = None
+                flag_B = None
+                pre_recordB = None
+                for event in sorted_group_events.iter_rows(named=True):
 
-                if funcB == event["function"]:
-                    if flag_B is not None:
-                        if inv.precondition.verify([trace], "func"):
-                            return CheckerResult(
-                                trace=trace.events,
-                                invariant=inv,
-                                check_passed=False,
-                            )
+                    if funcA == event["function"]:
+                        # flag_A = event["time"]
+                        flag_B = None
+                        pre_recordB = None
 
-                    flag_B = event["time"]
-                    if flag_A is None:
-                        if inv.precondition.verify([trace], "func"):
-                            return CheckerResult(
-                                trace=trace.events,
-                                invariant=inv,
-                                check_passed=False,
-                            )
+                    if funcB == event["function"]:
+                        if flag_B is not None:
+                            if inv.precondition.verify([events], "func_cover"):
+                                return CheckerResult(
+                                    trace=[pre_recordB, event],
+                                    invariant=inv,
+                                    check_passed=False,
+                                )
+
+                        flag_B = event["time"]
+                        pre_recordB = event
+
+                        # if flag_A is None:
+                        #     if inv.precondition.verify([events], "func_cover"):
+                        #         return CheckerResult(
+                        #             trace=[event],
+                        #             invariant=inv,
+                        #             check_passed=False,
+                        #         )
 
         return CheckerResult(
-            trace=trace.events,
+            trace=None,
             invariant=inv,
             check_passed=True,
         )

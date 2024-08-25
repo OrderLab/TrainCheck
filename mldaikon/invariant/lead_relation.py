@@ -68,7 +68,6 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
     for start_node in start_nodes:
         dfs(start_node, [], set())
 
-    print(paths)
     return paths
 
 
@@ -467,59 +466,145 @@ class FunctionLeadRelation(Relation):
             inv: Invariant
                 The invariant to check on the trace.
         """
-        # assert len(inv.params) == 2, "Invariant should have exactly two parameters."
 
         assert inv.precondition is not None, "Invariant should have a precondition."
 
         invariant_length = len(inv.params)
 
-        for i in range(invariant_length - 1):
-            funcA = inv.params[i]
-            funcB = inv.params[i + 1]
+        events = trace.events
 
-            assert isinstance(funcA, APIParam) and isinstance(
-                funcB, APIParam
-            ), "Invariant parameters should be string."
+        function_pool = []
 
-            all_functions = trace.get_func_names()
+        for i in range(invariant_length):
+            func = inv.params[i]
+            assert isinstance(
+                func, APIParam
+            ), "Invariant parameters should be APIParam."
+            function_pool.append(func.api_full_name)
 
-            if funcB not in all_functions:
-                continue
+        required_columns = {"function", "func_call_id", "type", "time"}
+        if not required_columns.issubset(events.columns):
+            raise ValueError(
+                f"Missing column: {required_columns - set(events.columns)}"
+            )
 
-            # check
-            events = trace.events
-            flag_A = None
-            for event in events.iter_rows(named=True):
+        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
 
-                if funcA == event["function"]:
-                    if flag_A is None:
-                        flag_A = event["time"]
-                        # flag_B = None
-                        continue
+        group_by_events = events.group_by(["process_id", "thread_id"])
 
-                    if inv.precondition.verify([trace], "func_lead"):
-                        return CheckerResult(
-                            trace=[event],
-                            invariant=inv,
-                            check_passed=False,
-                        )
+        for group_events in group_by_events:
+            (process_id, thread_id), evs = group_events
+            sorted_group_events = evs.sort("time")
+            if (process_id, thread_id) not in function_id_map:
+                function_id_map[(process_id, thread_id)] = {}
 
-                if funcB == event["function"]:
-                    # pre_record_B = [event]
-                    # flag_B = event["time"]
-                    if flag_A is None:
-                        continue
+            if (process_id, thread_id) not in function_times:
+                function_times[(process_id, thread_id)] = {}
 
-                    flag_A = None
-
-            if flag_A is not None:
-                flag_A = None
-                if inv.precondition.verify([trace], "func_lead"):
-                    return CheckerResult(
-                        trace=[event],
-                        invariant=inv,
-                        check_passed=False,
+            for event in sorted_group_events.iter_rows(named=True):
+                if event["function"] in function_pool:
+                    if (
+                        event["function"]
+                        not in function_id_map[(process_id, thread_id)]
+                    ):
+                        function_id_map[(process_id, thread_id)][event["function"]] = []
+                    func_id = event["func_call_id"]
+                    function_id_map[(process_id, thread_id)][event["function"]].append(
+                        func_id
                     )
+
+                    if event["type"] == "function_call (pre)":
+                        if func_id not in function_times[(process_id, thread_id)]:
+                            function_times[(process_id, thread_id)][func_id] = {}
+                        function_times[(process_id, thread_id)][func_id]["start"] = (
+                            event["time"]
+                        )
+                        function_times[(process_id, thread_id)][func_id]["function"] = (
+                            event["function"]
+                        )
+                    elif event["type"] in [
+                        "function_call (post)",
+                        "function_call (post) (exception)",
+                    ]:
+                        function_times[(process_id, thread_id)][func_id]["end"] = event[
+                            "time"
+                        ]
+
+        def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
+            if funcA == funcB:
+                return False
+
+            if funcA not in function_id_map[(process_id, thread_id)]:
+                return False
+
+            if funcB not in function_id_map[(process_id, thread_id)]:
+                return False
+
+            for idA in function_id_map[(process_id, thread_id)][funcA]:
+                for idB in function_id_map[(process_id, thread_id)][funcB]:
+                    preA = function_times[(process_id, thread_id)][idA]["start"]
+                    postA = function_times[(process_id, thread_id)][idA]["end"]
+                    preB = function_times[(process_id, thread_id)][idB]["start"]
+                    postB = function_times[(process_id, thread_id)][idB]["end"]
+                    if preB >= postA:
+                        break
+                    if postB <= preA:
+                        continue
+                    return False
+            return True
+
+        for i in range(invariant_length - 1):
+            func_A = inv.params[i]
+            func_B = inv.params[i + 1]
+
+            for group_events in group_by_events:
+                (process_id, thread_id), evs = group_events
+                sorted_group_events = evs.sort("time")
+
+                assert isinstance(func_A, APIParam) and isinstance(
+                    func_B, APIParam
+                ), "Invariant parameters should be string."
+
+                funcA = func_A.api_full_name
+                funcB = func_B.api_full_name
+
+                if not check_same_level(funcA, funcB, process_id, thread_id):
+                    continue
+
+                # check
+                flag_A = None
+                pre_recordA = None
+                for event in sorted_group_events.iter_rows(named=True):
+
+                    if event["type"] != "function_call (pre)":
+                        continue
+
+                    if funcA == event["function"]:
+                        if flag_A is None:
+                            flag_A = event["time"]
+                            pre_recordA = event
+                            continue
+
+                        if inv.precondition.verify([events], "func_lead"):
+                            return CheckerResult(
+                                trace=[pre_recordA, event],
+                                invariant=inv,
+                                check_passed=False,
+                            )
+
+                    if funcB == event["function"]:
+                        flag_A = None
+                        pre_recordA = None
+
+                # if flag_A is not None:
+                #     flag_A = None
+                #     if inv.precondition.verify([events], "func_lead"):
+                #         return CheckerResult(
+                #             trace=[pre_recordA],
+                #             invariant=inv,
+                #             check_passed=False,
+                #         )
 
         return CheckerResult(
             trace=None,
