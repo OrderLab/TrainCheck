@@ -204,7 +204,7 @@ def get_meta_vars() -> dict:
 
         frame_vars = frame.f_locals
 
-        file_full_path = frame.f_code.co_filename.strip(".py")
+        file_full_path = frame.f_code.co_filename
         if "/site-packages/" in file_full_path:
             file_full_path = file_full_path.split("/site-packages/")[1]
         file_full_path = file_full_path.strip("/home/")
@@ -220,9 +220,12 @@ def get_meta_vars() -> dict:
                 and name not in META_VARS_FORBID_LIST
             )
         }
-
+        
         if frame_vars:
-            all_frame_vars[file_full_path] = frame_vars
+            if file_full_path not in all_frame_vars:
+                all_frame_vars[file_full_path] = frame_vars
+            else:
+                all_frame_vars[file_full_path].update(frame_vars)
         frame = frame.f_back
     return all_frame_vars
 
