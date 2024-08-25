@@ -223,6 +223,52 @@ def global_wrapper(
     *args,
     **kwargs,
 ):
+    # If function prefix is torch.nn, get the type
+    is_type_nn = False
+    try: 
+        is_type_nn = original_function.__module__.startswith("torch.nn")
+    except:
+        pass
+
+    if is_type_nn:
+        # import pdb; pdb.set_trace()
+        # assert isinstance(original_function, types.FunctionType), f"original_function is not a function: {original_function}"
+
+        # Get signature
+        # import pdb; pdb.set_trace()
+        func_type_annotations = inspect.signature(original_function).parameters
+        func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
+
+        # args and kwargs
+        # if it is has "self", start from the second element
+        is_method = 'self' in func_type_annotations
+        is_wild_cast = 'args' in func_type_annotations and 'kwargs' in func_type_annotations
+
+        if not is_wild_cast:
+            args_value = args[1:] if is_method else args
+            kwargs_value = kwargs
+
+            # args substitute
+            func_type_dict = list(func_type_dict.items())
+
+            for idx, arg_value in enumerate(args_value):
+                # skip "self" if it is a method
+                if is_method:
+                    idx += 1
+
+                if func_type_dict[idx][1] == "<class 'inspect._empty'>":
+                    func_type_dict[idx] = (func_type_dict[idx][0], str(type(arg_value)))
+
+            func_type_dict = dict(func_type_dict)
+
+            # kwargs substitute
+            for k, v in kwargs_value.items():
+                if k in func_type_dict and func_type_dict[k] == "<class 'inspect._empty'>":
+                    func_type_dict[k] = str(type(v))
+        else:
+            func_type_dict = {}
+            kwargs_value = kwargs
+
     import uuid
 
     func_call_id = uuid.uuid4().hex
@@ -249,6 +295,9 @@ def global_wrapper(
         "proxy_obj_names": [
             ["", ""]
         ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
+        # "func_type_annotations": str(func_type_annotations) if is_type_nn else None,
+        "args": func_type_dict if is_type_nn else None,
+        # "kwargs": kwargs_value if is_type_nn else None,
     }
 
     if dump_stack_trace:
@@ -284,7 +333,8 @@ def global_wrapper(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                 )
 
-    dump_trace_API(pre_record)
+    if is_type_nn:
+        dump_trace_API(pre_record)
     if enable_C_level_observer and C_level_call:
         from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
 
@@ -295,23 +345,24 @@ def global_wrapper(
     try:
         result = original_function(*args, **kwargs)
     except Exception as e:
-        dump_trace_API(
-            {
-                "func_call_id": func_call_id,
-                "thread_id": thread_id,
-                "process_id": process_id,
-                "meta_vars": get_meta_vars(),
-                "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                "function": func_name,
-                "args": [f"{arg}" for arg in args],
-                "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
-                "exception": str(e),
-                "exception_type": f"{type(e)}",
-                "traceback": traceback.format_exc(),
-                "is_bound_method": is_bound_method,
-                "obj_id": None if not is_bound_method else id(args[0]),
-            },
-        )
+        if is_type_nn:
+            dump_trace_API(
+                {
+                    "func_call_id": func_call_id,
+                    "thread_id": thread_id,
+                    "process_id": process_id,
+                    "meta_vars": get_meta_vars(),
+                    "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    "function": func_name,
+                    "args": [f"{arg}" for arg in args],
+                    "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
+                    "exception": str(e),
+                    "exception_type": f"{type(e)}",
+                    "traceback": traceback.format_exc(),
+                    "is_bound_method": is_bound_method,
+                    "obj_id": None if not is_bound_method else id(args[0]),
+                },
+            )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
 
@@ -320,7 +371,9 @@ def global_wrapper(
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
     post_record["meta_vars"] = get_meta_vars()
-    dump_trace_API(post_record)
+    post_record["return_type"] = typename(result) if result is not None else None
+    if is_type_nn:
+        dump_trace_API(post_record)
 
     return result
 
@@ -566,6 +619,7 @@ class Instrumentor:
             "First pass: Recursive scan of the module"
         )
         assert isinstance(self.target, (types.ModuleType, type)), "Invalid target"
+
         first_pass_instrumented_count += self._instrument_module(
             self.target, visited_file_paths, True, 0
         )
