@@ -51,11 +51,10 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
                             None,
                             None,
                         ):
-                            pass
+                            observe_var.append(element)
                         else:
                             # TODO: @ziming-zh what's a good way to dump a log here? Does logger = logging.getLogger(__name__) work?
                             pass
-                        observe_var.append(element)
             if is_proxied(arg):
                 proxied_var.append(arg)
                 if should_dump_trace(
@@ -65,11 +64,10 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
                     None,
                     None,
                 ):
-                    pass
+                    observe_var.append(arg)
                 else:
                     # TODO: @ziming-zh what's a good way to dump a log here? Does logger = logging.getLogger(__name__) work?
                     pass
-                observe_var.append(arg)
         # print(typename(original_function), len(observe_var), len(proxied_var))
 
         # pre observe
