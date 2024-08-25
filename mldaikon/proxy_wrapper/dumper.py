@@ -1,18 +1,17 @@
-import inspect
 import json
 from typing import Dict
 
 import torch
 
-from mldaikon.instrumentor.tracer import meta_vars
-
 if torch.cuda.is_available():
     from mldaikon.proxy_wrapper.hash import tensor_hash
+
+from mldaikon.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
+from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
     delta_dump_config,
-    meta_var_black_list,
     primitive_types,
     tensor_dump_format,
 )
@@ -86,7 +85,7 @@ class json_dumper(metaclass=Singleton):
             "process_id": process_id,
             "thread_id": thread_id,
             "time": time,
-            "meta_vars": json.dumps(str(meta_vars)),
+            "meta_vars": meta_vars,
             "attributes": var_attributes,
         }
         json_data = json.dumps(data)
@@ -195,56 +194,23 @@ def dump_attributes(obj, value):
     return result
 
 
-def dump_meta_vars(obj, level=20, proxy_file_path=""):
-    # TODO: duplicated logic in proxy.py: get_frame_array and tracer.py: get_meta_vars
-    frame = inspect.currentframe()
-    while (
-        frame.f_code.co_filename == proxy_file_path
-        or frame.f_code.co_filename == __file__
-    ):
-        frame = frame.f_back
+def get_meta_vars(obj):
+    current_meta_vars = tracer_get_meta_vars()
 
-    important_vars = {}
-    # get the file name list inside the repo
-    i = 0
-    while i < level and frame is not None:
-        if "mldaikon" in frame.f_code.co_filename:
-            frame = frame.f_back
-            continue
-
-        frame_vars = frame.f_locals
-
-        important_vars.update(
-            {
-                key: frame_vars[key]
-                for key in frame_vars
-                # Ziming: only dump primitive types, block the var name on the black list
-                if isinstance(frame_vars[key], (int, float, str, bool))
-                and key not in meta_var_black_list
-                and key not in important_vars
-                and "mldaikon" not in key
-            }
-        )
-
-        frame = frame.f_back
-        if frame is None:
-            break
-        frame_vars = frame.f_locals
-        i += 1
-    dumped_meta_vars = concat_dicts(important_vars, meta_vars)
+    all_meta_vars = concat_dicts(current_meta_vars, meta_vars)
 
     if delta_dump and delta_dump_meta_var:
         # if they have common keys, only dump when old value is different from the new value
         old_value = obj.__dict__.get("old_meta_vars", {})
         # store the old value of the meta_var
-        store_old_value_meta_var(obj, meta_vars=dumped_meta_vars)
+        store_old_value_meta_var(obj, meta_vars=all_meta_vars)
         if old_value is not None:
-            dumped_meta_vars = {
+            all_meta_vars = {
                 key: value
-                for key, value in dumped_meta_vars.items()
+                for key, value in all_meta_vars.items()
                 if key not in old_value or old_value[key] != value
             }
-    return dumped_meta_vars
+    return all_meta_vars
 
 
 def concat_dicts(dict1, dict2):
@@ -290,6 +256,6 @@ def store_old_value_meta_var(obj, meta_vars=None):
         assert is_proxied(obj), "The object is not a proxied object"
         if delta_dump_meta_var:
             if meta_vars is None:
-                obj_dict["old_meta_vars"] = dump_meta_vars()
+                obj_dict["old_meta_vars"] = get_meta_vars(obj)
             else:
                 obj_dict["old_meta_vars"] = meta_vars

@@ -1,6 +1,6 @@
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace would work only when you manually add Proxy()
-proxy_update_limit = 999999999
+proxy_update_limit = 0
 debug_mode = False
 
 delta_dump_config = {
@@ -10,7 +10,7 @@ delta_dump_config = {
 }
 tensor_dump_format = {
     "dump_tensor_hash": True,  # dump the hash of the tensor
-    "dump_tensor_statistics": False,  # dump the statistics of tensor {min, max, mean, shape}
+    "dump_tensor_stats": False,  # dump the statistics of tensor {min, max, mean, shape}
     "dump_tensor_full": False,  # dump the full tensor
 }
 
@@ -40,31 +40,6 @@ primitive_types = {
     bool,
 }  # the primitive types that we want to filter out
 
-meta_var_black_list = [
-    "pre_process",
-    "post_process",
-    "__name__",
-    "__file__",
-    "__loader__",
-    "__doc__",
-    "logdir",
-    "log_level",
-    "is_root",
-    "var_name",
-    "mode",
-    "process_id",
-    "thread_id",
-    "dumped_frame_array",
-    "func_call_id",
-    "mldaikon_folder",
-    "enable_auto_observer_depth",
-    "neglect_hidden_func",
-    "neglect_hidden_module",
-    "observe_then_unproxy",
-    "observe_up_to_depth",
-    "log_file",
-    "log_dir",
-]
 tensor_attribute_black_list = [
     "T",
     "mT",

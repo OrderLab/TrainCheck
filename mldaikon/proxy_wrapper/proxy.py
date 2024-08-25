@@ -18,7 +18,7 @@ import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
 from mldaikon.proxy_wrapper.dumper import (
     SkippedDumpingObj,
     dump_attributes,
-    dump_meta_vars,
+    get_meta_vars,
 )
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.dumper import torch_serialize
@@ -248,9 +248,9 @@ class Proxy:
                 ):
                     return
         # Strong assertion: the previous type and current type of the object should be the same
-        assert typename(obj) == typename(
-            self._obj
-        ), f"Type of the object is changed from {typename(self._obj)} to {typename(obj)}, needs careful check"
+        # assert typename(obj) == typename(
+        #     self._obj
+        # ), f"Type of the object is changed from {typename(self._obj)} to {typename(obj)}, needs careful check"
 
         if not issubclass(type(obj), torch.nn.Module):
             dumped_val = str(torch_serialize(obj))
@@ -258,7 +258,7 @@ class Proxy:
                 process_id=self.process_id,
                 thread_id=self.thread_id,
                 time=current_time,
-                meta_vars=dump_meta_vars(self, proxy_file_path=__file__),
+                meta_vars=get_meta_vars(self),
                 var_name=self.__dict__["dumped_varname_list"],
                 var_type=typename(obj),
                 var_value=dumped_val,

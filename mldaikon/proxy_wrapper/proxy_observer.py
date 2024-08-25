@@ -37,11 +37,13 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
     @functools.wraps(original_function)
     def wrapper(*args, **kwargs):
         observe_var = []
+        proxied_var = []
         for arg in args:
             # if the arg is list or tuple, check if it contains proxied object
             if type(arg) in [list, tuple]:
                 for element in arg:
                     if is_proxied(element):
+                        proxied_var.append(element)
                         if should_dump_trace(
                             cond_dump,
                             None,
@@ -49,11 +51,13 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
                             None,
                             None,
                         ):
-                            observe_var.append(element)
+                            pass
                         else:
                             # TODO: @ziming-zh what's a good way to dump a log here? Does logger = logging.getLogger(__name__) work?
                             pass
+                        observe_var.append(element)
             if is_proxied(arg):
+                proxied_var.append(arg)
                 if should_dump_trace(
                     cond_dump,
                     None,
@@ -61,10 +65,12 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
                     None,
                     None,
                 ):
-                    observe_var.append(arg)
+                    pass
                 else:
                     # TODO: @ziming-zh what's a good way to dump a log here? Does logger = logging.getLogger(__name__) work?
                     pass
+                observe_var.append(arg)
+        # print(typename(original_function), len(observe_var), len(proxied_var))
 
         # pre observe
         trace_info = len(observe_var) * [None]
