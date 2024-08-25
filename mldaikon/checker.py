@@ -2,6 +2,7 @@ import argparse
 import datetime
 import json
 import logging
+import re
 
 from tqdm import tqdm
 
@@ -104,9 +105,16 @@ if __name__ == "__main__":
     invs = read_inv_file(args.invariants)
 
     logger.info("Reading traces from %s", "\n".join(args.traces))
-    traces = [
-        read_trace_file(args.traces)
-    ]  # TODO: we don't really support multiple traces yet, these are just traces from different processes and they are 'logically' the same trace as they
+
+    traces_string = args.traces[0]
+
+    trace_groups = re.findall(r"\[(.*?)\]", traces_string)
+
+    trace_file_groups = [group.split(", ") for group in trace_groups]
+
+    print(trace_file_groups)
+
+    traces = [read_trace_file(group) for group in trace_file_groups]
 
     results = check_engine(traces, invs, args.check_relation_first)
 
