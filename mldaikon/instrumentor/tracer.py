@@ -18,7 +18,10 @@ if TYPE_CHECKING:
     from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
 
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
-from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
+from mldaikon.instrumentor.replace_functions import (
+    adapt_func_for_proxy,
+    funcs_to_be_replaced,
+)
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 from mldaikon.proxy_wrapper.proxy_config import (
     disable_proxy_class,
@@ -289,6 +292,9 @@ def global_wrapper(
         from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
 
         original_function = add_observer_to_func(original_function, unproxy=True)
+
+        # type wrapper for the original function
+        original_function = adapt_func_for_proxy(original_function)
     elif C_level_call:
         args = [unproxy_arg(arg) for arg in args]
         kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}

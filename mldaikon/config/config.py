@@ -11,6 +11,11 @@ WRAP_WITHOUT_DUMP = [
     "torch._C",
     "torch._jit",
     "torch.jit",
+    "torch._tensor_str",
+    # "torch.is_grad_enabled",
+    # "torch.autograd.grad_mode",
+    # "torch._VariableFunctionsClass",
+    # "torch.get_default_dtype",
 ]
 
 # consistency relation configs
@@ -55,3 +60,6 @@ CONST_CLAUSE_NUM_VALUES_THRESHOLD = 1  # FIXME: ad-hoc
 VAR_INV_TYPE = (
     "type"  # how to describe the variable in the invariant, can be "type" or "name"
 )
+
+# Ziming: added config for e2e pipeline
+API_log_dir = "."

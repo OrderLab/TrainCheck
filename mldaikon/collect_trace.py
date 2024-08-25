@@ -92,7 +92,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--profiling",
-        type=bool,
+        type=str,
         default=proxy_config.profiling,
         help="Enable to do profiling during the training process,"
         "there would be a train_profiling_results.pstats file generated"
