@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 
 from tqdm import tqdm
 
@@ -86,9 +87,12 @@ for trace in traces:
 # with open("proxy_trace_processed.json", "w") as f:
 #     for trace in traces:
 #         f.write(json.dumps(trace) + "\n")
+processed_trace_folder = parent_folder + "processed_proxy_traces/"
+if not os.path.exists(processed_trace_folder):
+    os.makedirs(processed_trace_folder)
 for i, schema in enumerate(meta_vars_schema_traces):
     print(f"Schema {i}: {schema}")
     print(f"Number of traces: {len(meta_vars_schema_traces[schema])}")
-    with open(f"{parent_folder}proxy_trace_processed_{i}.json", "w") as f:
+    with open(f"{processed_trace_folder}proxy_trace_processed_{i}.json", "w") as f:
         for trace in meta_vars_schema_traces[schema]:
             f.write(json.dumps(trace) + "\n")

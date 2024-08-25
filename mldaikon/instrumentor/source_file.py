@@ -116,17 +116,22 @@ def instrument_file(
     use_full_instr: bool,
     funcs_of_inv_interest: list[str] | None,
     proxy_module: str,
-    adjusted_proxy_config: list[dict[str, int | bool]],
+    adjusted_proxy_config: list[dict[str, int | bool | str]],
     API_dump_stack_trace: bool,
     output_dir: str,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
     """
-    auto_observer_config: dict[str, int | bool] = adjusted_proxy_config[0]
-    proxy_basic_config: dict[str, int | bool] = adjusted_proxy_config[1]
-    tensor_dump_format: dict[str, int | bool] = adjusted_proxy_config[2]
-    delta_dump_config: dict[str, int | bool] = adjusted_proxy_config[3]
+    auto_observer_config: dict[str, int | bool | str] = adjusted_proxy_config[0]
+    proxy_basic_config: dict[str, int | bool | str] = adjusted_proxy_config[1]
+    tensor_dump_format: dict[str, int | bool | str] = adjusted_proxy_config[2]
+    delta_dump_config: dict[str, int | bool | str] = adjusted_proxy_config[3]
+
+    if "proxy_log_dir" not in proxy_basic_config:
+        from mldaikon.proxy_wrapper.proxy_config import proxy_log_dir
+
+        proxy_basic_config["proxy_log_dir"] = proxy_log_dir
 
     with open(path, "r") as file:
         source = file.read()
@@ -152,9 +157,7 @@ os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
     auto_observer_code = ""
 
     if not disable_proxy_class:
-        proxy_start_code = """
-from mldaikon.proxy_wrapper.proxy import Proxy
-"""
+
         if proxy_basic_config:
             proxy_start_code += f"""
 import mldaikon.proxy_wrapper.proxy_config as proxy_config
@@ -169,6 +172,9 @@ tensor_dump_format.update({tensor_dump_format})
             proxy_start_code += f"""
 from mldaikon.proxy_wrapper.proxy_config import delta_dump_config
 delta_dump_config.update({delta_dump_config})
+"""
+        proxy_start_code += """
+from mldaikon.proxy_wrapper.proxy import Proxy
 """
 
         if auto_observer_config["enable_auto_observer"]:
@@ -242,7 +248,11 @@ for log_file in log_files:
                         keywords=[
                             ast.keyword(
                                 arg="is_root", value=ast.NameConstant(value=True)
-                            )
+                            ),
+                            ast.keyword(
+                                arg="logdir",
+                                value=ast.Str(s=proxy_basic_config["proxy_log_dir"]),
+                            ),
                         ],
                     )
                     print(
