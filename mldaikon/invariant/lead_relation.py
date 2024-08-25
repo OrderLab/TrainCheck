@@ -467,7 +467,8 @@ class FunctionLeadRelation(Relation):
             inv: Invariant
                 The invariant to check on the trace.
         """
-        assert len(inv.params) == 2, "Invariant should have exactly two parameters."
+        # assert len(inv.params) == 2, "Invariant should have exactly two parameters."
+
         assert inv.precondition is not None, "Invariant should have a precondition."
 
         invariant_length = len(inv.params)
@@ -498,7 +499,7 @@ class FunctionLeadRelation(Relation):
 
                     if inv.precondition.verify([trace], "func_lead"):
                         return CheckerResult(
-                            trace=trace.events,
+                            trace=[event],
                             invariant=inv,
                             check_passed=False,
                         )
@@ -515,13 +516,13 @@ class FunctionLeadRelation(Relation):
                 flag_A = None
                 if inv.precondition.verify([trace], "func_lead"):
                     return CheckerResult(
-                        trace=trace.events,
+                        trace=[event],
                         invariant=inv,
                         check_passed=False,
                     )
 
         return CheckerResult(
-            trace=trace.events,
+            trace=None,
             invariant=inv,
             check_passed=True,
         )
