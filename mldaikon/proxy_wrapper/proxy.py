@@ -14,6 +14,7 @@ from typing import Dict
 import torch
 import torch.nn.parameter
 
+import mldaikon.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
 from mldaikon.proxy_wrapper.dumper import (
     SkippedDumpingObj,
@@ -21,13 +22,7 @@ from mldaikon.proxy_wrapper.dumper import (
     get_meta_vars,
 )
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
-from mldaikon.proxy_wrapper.dumper import torch_serialize
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
-from mldaikon.proxy_wrapper.proxy_config import (
-    dump_info_config,
-    primitive_types,
-    proxy_update_limit,
-)
 from mldaikon.proxy_wrapper.proxy_handler import handled_obj_type
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.utils import typename
@@ -146,7 +141,7 @@ class Proxy:
             - Proxy.var_dict[self.__dict__["var_name"]].__dict__[
                 "last_update_timestamp"
             ]
-            > proxy_update_limit
+            > proxy_config.proxy_update_limit
             or disable_sampling
         ):
             dump_pre_and_post_trace = False
@@ -239,7 +234,9 @@ class Proxy:
             var_name == self.__dict__["dumped_varname_list"]
         ), f"var_name {var_name} is not consistent with dumped_varname_list {self.__dict__['dumped_varname_list']}"
         assert var_name is not None  # '' is allowed as a var_name (root object)
-        filter_by_tensor_version = dump_info_config["filter_by_tensor_version"]
+        filter_by_tensor_version = proxy_config.dump_info_config[
+            "filter_by_tensor_version"
+        ]
         if filter_by_tensor_version and status == "update":
             if hasattr(obj, "_version"):
                 if (
@@ -374,8 +371,8 @@ class Proxy:
         ):  # if the object is not proxied yet
 
             self.__dict__["_obj"] = obj
-            dump_call_return = dump_info_config["dump_call_return"]
-            dump_iter = dump_info_config["dump_iter"]
+            dump_call_return = proxy_config.dump_info_config["dump_call_return"]
+            dump_iter = proxy_config.dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
             if not dump_iter and from_iter:
@@ -414,11 +411,11 @@ class Proxy:
                 - Proxy.var_dict[current_var_name_list].__dict__[
                     "last_update_timestamp"
                 ]
-                < proxy_update_limit
+                < proxy_config.proxy_update_limit
             ):
                 return
-            dump_call_return = dump_info_config["dump_call_return"]
-            dump_iter = dump_info_config["dump_iter"]
+            dump_call_return = proxy_config.dump_info_config["dump_call_return"]
+            dump_iter = proxy_config.dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
 
@@ -517,7 +514,7 @@ class Proxy:
                     ),
                 )
             # dump frame array
-            if type(value) in primitive_types:
+            if type(value) in proxy_config.primitive_types:
                 self.dump_trace("update", disable_sampling=True)
             else:
                 self.dump_trace("update")
