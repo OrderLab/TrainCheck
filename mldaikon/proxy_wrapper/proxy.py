@@ -253,7 +253,6 @@ class Proxy:
         # ), f"Type of the object is changed from {typename(self._obj)} to {typename(obj)}, needs careful check"
 
         if not issubclass(type(obj), torch.nn.Module):
-            dumped_val = str(torch_serialize(obj))
             self.jsondumper.dump_json(
                 process_id=self.process_id,
                 thread_id=self.thread_id,
@@ -261,7 +260,6 @@ class Proxy:
                 meta_vars=get_meta_vars(self),
                 var_name=self.__dict__["dumped_varname_list"],
                 var_type=typename(obj),
-                var_value=dumped_val,
                 change_type=status,
                 var_attributes=dump_attributes(self, obj),
                 stack_trace=dumped_frame_array,

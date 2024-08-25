@@ -7,7 +7,7 @@ if torch.cuda.is_available():
     from mldaikon.proxy_wrapper.hash import tensor_hash
 
 from mldaikon.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
-from mldaikon.instrumentor.tracer import meta_vars
+from mldaikon.instrumentor.tracer import meta_vars, TraceLineType
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
@@ -55,7 +55,6 @@ class json_dumper(metaclass=Singleton):
         meta_vars,
         var_name,
         var_type,
-        var_value,
         change_type,
         var_attributes,
         stack_trace=None,
@@ -66,14 +65,6 @@ class json_dumper(metaclass=Singleton):
             or var_type == "function"
             or var_type in primitive_types
         ):
-            return
-        if (
-            stack_trace
-            == """[["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/adam.py", 92, "if p.grad is not None:"], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/adam.py", 157, "has_complex = self._init_group("], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/optimizer.py", 76, "ret = func(self, *args, **kwargs)"], ["/home/ziming/miniconda3/lib/python3.11/site-packages/torch/optim/optimizer.py", 385, "out = func(*args, **kwargs)"], ["/data/ziming/ml-daikon/_ml_daikon_instrumented_84911.py", 100, "optimizer.step()"], ["/data/ziming/ml-daikon/_ml_daikon_instrumented_84911.py", 141, "model_transfer, res = train(num_epochs, data_transfer, model_transfer, optimizer_transfer, criterion_transfer, use_cuda, f'results/{num_epochs}_{lr}')"]]"""
-        ):
-            import pdb
-
-            pdb.set_trace()
             return
 
         data = {
@@ -87,6 +78,7 @@ class json_dumper(metaclass=Singleton):
             "time": time,
             "meta_vars": meta_vars,
             "attributes": var_attributes,
+            "type": TraceLineType.STATE_CHANGE,
         }
         json_data = json.dumps(data)
 
