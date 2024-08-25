@@ -110,11 +110,12 @@ if __name__ == "__main__":
 
     trace_groups = re.findall(r"\[(.*?)\]", traces_string)
 
-    trace_file_groups = [group.split(", ") for group in trace_groups]
+    if len(trace_groups) == 0:
+        traces = [read_trace_file(args.traces)]
+    else:
+        trace_file_groups = [group.split(", ") for group in trace_groups]
 
-    print(trace_file_groups)
-
-    traces = [read_trace_file(group) for group in trace_file_groups]
+        traces = [read_trace_file(group) for group in trace_file_groups]
 
     results = check_engine(traces, invs, args.check_relation_first)
 
