@@ -1,12 +1,11 @@
 # Description: Extracts the argument types from the trace file
-# Example: python type_annotation.py -f /home/beijie/repos/daikon/type_anno/trace_API_*.log [-o output.json]
+# Example: python -m mldaikon.pre_instrument.type_annotation -f ./mldaikon_run_PT84911_torch_2.2.2_2024-08-25_23-46-28/trace_*.log
 
 import argparse
 import json
 from collections import defaultdict
 
-import torch
-torch.nn.modules.utils._reverse_repeat_tuple
+
 def type_annotation_from_trace(trace_path: str):
     """Extract type information from a trace file."""
 
