@@ -1,3 +1,5 @@
+# Description: Extract the native functions from native_functions.yaml and filter the functions that intended to change the value.
+
 from collections import defaultdict
 import re
 
