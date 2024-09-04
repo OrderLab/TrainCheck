@@ -158,7 +158,7 @@ class FunctionLeadRelation(Relation):
                 return False
 
             if funcB not in function_id_map[(process_id, thread_id)]:
-                return False
+                return True
 
             for idA in function_id_map[(process_id, thread_id)][funcA]:
                 for idB in function_id_map[(process_id, thread_id)][funcB]:
@@ -539,7 +539,7 @@ class FunctionLeadRelation(Relation):
                 return False
 
             if funcB not in function_id_map[(process_id, thread_id)]:
-                return False
+                return True
 
             for idA in function_id_map[(process_id, thread_id)][funcA]:
                 for idB in function_id_map[(process_id, thread_id)][funcB]:

@@ -155,11 +155,11 @@ class FunctionCoverRelation(Relation):
             if funcA == funcB:
                 return False
 
-            if funcA not in function_id_map[(process_id, thread_id)]:
-                return False
-
             if funcB not in function_id_map[(process_id, thread_id)]:
                 return False
+
+            if funcA not in function_id_map[(process_id, thread_id)]:
+                return True
 
             for idA in function_id_map[(process_id, thread_id)][funcA]:
                 for idB in function_id_map[(process_id, thread_id)][funcB]:
@@ -467,6 +467,10 @@ class FunctionCoverRelation(Relation):
 
         events = trace.events
 
+        all_function_df = events.filter()
+
+        all_function = set(all_function_df["function"].unique().to_list())
+
         function_pool = []
 
         for i in range(invariant_length):
@@ -528,12 +532,12 @@ class FunctionCoverRelation(Relation):
         def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
             if funcA == funcB:
                 return False
-
-            if funcA not in function_id_map[(process_id, thread_id)]:
-                return False
-
+            
             if funcB not in function_id_map[(process_id, thread_id)]:
                 return False
+
+            if funcA not in function_id_map[(process_id, thread_id)]:
+                return True
 
             for idA in function_id_map[(process_id, thread_id)][funcA]:
                 for idB in function_id_map[(process_id, thread_id)][funcB]:
