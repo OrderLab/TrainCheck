@@ -467,9 +467,9 @@ class FunctionCoverRelation(Relation):
 
         events = trace.events
 
-        all_function_df = events.filter()
+        # all_function_df = events.filter()
 
-        all_function = set(all_function_df["function"].unique().to_list())
+        # all_function = set(all_function_df["function"].unique().to_list())
 
         function_pool = []
 
@@ -532,7 +532,7 @@ class FunctionCoverRelation(Relation):
         def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
             if funcA == funcB:
                 return False
-            
+
             if funcB not in function_id_map[(process_id, thread_id)]:
                 return False
 
