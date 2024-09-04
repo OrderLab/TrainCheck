@@ -44,6 +44,7 @@ stop_event = threading.Event()
 monitoring_thread = None
 trace_API_dumper_queues: dict[PTID, Queue] = {}
 trace_VAR_dumper_queues: dict[PTID, Queue] = {}
+trace_FUNC_ARG_dumper_queues: dict[PTID, Queue] = {}
 
 # per process logging
 instrumentation_loggers: dict[int, logging.Logger] = {}
@@ -147,6 +148,38 @@ def get_trace_VAR_dumper_queue():
     return trace_queue
 
 
+def get_trace_FUNC_ARG_dumper_queue():
+    global monitoring_thread
+    if monitoring_thread is None:
+        monitoring_thread = threading.Thread(
+            target=monitor_main_thread, args=(threading.main_thread(), stop_event)
+        )
+        monitoring_thread.start()
+
+    pid = os.getpid()
+    tid = threading.current_thread().ident
+
+    ptid = PTID(pid, tid)
+    if ptid in trace_FUNC_ARG_dumper_queues:
+        return trace_FUNC_ARG_dumper_queues[ptid]
+
+    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
+    assert (
+        output_dir is not None
+    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
+
+    trace_queue = Queue()
+    trace_file_name = f"trace_FUNC_ARG_{pid}_{tid}.log"
+    trace_file_full_path = os.path.join(output_dir, trace_file_name)
+    log_thread = threading.Thread(
+        target=trace_dumper, args=(trace_queue, trace_file_full_path, stop_event)
+    )
+    log_thread.start()
+
+    trace_FUNC_ARG_dumper_queues[ptid] = trace_queue
+    return trace_queue
+
+
 def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     trace_queue = get_trace_API_dumper_queue()
@@ -157,6 +190,14 @@ def dump_trace_API(trace: dict):
 def dump_trace_VAR(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     trace_queue = get_trace_VAR_dumper_queue()
+    if "time" not in trace:
+        trace["time"] = datetime.datetime.now().timestamp()
+    trace_queue.put(trace)
+
+
+def dump_trace_FUNC_ARG(trace: dict):
+    """add a timestamp (unix) to the trace and dump it to the trace log file"""
+    trace_queue = get_trace_FUNC_ARG_dumper_queue()
     if "time" not in trace:
         trace["time"] = datetime.datetime.now().timestamp()
     trace_queue.put(trace)
@@ -226,6 +267,9 @@ def global_wrapper(
     *args,
     **kwargs,
 ):
+    ## TODO: put nn type in the above arguments
+    ## TODO: look at dump_attributes to add tensor stats, add return value stats
+
     # If function prefix is torch.nn, get the type
     is_type_nn = False
     try: 
@@ -235,16 +279,15 @@ def global_wrapper(
 
     if is_type_nn:
         # import pdb; pdb.set_trace()
-        # assert isinstance(original_function, types.FunctionType), f"original_function is not a function: {original_function}"
-
         # Get signature
-        # import pdb; pdb.set_trace()
         func_type_annotations = inspect.signature(original_function).parameters
         func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
 
         # args and kwargs
         # if it is has "self", start from the second element
         is_method = 'self' in func_type_annotations
+
+        # check if the signature has wild cast
         is_wild_cast = 'args' in func_type_annotations and 'kwargs' in func_type_annotations
 
         if not is_wild_cast:
@@ -298,10 +341,49 @@ def global_wrapper(
         "proxy_obj_names": [
             ["", ""]
         ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
-        # "func_type_annotations": str(func_type_annotations) if is_type_nn else None,
         "args": func_type_dict if is_type_nn else None,
-        # "kwargs": kwargs_value if is_type_nn else None,
     }
+
+    if is_type_nn:
+        # Dump args trace
+        func_type_annotations = inspect.signature(original_function).parameters
+        func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
+        is_method = 'self' in func_type_annotations
+        args_values = args[1:] if is_method else args
+        for idx, arg_value in enumerate(args_values):
+            # TODO: more general
+            if "Tensor" in typename(arg_value):
+                if is_method and idx + 1 >= len(func_type_dict):
+                    import pdb; pdb.set_trace()
+                elif not is_method and idx >= len(func_type_dict):
+                    import pdb; pdb.set_trace()
+
+                def tensor_stats(tensor):
+                    min = float(tensor.min().item())
+                    max = float(tensor.max().item())
+                    mean = float(tensor.mean().item())
+                    std = float(tensor.std().item())
+                    shape = tuple(int(x) for x in tensor.size())
+                    return {
+                        "min": min,
+                        "max": max,
+                        "mean": mean,
+                        "std": std,
+                        "shape": shape,
+                    }
+
+                func_arg_record = {
+                    "process_id": process_id,
+                    "thread_id": thread_id,
+                    # "meta_vars": get_meta_vars(),
+                    # "type": TraceLineType.STATE_CHANGE,
+                    "var_type": typename(arg_value),
+                    "var_name": list(func_type_dict)[idx+1] if is_method else list(func_type_dict)[idx],
+                    "func_name": func_name,
+                    "tensor_stats": tensor_stats(arg_value),
+                }
+
+                dump_trace_FUNC_ARG(func_arg_record)
 
     if dump_stack_trace:
         pre_record["stack_trace"] = traceback.format_stack()
@@ -336,8 +418,7 @@ def global_wrapper(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                 )
 
-    if is_type_nn:
-        dump_trace_API(pre_record)
+    dump_trace_API(pre_record)
     if enable_C_level_observer and C_level_call:
         from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
 
@@ -351,24 +432,23 @@ def global_wrapper(
     try:
         result = original_function(*args, **kwargs)
     except Exception as e:
-        if is_type_nn:
-            dump_trace_API(
-                {
-                    "func_call_id": func_call_id,
-                    "thread_id": thread_id,
-                    "process_id": process_id,
-                    "meta_vars": get_meta_vars(),
-                    "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                    "function": func_name,
-                    "args": [f"{arg}" for arg in args],
-                    "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
-                    "exception": str(e),
-                    "exception_type": f"{type(e)}",
-                    "traceback": traceback.format_exc(),
-                    "is_bound_method": is_bound_method,
-                    "obj_id": None if not is_bound_method else id(args[0]),
-                },
-            )
+        dump_trace_API(
+            {
+                "func_call_id": func_call_id,
+                "thread_id": thread_id,
+                "process_id": process_id,
+                "meta_vars": get_meta_vars(),
+                "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                "function": func_name,
+                "args": [f"{arg}" for arg in args],
+                "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
+                "exception": str(e),
+                "exception_type": f"{type(e)}",
+                "traceback": traceback.format_exc(),
+                "is_bound_method": is_bound_method,
+                "obj_id": None if not is_bound_method else id(args[0]),
+            },
+        )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
 
@@ -378,8 +458,7 @@ def global_wrapper(
     post_record["type"] = TraceLineType.FUNC_CALL_POST
     post_record["meta_vars"] = get_meta_vars()
     post_record["return_type"] = typename(result) if result is not None else None
-    if is_type_nn:
-        dump_trace_API(post_record)
+    dump_trace_API(post_record)
 
     return result
 
