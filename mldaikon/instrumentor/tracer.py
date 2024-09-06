@@ -264,56 +264,13 @@ def global_wrapper(
     is_bound_method,
     scan_proxy_in_args,
     dump_stack_trace,
+    dump_func_args,
     *args,
     **kwargs,
 ):
+    ## TODO: dump_func_args still not used
     ## TODO: put nn type in the above arguments
-    ## TODO: look at dump_attributes to add tensor stats, add return value stats
-
-    # If function prefix is torch.nn, get the type
-    is_type_nn = False
-    try: 
-        is_type_nn = original_function.__module__.startswith("torch.nn")
-    except:
-        pass
-
-    if is_type_nn:
-        # import pdb; pdb.set_trace()
-        # Get signature
-        func_type_annotations = inspect.signature(original_function).parameters
-        func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
-
-        # args and kwargs
-        # if it is has "self", start from the second element
-        is_method = 'self' in func_type_annotations
-
-        # check if the signature has wild cast
-        is_wild_cast = 'args' in func_type_annotations and 'kwargs' in func_type_annotations
-
-        if not is_wild_cast:
-            args_value = args[1:] if is_method else args
-            kwargs_value = kwargs
-
-            # args substitute
-            func_type_dict = list(func_type_dict.items())
-
-            for idx, arg_value in enumerate(args_value):
-                # skip "self" if it is a method
-                if is_method:
-                    idx += 1
-
-                if func_type_dict[idx][1] == "<class 'inspect._empty'>":
-                    func_type_dict[idx] = (func_type_dict[idx][0], str(type(arg_value)))
-
-            func_type_dict = dict(func_type_dict)
-
-            # kwargs substitute
-            for k, v in kwargs_value.items():
-                if k in func_type_dict and func_type_dict[k] == "<class 'inspect._empty'>":
-                    func_type_dict[k] = str(type(v))
-        else:
-            func_type_dict = {}
-            kwargs_value = kwargs
+    ## TODO: add return value stats
 
     import uuid
 
@@ -329,6 +286,97 @@ def global_wrapper(
 
     func_name = typename(original_function)
 
+    func_type_dict = {}
+
+    # If function prefix is torch.nn, get the type
+    is_type_nn = False
+    try: 
+        is_type_nn = original_function.__module__.startswith("torch.nn")
+    except:
+        pass
+
+    if is_type_nn:
+        # import pdb; pdb.set_trace()
+        # Note: this loop only runs once!
+        while True:  # a hack that allows us to skip the dumping
+            # Get signature
+            try:  # Builtin functions do not have signature
+                func_type_annotations = inspect.signature(original_function).parameters
+            except:
+                logger.error(f"Error in inspect.signature: {func_name}")
+                break
+            func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
+
+            # args and kwargs
+            # if it is has "self", start from the second element
+            is_method = 'self' in func_type_annotations
+
+            # check if the signature has wild cast
+            is_wild_cast = 'args' in func_type_annotations and 'kwargs' in func_type_annotations
+
+            if is_wild_cast:
+                func_type_dict = {}
+                kwargs_value = kwargs
+                break  # skip the dumping
+
+            args_value = args[1:] if is_method else args
+            kwargs_value = kwargs
+
+            # args substitution
+            func_type_dict = list(func_type_dict.items())
+
+            for idx, arg_value in enumerate(args_value):
+                # skip "self" if it is a method
+                if is_method:
+                    idx += 1
+
+                if func_type_dict[idx][1] == "<class 'inspect._empty'>":
+                    func_type_dict[idx] = (func_type_dict[idx][0], str(type(arg_value)))
+
+            func_type_dict = dict(func_type_dict)
+
+            # kwargs substitution
+            for k, v in kwargs_value.items():
+                if k in func_type_dict and func_type_dict[k] == "<class 'inspect._empty'>":
+                    func_type_dict[k] = str(type(v))
+
+            # if one variable is of Tensor type, dump the FUNC_ARG trace
+            def tensor_stats(tensor):
+                try:
+                    min = float(tensor.min().item())
+                    max = float(tensor.max().item())
+                    mean = float(tensor.mean().item())
+                    std = float(tensor.std().item())
+                    shape = tuple(int(x) for x in tensor.size())
+                    return {
+                        "min": min,
+                        "max": max,
+                        "mean": mean,
+                        "std": std,
+                        "shape": shape,
+                    }
+                except Exception as e:
+                    logger.error(f"Error in tensor_stats: {type(e)} {e}")
+                    return {}
+
+            for idx, arg_value in enumerate(args_value):
+                # TODO: more general
+                if "Tensor" in typename(arg_value):
+                    func_arg_record = {
+                        "process_id": process_id,
+                        "thread_id": thread_id,
+                        # "meta_vars": get_meta_vars(),
+                        # "type": TraceLineType.STATE_CHANGE,
+                        "var_type": typename(arg_value),
+                        "var_name": list(func_type_dict)[idx+1] if is_method else list(func_type_dict)[idx],
+                        "func_name": func_name,
+                        "tensor_stats": tensor_stats(arg_value),
+                    }
+
+                    dump_trace_FUNC_ARG(func_arg_record)
+
+            break
+
     pre_record = {
         "func_call_id": func_call_id,
         "thread_id": thread_id,
@@ -343,47 +391,6 @@ def global_wrapper(
         ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
         "args": func_type_dict if is_type_nn else None,
     }
-
-    if is_type_nn:
-        # Dump args trace
-        func_type_annotations = inspect.signature(original_function).parameters
-        func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
-        is_method = 'self' in func_type_annotations
-        args_values = args[1:] if is_method else args
-        for idx, arg_value in enumerate(args_values):
-            # TODO: more general
-            if "Tensor" in typename(arg_value):
-                if is_method and idx + 1 >= len(func_type_dict):
-                    import pdb; pdb.set_trace()
-                elif not is_method and idx >= len(func_type_dict):
-                    import pdb; pdb.set_trace()
-
-                def tensor_stats(tensor):
-                    min = float(tensor.min().item())
-                    max = float(tensor.max().item())
-                    mean = float(tensor.mean().item())
-                    std = float(tensor.std().item())
-                    shape = tuple(int(x) for x in tensor.size())
-                    return {
-                        "min": min,
-                        "max": max,
-                        "mean": mean,
-                        "std": std,
-                        "shape": shape,
-                    }
-
-                func_arg_record = {
-                    "process_id": process_id,
-                    "thread_id": thread_id,
-                    # "meta_vars": get_meta_vars(),
-                    # "type": TraceLineType.STATE_CHANGE,
-                    "var_type": typename(arg_value),
-                    "var_name": list(func_type_dict)[idx+1] if is_method else list(func_type_dict)[idx],
-                    "func_name": func_name,
-                    "tensor_stats": tensor_stats(arg_value),
-                }
-
-                dump_trace_FUNC_ARG(func_arg_record)
 
     if dump_stack_trace:
         pre_record["stack_trace"] = traceback.format_stack()
@@ -490,6 +497,7 @@ def wrapper(
     is_bound_method,
     scan_proxy_in_args,
     dump_stack_trace,
+    dump_func_args,
     disable_dump=False,
 ):
     if not disable_dump:
@@ -502,6 +510,7 @@ def wrapper(
                 is_bound_method,
                 scan_proxy_in_args,
                 dump_stack_trace,
+                dump_func_args,
                 *args,
                 **kwargs,
             )
@@ -628,6 +637,7 @@ class Instrumentor:
         use_full_instr: bool,
         funcs_of_inv_interest: Optional[list[str]] = None,
         API_dump_stack_trace: bool = False,
+        FUNC_ARG_dump_stack_trace: bool = False,
     ):
         """
         Instruments the specified target with additional tracing functionality.
@@ -679,6 +689,7 @@ class Instrumentor:
         self.use_full_instr = use_full_instr
         self.funcs_of_inv_interest = funcs_of_inv_interest
         self.API_dump_stack_trace = API_dump_stack_trace
+        self.FUNC_ARG_dump_stack_trace = FUNC_ARG_dump_stack_trace
 
         if self.funcs_of_inv_interest is not None and self.use_full_instr:
             get_instrumentation_logger_for_process().fatal(
@@ -941,6 +952,7 @@ class Instrumentor:
                     scan_proxy_in_args=self.scan_proxy_in_args,
                     disable_dump=self.should_disable_dump(attr),
                     dump_stack_trace=self.API_dump_stack_trace,
+                    dump_func_args=self.FUNC_ARG_dump_stack_trace
                 )
                 try:
                     setattr(pymodule, attr_name, wrapped)
