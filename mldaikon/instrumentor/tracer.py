@@ -342,6 +342,7 @@ def global_wrapper(
     except:
         pass
 
+    # Dump the function arguments if the function is from torch.nn
     if is_type_nn:
         # if func_name == "torch.nn.modules.module.Module.to" or func_name == "torch.nn.modules.module.Module.__init__":
         #     import pdb; pdb.set_trace()
@@ -391,45 +392,57 @@ def global_wrapper(
                 # elif k not in func_type_dict:
                 #     func_type_dict[k] = str(type(v))
 
-            if is_method:
-                try:
-                    if args[0].__dict__ != {}:
-                        self_record = {
-                            "process_id": process_id,
-                            "thread_id": thread_id,
-                            # "meta_vars": get_meta_vars(),
-                            # "type": TraceLineType.STATE_CHANGE,
-                            "var_type": typename(arg_value),
-                            "var_name": "self",
-                            "func_name": func_name,
-                            "self_stat": {k: json.dumps(v) for k, v in args[0].__dict__} if is_method else None,
-                        }
+            # if is_method:
+            #     try:
+            #         if args[0].__dict__ != {}:
+            #             self_record = {
+            #                 "process_id": process_id,
+            #                 "thread_id": thread_id,
+            #                 # "meta_vars": get_meta_vars(),
+            #                 # "type": TraceLineType.STATE_CHANGE,
+            #                 "var_type": typename(arg_value),
+            #                 "var_name": "self",
+            #                 "func_name": func_name,
+            #                 "self_stat": {k: json.dumps(v) for k, v in args[0].__dict__} if is_method else None,
+            #             }
 
-                        dump_trace_FUNC_ARG(self_record)
-                except:
-                    pass
+            #             dump_trace_FUNC_ARG(self_record)
+            #     except:
+            #         pass
 
             for idx, arg_value in enumerate(args_value):
                 # TODO: more general
                 if is_method and idx == 0:
-                    self_record = {
-                        "process_id": process_id,
-                        "thread_id": thread_id,
-                        # "meta_vars": get_meta_vars(),
-                        # "type": TraceLineType.STATE_CHANGE,
-                        "var_type": typename(arg_value),
-                        "var_name": "self",
-                        "func_name": func_name,
-                        "self_stat": convert_self_dict_to_json(args[0].__dict__) if is_method and args[0].__dict__ != {} else None,
-                    }
-                    dump_trace_FUNC_ARG(self_record)
+                    if is_method and '_parameters' in args[0].__dict__ and 'weight' in args[0]._parameters:
+                        # import pdb; pdb.set_trace()
+                        # self_stat = convert_self_dict_to_json(args[0]._parameters)
+                        self_stat = tensor_stats(args[0]._parameters['weight'])
+                    else:
+                        self_stat = None
+
+                    if self_stat:
+                        self_record = {
+                            # "process_id": process_id,
+                            # "thread_id": thread_id,
+                            # "meta_vars": get_meta_vars(),
+                            # "type": TraceLineType.STATE_CHANGE,
+                            "is_method": is_method,
+                            "var_type": typename(arg_value),
+                            "var_name": "self",
+                            "func_name": func_name,
+                            "self_stat": self_stat,
+                        }
+                        dump_trace_FUNC_ARG(self_record)
+
+                    continue
 
                 if "Tensor" in typename(arg_value) or "Linear" in typename(arg_value):
                     func_arg_record = {
-                        "process_id": process_id,
-                        "thread_id": thread_id,
+                        # "process_id": process_id,
+                        # "thread_id": thread_id,
                         # "meta_vars": get_meta_vars(),
                         # "type": TraceLineType.STATE_CHANGE,
+                        "is_method": is_method,
                         "var_type": typename(arg_value),
                         "var_name": idx,  # TODO: more general
                         "func_name": func_name,
