@@ -10,6 +10,7 @@ import traceback
 import types
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Callable, NamedTuple, Optional
+from collections import OrderedDict
 
 import torch
 import torch.utils
@@ -270,7 +271,53 @@ def global_wrapper(
 ):
     ## TODO: dump_func_args still not used
     ## TODO: put nn type in the above arguments
-    ## TODO: add return value stats
+
+    # if one variable is of Tensor type, dump the FUNC_ARG trace
+    def tensor_stats(tensor):
+        stats = {}
+        try:
+            stats['min'] = float(tensor.min().item())
+        except Exception as e:
+            pass
+        
+        try:
+            stats['max'] = float(tensor.max().item())
+        except Exception as e:
+            pass
+        
+        try:
+            stats['mean'] = float(tensor.mean().item())
+        except Exception as e:
+            pass
+        
+        try:
+            stats['std'] = float(tensor.std().item())
+        except Exception as e:
+            pass
+        
+        try:
+            stats['shape'] = tuple(int(x) for x in tensor.size())
+        except Exception as e:
+            pass
+        
+        return stats
+
+    def convert_self_dict_to_json(self_dict):
+        def convert_value(v):
+            if isinstance(v, OrderedDict):
+                return {k: convert_value(vv) for k, vv in v.items()}
+            elif isinstance(v, set):
+                return list(v)
+            elif isinstance(v, torch.nn.Parameter):
+                return v.detach().cpu().numpy().tolist()
+            elif isinstance(v, torch.Tensor):
+                return v.cpu().numpy().tolist()
+            elif v is None:
+                return 'null'
+            return v
+
+        ret_dict = {k: convert_value(v) for k, v in self_dict.items()}
+        return ret_dict
 
     import uuid
 
@@ -296,15 +343,17 @@ def global_wrapper(
         pass
 
     if is_type_nn:
-        # import pdb; pdb.set_trace()
+        # if func_name == "torch.nn.modules.module.Module.to" or func_name == "torch.nn.modules.module.Module.__init__":
+        #     import pdb; pdb.set_trace()
         # Note: this loop only runs once!
         while True:  # a hack that allows us to skip the dumping
             # Get signature
             try:  # Builtin functions do not have signature
                 func_type_annotations = inspect.signature(original_function).parameters
             except:
-                logger.error(f"Error in inspect.signature: {func_name}")
+                print(f"Error in inspect.signature: {func_name}")
                 break
+
             func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
 
             # args and kwargs
@@ -317,58 +366,72 @@ def global_wrapper(
             if is_wild_cast:
                 func_type_dict = {}
                 kwargs_value = kwargs
-                break  # skip the dumping
+                args_value = args
+            else:
+                args_value = args
+                kwargs_value = kwargs
 
-            args_value = args[1:] if is_method else args
-            kwargs_value = kwargs
+                # args substitution
+                func_type_dict = list(func_type_dict.items())
 
-            # args substitution
-            func_type_dict = list(func_type_dict.items())
+                for idx, arg_value in enumerate(args_value):
+                    # skip "self" if it is a method
+                    if is_method and idx == 0:
+                        continue
 
-            for idx, arg_value in enumerate(args_value):
-                # skip "self" if it is a method
-                if is_method:
-                    idx += 1
+                    if func_type_dict[idx][1] == "<class 'inspect._empty'>":
+                        func_type_dict[idx] = (func_type_dict[idx][0], str(type(arg_value)))
 
-                if func_type_dict[idx][1] == "<class 'inspect._empty'>":
-                    func_type_dict[idx] = (func_type_dict[idx][0], str(type(arg_value)))
-
-            func_type_dict = dict(func_type_dict)
+                func_type_dict = dict(func_type_dict)
 
             # kwargs substitution
             for k, v in kwargs_value.items():
                 if k in func_type_dict and func_type_dict[k] == "<class 'inspect._empty'>":
                     func_type_dict[k] = str(type(v))
+                # elif k not in func_type_dict:
+                #     func_type_dict[k] = str(type(v))
 
-            # if one variable is of Tensor type, dump the FUNC_ARG trace
-            def tensor_stats(tensor):
+            if is_method:
                 try:
-                    min = float(tensor.min().item())
-                    max = float(tensor.max().item())
-                    mean = float(tensor.mean().item())
-                    std = float(tensor.std().item())
-                    shape = tuple(int(x) for x in tensor.size())
-                    return {
-                        "min": min,
-                        "max": max,
-                        "mean": mean,
-                        "std": std,
-                        "shape": shape,
-                    }
-                except Exception as e:
-                    logger.error(f"Error in tensor_stats: {type(e)} {e}")
-                    return {}
+                    if args[0].__dict__ != {}:
+                        self_record = {
+                            "process_id": process_id,
+                            "thread_id": thread_id,
+                            # "meta_vars": get_meta_vars(),
+                            # "type": TraceLineType.STATE_CHANGE,
+                            "var_type": typename(arg_value),
+                            "var_name": "self",
+                            "func_name": func_name,
+                            "self_stat": {k: json.dumps(v) for k, v in args[0].__dict__} if is_method else None,
+                        }
+
+                        dump_trace_FUNC_ARG(self_record)
+                except:
+                    pass
 
             for idx, arg_value in enumerate(args_value):
                 # TODO: more general
-                if "Tensor" in typename(arg_value):
+                if is_method and idx == 0:
+                    self_record = {
+                        "process_id": process_id,
+                        "thread_id": thread_id,
+                        # "meta_vars": get_meta_vars(),
+                        # "type": TraceLineType.STATE_CHANGE,
+                        "var_type": typename(arg_value),
+                        "var_name": "self",
+                        "func_name": func_name,
+                        "self_stat": convert_self_dict_to_json(args[0].__dict__) if is_method and args[0].__dict__ != {} else None,
+                    }
+                    dump_trace_FUNC_ARG(self_record)
+
+                if "Tensor" in typename(arg_value) or "Linear" in typename(arg_value):
                     func_arg_record = {
                         "process_id": process_id,
                         "thread_id": thread_id,
                         # "meta_vars": get_meta_vars(),
                         # "type": TraceLineType.STATE_CHANGE,
                         "var_type": typename(arg_value),
-                        "var_name": list(func_type_dict)[idx+1] if is_method else list(func_type_dict)[idx],
+                        "var_name": idx,  # TODO: more general
                         "func_name": func_name,
                         "tensor_stats": tensor_stats(arg_value),
                     }
@@ -447,8 +510,8 @@ def global_wrapper(
                 "meta_vars": get_meta_vars(),
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": func_name,
-                "args": [f"{arg}" for arg in args],
-                "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
+                # "args": [f"{arg}" for arg in args],
+                # "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
                 "exception": str(e),
                 "exception_type": f"{type(e)}",
                 "traceback": traceback.format_exc(),
@@ -466,6 +529,20 @@ def global_wrapper(
     post_record["meta_vars"] = get_meta_vars()
     post_record["return_type"] = typename(result) if result is not None else None
     dump_trace_API(post_record)
+
+    # If the result is of Tensor type, dump the result Tensor stats
+    if is_type_nn and func_type_dict and "Tensor" in typename(result):
+        func_arg_record = {
+            "process_id": process_id,
+            "thread_id": thread_id,
+            # "meta_vars": get_meta_vars(),
+            # "type": TraceLineType.STATE_CHANGE,
+            "var_type": typename(result),
+            "func_name": func_name,
+            "result_stat": tensor_stats(result),
+        }
+
+        dump_trace_FUNC_ARG(func_arg_record)
 
     return result
 
