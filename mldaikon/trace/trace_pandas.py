@@ -1,7 +1,7 @@
 import logging
 import re
 
-import modin.pandas as pd
+import pandas as pd
 from modin.pandas import json_normalize
 from tqdm import tqdm
 
