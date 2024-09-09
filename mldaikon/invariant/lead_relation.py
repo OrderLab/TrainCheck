@@ -2,6 +2,7 @@ import logging
 from itertools import combinations
 from typing import Any, Dict, List, Set, Tuple
 
+import polars as pl
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import (
@@ -85,19 +86,28 @@ class FunctionLeadRelation(Relation):
 
         events = trace.events
 
-        function_pool_df = events.filter(
-            (
-                (
-                    (events["function"].str.starts_with("torch.optim"))
-                    | (events["function"].str.starts_with("torch.nn"))
-                    | (events["function"].str.starts_with("torch.autograd"))
-                )
-                & (~events["function"].str.contains("._"))
-            )
-            | (events["function"].str.contains("step"))
+        events = events.filter(~events["function"].str.contains(r"\.__*__"))
+        events = events.filter(~events["function"].str.contains(r"\._"))
+        threshold = 6
+        events = events.with_columns(
+            (events["function"] != events["function"].shift())
+            .cum_sum()
+            .alias("group_id")
         )
 
-        function_pool = set(function_pool_df["function"].unique().to_list())
+        group_counts = events.group_by("group_id").agg(
+            [
+                pl.col("function").first().alias("function"),
+                pl.count("function").alias("count"),
+            ]
+        )
+
+        functions_to_remove = group_counts.filter(pl.col("count") > threshold)[
+            "function"
+        ]
+
+        events = events.filter(~events["function"].is_in(functions_to_remove))
+        function_pool = set(events["function"].unique().to_list())
 
         with open("check_function_pool.txt", "w") as file:
             for function in function_pool:
@@ -109,9 +119,10 @@ class FunctionLeadRelation(Relation):
                 f"Missing column: {required_columns - set(events.columns)}"
             )
 
+        print("Start preprocessing....")
         group_by_events = events.group_by(["process_id", "thread_id"])
 
-        for group_events in group_by_events:
+        for group_events in tqdm(group_by_events):
             (process_id, thread_id), evs = group_events
             sorted_group_events = evs.sort("time")
             if (process_id, thread_id) not in function_id_map:
@@ -148,6 +159,7 @@ class FunctionLeadRelation(Relation):
                         function_times[(process_id, thread_id)][func_id]["end"] = event[
                             "time"
                         ]
+        print("End preprocessing")
 
         # 2. Check if two function on the same level for each thread and process
         def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
@@ -173,20 +185,32 @@ class FunctionLeadRelation(Relation):
                     return False
             return True
 
+        print("Start same level checking...")
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
-        for group_events in group_by_events:
+        for group_events in tqdm(
+            group_by_events, ascii=True, leave=True, desc="Groups Processed"
+        ):
             (process_id, thread_id), _ = group_events
             same_level_func[(process_id, thread_id)] = {}
-            for funcA, funcB in combinations(function_pool, 2):
+            for funcA, funcB in tqdm(
+                combinations(function_pool, 2),
+                ascii=True,
+                leave=True,
+                desc="Combinations Checked",
+                mininterval=5,
+                maxinterval=10,
+            ):
                 if check_same_level(funcA, funcB, process_id, thread_id):
                     if funcA not in same_level_func[(process_id, thread_id)]:
                         same_level_func[(process_id, thread_id)][funcA] = []
                     same_level_func[(process_id, thread_id)][funcA].append(funcB)
                     valid_relations[(funcA, funcB)] = True
+        print("End same level checking")
 
         # 3. Generating hypothesis
+        print("Start generating hypo...")
         group_name = "func_lead"
         hypothesis_with_examples = {
             (func_A, func_B): Hypothesis(
@@ -204,13 +228,22 @@ class FunctionLeadRelation(Relation):
             )
             for (func_A, func_B), _ in valid_relations.items()
         }
+        print("End generating hypo")
 
         # 4. Add positive and negative examples
-        for group_events in group_by_events:
+        print("Start adding examples...")
+        for group_events in tqdm(group_by_events, ascii=True, leave=True, desc="Group"):
             (process_id, thread_id), evs = group_events
             sorted_group_events = evs.sort("time")
 
-            for (func_A, func_B), _ in valid_relations.items():
+            for (func_A, func_B), _ in tqdm(
+                valid_relations.items(),
+                ascii=True,
+                leave=True,
+                desc="Function Pair",
+                mininterval=5,
+                maxinterval=10,
+            ):
 
                 if func_A not in same_level_func[(process_id, thread_id)]:
                     continue
@@ -223,7 +256,7 @@ class FunctionLeadRelation(Relation):
                 pre_record_A = []
                 # pre_record_B = []
 
-                for event in tqdm(sorted_group_events.iter_rows(named=True)):
+                for event in sorted_group_events.iter_rows(named=True):
                     if event["type"] != "function_call (pre)":
                         continue
 
@@ -266,6 +299,7 @@ class FunctionLeadRelation(Relation):
                         (func_A, func_B)
                     ].negative_examples.add_example(neg)
                     pre_record_A = []
+        print("End adding examples")
 
         # 5. Precondition inference
         brief_moode = False
@@ -273,6 +307,7 @@ class FunctionLeadRelation(Relation):
 
         if not brief_moode:
             # Do complete precondition inference
+            print("Start precondition inference...")
             hypos_to_delete = []
             for hypo in hypothesis_with_examples:
                 logger.debug(
@@ -296,8 +331,10 @@ class FunctionLeadRelation(Relation):
                 return list(
                     [hypo.invariant for hypo in hypothesis_with_examples.values()]
                 )
+            print("End precondition inference")
 
             # 6. Merge invariants
+            print("Start merging invariants...")
             relation_pool: Dict[
                 GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
             ] = {}
@@ -331,6 +368,7 @@ class FunctionLeadRelation(Relation):
                         text_description="Merged FunctionLeadRelation in Ordered List",
                     )
                     merged_ininvariants.append(new_invariant)
+            print("End merging invariants")
 
             return merged_ininvariants
 
