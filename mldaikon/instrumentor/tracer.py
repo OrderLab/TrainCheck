@@ -18,7 +18,7 @@ import torch.utils
 if TYPE_CHECKING:
     from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
 
-from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
+from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP, FUNC_ARG_RECORDED_FILE
 from mldaikon.instrumentor.replace_functions import (
     adapt_func_for_proxy,
     funcs_to_be_replaced,
@@ -302,6 +302,21 @@ def global_wrapper(
         
         return stats
 
+
+    def func_arg_stats(arg):
+        if isinstance(arg, torch.Tensor):
+            return tensor_stats(arg)
+        elif isinstance(arg, torch.nn.parameter.Parameter):
+            return tensor_stats(arg.data)
+        elif isinstance(arg, torch.nn.modules.linear.Linear):
+            if '_parameters' in arg.__dict__ and 'weight' in arg._parameters:
+                return tensor_stats(args[0]._parameters['weight'])
+            else:
+                return None
+        else:
+            return None
+
+
     def convert_self_dict_to_json(self_dict):
         def convert_value(v):
             if isinstance(v, OrderedDict):
@@ -335,17 +350,25 @@ def global_wrapper(
 
     func_type_dict = {}
 
-    # If function prefix is torch.nn, get the type
-    is_type_nn = False
-    try: 
-        is_type_nn = original_function.__module__.startswith("torch.nn")
-    except:
-        pass
+    # read from FUNC_ARG_RECORDED_FILE
+    with open(FUNC_ARG_RECORDED_FILE, "r") as f:
+        recorded_funcs = json.load(f)
 
-    # Dump the function arguments if the function is from torch.nn
-    if is_type_nn:
-        # if func_name == "torch.nn.modules.module.Module.to" or func_name == "torch.nn.modules.module.Module.__init__":
-        #     import pdb; pdb.set_trace()
+    # If function is mentioned in the FUNC_ARG_RECORDED_FILE, dump the trace
+    should_dump_func_arg_trace = False
+    for starter in recorded_funcs['starts_with']:
+        if func_name.startswith(starter):
+            should_dump_func_arg_trace = True
+            break
+
+    if not should_dump_func_arg_trace:
+        for func in recorded_funcs['functions']:
+            if func_name == func:
+                should_dump_func_arg_trace = True
+                break
+
+    # Dump the function arguments
+    if should_dump_func_arg_trace:
         # Note: this loop only runs once!
         while True:  # a hack that allows us to skip the dumping
             # Get signature
@@ -353,7 +376,7 @@ def global_wrapper(
                 func_type_annotations = inspect.signature(original_function).parameters
             except:
                 print(f"Error in inspect.signature: {func_name}")
-                break
+                break  # skip the dumping
 
             func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
 
@@ -365,9 +388,10 @@ def global_wrapper(
             is_wild_cast = 'args' in func_type_annotations and 'kwargs' in func_type_annotations
 
             if is_wild_cast:
+                # Beijie: if a function has wild cast, how to decide the args?
                 func_type_dict = {}
-                kwargs_value = kwargs
                 args_value = args
+                kwargs_value = kwargs
             else:
                 args_value = args
                 kwargs_value = kwargs
@@ -386,67 +410,38 @@ def global_wrapper(
                 func_type_dict = dict(func_type_dict)
 
             # kwargs substitution
+            # Beijie: whether to substitute the kwargs if it does not exist?
             for k, v in kwargs_value.items():
                 if k in func_type_dict and func_type_dict[k] == "<class 'inspect._empty'>":
                     func_type_dict[k] = str(type(v))
-                # elif k not in func_type_dict:
-                #     func_type_dict[k] = str(type(v))
 
-            # if is_method:
-            #     try:
-            #         if args[0].__dict__ != {}:
-            #             self_record = {
-            #                 "process_id": process_id,
-            #                 "thread_id": thread_id,
-            #                 # "meta_vars": get_meta_vars(),
-            #                 # "type": TraceLineType.STATE_CHANGE,
-            #                 "var_type": typename(arg_value),
-            #                 "var_name": "self",
-            #                 "func_name": func_name,
-            #                 "self_stat": {k: json.dumps(v) for k, v in args[0].__dict__} if is_method else None,
-            #             }
-
-            #             dump_trace_FUNC_ARG(self_record)
-            #     except:
-            #         pass
-
-            for idx, arg_value in enumerate(args_value):
-                # TODO: more general
+            for idx, arg_value in enumerate(args_value):  # Note that args_value may contain "self"
                 if is_method and idx == 0:
-                    if is_method and '_parameters' in args[0].__dict__ and 'weight' in args[0]._parameters:
-                        # import pdb; pdb.set_trace()
-                        # self_stat = convert_self_dict_to_json(args[0]._parameters)
-                        self_stat = tensor_stats(args[0]._parameters['weight'])
-                    else:
-                        self_stat = None
+                    # Beijie: if self is complex, how to dump the trace?
+                    # if func_name == 'torch.nn.modules.module.Module.__init__':
+                    #     import pdb; pdb.set_trace()
+                    self_stat = func_arg_stats(args[0])
 
                     if self_stat:
                         self_record = {
-                            # "process_id": process_id,
-                            # "thread_id": thread_id,
-                            # "meta_vars": get_meta_vars(),
-                            # "type": TraceLineType.STATE_CHANGE,
                             "is_method": is_method,
                             "var_type": typename(arg_value),
                             "var_name": "self",
                             "func_name": func_name,
                             "self_stat": self_stat,
                         }
+
                         dump_trace_FUNC_ARG(self_record)
 
                     continue
 
                 if "Tensor" in typename(arg_value) or "Linear" in typename(arg_value):
                     func_arg_record = {
-                        # "process_id": process_id,
-                        # "thread_id": thread_id,
-                        # "meta_vars": get_meta_vars(),
-                        # "type": TraceLineType.STATE_CHANGE,
                         "is_method": is_method,
                         "var_type": typename(arg_value),
-                        "var_name": idx,  # TODO: more general
+                        "var_name": idx,
                         "func_name": func_name,
-                        "tensor_stats": tensor_stats(arg_value),
+                        "tensor_stats": func_arg_stats(arg_value),
                     }
 
                     dump_trace_FUNC_ARG(func_arg_record)
@@ -465,7 +460,7 @@ def global_wrapper(
         "proxy_obj_names": [
             ["", ""]
         ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
-        "args": func_type_dict if is_type_nn else None,
+        "args": func_type_dict if should_dump_func_arg_trace else None,
     }
 
     if dump_stack_trace:
@@ -544,18 +539,22 @@ def global_wrapper(
     dump_trace_API(post_record)
 
     # If the result is of Tensor type, dump the result Tensor stats
-    if is_type_nn and func_type_dict and "Tensor" in typename(result):
-        func_arg_record = {
-            "process_id": process_id,
-            "thread_id": thread_id,
-            # "meta_vars": get_meta_vars(),
-            # "type": TraceLineType.STATE_CHANGE,
-            "var_type": typename(result),
-            "func_name": func_name,
-            "result_stat": tensor_stats(result),
-        }
+    if should_dump_func_arg_trace and ("Tensor" in typename(result) or "Linear" in typename(result)):
+        # if func_name == "torch.nn.modules.module.Module.to":
+        #     import pdb; pdb.set_trace()
+        if '_parameters' in result.__dict__ and 'weight' in result._parameters:
+            func_arg_record = {
+                # "process_id": process_id,
+                # "thread_id": thread_id,
+                # "meta_vars": get_meta_vars(),
+                # "type": TraceLineType.STATE_CHANGE,
+                "is_method": is_method,
+                "var_type": typename(result),
+                "func_name": func_name,
+                "result_stat": func_arg_stats(result._parameters['weight']),
+            }
 
-        dump_trace_FUNC_ARG(func_arg_record)
+            dump_trace_FUNC_ARG(func_arg_record)
 
     return result
 

@@ -63,3 +63,7 @@ VAR_INV_TYPE = (
 
 # Ziming: added config for e2e pipeline
 API_log_dir = "."
+
+# Beijie: for func_arg trace
+# The file should contain all the functions that we need to dump for the FUNC_ARG trace
+FUNC_ARG_RECORDED_FILE = "mldaikon/pre_instrument/collect_func.json"
