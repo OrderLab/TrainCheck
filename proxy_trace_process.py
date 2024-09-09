@@ -25,29 +25,29 @@ nan = 1234567
 
 str_to_be_loaded = None
 # processed_traces = []
-for trace in traces:
-    loaded = json.loads(trace["meta_vars"])
-    trace["type"] = "state_change"
-    if loaded == "":
-        trace["meta_vars"] = {}
-    else:
-        try:
-            trace["meta_vars"] = json.loads(
-                loaded.strip('"')
-                .replace("'", '"')
-                .replace("None", "null")
-                .replace("True", "true")
-                .replace("False", "false")
-                .replace("NaN", f"{nan}")
-                .replace("-inf", f"-{inf}")
-                .replace("inf", f"{inf}")
-            )
-        except:
-            str_to_be_loaded = trace["meta_vars"]
-            print(type(loaded))
-            print(loaded)
-            print(trace)
-            raise
+# for trace in traces:
+#     loaded = json.loads(trace["meta_vars"])
+#     trace["type"] = "state_change"
+#     if loaded == "":
+#         trace["meta_vars"] = {}
+#     else:
+#         try:
+#             trace["meta_vars"] = json.loads(
+#                 loaded.strip('"')
+#                 .replace("'", '"')
+#                 .replace("None", "null")
+#                 .replace("True", "true")
+#                 .replace("False", "false")
+#                 .replace("NaN", f"{nan}")
+#                 .replace("-inf", f"-{inf}")
+#                 .replace("inf", f"{inf}")
+#             )
+#         except:
+#             str_to_be_loaded = trace["meta_vars"]
+#             print(type(loaded))
+#             print(loaded)
+#             print(trace)
+#             raise
 
 
 buggy_value = None

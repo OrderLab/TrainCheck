@@ -2,10 +2,8 @@ import logging
 import random
 import time
 
-import polars as pl
 from tqdm import tqdm
 
-from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import (
     APIParam,
     CheckerResult,
@@ -45,14 +43,8 @@ def can_func_be_bound_method(
     the negative examples will be the function call itself.
     """
 
-    func_call_ids = (
-        trace.events.filter(
-            (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
-            & (pl.col("function") == func_name)
-        )
-        .select("func_call_id")
-        .to_series()
-    )
+    func_call_ids = trace.get_func_call_ids(func_name)
+
     for func_call_id in func_call_ids:
         if not trace.get_var_ids_unchanged_but_causally_related(
             func_call_id, var_type, attr_name
@@ -150,15 +142,8 @@ class APIContainRelation(Relation):
         ):
             is_parent_a_bound_method = trace.get_func_is_bound_method(parent)
             logger.debug(f"Starting the analysis for the parent function: {parent}")
-            # get all parent pre event indexes
-            parent_func_call_ids = (
-                trace.events.filter(
-                    (pl.col("type") == TraceLineType.FUNC_CALL_PRE)
-                    & (pl.col("function") == parent)
-                )
-                .select("func_call_id")
-                .to_series()
-            )
+            # get all parent func_call_ids
+            parent_func_call_ids = trace.get_func_call_ids(parent)
             logger.debug(
                 f"Found {len(parent_func_call_ids)} invocations for the function: {parent}"
             )
@@ -408,13 +393,9 @@ class APIContainRelation(Relation):
             preconditions is not None
         ), "Expected the precondition to be set for the invariant"
 
-        parent_func_call_ids = (
-            trace.events.filter((pl.col("function") == parent_func_name))
-            .select("func_call_id")
-            .unique()
-            .to_series()
-        )
-        # should be sorted by time to reflect timeliness
+        parent_func_call_ids = trace.get_func_call_ids(
+            parent_func_name
+        )  # should be sorted by time to reflect timeliness
 
         skip_var_unchanged_check = (
             VAR_GROUP_NAME not in preconditions.get_group_names()

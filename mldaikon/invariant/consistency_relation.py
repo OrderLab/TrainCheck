@@ -117,11 +117,11 @@ class ConsistencyRelation(Relation):
                 hypo in hypothesis or (hypo[2], hypo[3], hypo[0], hypo[1]) in hypothesis
             )
 
+        # TODO: polars refactorization needed
         def skip_attrs_with_different_dtypes(attr1, attr2):
-            return (
-                trace.events[tracker_var_field_prefix + attr1].dtype
-                != trace.events[tracker_var_field_prefix + attr2].dtype
-            )
+            return trace.get_column_dtype(
+                tracker_var_field_prefix + attr1
+            ) != trace.get_column_dtype(tracker_var_field_prefix + attr2)
 
         ## 2. Hypothesis Generation Based on Liveness Overlapping
         hypothesis: set[tuple[str, str, str, str]] = (
