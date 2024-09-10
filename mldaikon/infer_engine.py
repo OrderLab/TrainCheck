@@ -8,7 +8,7 @@ import time
 import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import Invariant
 from mldaikon.invariant.relation_pool import relation_pool
-from mldaikon.trace.trace import Trace, read_trace_file
+# from mldaikon.trace.trace import Trace, read_trace_file
 
 logger = logging.getLogger(__name__)
 
@@ -16,23 +16,19 @@ logger = logging.getLogger(__name__)
 random.seed(0)
 
 
-class InferEngine:
-    def __init__(self, traces: list[Trace]):
-        self.traces = traces
-        pass
-
-    def infer(self):
-        all_invs = []
-        for trace in self.traces:
-            for relation in relation_pool:
-                logger.info(f"Infering invariants for relation: {relation.__name__}")
-                invs = relation.infer(trace)
-                logger.info(
-                    f"Found {len(invs)} invariants for relation: {relation.__name__}"
-                )
-                all_invs.extend(invs)
-        logger.info(f"Found {len(all_invs)} invariants.")
-        return all_invs
+def select_trace_implementation(choice):
+    if choice == 'polars':
+        from mldaikon.trace.trace import Trace, read_trace_file
+    elif choice == 'pandas':
+        from mldaikon.trace.trace_pandas import Trace_Pandas as Trace
+        from mldaikon.trace.trace_pandas import read_trace_file_Pandas as read_trace_file
+    elif choice == 'dict':
+        from mldaikon.trace.trace_dict import TraceCache as Trace
+        from mldaikon.trace.trace_dict import read_trace_file_dict as read_trace_file
+    else:
+        raise ValueError(f"Invalid choice: {choice}")
+    
+    return Trace, read_trace_file
 
 
 def save_invs(invs: list[Invariant], output_file: str):
@@ -76,7 +72,36 @@ if __name__ == "__main__":
         default=config.PRECOND_SAMPLING_THRESHOLD,
         help="The number of samples to take for precondition inference, if the number of samples is larger than this threshold, we will sample this number of samples [Default: 10000]",
     )
+    parser.add_argument(
+        "-b",
+        "--backend",
+        type=str,
+        choices=["polars", "pandas", "dict"], 
+        default="polars",  
+        help="Specify the backend to use for Trace and read_trace_file [Choices: impl1, impl2, impl3]",
+    )
     args = parser.parse_args()
+
+    Trace, read_trace_file = select_trace_implementation(args.backend)
+
+    class InferEngine:
+        def __init__(self, traces: list[any]):
+            self.traces = traces
+            pass
+
+        def infer(self):
+            all_invs = []
+            for trace in self.traces:
+                for relation in relation_pool:
+                    logger.info(f"Infering invariants for relation: {relation.__name__}")
+                    invs = relation.infer(trace)
+                    logger.info(
+                        f"Found {len(invs)} invariants for relation: {relation.__name__}"
+                    )
+                    all_invs.extend(invs)
+            logger.info(f"Found {len(all_invs)} invariants.")
+            return all_invs
+        
 
     if args.debug:
         log_level = logging.DEBUG

@@ -1,3 +1,4 @@
+import inspect  # noqa
 import json
 import os
 import random
@@ -15,6 +16,8 @@ from efficientnet_pytorch import EfficientNet
 from PIL import ImageFile
 from torchvision import datasets
 from tqdm import tqdm
+
+from mldaikon.proxy_wrapper.proxy import Proxy
 
 shape = (224, 224)
 log_dir = f"runs/{shape[0]}"
@@ -102,17 +105,16 @@ if torch.cuda.device_count() > 1:
 criterion_transfer = nn.CrossEntropyLoss()  # moved out from the above if statement
 model_transfer.to(device)
 
+model_transfer = Proxy(model_transfer, is_root=True)
 
 for name, param in model_transfer.named_parameters():
     if "bn" not in name:
         param.requires_grad = False
 
-for param in model_transfer._conv_stem.parameters():
-    param.requires_grad = False
-
 for param in model_transfer._fc.parameters():
     param.requires_grad = True
 
+print(model_transfer._fc.in_features)
 
 nb_classes = num_classes
 
@@ -126,11 +128,9 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
     os.makedirs(save_path, exist_ok=True)
 
     valid_loss_min = np.Inf
+    confusion_matrix = torch.zeros(nb_classes, nb_classes)
     res = []
     for epoch in tqdm(range(1, n_epochs + 1), desc="Epochs"):
-        if epoch > 1:
-            print("ML-DAIKON: Breaking after 3 epochs for testing purposes")
-            break
         # initialize variables to monitor training and validation loss
         ## ML-DAIKON Instrumentation
         train_loss = 0.0
@@ -145,7 +145,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["train"], desc="Training")
         ):
             iters += 1
-            if iters > 200:
+            if iters > 5:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
             # move to GPU
@@ -154,6 +154,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
                     "cuda", non_blocking=True
                 )
             optimizer.zero_grad()
+            # model = Proxy(model, is_root=True)
             output = model(data)
             loss = criterion(output, target)
 
@@ -171,6 +172,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             for name, param in model.named_parameters():
                 if param.requires_grad:
                     grad_norm += param.grad.norm(2).item()
+                    print("norm of ", name, " is ", param.grad.norm(2).item())
             # writer.add_scalar('Grad Norm (L2) /train', grad_norm**0.5, epoch)
             print(f"Epoch: {epoch}, Batch: {batch_idx}, Grad Norm: {grad_norm**0.5}")
 
@@ -190,10 +192,9 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             tqdm(loaders["valid"], desc="Validation")
         ):
             iters += 1
-            if iters > 20:
+            if iters > 5:
                 print("ML-DAIKON: Breaking after 10 iterations for testing purposes")
                 break
-
             # move to GPU
             if use_cuda:
                 data, target = data.cuda(), target.cuda()
@@ -253,17 +254,21 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
 
         with open(os.path.join(save_path, f"case_{epoch}_res.json"), "w") as fp:
             json.dump(res, fp)
+        import pandas as pd
+
+        df = pd.DataFrame(confusion_matrix.numpy())
+        df.to_csv(os.path.join(save_path, f"case_{epoch}_confusion_matrix.csv"))
+        del df
 
     return model, res
 
 
 num_epochs = 1
 lr = 0.01
+optimizer_transfer = optim.Adam(model_transfer._fc.parameters(), lr=lr)
+# optimizer_transfer = Proxy(optimizer_transfer, is_root=True)
 
-params = list(model_transfer._fc.parameters()) + list(
-    model_transfer._conv_stem.parameters()
-)
-optimizer_transfer = optim.Adam(params, lr=lr)
+# optimizer_transfer = optim.Adam(filter(lambda p : p.requires_grad, model_transfer.parameters()),lr=lr)
 model_transfer, res = train(
     num_epochs,
     data_transfer,

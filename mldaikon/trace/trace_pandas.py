@@ -2,7 +2,7 @@ import logging
 import re
 
 import pandas as pd
-from modin.pandas import json_normalize
+from pandas import json_normalize
 from tqdm import tqdm
 
 from mldaikon.config import config
@@ -233,14 +233,20 @@ class Trace_Pandas:
             return []
         return self.events["thread_id"].dropna().unique().tolist()
 
-    def get_func_call_ids(self) -> list[str]:
+    def get_func_call_ids(self, func_name: str="") -> list[str]:
         """Find all function call ids from the trace."""
         if "func_call_id" not in self.events.columns:
             logger.warning(
                 "func_call_id column not found in the events, no function related invariants will be extracted."
             )
             return []
+        if func_name:
+            return self.events[self.events["function"] == func_name]["func_call_id"].dropna().unique().tolist()
         return self.events["func_call_id"].dropna().unique().tolist()
+
+    def get_column_dtype(self, column_name: str) -> type:
+        """Get the data type of a column."""
+        return self.events[column_name].dtype
 
     def get_func_names(self) -> list[str]:
         """Find all function names from the trace."""

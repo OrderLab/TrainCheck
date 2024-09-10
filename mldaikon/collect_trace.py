@@ -36,7 +36,9 @@ def dump_env(output_dir: str):
         f.write(f"{os.popen('python --version').read()}\n")
         f.write("\n")
         f.write("Library Versions:\n")
-        f.write(f"{os.popen('conda list').read()}\n")
+        f.write(
+            f"{os.popen('conda list').read()}\n"
+        )  # FIXME: conda list here doesn't work in OSX, >>> import os; >>> os.popen('conda list').read(); /bin/sh: conda: command not found
 
 
 if __name__ == "__main__":
@@ -90,7 +92,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--profiling",
-        type=bool,
+        type=str,
         default=proxy_config.profiling,
         help="Enable to do profiling during the training process,"
         "there would be a train_profiling_results.pstats file generated"
@@ -158,19 +160,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    START_TIME = datetime.datetime.now()
-
-    output_dir = args.output_dir
-    if not args.output_dir:
-        pyfile_basename = os.path.basename(args.pyscript).split(".")[0]
-        output_dir = (
-            f"mldaikon_run_{pyfile_basename}_{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}"
-        )
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    dump_env(output_dir)
-
     # set up logging
     if args.debug_mode:
         logging.basicConfig(level=logging.DEBUG)
@@ -178,6 +167,39 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     logger = logging.getLogger(__name__)
+
+    START_TIME = datetime.datetime.now()
+
+    output_dir = args.output_dir
+    if not args.output_dir:
+        pyfile_basename = os.path.basename(args.pyscript).split(".")[0]
+        # get also the versions of the modules specified in `-t`
+        modules = args.modules_to_instr
+        modules_and_versions = []
+        for module in modules:
+            try:
+                # this may not work if the module is not installed (e.g. only used locally)
+                version = (
+                    os.popen(f"pip show {module} | grep Version")
+                    .read()
+                    .strip()
+                    .split(": ")[1]
+                )
+            except Exception as e:
+                logger.warning(f"Could not get version of module {module}: {e}")
+                version = "unknown"
+            modules_and_versions.append(f"{module}_{version}")
+        # sort the modules and versions
+        modules_and_versions.sort()
+        output_dir = f"mldaikon_run_{pyfile_basename}_{'_'.join(modules_and_versions)}_{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}"
+
+    # change output_dir to absolute path
+    output_dir = os.path.abspath(output_dir)
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    dump_env(output_dir)
 
     funcs_of_inv_interest = None
     if args.invariants is not None:

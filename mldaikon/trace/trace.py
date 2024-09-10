@@ -292,6 +292,38 @@ class Trace:
             self.events.select("function").drop_nulls().unique().to_series().to_list()
         )
 
+    def get_func_call_ids(self, func_name: str = "") -> list[str]:
+        """Find all function call ids from the trace."""
+        if "func_call_id" not in self.events.columns:
+            logger.warning(
+                "func_call_id column not found in the events, no function related invariants will be extracted."
+            )
+            return []
+
+        if func_name:
+            return (
+                self.events.filter(pl.col("function") == func_name)
+                .select("func_call_id")
+                .drop_nulls()
+                .unique()
+                .to_series()
+                .to_list()
+            )
+
+        return (
+            self.events.select("func_call_id")
+            .drop_nulls()
+            .unique()
+            .to_series()
+            .to_list()
+        )
+
+    def get_column_dtype(self, column_name: str) -> type:
+        """Get the data type of a column in the trace.
+        When implementing this in schemaless dataframes, just use the first non-null value in the column to infer the type, and print a warning saying that the type might not be accurate.
+        """
+        return self.events[column_name].dtype
+
     def get_func_is_bound_method(self, func_name: str) -> bool:
         """Check if a function is bound to a class (i.e. method of a object).
 

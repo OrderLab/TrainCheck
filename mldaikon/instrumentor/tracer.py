@@ -18,7 +18,10 @@ if TYPE_CHECKING:
     from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
 
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
-from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
+from mldaikon.instrumentor.replace_functions import (
+    adapt_func_for_proxy,
+    funcs_to_be_replaced,
+)
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 from mldaikon.proxy_wrapper.proxy_config import (
     disable_proxy_class,
@@ -289,6 +292,9 @@ def global_wrapper(
         from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
 
         original_function = add_observer_to_func(original_function, unproxy=True)
+
+        # type wrapper for the original function
+        original_function = adapt_func_for_proxy(original_function)
     elif C_level_call:
         args = [unproxy_arg(arg) for arg in args]
         kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
@@ -628,9 +634,19 @@ class Instrumentor:
         # do some simple checking for correctness:
         # 1. if funcs_of_inv_interest is provided, then METRIC_INSTRUMENTED_FUNC_LIST["dump"] should be equal to funcs_of_inv_interest
         if self.funcs_of_inv_interest is not None:
-            assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) == set(
+            # assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) == set(
+            #     self.funcs_of_inv_interest
+            # ), f"METRIC_INSTRUMENTED_FUNC_LIST['dump'] != funcs_of_inv_interest, diff: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+            assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]).issubset(
+                set(self.funcs_of_inv_interest)
+            ), f"Actual functions being instrumented are not a subset of the functions required by the provided invariants, diff: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+
+            if set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) != set(
                 self.funcs_of_inv_interest
-            ), "METRIC_INSTRUMENTED_FUNC_LIST['dump'] != funcs_of_inv_interest"
+            ):
+                get_instrumentation_logger_for_process().warning(
+                    f"Not all functions required by the provided invariants are instrumented (e.g. due to transfering ), some invariants might not be active at all, funcs not instrumented: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+                )  # TODO: report a number of functions not instrumented and thus the invariants that will not be active
 
         return self.instrumented_count
 

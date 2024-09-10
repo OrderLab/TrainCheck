@@ -10,13 +10,12 @@ log*
 *.egg-info
 build
 *.log
-*.json
 program_output.txt
 *.ipynb
 
 trace_count.ipynb
 
-DS-1801
+
 *.txt
 pretrain_gpt2_codeparrot_short.sh
 .hydra/*
@@ -46,6 +45,11 @@ instrumented_84911_watch.py
 results/1_0.01/case_1_confusion_matrix.csv
 !/mldaikon/static_analyzer/func_level/*.log
 
+*.json
+*.prof
+codeparrot*
+Deepspeed/
+!config.json
 # local dummy files from yijun's branch
 84911_100_proxy_trace
 !/tests/test_trace_pandas/test_API_trace.log
