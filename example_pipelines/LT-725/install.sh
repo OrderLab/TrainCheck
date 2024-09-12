@@ -5,7 +5,7 @@ echo "third party libraries would be installed at: $third_party_libs_dir"
 
 pkg_name="lightning-thunder"
 venv_name="lightning-thunder"
-
+repo_url="https://github.com/Lightning-AI/lightning-thunder.git"
 buggy_commit="c816506"
 # fixed_commit="bdb59d7"
 fixed_pr="810"
@@ -40,14 +40,22 @@ install() {
     # 1) Install nvFuser and PyTorch dependencies:
     python -m pip install --pre nvfuser-cu121-torch24
 
+    
     # install Thunder from source
-    git clone https://github.com/Lightning-AI/lightning-thunder.git
+    # if the third_party_libs_dir does not exist, create it
+    if [ ! -d ${third_party_libs_dir} ]; then
+        mkdir -p ${third_party_libs_dir}
+    fi
+    cd ${third_party_libs_dir}
+
+    git clone ${repo_url}
     cd ${pkg_name}
     python -m pip install -e .
 }
 
 build_buggy(){
     check_installation
+    cd ${third_party_libs_dir}
     cd ${pkg_name}
     # if have defined the buggy version, checkout to the buggy version
     if [ -n "$buggy_commit" ]; then
@@ -62,6 +70,7 @@ build_buggy(){
 
 build_fixed(){
     check_installation
+    cd ${third_party_libs_dir}
     cd ${pkg_name}
     # if have defined the fixed version, checkout to the fixed version
     if [ -n "$fixed_commit" ]; then
@@ -82,6 +91,7 @@ check_installation() {
         echo "virtual environment ${venv_name} does not exist, begin installation"
         install
     fi
+    cd ${third_party_libs_dir}
     # check if the cloned repo exists
     if [ -d ${pkg_name} ]; then
         echo "repo ${pkg_name} exists"
@@ -98,7 +108,7 @@ uninstall() {
         conda remove --name ${venv_name} --all
         echo "virtual environment ${venv_name} removed"
     fi
-    
+    cd ${third_party_libs_dir}
     # remove the cloned repo if it exists
     if [ -d ${pkg_name} ]; then
         rm -rf ${pkg_name}
