@@ -121,6 +121,8 @@ def run_e2e(
     infer_engine_script_args: list[str] = [
         "-m",
         "mldaikon.infer_engine",
+        "-o",
+        f"{output_dir}/invariants.json",
         "-t",
         # " ".join(processed_proxy_files),
         # " ".join(API_trace_files),
