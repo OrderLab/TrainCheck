@@ -62,7 +62,7 @@ def diff_dicts(dict1, dict2):
     return differing_keys, differences
 
 
-def find_best_match_forward(dict1, list2, start_index):
+def find_best_match_forward(dict1, list2, start_index, used_indices):
     """
     Find the best matching dictionary from list2, starting at start_index.
     This ensures that no backward matching is allowed.
@@ -73,6 +73,9 @@ def find_best_match_forward(dict1, list2, start_index):
     best_match_index = -1
 
     for idx in range(start_index, len(list2)):
+        # Skip if the index is already used
+        if idx in used_indices:
+            continue
         dict2 = list2[idx]
         differing_keys, differences = diff_dicts(dict1, dict2)
         if differing_keys < fewest_differences:
@@ -152,7 +155,7 @@ def diff_lists_of_dicts(list1, list2, output_file=None):
     # Process list1
     for i, dict1 in enumerate(list1):
         best_differing_keys, best_match, differences, match_index = (
-            find_best_match_forward(dict1, list2, i)
+            find_best_match_forward(dict1, list2, i, used_indices_list2)
         )
         if best_differing_keys != 0:
             print(
