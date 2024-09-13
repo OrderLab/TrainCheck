@@ -1,7 +1,7 @@
 import argparse
 import json
 
-keys_to_ignore = ["_id", "time", "time_ns", "_millis", "_str"]
+keys_to_ignore = ["_id", "time", "time_ns", "_millis", "_str", "idx"]
 
 
 def recursive_count_dict_elements(dict1):
