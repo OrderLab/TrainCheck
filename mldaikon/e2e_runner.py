@@ -152,7 +152,7 @@ if __name__ == "__main__":
         output_dir = args.output_dir
     # get current python path
     python_path = sys.executable
-    modules_to_instrument = e2e_config.modules_to_instrument
+    modules_to_instrument = args.modules_to_instrument
     api_log_dir = os.path.join(output_dir, "trace_log")
     input_config: dict[str, str] = {
         "input_program": input_program,
