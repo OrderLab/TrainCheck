@@ -201,26 +201,26 @@ def diff_lists_of_dicts(list1, list2, output_file=None):
 
             else:
                 # Completely different, treat as deletion and insertion
-                print(f"- Line {i+1}: {dict1}")
-                print(f"+ Line {match_index+1}: {best_match}")
+                print(f"-- Line {i+1}: {dict1}")
+                print(f"++ Line {match_index+1}: {best_match}")
                 if output_file:
                     with open(output_file, "a") as f:
-                        f.write(f"- Line {i+1}: {dict1}\n")
-                        f.write(f"+ Line {match_index+1}: {best_match}\n")
+                        f.write(f"-- Line {i+1}: {dict1}\n")
+                        f.write(f"++ Line {match_index+1}: {best_match}\n")
         else:
             # If no match found, treat it as a deletion
-            print(f"- Line {i+1}: {dict1}")
+            print(f"-- Line {i+1}: {dict1}")
             if output_file:
                 with open(output_file, "a") as f:
-                    f.write(f"- Line {i+1}: {dict1}\n")
+                    f.write(f"-- Line {i+1}: {dict1}\n")
 
     # Process any remaining unmatched lines in list2 (insertions)
     for j, dict2 in enumerate(list2):
         if j not in used_indices_list2:
-            print(f"+ Line {j+1}: {dict2}")
+            print(f"++ Line {j+1}: {dict2}")
             if output_file:
                 with open(output_file, "a") as f:
-                    f.write(f"+ Line {j+1}: {dict2}\n")
+                    f.write(f"++ Line {j+1}: {dict2}\n")
 
 
 if __name__ == "__main__":
