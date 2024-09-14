@@ -158,6 +158,11 @@ import os
 os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
 """
 
+    # general config update
+    general_config_update = f"""
+import mldaikon.config.config as general_config
+general_config.ENABLE_COND_DUMP = {cond_dump}
+"""
     ## proxy configs
     proxy_start_code = ""
     auto_observer_code = ""
@@ -273,6 +278,7 @@ for log_file in log_files:
     instrumented_source = (
         instrumented_source.split("\n")[0]
         + logging_start_code
+        + general_config_update
         + proxy_start_code
         + auto_observer_code
         + "\n".join(instrumented_source.split("\n")[1:])

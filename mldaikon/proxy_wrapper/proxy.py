@@ -14,8 +14,11 @@ from typing import Dict
 import torch
 import torch.nn.parameter
 
+
 import mldaikon.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
+import mldaikon.config.config as general_config
+from mldaikon.instrumentor.tracer import should_dump_trace
 from mldaikon.proxy_wrapper.dumper import (
     SkippedDumpingObj,
     dump_attributes,
@@ -131,6 +134,17 @@ class Proxy:
         prev_trace_info=None,
         disable_sampling=False,
     ):
+        if not should_dump_trace(
+            general_config.ENABLE_COND_DUMP,
+            None,
+            f"VAR: {typename(self._obj)}: {self.__dict__['var_name']}",
+            None,
+            None,
+        ):
+            # skip dumping
+            return SkippedDumpingObj(self._obj)
+        
+
         if Proxy.var_dict.get(self.__dict__["var_name"]) is None:
             # create
             self.__dict__["last_update_timestamp"] = 0

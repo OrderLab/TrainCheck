@@ -172,6 +172,7 @@ class Trace:
             if outermost_func_call_post.height == 0:
                 outermost_incomplete = True
             else:
+                outermost_incomplete = False
                 outermost_func_call_post_record = outermost_func_call_post.row(
                     0, named=True
                 )
