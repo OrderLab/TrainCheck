@@ -76,6 +76,12 @@ def find_best_match_forward(dict1, list2, start_index, used_indices):
         # Skip if the index is already used
         if idx in used_indices:
             continue
+        if (
+            "type" in dict1
+            and "type" in list2[idx]
+            and dict1["type"] != list2[idx]["type"]
+        ):  # adhoc: only for API traces who has function call (pre) and (post) type
+            continue
         dict2 = list2[idx]
         differing_keys, differences = diff_dicts(dict1, dict2)
         if differing_keys < fewest_differences:
@@ -167,14 +173,16 @@ def diff_lists_of_dicts(list1, list2, output_file=None):
         #             f.write(f"Comparing Line {i+1} with Line {match_index+1} (fewest differing keys: {best_differing_keys})\n")
 
         if match_index != -1:
-            used_indices_list2.add(match_index)
+
             # last_match_index = match_index
 
             if best_differing_keys == 0:
                 # No differences, skip this line (like in diff output)
+                used_indices_list2.add(match_index)
                 continue
             elif best_differing_keys <= difference_threshold:
                 # Show modification with - and +
+                used_indices_list2.add(match_index)
                 for key, (val1, val2) in differences.items():
                     if val1 is not None and val2 is not None:
                         if isinstance(val1, dict) and isinstance(val2, dict):
@@ -200,27 +208,30 @@ def diff_lists_of_dicts(list1, list2, output_file=None):
                                 f.write(f"+ Line {match_index+1}: {key}={val2}\n")
 
             else:
-                # Completely different, treat as deletion and insertion
-                print(f"-- Line {i+1}: {dict1}")
-                print(f"++ Line {match_index+1}: {best_match}")
+                json_dict1 = json.dumps(dict1)
+                # Completely different, treat as deletion
+                print(f"-- Line {i+1}: {json_dict1}")
+                # print(f"++ Line {match_index+1}: {best_match}")
                 if output_file:
                     with open(output_file, "a") as f:
-                        f.write(f"-- Line {i+1}: {dict1}\n")
-                        f.write(f"++ Line {match_index+1}: {best_match}\n")
+                        f.write(f"-- Line {i+1}: {json_dict1}\n")
+                        # f.write(f"++ Line {match_index+1}: {best_match}\n")
         else:
+            json_dict1 = json.dumps(dict1)
             # If no match found, treat it as a deletion
-            print(f"-- Line {i+1}: {dict1}")
+            print(f"-- Line {i+1}: {json_dict1}")
             if output_file:
                 with open(output_file, "a") as f:
-                    f.write(f"-- Line {i+1}: {dict1}\n")
+                    f.write(f"-- Line {i+1}: {json_dict1}\n")
 
     # Process any remaining unmatched lines in list2 (insertions)
     for j, dict2 in enumerate(list2):
         if j not in used_indices_list2:
-            print(f"++ Line {j+1}: {dict2}")
+            json_dict2 = json.dumps(dict2)
+            print(f"++ Line {j+1}: {json_dict2}")
             if output_file:
                 with open(output_file, "a") as f:
-                    f.write(f"++ Line {j+1}: {dict2}\n")
+                    f.write(f"++ Line {j+1}: {json_dict2}\n")
 
 
 if __name__ == "__main__":
