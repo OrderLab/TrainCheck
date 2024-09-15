@@ -435,8 +435,26 @@ def find_precondition_from_single_group(
     # print("==============================")
 
     # construct the sub-hypothesis with the top-level partial examples
+    coverred_exp_ids: set[int] = set()
     preconditions: list[Precondition] = []
-    for exp_ids in top_level_exp_ids:
+    logger.debug(
+        f"Depth:{_current_depth}, Splitting into {len(top_level_exp_ids)} sub-hypotheses, with size {[len(exp_ids) for exp_ids in top_level_exp_ids]}"
+    )
+    for i, exp_ids in enumerate(top_level_exp_ids):
+        # if coverred_exp_ids and the potentially coverred exp_ids does not cover all the positive examples, we should directly return inference failure (empty preconditions)
+        all_future_exp_ids: set[int] = set()
+        for j in range(i, len(top_level_exp_ids)):
+            all_future_exp_ids.update(top_level_exp_ids[j])
+
+        if len(positive_examples) != len(coverred_exp_ids.union(all_future_exp_ids)):
+            logger.debug(
+                f"Depth:{_current_depth}, Warning: no chances to cover all the positive examples already, early stopping (i={i}, len(coverred_exp_ids.union(all_future_exp_ids) = {len(coverred_exp_ids.union(all_future_exp_ids))}, len(positive_examples) = {len(positive_examples)}"
+            )
+            return []
+
+        logger.debug(
+            f"Depth:{_current_depth}, Current at the {i}-th sub-hypothesis, with size {len(exp_ids)}"
+        )
         sub_positive_examples = [positive_examples[i] for i in exp_ids]
         sub_preconditions = find_precondition_from_single_group(
             sub_positive_examples,
@@ -448,6 +466,8 @@ def find_precondition_from_single_group(
         )
         if len(sub_preconditions) == 0:
             print("Warning: empty preconditions found in the sub-hypothesis")
+        else:
+            coverred_exp_ids.update(exp_ids)
 
         preconditions.extend(sub_preconditions)
 
