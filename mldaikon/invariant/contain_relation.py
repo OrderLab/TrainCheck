@@ -9,6 +9,7 @@ from mldaikon.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
+    FailedHypothesis,
     Hypothesis,
     Invariant,
     Param,
@@ -119,7 +120,7 @@ class APIContainRelation(Relation):
     """
 
     @staticmethod
-    def infer(trace: Trace) -> list[Invariant]:
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants with Preconditions"""
 
         logger = logging.getLogger(__name__)
@@ -135,7 +136,7 @@ class APIContainRelation(Relation):
             logger.warning(
                 "No function calls found in the trace, skipping the analysis"
             )
-            return []
+            return [], []
 
         for parent in tqdm(
             func_names, desc="Scanning through function calls to generate hypotheses"
@@ -313,6 +314,7 @@ class APIContainRelation(Relation):
         )
         all_invariants: list[Invariant] = []
         all_hypotheses = []
+        failed_hypotheses = []
         for parent in hypothesis:
             for high_level_event_type in hypothesis[parent]:
                 for target in hypothesis[parent][high_level_event_type]:
@@ -330,10 +332,11 @@ class APIContainRelation(Relation):
                         all_hypotheses.append((h, f"{high_level_event_type}"))
                     else:
                         logger.debug(f"Precondition not found for the hypothesis: {h}")
+                        failed_hypotheses.append(FailedHypothesis(h))
 
         # sort the hypotheses for debugging purposes
         all_hypotheses.sort(key=lambda h: len(h[0].positive_examples), reverse=True)
-        return all_invariants
+        return all_invariants, failed_hypotheses
 
     @staticmethod
     def evaluate(value_group: list) -> bool:

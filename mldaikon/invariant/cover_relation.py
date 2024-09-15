@@ -10,6 +10,7 @@ from mldaikon.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
+    FailedHypothesis,
     GroupedPreconditions,
     Hypothesis,
     Invariant,
@@ -76,7 +77,7 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
 class FunctionCoverRelation(Relation):
 
     @staticmethod
-    def infer(trace: Trace) -> list[Invariant]:
+    def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
         """Infer Invariants for the FunctionCoverRelation."""
 
         logger = logging.getLogger(__name__)
@@ -293,10 +294,11 @@ class FunctionCoverRelation(Relation):
         brief_moode = False
         if_merge = True
 
+        failed_hypothesis = []
         if not brief_moode:
             # Do complete precondition inference
             print("Start precondition inference...")
-            hypos_to_delete = []
+            hypos_to_delete: list[tuple[str, str]] = []
             for hypo in hypothesis_with_examples:
                 logger.debug(
                     f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
@@ -310,14 +312,20 @@ class FunctionCoverRelation(Relation):
                     )
                 else:
                     logger.debug(f"Precondition not found for {hypo}")
-                    hypos_to_delete.append(hypo)
+                    failed_hypothesis.append(
+                        FailedHypothesis(hypothesis_with_examples[hypo])
+                    )
 
             for hypo in hypos_to_delete:
-                del hypothesis_with_examples[hypo]
+                # remove key from hypothesis_with_examples
+                hypothesis_with_examples.pop(hypo)
 
             if not if_merge:
-                return list(
-                    [hypo.invariant for hypo in hypothesis_with_examples.values()]
+                return (
+                    list(
+                        [hypo.invariant for hypo in hypothesis_with_examples.values()]
+                    ),
+                    failed_hypothesis,
                 )
             print("End precondition inference")
 
@@ -358,7 +366,7 @@ class FunctionCoverRelation(Relation):
                     merged_ininvariants.append(new_invariant)
             print("End merging invariants")
 
-            return merged_ininvariants
+            return merged_ininvariants, failed_hypothesis
 
         else:
 
@@ -386,6 +394,11 @@ class FunctionCoverRelation(Relation):
 
                 if current_precondition is None:
                     pairs.remove(pair)
+                    failed_hypothesis.append(
+                        FailedHypothesis(
+                            hypothesis_with_examples[(a.api_full_name, b.api_full_name)]
+                        )
+                    )
                     return None
 
                 for next_pair in pairs[:]:
@@ -465,7 +478,7 @@ class FunctionCoverRelation(Relation):
                     )
                     merged_ininvariants.append(new_invariant)
 
-            return merged_ininvariants
+            return merged_ininvariants, failed_hypothesis
 
     @staticmethod
     def evaluate(value_group: list) -> bool:

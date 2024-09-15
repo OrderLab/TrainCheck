@@ -9,6 +9,7 @@ from mldaikon.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
+    FailedHypothesis,
     Hypothesis,
     Invariant,
     Relation,
@@ -100,7 +101,7 @@ class VariableValueSelector:
 class ConsistencyRelation(Relation):
 
     @staticmethod
-    def infer(trace: Trace) -> list[Invariant]:
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants for the ConsistencyRelation."""
 
         logger = logging.getLogger(__name__)
@@ -110,7 +111,7 @@ class ConsistencyRelation(Relation):
         var_insts = trace.get_var_insts()
         if len(var_insts) == 0:
             logger.warning("No variables found in the trace.")
-            return []
+            return [], []
 
         def is_hypo_already_in_hypothesis(hypo: tuple, hypothesis: set) -> bool:
             return (
@@ -288,7 +289,8 @@ class ConsistencyRelation(Relation):
                                     break
 
         ## 5. Precondition Inference TODO: this can be abstracted into a separate function that takes a list of hypothesis and returns those with preconditions
-        hypos_to_delete = []
+        failed_hypothesis = []
+        passed_hypothesis = []
         for hypo in hypothesis_with_examples:
             logger.debug(
                 f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
@@ -301,14 +303,17 @@ class ConsistencyRelation(Relation):
 
             if preconditions is not None:
                 hypothesis_with_examples[hypo].invariant.precondition = preconditions
+                passed_hypothesis.append(hypothesis_with_examples[hypo])
             else:
                 logger.debug(f"Precondition not found for {hypo}")
-                hypos_to_delete.append(hypo)
+                failed_hypothesis.append(
+                    FailedHypothesis(hypothesis_with_examples[hypo])
+                )
 
-        for hypo in hypos_to_delete:
-            del hypothesis_with_examples[hypo]
-
-        return list([hypo.invariant for hypo in hypothesis_with_examples.values()])
+        return (
+            list([hypothesis.invariant for hypothesis in passed_hypothesis]),
+            failed_hypothesis,
+        )
 
     @staticmethod
     def evaluate(value_group: list) -> bool:

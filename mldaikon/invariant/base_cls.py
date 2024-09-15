@@ -579,11 +579,23 @@ class Hypothesis:
         return f"Hypothesized Invariant: {self.invariant}\n# Positive examples: {len(self.positive_examples)}\n# Negative examples: {len(self.negative_examples)}"
 
 
+class FailedHypothesis:
+    def __init__(self, hypothesis: Hypothesis):
+        self.hypothesis = hypothesis
+
+    def to_dict(self):
+        return {
+            "invariant": self.hypothesis.invariant.to_dict(),
+            "num_positive_examples": len(self.hypothesis.positive_examples),
+            "num_negative_examples": len(self.hypothesis.negative_examples),
+        }
+
+
 class Relation(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def infer(trace) -> list[Invariant]:
+    def infer(trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Given a trace, should return a boolean value indicating
         whether the relation holds or not.
 
