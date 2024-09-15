@@ -39,6 +39,8 @@ class PTID(NamedTuple):
     tid: int
 
 
+DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
+
 # per process & thread logging
 stop_event = threading.Event()
 monitoring_thread = None
@@ -173,7 +175,10 @@ def get_instrumentation_logger_for_process():
         return instrumentation_loggers[pid]
 
     logger = logging.getLogger(f"instrumentation_{pid}")
-    logger.setLevel(logging.INFO)
+    if DEBUG:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
     log_file = f"instrumentation_{pid}.log"
     file_handler = logging.FileHandler(os.path.join(output_dir, log_file))
     file_handler.setFormatter(logging.Formatter("%(message)s"))
@@ -764,6 +769,18 @@ class Instrumentor:
         count_wrapped = 0
         for attr_name in dir(pymodule):
             attr = pymodule.__dict__.get(attr_name)
+            if attr is None:
+                # try access this attribute to handle lazy loading
+                try:
+                    _ = getattr(pymodule, attr_name)
+                    attr = pymodule.__dict__.get(
+                        attr_name
+                    )  # this attr should be loaded now
+                except Exception as e:
+                    get_instrumentation_logger_for_process().debug(
+                        f"Depth: {depth}, lazy loading failed for attribute: {attr_name}, Module: {target_name}, Type: {typename(attr)}: {e}"
+                    )
+
             if reason := self._should_skip_instr_attr(attr_name, pymodule):
                 get_instrumentation_logger_for_process().debug(
                     f"Depth: {depth}, Skipping attribute: {attr_name}, Reason: {reason}, Module: {target_name}, Type: {typename(attr)}"
