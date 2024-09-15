@@ -619,6 +619,8 @@ class FunctionCoverRelation(Relation):
                 flag_B = None
                 pre_recordB = None
                 for event in sorted_group_events.iter_rows(named=True):
+                    if event["type"] != "function_call (pre)":
+                        continue
 
                     if funcA == event["function"]:
                         # flag_A = event["time"]
