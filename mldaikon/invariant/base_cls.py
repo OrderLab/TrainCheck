@@ -66,6 +66,20 @@ class APIParam(Param):
             return False
         return event.func_name == self.api_full_name
 
+    def __eq__(self, other):
+        if isinstance(other, APIParam):
+            return self.api_full_name == other.api_full_name
+        return False
+
+    def __hash__(self):
+        return hash(self.api_full_name)
+
+    def __str__(self):
+        return self.api_full_name
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class VarTypeParam(Param):
     def __init__(self, var_type: str, attr_name: str):
@@ -269,6 +283,14 @@ class Precondition:
     def to_dict(self) -> dict:
         return {"clauses": [clause.to_dict() for clause in self.clauses]}
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Precondition):
+            return False
+        return self.clauses == other.clauses
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.clauses))
+
 
 class UnconditionalPrecondition(Precondition):
     def __init__(self):
@@ -339,6 +361,17 @@ class GroupedPreconditions:
             if precondition.verify(example):
                 return True
         return False
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, GroupedPreconditions):
+            return False
+        return self.grouped_preconditions == other.grouped_preconditions
+
+    def __hash__(self) -> int:
+        items = tuple(
+            (k, tuple(v)) for k, v in sorted(self.grouped_preconditions.items())
+        )
+        return hash(items)
 
     @staticmethod
     def from_dict(precondition_dict: dict) -> GroupedPreconditions:
@@ -546,11 +579,23 @@ class Hypothesis:
         return f"Hypothesized Invariant: {self.invariant}\n# Positive examples: {len(self.positive_examples)}\n# Negative examples: {len(self.negative_examples)}"
 
 
+class FailedHypothesis:
+    def __init__(self, hypothesis: Hypothesis):
+        self.hypothesis = hypothesis
+
+    def to_dict(self):
+        return {
+            "invariant": self.hypothesis.invariant.to_dict(),
+            "num_positive_examples": len(self.hypothesis.positive_examples),
+            "num_negative_examples": len(self.hypothesis.negative_examples),
+        }
+
+
 class Relation(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def infer(trace) -> list[Invariant]:
+    def infer(trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Given a trace, should return a boolean value indicating
         whether the relation holds or not.
 

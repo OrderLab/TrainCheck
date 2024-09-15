@@ -44,6 +44,7 @@ PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be th
 ]
 
 # precondition inference configs
+MAX_PRECOND_DEPTH = 3  # the maximum depth of the precondition inference
 ENABLE_PRECOND_SAMPLING = True  # whether to enable sampling of positive and negative examples for precondition inference, can be overridden by the command line argument
 PRECOND_SAMPLING_THRESHOLD = 10000  # the number of samples to take for precondition inference, if the number of samples is larger than this threshold, we will sample this number of samples
 NOT_USE_AS_CLAUSE_FIELDS = [

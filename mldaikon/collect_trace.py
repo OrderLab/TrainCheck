@@ -202,6 +202,7 @@ if __name__ == "__main__":
     # set up logging
     if args.debug_mode:
         logging.basicConfig(level=logging.DEBUG)
+        os.environ["ML_DAIKON_DEBUG"] = "1"
     else:
         logging.basicConfig(level=logging.INFO)
 
