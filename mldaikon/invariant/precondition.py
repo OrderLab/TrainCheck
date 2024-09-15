@@ -223,6 +223,7 @@ def find_precondition_from_single_group(
     keys_to_skip: list[str] = [],
     _pruned_clauses: set[PreconditionClause] = set(),
     _skip_pruning: bool = False,
+    _current_depth: int = 0,
 ) -> list[Precondition]:
     """Given a hypothesis, should return a list of `Precondition` objects that invariants should hold if one of the `Precondition` is satisfied.
 
@@ -241,8 +242,14 @@ def find_precondition_from_single_group(
     To implement the invariant split OP. We need to determine how this verification / pruning process should be done, because now all the `Precondition` objects have to be violated in the negative examples.
     """
     logger.debug(
-        f"Calling precondition inference with \n# positive examples: {len(positive_examples)}, \n# negative examples: {len(negative_examples)}"
+        f"Calling precondition inference with \n# positive examples: {len(positive_examples)}, \n# negative examples: {len(negative_examples)}, at depth {_current_depth}"
     )
+
+    if _current_depth > config.MAX_PRECOND_DEPTH:
+        logger.debug(
+            f"Max depth reached, returning empty preconditions, current depth: {_current_depth}"
+        )
+        return []
 
     if len(negative_examples) == 0:
         assert (
@@ -437,6 +444,7 @@ def find_precondition_from_single_group(
             keys_to_skip=keys_to_skip,
             _pruned_clauses=_pruned_clauses,
             _skip_pruning=True,
+            _current_depth=_current_depth + 1,
         )
         if len(sub_preconditions) == 0:
             print("Warning: empty preconditions found in the sub-hypothesis")
