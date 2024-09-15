@@ -63,4 +63,32 @@ VAR_INV_TYPE = (
 )
 
 # Ziming: added config for e2e pipeline
-API_log_dir = "."
+API_LOG_DIR = "."
+
+META_VARS_FORBID_LIST = [
+    "pre_process",
+    "post_process",
+    "__name__",
+    "__file__",
+    "__loader__",
+    "__doc__",
+    "logdir",
+    "log_level",
+    "is_root",
+    "var_name",
+    "mode",
+    "process_id",
+    "thread_id",
+    "dumped_frame_array",
+    "func_call_id",
+    "mldaikon_folder",
+    "enable_auto_observer_depth",
+    "neglect_hidden_func",
+    "neglect_hidden_module",
+    "observe_then_unproxy",
+    "observe_up_to_depth",
+    "log_file",
+    "log_dir",
+]
+
+ENABLE_COND_DUMP = False

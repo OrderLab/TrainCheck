@@ -1,7 +1,9 @@
 import functools
 
+from mldaikon.instrumentor.tracer import should_dump_trace
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
+from mldaikon.utils import typename
 
 
 def observe_proxy_var(
@@ -29,21 +31,45 @@ def observe_proxy_var(
         NotImplementedError(f"observe method not implemented for {var}")
 
 
-def add_observer_to_func(func, unproxy=False):
-    original_func = func
+def add_observer_to_func(original_function, cond_dump, unproxy=False):
     only_dump_when_change = auto_observer_config["only_dump_when_change"]
 
-    @functools.wraps(original_func)
+    @functools.wraps(original_function)
     def wrapper(*args, **kwargs):
         observe_var = []
+        proxied_var = []
         for arg in args:
             # if the arg is list or tuple, check if it contains proxied object
             if type(arg) in [list, tuple]:
                 for element in arg:
                     if is_proxied(element):
-                        observe_var.append(element)
+                        proxied_var.append(element)
+                        if should_dump_trace(   # NOTE: Conditional dumping not implemented at the dump_to_trace level because the observing process has extra overhead
+                            cond_dump,
+                            None,
+                            f"VAR: {typename(element)}: {element.__dict__['var_name']}",
+                            None,
+                            None,
+                        ):
+                            observe_var.append(element)
+                        else:
+                            # TODO: @ziming-zh what's a good way to dump a log here? Does logger = logging.getLogger(__name__) work?
+                            pass
             if is_proxied(arg):
-                observe_var.append(arg)
+                proxied_var.append(arg)
+                if should_dump_trace(
+                    cond_dump,
+                    None,
+                    f"VAR: {typename(arg)}: {arg.__dict__['var_name']}",
+                    None,
+                    None,
+                ):
+                    observe_var.append(arg)
+                else:
+                    # TODO: @ziming-zh what's a good way to dump a log here? Does logger = logging.getLogger(__name__) work?
+                    pass
+        # print(typename(original_function), len(observe_var), len(proxied_var))
+
         # pre observe
         trace_info = len(observe_var) * [None]
         for i, var in enumerate(observe_var):
@@ -67,10 +93,13 @@ def add_observer_to_func(func, unproxy=False):
             trace_info[i] = observe_proxy_var(
                 pre_observed_var, "pre_observe", only_dump_when_change
             )
+
+        processed_function = original_function
         if unproxy:
-            result = unproxy_func(original_func)(*args, **kwargs)
-        else:
-            result = original_func(*args, **kwargs)
+            processed_function = unproxy_func(original_function)
+
+        result = processed_function(*args, **kwargs)
+
         # post observe
         for i, var in enumerate(observe_var):
             observe_proxy_var(

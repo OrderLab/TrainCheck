@@ -172,6 +172,7 @@ class Trace:
             if outermost_func_call_post.height == 0:
                 outermost_incomplete = True
             else:
+                outermost_incomplete = False
                 outermost_func_call_post_record = outermost_func_call_post.row(
                     0, named=True
                 )
@@ -777,7 +778,9 @@ class Trace:
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
         if post_record is None:
-            logger.warning(f"Post call event not found for {func_call_id}")
+            logger.warning(
+                f"Post call event not found for {func_call_id} ({pre_record['function']})"
+            )
             # let's get the end time of the trace on the specific process and thread
             end_time = (
                 self.get_end_time(pre_record["process_id"], pre_record["thread_id"])

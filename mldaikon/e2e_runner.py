@@ -164,7 +164,7 @@ if __name__ == "__main__":
         # "allow_disable_dump": False,
         # "funcs_of_inv_interest": None,
         "output_dir": output_dir,
-        "API_log_dir": api_log_dir,
+        "API_LOG_DIR": api_log_dir,
         "profiling": str(args.profiling),
         "only_var": str(args.only_var),
         "only_func": str(args.only_func),
