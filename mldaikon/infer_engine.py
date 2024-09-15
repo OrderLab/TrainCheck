@@ -112,9 +112,9 @@ if __name__ == "__main__":
 
     time_start = time.time()
     engine = InferEngine(traces)
-    invs = engine.infer()
+    invs, failed_hypos = engine.infer()
     time_end = time.time()
     logger.info(f"Inference completed in {time_end - time_start} seconds.")
 
     save_invs(invs, args.output)
-    save_failed_hypos(invs, args.output + ".failed")
+    save_failed_hypos(failed_hypos, args.output + ".failed")
