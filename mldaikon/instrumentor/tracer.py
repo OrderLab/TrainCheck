@@ -42,7 +42,6 @@ class PTID(NamedTuple):
     tid: int
 
 
-
 cache_meta_vars: dict[PTID, dict[str, dict]] = defaultdict(lambda: defaultdict(dict))
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
@@ -225,7 +224,7 @@ def get_meta_vars() -> dict:
                 and name not in META_VARS_FORBID_LIST
             )
         }
-        
+
         if frame_vars:
             if file_full_path not in all_frame_vars:
                 all_frame_vars[file_full_path] = frame_vars

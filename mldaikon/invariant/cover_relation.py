@@ -334,6 +334,7 @@ class FunctionCoverRelation(Relation):
                     failed_hypothesis.append(
                         FailedHypothesis(hypothesis_with_examples[hypo])
                     )
+                    hypos_to_delete.append(hypo)
 
             for hypo in hypos_to_delete:
                 # remove key from hypothesis_with_examples

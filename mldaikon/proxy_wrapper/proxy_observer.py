@@ -44,7 +44,7 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
                 for element in arg:
                     if is_proxied(element):
                         proxied_var.append(element)
-                        if should_dump_trace(   # NOTE: Conditional dumping not implemented at the dump_to_trace level because the observing process has extra overhead
+                        if should_dump_trace(  # NOTE: Conditional dumping not implemented at the dump_to_trace level because the observing process has extra overhead
                             cond_dump,
                             None,
                             f"VAR: {typename(element)}: {element.__dict__['var_name']}",
