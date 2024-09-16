@@ -428,17 +428,30 @@ class Invariant:
     def __str__(self) -> str:
         return f"""Relation: {self.relation}\nParam Selectors: {self.params}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
 
-    def to_dict(self) -> dict:
-        assert (
-            self.precondition is not None
-        ), f"Invariant precondition is not set, check the infer function of {self.relation.__name__}"
+    def to_dict(self, _dumping_for_failed_cases=False) -> dict:
 
-        return {
-            "text_description": self.text_description,
-            "relation": self.relation.__name__,
-            "params": [param.to_dict() for param in self.params],
-            "precondition": self.precondition.to_dict(),
-        }
+        # when normally dumping the invariants, the precondition must be set (as only invariants that have preconditions are dumped)
+        if not _dumping_for_failed_cases:
+            assert (
+                self.precondition is not None
+            ), f"Invariant precondition is not set, check the infer function of {self.relation.__name__} (invariant text description: {self.text_description})"
+
+            return {
+                "text_description": self.text_description,
+                "relation": self.relation.__name__,
+                "params": [param.to_dict() for param in self.params],
+                "precondition": self.precondition.to_dict(),
+            }
+        else:
+            assert (
+                self.precondition is None
+            ), "Precondition should be None for failed cases"
+            return {
+                "text_description": self.text_description,
+                "relation": self.relation.__name__,
+                "params": [param.to_dict() for param in self.params],
+                "precondition": "Failed",
+            }
 
     @staticmethod
     def from_dict(invariant_dict: dict) -> Invariant:
@@ -585,7 +598,9 @@ class FailedHypothesis:
 
     def to_dict(self):
         return {
-            "invariant": self.hypothesis.invariant.to_dict(),
+            "invariant": self.hypothesis.invariant.to_dict(
+                _dumping_for_failed_cases=True
+            ),
             "num_positive_examples": len(self.hypothesis.positive_examples),
             "num_negative_examples": len(self.hypothesis.negative_examples),
         }
