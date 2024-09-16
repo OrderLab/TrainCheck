@@ -1,3 +1,22 @@
+"""TODOs @Boyu:
+1. Implementation Clean-up for both Cover and Lead Relations
+    1. If no functions are present in the trace, return gracefully (now they throw exceptions)
+        ```python   
+        func_names = trace.get_func_names()
+
+        if len(func_names) == 0:
+            logger.warning(
+                "No function calls found in the trace, skipping the analysis"
+            )
+            return [], []
+        ```
+    2. Remove all direct references to `trace.events`. Only use the utilities provided by the `Trace` class. If a query is not supported, open an issue and we can discuss how to add it.
+        The motivation for doing this is to make the code more modular and easier to maintain, and also your relation isn't tied to the specific implementation of the `Trace` class.
+        Since we are planning for migration to a different backend, this will make the transition easier.
+
+    3. add comments to certain variable names as they are a bit unclear. For example, the var `relation_pool` is not clear what it is used for, and it collides with the `relation_pool` in the `relation_pool.py` file.
+"""
+
 import logging
 from itertools import combinations
 from typing import Any, Dict, List, Set, Tuple
