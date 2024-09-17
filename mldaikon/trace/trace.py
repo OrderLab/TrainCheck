@@ -99,7 +99,7 @@ class Trace:
         ), "time column not found in the events, cannot infer invariants as the analysis does a lot of queries based on time."
 
         # TODO: we need to handle the schema issue in polars quickly as it will force us to split the traces by schema, which will cause traces from one process to be split into multiple files and thus we will have to sort the entire trace by time, which is costly
-        logger.warn(
+        logger.warning(
             "Infer engine won't sort the events by time anymore as sorting is costly for large traces. Please make sure every separate file is sorted by time, and traces belong to the same process should be in the same file. For variable traces, we will still be sorting them by time so no need to worry about that."
         )
 
@@ -197,9 +197,16 @@ class Trace:
                     - config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST
                 ):
                     logger.warning(f"Removing incomplete function call: {record}")
+                    prev_var_height = self.events.filter(
+                        pl.col("type") == "state_change"
+                    ).height
                     self.events = self.events.filter(
-                        pl.col("func_call_id") != record["func_call_id"]
+                        pl.col("func_call_id").ne_missing(record["func_call_id"])
                     )
+                    assert (
+                        self.events.filter(pl.col("type") == "state_change").height
+                        == prev_var_height
+                    ), f"Incomplete function call removal incorrect, removed var traces incorrectly. func_call_id: {record['func_call_id']}, prev_height: {prev_var_height}, new_height: {self.events.filter(pl.col('type') == 'state_change').height}"
                 else:
                     raise ValueError(
                         f"Incomplete function call is not close enough to the outermost function call post event: {record}"
@@ -210,12 +217,20 @@ class Trace:
                 logger.warning(
                     f"Removing incomplete function call and everything after it on the same thread and process: {record}"
                 )
+
+                prev_var_height = self.events.filter(
+                    pl.col("type") == "state_change"
+                ).height
                 self.events = self.events.filter(
-                    (pl.col("process_id") != process_id)
-                    | (pl.col("thread_id") != thread_id)
+                    (pl.col("process_id").ne_missing(process_id))
+                    | (pl.col("thread_id").ne_missing(thread_id))
                     | (pl.col("time") < record["time"])
                 )
 
+                assert (
+                    self.events.filter(pl.col("type") == "state_change").height
+                    == prev_var_height
+                ), "Incomplete function call removal incorrect, removed var traces incorrectly."
                 # assert the record's func_call_id is no longer in the events
                 assert (
                     self.events.filter(
