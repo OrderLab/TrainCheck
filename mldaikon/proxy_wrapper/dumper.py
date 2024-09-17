@@ -6,8 +6,9 @@ import torch
 if torch.cuda.is_available():
     from mldaikon.proxy_wrapper.hash import tensor_hash
 
+from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
-from mldaikon.instrumentor.tracer import meta_vars, TraceLineType
+from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,

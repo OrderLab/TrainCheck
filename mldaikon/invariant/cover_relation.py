@@ -1,27 +1,12 @@
 """TODOs @Boyu:
 1. Implementation Clean-up for both Cover and Lead Relations
-    1. If no functions are present in the trace, return gracefully (now they throw exceptions)
-        ```python   
-        func_names = trace.get_func_names()
-
-        if len(func_names) == 0:
-            logger.warning(
-                "No function calls found in the trace, skipping the analysis"
-            )
-            return [], []
-        ```
-    2. Remove all direct references to `trace.events`. Only use the utilities provided by the `Trace` class. If a query is not supported, open an issue and we can discuss how to add it.
-        The motivation for doing this is to make the code more modular and easier to maintain, and also your relation isn't tied to the specific implementation of the `Trace` class.
-        Since we are planning for migration to a different backend, this will make the transition easier.
-
-    3. add comments to certain variable names as they are a bit unclear. For example, the var `relation_pool` is not clear what it is used for, and it collides with the `relation_pool` in the `relation_pool.py` file.
+    1. add comments to certain variable names as they are a bit unclear.
 """
 
 import logging
 from itertools import combinations
 from typing import Any, Dict, List, Set, Tuple
 
-import polars as pl
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import (
@@ -89,7 +74,7 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
     for start_node in start_nodes:
         dfs(start_node, [], set())
 
-    print(paths)
+    # print(paths)
     return paths
 
 
@@ -102,33 +87,22 @@ class FunctionCoverRelation(Relation):
         logger = logging.getLogger(__name__)
 
         # 1. Pre-process all the events
+        print("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
 
-        events = trace.events
+        # If the trace contains no function, safely exists infer process
+        func_names = trace.get_func_names()
+        if len(func_names) == 0:
+            logger.warning(
+                "No function calls found in the trace, skipping the analysis"
+            )
+            return [], []
 
-        events = events.filter(~events["function"].str.contains(r"\.__*__"))
-        events = events.filter(~events["function"].str.contains(r"\._"))
-        threshold = 6
-        events = events.with_columns(
-            (events["function"] != events["function"].shift())
-            .cum_sum()
-            .alias("group_id")
-        )
-
-        group_counts = events.group_by("group_id").agg(
-            [
-                pl.col("function").first().alias("function"),
-                pl.count("function").alias("count"),
-            ]
-        )
-
-        functions_to_remove = group_counts.filter(pl.col("count") > threshold)[
-            "function"
-        ]
-
-        events = events.filter(~events["function"].is_in(functions_to_remove))
-        function_pool = set(events["function"].unique().to_list())
+        events = trace.get_filtered_function()
+        function_pool = set(
+            events["function"].unique().to_list()
+        )  # All filtered function names
 
         with open("check_function_pool.txt", "w") as file:
             for function in function_pool:
@@ -140,7 +114,6 @@ class FunctionCoverRelation(Relation):
                 f"Missing column: {required_columns - set(events.columns)}"
             )
 
-        print("Start preprocessing....")
         group_by_events = events.group_by(["process_id", "thread_id"])
 
         for group_events in tqdm(group_by_events):
@@ -353,7 +326,10 @@ class FunctionCoverRelation(Relation):
             print("Start merging invariants...")
             relation_pool: Dict[
                 GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
-            ] = {}
+            ] = (
+                {}
+            )  # relation_pool contains all binary relations classified by GroupedPreconditions (key)
+
             for hypo in hypothesis_with_examples:
                 if (
                     hypothesis_with_examples[hypo].invariant.precondition
@@ -527,16 +503,23 @@ class FunctionCoverRelation(Relation):
         """
         assert inv.precondition is not None, "Invariant should have a precondition."
 
+        # If the trace contains no function, return vacuous true result
+        func_names = trace.get_func_names()
+        if len(func_names) == 0:
+            print("No function calls found in the trace, skipping the checking")
+            return CheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        events = trace.get_filtered_function()
+
+        function_pool = (
+            []
+        )  # Here function_pool only contains functions existing in given invariant
+
         invariant_length = len(inv.params)
-
-        events = trace.events
-
-        # all_function_df = events.filter()
-
-        # all_function = set(all_function_df["function"].unique().to_list())
-
-        function_pool = []
-
         for i in range(invariant_length):
             func = inv.params[i]
             assert isinstance(

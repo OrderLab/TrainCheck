@@ -821,6 +821,29 @@ class Trace:
             self.get_end_time() - self.get_start_time()
         )
 
+    def get_filtered_function(self) -> pl.DataFrame:
+        """Filter API calls in traces and return filtered events."""
+        events = self.events
+        events = events.filter(~events["function"].str.contains(r"\.__*__"))
+        events = events.filter(~events["function"].str.contains(r"\._"))
+        threshold = 6
+        events = events.with_columns(
+            (events["function"] != events["function"].shift())
+            .cum_sum()
+            .alias("group_id")
+        )
+        group_counts = events.group_by("group_id").agg(
+            [
+                pl.col("function").first().alias("function"),
+                pl.count("function").alias("count"),
+            ]
+        )
+        functions_to_remove = group_counts.filter(pl.col("count") > threshold)[
+            "function"
+        ]
+        events = events.filter(~events["function"].is_in(functions_to_remove))
+        return events
+
 
 def read_trace_file(
     file_path: str | list[str], truncate_incomplete_func_calls=True

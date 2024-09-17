@@ -11,10 +11,11 @@ import types
 import typing
 from typing import Dict
 
+import torch
+
 import mldaikon.config.config as general_config
 import mldaikon.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
-import torch
 from mldaikon.instrumentor.tracer import should_dump_trace
 from mldaikon.proxy_wrapper.dumper import (
     SkippedDumpingObj,
