@@ -119,6 +119,19 @@ class APIContainRelation(Relation):
     In the API contain relation, an parent API call will always contain the child API call.
     """
 
+    """ After this PR, APIContainRelation should be able to tell events that are semantically different apart. 
+    For now, for example for the APICall related events, we don't distinguish whether the API failed or not.
+    Also for VarChangeEvent, we don't consider the values before/after the change.
+
+    In this PR we are trying to count for these delicate differences, and generalize only the common parts.
+    Thus, we should be able to infer the additional invariant that `zero_grad` always lead to a `VarChangeEvent` from "anything" to "None".
+    TODOs:
+    - [ ] Refine the intersection logic, instead of relying on intersects provided by set class and Event class's __eq__ method, we should
+    define a function that does this compare
+        - [ ] Compare every attribute of the event, and return True if all attributes are the same
+        - [ ] Try to generalize the event when seeing the same type event with different attributes 
+    - [ ] Make the Dynamic Analysis part less ad-hoc as of its current form in the code
+    """
     @staticmethod
     def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants with Preconditions"""
