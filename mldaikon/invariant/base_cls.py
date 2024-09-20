@@ -79,7 +79,7 @@ class APIParam(Param):
         return hash(self.api_full_name)
 
     def __str__(self):
-        return self.api_full_name
+        return f"{self.api_full_name} {self.exception}"
 
     def __repr__(self):
         return self.__str__()
@@ -133,6 +133,12 @@ class VarTypeParam(Param):
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type
 
+    def __str__(self) -> str:
+        return f"{self.var_type} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
 
 class VarNameParam(Param):
     def __init__(
@@ -183,6 +189,12 @@ class VarNameParam(Param):
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type and var_id.var_name == self.var_name
+
+    def __str__(self) -> str:
+        return f"{self.var_type} {self.var_name} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
 
 def construct_api_param(
@@ -516,8 +528,8 @@ class Invariant:
         params: list[Param],
         precondition: GroupedPreconditions | None,
         text_description: str | None = None,
-        num_positive_examples: int|None = None,
-        num_negative_examples: int|None = None,
+        num_positive_examples: int | None = None,
+        num_negative_examples: int | None = None,
     ):
         self.relation = relation
         self.params = params

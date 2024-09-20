@@ -400,6 +400,12 @@ class APIContainRelation(Relation):
                     found_precondition is not None
                 ):  # TODO: abstract this precondition inference part to a function
                     hypo.invariant.precondition = found_precondition
+                    hypo.invariant.num_positive_examples = len(
+                        hypo.positive_examples.examples
+                    )
+                    hypo.invariant.num_negative_examples = len(
+                        hypo.negative_examples.examples
+                    )
                     all_invariants.append(hypo.invariant)
                 else:
                     logger.debug(f"Precondition not found for the hypothesis: {hypo}")
