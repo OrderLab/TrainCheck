@@ -114,6 +114,7 @@ class FuncCallExceptionEvent(HighLevelEvent):
         self.func_name = func_name
         self.pre_record = pre_record
         self.post_record = post_record
+        self.exception = post_record["exception"]
         assert (
             pre_record["type"] == TraceLineType.FUNC_CALL_PRE
             and post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION
@@ -158,3 +159,11 @@ class VarChangeEvent(HighLevelEvent):
 
     def __eq__(self, other) -> bool:
         return super().__eq__(other)
+
+
+ALL_EVENT_TYPES = [
+    FuncCallEvent,
+    IncompleteFuncCallEvent,
+    FuncCallExceptionEvent,
+    VarChangeEvent,
+]

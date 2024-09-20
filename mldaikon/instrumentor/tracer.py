@@ -349,6 +349,8 @@ def global_wrapper(
         "proxy_obj_names": [
             ["", ""]
         ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
+        "exception": "",
+        "exception_msg": "",
     }
 
     if dump_stack_trace:
@@ -405,11 +407,10 @@ def global_wrapper(
                 "meta_vars": get_meta_vars(),
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": func_name,
-                "args": [f"{arg}" for arg in args],
-                "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
-                "exception": str(e),
-                "exception_type": f"{type(e)}",
-                "traceback": traceback.format_exc(),
+                # "args": [f"{arg}" for arg in args],
+                # "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
+                "exception": typename(e),
+                "exception_msg": str(e),
                 "is_bound_method": is_bound_method,
                 "obj_id": None if not is_bound_method else id(args[0]),
             },

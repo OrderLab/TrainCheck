@@ -98,7 +98,7 @@ if __name__ == "__main__":
     logging.basicConfig(
         filename=f'mldaikon_infer_engine_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log',
         level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format="%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)s - %(funcName)20s()] - %(message)s",
     )
 
     config.ENABLE_PRECOND_SAMPLING = not args.disable_precond_sampling

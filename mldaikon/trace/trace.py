@@ -10,6 +10,7 @@ from mldaikon.trace.types import (
     AttrState,
     FuncCallEvent,
     FuncCallExceptionEvent,
+    IncompleteFuncCallEvent,
     Liveness,
     VarChangeEvent,
     VarInstId,
@@ -701,6 +702,32 @@ class Trace:
         )  # order of events doesn't matter as the result here is a single row
 
         return post_record
+
+    def query_func_call_event(
+        self, func_call_id: str
+    ) -> FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent:
+        """Extract a function call event from the trace, given its func_call_id."""
+        pre_record = self.get_pre_func_call_record(func_call_id)
+        post_record = self.get_post_func_call_record(func_call_id)
+
+        if post_record is None:
+            # query the end time of the trace on the specific process and thread
+            potential_end_time = self.get_end_time(
+                pre_record["process_id"], pre_record["thread_id"]
+            )
+            return IncompleteFuncCallEvent(
+                pre_record["function"], pre_record, potential_end_time
+            )
+
+        if post_record["type"] == TraceLineType.FUNC_CALL_POST:
+            return FuncCallEvent(pre_record["function"], pre_record, post_record)
+
+        if post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+            return FuncCallExceptionEvent(
+                pre_record["function"], pre_record, post_record
+            )
+
+        raise ValueError(f"Unknown function call event type: {post_record['type']}")
 
     def query_func_call_events_within_time(
         self,

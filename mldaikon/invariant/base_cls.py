@@ -6,11 +6,13 @@ import logging
 from enum import Enum
 from typing import Hashable, Iterable, Optional, Type
 
+import mldaikon.config.config as config
 from mldaikon.trace.trace import Trace, VarInstId
 from mldaikon.trace.types import (
     FuncCallEvent,
     FuncCallExceptionEvent,
     HighLevelEvent,
+    IncompleteFuncCallEvent,
     VarChangeEvent,
 )
 
@@ -42,7 +44,7 @@ class Param:
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
-        "Check if the event contains the required information for the param."
+        """Checks whether the trace line is a candidate described by the param."""
         raise NotImplementedError(
             "check_trace_line_match method is not implemented yet."
         )
@@ -53,8 +55,10 @@ class Param:
 
 
 class APIParam(Param):
-    def __init__(self, api_full_name: str):
+    def __init__(self, api_full_name: str, exception: Exception | None = None):
         self.api_full_name = api_full_name
+
+        self.exception = exception
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
         if "function" not in trace_line:
@@ -82,9 +86,29 @@ class APIParam(Param):
 
 
 class VarTypeParam(Param):
-    def __init__(self, var_type: str, attr_name: str):
+    def __init__(
+        self,
+        var_type: str,
+        attr_name: str,
+        pre_value: type | None = None,
+        post_value: type | None = None,
+        recur_value: type | None = None,
+    ):
         self.var_type = var_type
         self.attr_name = attr_name
+
+        """ TODO:
+        Can we use symbolic values here (for the below parameterizable params)? For example, instead of giving a specific value, we can state that the pre_value should be a non-null value.
+        This can be useful in cases where the exact value is not known, but the type of the value is known.
+        """
+
+        ## === optional parametrized values ===
+        # for the APIContainRelation relation
+        self.pre_value = pre_value
+        self.post_value = post_value
+
+        # for the VarPeriodicChangeRelation relation
+        self.recur_value = recur_value
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
         if "var_type" not in trace_line:
@@ -92,6 +116,14 @@ class VarTypeParam(Param):
         return trace_line["var_type"] == self.var_type
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
+        """Checks whether the event is a candidate described by the param.
+        Note that, only var_type and attr_name are checked here.
+        The parameterized values (e.g. pre_value and recur_value) should be checked in the relation's evaluate method.
+
+        TODO: potential value of using higher level events is that we can capture higher level information. For example,
+        `zero_grad` does assign zero to the gradients of the model everytime, but call to `zero_grad` is only correct if the previous value
+        of the gradients was not zero. This information can be captured in the higher level event.
+        """
         if not isinstance(event, VarChangeEvent):
             return False
         return (
@@ -103,10 +135,26 @@ class VarTypeParam(Param):
 
 
 class VarNameParam(Param):
-    def __init__(self, var_type: str, var_name: str, attr_name: str):
+    def __init__(
+        self,
+        var_type: str,
+        var_name: str,
+        attr_name: str,
+        pre_value: type | None = None,
+        post_value: type | None = None,
+        recur_value: type | None = None,
+    ):
         self.var_type = var_type
         self.var_name = var_name
         self.attr_name = attr_name
+
+        ## === optional parametrized values ===
+        # for the APIContainRelation relation
+        self.pre_value = pre_value
+        self.post_value = post_value
+
+        # for the VarPeriodicChangeRelation relation
+        self.recur_value = recur_value
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
         if "var_type" not in trace_line:
@@ -117,6 +165,14 @@ class VarNameParam(Param):
         )
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
+        """Checks whether the event is a candidate described by the param.
+        Note that, only var_type and attr_name are checked here.
+        The parameterized values (e.g. pre_value and recur_value) should be checked in the relation's evaluate method.
+
+        TODO: potential value of using higher level events is that we can capture higher level information. For example,
+        `zero_grad` does assign zero to the gradients of the model everytime, but call to `zero_grad` is only correct if the previous value
+        of the gradients was not zero. This information can be captured in the higher level event.
+        """
         if not isinstance(event, VarChangeEvent):
             return False
         return (
@@ -127,6 +183,47 @@ class VarNameParam(Param):
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type and var_id.var_name == self.var_name
+
+
+def construct_api_param(
+    event: FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent,
+) -> APIParam:
+    if isinstance(event, FuncCallEvent):
+        return APIParam(event.func_name)
+    if isinstance(event, IncompleteFuncCallEvent):
+        return APIParam(event.func_name)
+
+    if isinstance(event, FuncCallExceptionEvent):
+        return APIParam(event.func_name, event.exception)
+
+    raise ValueError(f"Invalid event type: {type(event)}")
+
+
+def construct_var_param_from_var_change(
+    event: VarChangeEvent,
+) -> VarTypeParam | VarNameParam:
+    pre_value = event.old_state.value
+    new_value = event.new_state.value
+
+    if config.VAR_INV_TYPE == "type":
+        return VarTypeParam(
+            event.var_id.var_type,
+            event.attr_name,
+            pre_value=pre_value,
+            post_value=new_value,
+            recur_value=None,
+        )
+    elif config.VAR_INV_TYPE == "name":
+        return VarNameParam(
+            event.var_id.var_type,
+            event.var_id.var_name,
+            event.attr_name,
+            pre_value=pre_value,
+            post_value=new_value,
+            recur_value=None,
+        )
+
+    raise ValueError(f"Invalid VAR_INV_TYPE: {config.VAR_INV_TYPE}")
 
 
 class PreconditionClauseType(Enum):
@@ -419,11 +516,17 @@ class Invariant:
         params: list[Param],
         precondition: GroupedPreconditions | None,
         text_description: str | None = None,
+        num_positive_examples: int|None = None,
+        num_negative_examples: int|None = None,
     ):
         self.relation = relation
-        self.params = params  ## params to be used in the check
+        self.params = params
         self.precondition = precondition
         self.text_description = text_description
+
+        # optional values for the number of positive and negative examples -- potentially for invariant amendement at runtime
+        self.num_positive_examples = num_positive_examples
+        self.num_negative_examples = num_negative_examples
 
     def __str__(self) -> str:
         return f"""Relation: {self.relation}\nParam Selectors: {self.params}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
@@ -441,6 +544,8 @@ class Invariant:
                 "relation": self.relation.__name__,
                 "params": [param.to_dict() for param in self.params],
                 "precondition": self.precondition.to_dict(),
+                "num_positive_examples": self.num_positive_examples,
+                "num_negative_examples": self.num_negative_examples,
             }
         else:
             assert (
@@ -451,6 +556,8 @@ class Invariant:
                 "relation": self.relation.__name__,
                 "params": [param.to_dict() for param in self.params],
                 "precondition": "Failed",
+                "num_positive_examples": self.num_positive_examples,
+                "num_negative_examples": self.num_negative_examples,
             }
 
     @staticmethod
@@ -557,7 +664,7 @@ class ExampleList:
     def add_example(self, example: Example):
         assert (
             set(example.trace_groups.keys()) == self.group_names
-        ), "Example groups do not match the expected group names"
+        ), f"Example groups do not match the expected group names, expected: {self.group_names}, got: {set(example.trace_groups.keys())}"
         self.examples.append(example)
 
     def get_group_from_examples(self, group_name: str) -> list[list[dict]]:
