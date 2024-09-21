@@ -1,7 +1,7 @@
 import logging
 import random
 import time
-from typing import Type
+from typing import Type, Hashable
 
 from tqdm import tqdm
 
@@ -19,6 +19,7 @@ from mldaikon.invariant.base_cls import (
     VarTypeParam,
     construct_api_param,
     construct_var_param_from_var_change,
+    calc_likelihood,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
@@ -159,6 +160,121 @@ def prune_func_call(total_func_calls, list_num_events_scanned: list[int]) -> boo
             f"Skipping the function call due to sampling with a pruning probability of: {1 - not_pruning_prob}"
         )
     return is_skipping
+
+def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
+    """Merge the hypotheses that might be generalizable
+    
+    Args:
+        hypotheses: list[Hypothesis]
+            - the list of hypotheses to be merged, these hypotheses must be mergeable, i.e. parent param type and child param type should be the same
+    
+    Returns:
+        list[Hypothesis]
+            - the list of merged hypotheses and original hypotheses that are not merged
+    
+    The merge logic is as follows:
+    We first group the hypotheses based on the attributes that are mergeable. 
+    Each group should produce one merged hypothesis, with all original hypotheses henceforth deleted.
+
+    For each group, we determine whether to merge the hypotheses or not based on the following rules:
+    1. We calculate the likelihood of the original hypotheses, and the likelihood of the merged hypothesis
+    2. If the likelihood of the merged hypothesis is significantly higher than the likelihood of the original hypotheses, we merge the hypotheses
+
+    # group the hypotheses based on the mergeable attributes
+
+
+    NOTE: This is a ad-hoc version of the merge_hypotheses function, and should be improved in the future, it only merges for the case where the child param is a VarTypeParam|VarNameParam
+    """
+    assert len(hypotheses) > 0, "Expected at least one hypothesis to be merged"
+
+    pos_exp_group_names = hypotheses[0].positive_examples.get_group_names()
+    neg_exp_group_names = hypotheses[0].negative_examples.get_group_names()
+    
+    dynamic_analysis_enabled = False
+    if pos_exp_group_names == neg_exp_group_names:
+        dynamic_analysis_enabled = True  # HACK: dynamic analysis is enabled only when the positive and negative examples are the same
+
+    assert all(
+        hypo.positive_examples.get_group_names() == pos_exp_group_names
+        and hypo.negative_examples.get_group_names() == neg_exp_group_names
+        for hypo in hypotheses
+    ), "Expected all hypotheses to have the same group names"    
+
+    grouped_hypotheses_wrt_child_param: dict[VarNameParam|VarTypeParam, list[Hypothesis]] = {}
+    for hypo in hypotheses:
+        inv = hypo.invariant
+        assert isinstance(inv.params[1], (VarTypeParam, VarNameParam)), "Merging is only supported for VarTypeParam and VarNameParam"
+    
+        param_with_no_customization = inv.params[1].with_no_customization()
+
+        if param_with_no_customization not in grouped_hypotheses_wrt_child_param:
+            grouped_hypotheses_wrt_child_param[param_with_no_customization] = []
+        grouped_hypotheses_wrt_child_param[param_with_no_customization].append(hypo)
+    
+    assert len(grouped_hypotheses_wrt_child_param) == 1, "Expected only one group of hypotheses to be merged in current usage"
+
+    for _, hypos in grouped_hypotheses_wrt_child_param.items():
+        # calculate the likelihood of the original hypotheses
+        likelihood_original_hypos = [hypo.get_likelihood() for hypo in hypos]
+        all_child_params = [hypo.invariant.params[1] for hypo in hypos]
+        # generate possible merged hypotheses by 1. find common attributes (exactly the same) 2. find the attributes that are different and try to generalize them minimally
+        
+        all_customized_fields = [child_param.get_customizable_fields() for child_param in all_child_params]
+        assert len(all_customized_fields) > 0, "Expected at least one child param to be present"
+        # group by the field values
+        possible_common_fields: dict[str, dict[Hashable, list[int]]] = {} # the dict is the new child param, and the list is the indexes to corresponding original hypotheses
+        for field in all_customized_fields[0]:
+            if field not in possible_common_fields:
+                possible_common_fields[field] = {}
+            for idx, customized_fields in enumerate(all_customized_fields):
+                if customized_fields[field] not in possible_common_fields[field]:
+                    possible_common_fields[customized_fields[field]] = []
+                possible_common_fields[field][customized_fields[field]].append(idx)
+        
+        # for each possible common field, check if the field is the same for all the original hypotheses
+        for field, field_values in possible_common_fields.items():
+            for field_value, idxs in field_values.items():
+                if len(idxs) == 1:
+                    # only one hypothesis has this field value, we can't make this a common field
+                    continue
+                """ check for the related hypotheses and compute how many examples that can be generalized
+                logic, all positive examples will still be negative examples, all negative examples that 
+                showed in another hypothesis's positive examples will not be negative examples anymore
+                """
+
+                
+                all_positive_examples = set()
+                all_negative_examples = set()
+                for idx in idxs:
+                    if not dynamic_analysis_enabled:
+                        # positive example should only include the parent function call to be consistent with the child param
+                        pre_records = hypos[idx].positive_examples.get_group_from_examples(PARENT_GROUP_NAME)
+                        exps_with_only_parent = [Example({PARENT_GROUP_NAME: pre_record}) for pre_record in pre_records]
+                        all_positive_examples.update(exps_with_only_parent)
+
+                    all_positive_examples.update(hypos[idx].positive_examples.examples)
+                    all_negative_examples.update(hypos[idx].negative_examples.examples)
+
+                # let's remove those negative examples that are present in the positive examples of other hypotheses
+                all_negative_examples = all_negative_examples.difference(all_positive_examples)
+                # calculate the likelihood of the merged hypothesis now
+                merged_likelihood = calc_likelihood(
+                    len(all_positive_examples), len(all_negative_examples)
+                )
+                if merged_likelihood > sum(likelihood_original_hypos):
+                    # yes, we can merge the hypotheses
+                    # lets construct the child param for the merged hypothesis, the outsider caller should be finding the examples for this hypothesis
+                    #TBD
+
+                # positive examples might not necessarily present
+
+
+                
+                
+    return hypos
+
+
+
 
 
 class APIContainRelation(Relation):
@@ -401,10 +517,10 @@ class APIContainRelation(Relation):
                 ):  # TODO: abstract this precondition inference part to a function
                     hypo.invariant.precondition = found_precondition
                     hypo.invariant.num_positive_examples = len(
-                        hypo.positive_examples.examples
+                        hypo.positive_examples
                     )
                     hypo.invariant.num_negative_examples = len(
-                        hypo.negative_examples.examples
+                        hypo.negative_examples
                     )
                     all_invariants.append(hypo.invariant)
                 else:

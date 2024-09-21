@@ -16,6 +16,8 @@ from mldaikon.trace.types import (
     VarChangeEvent,
 )
 
+class _NOT_SET:
+    pass
 
 class Param:
     # param_type: str  # ["func", "var_type", "var_name"]
@@ -53,9 +55,14 @@ class Param:
         "Check if the high level event contains the required information for the param."
         raise NotImplementedError("check_event_match method is not implemented yet.")
 
+    @abc.abstractmethod
+    def get_customizable_fields(self) -> dict[str, type]:
+        """Returns the fields that can be customized for the param."""
+        raise NotImplementedError("get_customizable_fields method should not be called on the base class.")
+
 
 class APIParam(Param):
-    def __init__(self, api_full_name: str, exception: Exception | None = None):
+    def __init__(self, api_full_name: str, exception: Exception | _NOT_SET = _NOT_SET):
         self.api_full_name = api_full_name
 
         self.exception = exception
@@ -69,6 +76,22 @@ class APIParam(Param):
         if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
             return False
         return event.func_name == self.api_full_name
+    
+    def with_no_customization(self) -> APIParam:
+        return APIParam(self.api_full_name)
+
+    def get_necessary_fields(self) -> dict[str, type]:
+        return {
+            "api_full_name": str,
+        }
+
+    def get_customizable_fields(self) -> dict[str, type]:
+        if self.exception == _NOT_SET:
+            return {}
+        
+        return {
+            "exception": Exception, 
+        }
 
     def __eq__(self, other):
         if isinstance(other, APIParam):
@@ -90,9 +113,9 @@ class VarTypeParam(Param):
         self,
         var_type: str,
         attr_name: str,
-        pre_value: type | None = None,
-        post_value: type | None = None,
-        recur_value: type | None = None,
+        pre_value: type | None = _NOT_SET,
+        post_value: type | None = _NOT_SET,
+        recur_value: type | None = _NOT_SET,
     ):
         self.var_type = var_type
         self.attr_name = attr_name
@@ -132,7 +155,23 @@ class VarTypeParam(Param):
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type
+    
+    def with_no_customization(self) -> VarTypeParam:
+        return VarTypeParam(self.var_type, self.attr_name)
 
+    def get_necessary_fields(self) -> dict[str, type]:
+        return {
+            "var_type": str,
+            "attr_name": str,
+        }
+
+    def get_customizable_fields(self) -> dict[str, type]:
+        fields = {}
+        for attr in ["pre_value", "post_value", "recur_value"]:
+            if getattr(self, attr) != _NOT_SET:
+                fields[attr] = getattr(self, attr)
+        return fields
+    
     def __str__(self) -> str:
         return f"{self.var_type} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
 
@@ -146,9 +185,9 @@ class VarNameParam(Param):
         var_type: str,
         var_name: str,
         attr_name: str,
-        pre_value: type | None = None,
-        post_value: type | None = None,
-        recur_value: type | None = None,
+        pre_value: type | None = _NOT_SET,
+        post_value: type | None = _NOT_SET,
+        recur_value: type | None = _NOT_SET,
     ):
         self.var_type = var_type
         self.var_name = var_name
@@ -189,6 +228,23 @@ class VarNameParam(Param):
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type and var_id.var_name == self.var_name
+
+    def with_no_customization(self) -> VarNameParam:
+        return VarNameParam(self.var_type, self.var_name, self.attr_name)
+
+    def get_necessary_fields(self) -> dict[str, type]:
+        return {
+            "var_type": self.var_type,
+            "var_name": self.var_name,
+            "attr_name": self.attr_name,
+        }
+
+    def get_customizable_fields(self) -> dict[str, type]:
+        fields = {}
+        for attr in ["pre_value", "post_value", "recur_value"]:
+            if getattr(self, attr) != _NOT_SET:
+                fields[attr] = getattr(self, attr)
+        return fields
 
     def __str__(self) -> str:
         return f"{self.var_type} {self.var_name} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
@@ -666,6 +722,9 @@ class Example:
 
     def __repr__(self):
         return f"Example with Groups: {self.trace_groups.keys()}"
+    
+    def __hash__(self) -> int:
+        return hash(frozenset(self.trace_groups.items()))
 
 
 class ExampleList:
@@ -689,6 +748,18 @@ class ExampleList:
         return len(self.examples)
 
 
+def calc_likelihood(num_pos_exps: int, num_neg_exps: int) -> float:
+    assert num_pos_exps > 0, "No positive examples found for the hypothesis, check the inference process, calc_likelihood should only be called after the example collection process"
+
+    # calculate the likelihood with smoothing factors
+    likelihood = (num_pos_exps + 1) / (num_pos_exps + num_neg_exps + 2)  # alpha = 1, beta = 1 (Posterior Likelihood)
+
+    # this likelihood should also be low if the num_pos_exps is very low
+    if num_pos_exps < 10:  # this is a heuristic value, perhaps let it adaptive based on the number of trace lines? or normalize it w.r.t time duration
+        likelihood = likelihood / 2
+
+    return likelihood
+
 class Hypothesis:
     def __init__(
         self,
@@ -710,6 +781,8 @@ class Hypothesis:
     def _print_debug(self):
         return f"Hypothesized Invariant: {self.invariant}\n# Positive examples: {len(self.positive_examples)}\n# Negative examples: {len(self.negative_examples)}"
 
+    def calc_likelihood(self):
+        return calc_likelihood(len(self.positive_examples), len(self.negative_examples))
 
 class FailedHypothesis:
     def __init__(self, hypothesis: Hypothesis):
