@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import json
 import logging
+import numbers
 from enum import Enum
 from typing import Hashable, Iterable, Optional, Type
 
@@ -61,6 +62,46 @@ class Param:
         raise NotImplementedError("get_customizable_fields method should not be called on the base class.")
 
 
+def generalize_values(values: list[type]) -> type:
+    """Given a list of values, should return a generalized value."""
+    if len(values) == 0:
+        return None
+
+    none_in_values = None in values
+
+    assert len(set([type(v) for v in values])) - none_in_values == 1, "Values should have the same type, got: {set([type(v) for v in values])}"
+
+    if isinstance(values[0], numbers.Number):
+        # Reasonable about the range of the values
+        # above zero, below zero, Non-zero, Non-none, Non-negative, Non-positive
+        min_value = min(values)
+        max_value = max(values)
+
+        assert min_value != max_value, "Min and max values are the same, you don't need to generalize the values"
+        if min_value > 0:
+            return "above_zero"
+        elif min_value >= 0:
+            return "non_negative"
+        elif max_value < 0:
+            return "below_zero"
+        elif max_value <= 0:
+            return "non_positive"
+        elif min_value < 0 and max_value > 0 and 0 not in values:
+            return "non_zero"
+        elif min_value < 0 and max_value > 0 and 0 in values and not none_in_values:
+            return "non_none"
+        else:
+            # numerical values should always be mergable
+            raise ValueError(f"Invalid values: {values}")
+
+    else:
+        # for other types, only check if None is in the values
+        if none_in_values:
+            return "non_none"
+        return None
+    
+    raise ValueError(f"Invalid values: {values}")
+        
 class APIParam(Param):
     def __init__(self, api_full_name: str, exception: Exception | _NOT_SET = _NOT_SET):
         self.api_full_name = api_full_name

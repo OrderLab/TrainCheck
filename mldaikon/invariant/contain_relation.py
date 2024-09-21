@@ -242,7 +242,6 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                 showed in another hypothesis's positive examples will not be negative examples anymore
                 """
 
-                
                 all_positive_examples = set()
                 all_negative_examples = set()
                 for idx in idxs:
@@ -261,7 +260,24 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                 merged_likelihood = calc_likelihood(
                     len(all_positive_examples), len(all_negative_examples)
                 )
-                if merged_likelihood > sum(likelihood_original_hypos):
+                import numpy as np
+                if merged_likelihood / np.mean(likelihood_original_hypos) > 2:
+                    # construct the param for the merged hypothesis
+                    for field_to_generalize in all_customized_fields[0]:
+                        if field_to_generalize == field:
+                            continue
+
+                        # get the values to be generalized
+                        values_to_generalize = [all_customized_fields[idx][field_to_generalize] for idx in idxs]
+                        # generalize the values
+                        
+                        
+                    # invoke generalization logic on all other fields
+
+                    
+                    # this might be one case,
+                    # another case is that most of the original hypotheses have high likelihood already, but there's a small one that has low likelihood and
+                    # can be merged with these high-likelihood hypotheses
                     # yes, we can merge the hypotheses
                     # lets construct the child param for the merged hypothesis, the outsider caller should be finding the examples for this hypothesis
                     #TBD
