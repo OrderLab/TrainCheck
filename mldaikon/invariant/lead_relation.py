@@ -1,5 +1,5 @@
 import logging
-from itertools import combinations
+from itertools import permutations
 from typing import Any, Dict, List, Set, Tuple
 
 from tqdm import tqdm
@@ -183,7 +183,7 @@ class FunctionLeadRelation(Relation):
             (process_id, thread_id), _ = group_events
             same_level_func[(process_id, thread_id)] = {}
             for funcA, funcB in tqdm(
-                combinations(function_pool, 2),
+                permutations(function_pool, 2),
                 ascii=True,
                 leave=True,
                 desc="Combinations Checked",
@@ -546,6 +546,7 @@ class FunctionLeadRelation(Relation):
 
         for group_events in group_by_events:
             (process_id, thread_id), evs = group_events
+            assert isinstance(process_id, str) and isinstance(thread_id, str)
             sorted_group_events = evs.sort("time")
             if (process_id, thread_id) not in function_id_map:
                 function_id_map[(process_id, thread_id)] = {}
@@ -611,6 +612,7 @@ class FunctionLeadRelation(Relation):
 
             for group_events in group_by_events:
                 (process_id, thread_id), evs = group_events
+                assert isinstance(process_id, str) and isinstance(thread_id, str)
                 sorted_group_events = evs.sort("time")
 
                 assert isinstance(func_A, APIParam) and isinstance(
