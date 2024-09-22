@@ -66,8 +66,8 @@ class CallGraphVisitor(ast.NodeVisitor):
         self.root = root
 
         # data gathered from analysis
-        self.defines_edges: dict[Node, set[Node]] = {}
-        self.uses_edges: dict[Node, set[Node]] = {}
+        self.defines_edges: dict[Node, set[Node]] = {}  # type: ignore
+        self.uses_edges: dict[Node, set[Node]] = {}  # type: ignore
         self.nodes = (
             {}
         )  # Node name: list of Node objects (in possibly different namespaces)
