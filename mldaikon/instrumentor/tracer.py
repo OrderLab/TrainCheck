@@ -313,6 +313,8 @@ def global_wrapper(
                 return tensor_stats(args[0]._parameters['weight'])
             else:
                 return None
+        elif isinstance(arg, torch.nn.DataParallel):
+            return str(arg.module.named_parameters)
         else:
             return None
 
@@ -366,6 +368,12 @@ def global_wrapper(
             if func_name == func:
                 should_dump_func_arg_trace = True
                 break
+
+    try:
+        if '.to' in func_name[6:]:
+            import pdb; pdb.set_trace()
+    except:
+        pass
 
     # Dump the function arguments
     if should_dump_func_arg_trace:
