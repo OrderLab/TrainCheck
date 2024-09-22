@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726979190964,
+  "lastUpdate": 1726989355223,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3650,6 +3650,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.669722993900018",
             "extra": "mean: 211.33729880360187 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "OrderLab",
+            "username": "OrderLab"
+          },
+          "committer": {
+            "name": "OrderLab",
+            "username": "OrderLab"
+          },
+          "id": "fb4ec464bca4fa5f4f8857e20752b0481e654ef7",
+          "message": "Accounting for Fine-grained Events in APIContainRelation",
+          "timestamp": "2024-09-21T03:01:23Z",
+          "url": "https://github.com/OrderLab/ml-daikon/pull/92/commits/fb4ec464bca4fa5f4f8857e20752b0481e654ef7"
+        },
+        "date": 1726989354637,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.003973254631274398,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9545394196524204",
+            "extra": "mean: 251.68283757320023 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.00565764235905959,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6412145529414051",
+            "extra": "mean: 176.75207030340098 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_cond_dump_jit_and_c_tracing_disabled",
+            "value": 0.006371968553526147,
+            "unit": "iter/sec",
+            "range": "stddev: 0.7473452234116001",
+            "extra": "mean: 156.937372116599 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0015406103577787313,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0110837351807702",
+            "extra": "mean: 649.0933901300072 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.004737139367245262,
+            "unit": "iter/sec",
+            "range": "stddev: 0.787357880358223",
+            "extra": "mean: 211.09786359980353 sec\nrounds: 5"
           }
         ]
       }
