@@ -24,6 +24,7 @@ from mldaikon.config.config import (
     INSTR_MODULES_TO_SKIP,
     META_VARS_FORBID_LIST,
     WRAP_WITHOUT_DUMP,
+    FUNC_ARG_RECORDED_FILE,
 )
 from mldaikon.instrumentor.replace_functions import funcs_to_be_replaced
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
@@ -393,6 +394,8 @@ def global_wrapper(
             stats['shape'] = tuple(int(x) for x in tensor.size())
         except Exception as e:
             pass
+
+        assert stats, f"Error in tensor_stats: {tensor}"
         
         return stats
 
@@ -408,6 +411,9 @@ def global_wrapper(
             else:
                 return None
         elif isinstance(arg, torch.nn.DataParallel):
+            # import pdb; pdb.set_trace()
+            if 'parameters' in arg.__dir__():
+                return tensor_stats(list(arg.parameters())[0])
             return str(arg.module.named_parameters)
         else:
             return None
@@ -474,11 +480,11 @@ def global_wrapper(
                 should_dump_func_arg_trace = True
                 break
 
-    try:
-        if '.to' in func_name[6:]:
-            import pdb; pdb.set_trace()
-    except:
-        pass
+    # try:
+    #     if '.to' in func_name[6:]:
+    #         import pdb; pdb.set_trace()
+    # except:
+    #     pass
 
     # Dump the function arguments
     if should_dump_func_arg_trace:
@@ -537,6 +543,7 @@ def global_wrapper(
 
                     if self_stat:
                         self_record = {
+                            "type": "Pre",
                             "is_method": is_method,
                             "var_type": typename(arg_value),
                             "var_name": "self",
@@ -550,6 +557,7 @@ def global_wrapper(
 
                 if "Tensor" in typename(arg_value) or "Linear" in typename(arg_value):
                     func_arg_record = {
+                        "type": "Pre",
                         "is_method": is_method,
                         "var_type": typename(arg_value),
                         "var_name": idx,
@@ -654,22 +662,20 @@ def global_wrapper(
     dump_trace_API(post_record)
 
     # If the result is of Tensor type, dump the result Tensor stats
-    if should_dump_func_arg_trace and ("Tensor" in typename(result) or "Linear" in typename(result)):
-        # if func_name == "torch.nn.modules.module.Module.to":
-        #     import pdb; pdb.set_trace()
-        if '_parameters' in result.__dict__ and 'weight' in result._parameters:
-            func_arg_record = {
-                # "process_id": process_id,
-                # "thread_id": thread_id,
-                # "meta_vars": get_meta_vars(),
-                # "type": TraceLineType.STATE_CHANGE,
+    if should_dump_func_arg_trace:
+        result_stat = func_arg_stats(result)
+
+        if result_stat:
+            self_record = {
+                "type": "Post",
                 "is_method": is_method,
-                "var_type": typename(result),
+                "var_type": typename(arg_value),
+                "var_name": "self",
                 "func_name": func_name,
-                "result_stat": func_arg_stats(result._parameters['weight']),
+                "self_stat": result_stat,
             }
 
-            dump_trace_FUNC_ARG(func_arg_record)
+            dump_trace_FUNC_ARG(self_record)
 
     return result
 

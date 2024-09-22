@@ -25,7 +25,7 @@ class VarPreserveRelation(Relation):
         logger = logging.getLogger(__name__)
 
         # Check if the DataFrame is empty
-        if trace.events.is_empty():
+        if trace.events.is_empty() or 'func_name' not in trace.events.columns:
             logger.warning("The trace contains no events.")
             return [], []
 
@@ -73,9 +73,9 @@ class VarPreserveRelation(Relation):
 
         # Evaluate hypotheses
         invariants = []
-
         failed_hypos = []
 
+        import pdb; pdb.set_trace()
         for hypo, hypothesis in hypotheses.items():
             pos_count = len(hypothesis.positive_examples.examples)
             neg_count = len(hypothesis.negative_examples.examples)
