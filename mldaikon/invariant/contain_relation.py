@@ -329,26 +329,26 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                             merged_child_param, field_to_generalize, generalized_value
                         )
 
-                # now we got the merged_child_param, generate the hypotheses for it
-                merged_hypothesis = Hypothesis(
-                    invariant=Invariant(
-                        relation=hypotheses[0].invariant.relation,
-                        params=[hypotheses[0].invariant.params[0], merged_child_param],
-                        text_description="TBD merged",
-                        num_positive_examples=len(all_positive_examples),
-                        num_negative_examples=len(all_positive_examples),
-                        precondition=None,  # to be inferred later
-                    ),
-                    positive_examples=ExampleList.from_iterable_of_examples(
-                        all_positive_examples
-                    ),
-                    negative_examples=ExampleList.from_iterable_of_examples(
-                        all_negative_examples
-                    ),
-                )
+                    # now we got the merged_child_param, generate the hypotheses for it
+                    merged_hypothesis = Hypothesis(
+                        invariant=Invariant(
+                            relation=hypotheses[0].invariant.relation,
+                            params=[hypotheses[0].invariant.params[0], merged_child_param],
+                            text_description="TBD merged",
+                            num_positive_examples=len(all_positive_examples),
+                            num_negative_examples=len(all_positive_examples),
+                            precondition=None,  # to be inferred later
+                        ),
+                        positive_examples=ExampleList.from_iterable_of_examples(
+                            all_positive_examples
+                        ),
+                        negative_examples=ExampleList.from_iterable_of_examples(
+                            all_negative_examples
+                        ),
+                    )
 
-                merged_hypotheses_idxs.update(idxs_specific_field_value)
-                output_hypotheses.append(merged_hypothesis)
+                    merged_hypotheses_idxs.update(idxs_specific_field_value)
+                    output_hypotheses.append(merged_hypothesis)
 
     for idx, hypo in enumerate(hypotheses):
         if idx not in output_hypotheses:
