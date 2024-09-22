@@ -33,11 +33,24 @@ class Param:
         return self.to_dict() == other.to_dict()
 
     def to_dict(self):
-        self_dict = {
+        ret = {
             "param_type": self.__class__.__name__,
         }
-        self_dict.update(self.__dict__)
-        return self_dict
+        self_state = self.__dict__
+        for field, value in self_state.items():
+            if value == _NOT_SET:
+                continue
+            if isinstance(value, Exception):
+                ret[field] = f"Exception: {type(value)}, msg: {value}"  # TODO: hack, this is not seralizable back to python Exceptions
+                continue
+            # try if the value is seralizable
+            try:
+                json.dumps({field: value})
+                ret[field] = value
+            except TypeError as e:
+                ret[field] = f"NOT SERIALIZABLE: {str(value)}"
+
+        return ret
 
     @staticmethod
     def from_dict(param_dict: dict) -> Param:
@@ -75,12 +88,16 @@ def generalize_values(values: list[type]) -> None | str:
     """Given a list of values, should return a generalized value."""
     if len(values) == 0:
         return None
+    
+    if len(set(values)) == 1:
+        # no need to generalize
+        return values[0]
 
     none_in_values = None in values
 
     assert (
         len(set([type(v) for v in values])) - none_in_values == 1
-    ), "Values should have the same type, got: {set([type(v) for v in values])}"
+    ), f"Values should have the same type, got: {set([type(v) for v in values])} ({values})"
 
     if any(isinstance(v, (int, float)) for v in values):
         all_non_none_values: list[int | float] = [
@@ -784,8 +801,13 @@ class Example:
         return f"Example with Groups: {self.trace_groups.keys()}"
 
     def __hash__(self) -> int:
-        return hash(frozenset(self.trace_groups.items()))
-
+        trace_groups_using_hashable_objects = []
+        for group in self.trace_groups:
+            trace_groups_using_hashable_objects.append(
+                (group, tuple(frozenset(record) for record in self.trace_groups[group]))
+            )
+        trace_groups_using_hashable_objects = tuple(trace_groups_using_hashable_objects)
+        return hash(trace_groups_using_hashable_objects)
 
 class ExampleList:
     def __init__(self, group_names: set[str]):
