@@ -12,14 +12,11 @@ from mldaikon.invariant.base_cls import (
     Invariant,
     Relation,
     VarTypeParam,
+    APIParam,
+    FailedHypothesis
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Liveness, Trace
-
-
-class FunctionParam:
-    def __init__(self, func_name: str):
-        self.func_name = func_name
 
 
 class EqualRelation(Relation):
@@ -33,13 +30,13 @@ class EqualRelation(Relation):
         # Check if the DataFrame is empty
         if trace.events.is_empty():
             logger.warning("The trace contains no events.")
-            return []
+            return [], []
 
         # Group events by 'func_name'
         func_names = trace.events['func_name'].unique().to_list()
         if not func_names:
             logger.warning("No 'func_name' found in the events.")
-            return []
+            return [], []
 
         hypotheses = {}
         group_name = 'events'
@@ -54,11 +51,11 @@ class EqualRelation(Relation):
                 continue
 
             # Initialize hypothesis for this function
-            hypo = func_name
-            hypotheses[hypo] = Hypothesis(
+            param = APIParam(api_full_name=func_name)
+            hypotheses[func_name] = Hypothesis(
                 invariant=Invariant(
                     relation=EqualRelation,
-                    params=[FunctionParam(func_name=func_name)],
+                    params=[param],
                     precondition=None,
                     text_description=f"Events of function {func_name} are similar."
                 ),
@@ -71,14 +68,18 @@ class EqualRelation(Relation):
                 if events_are_similar(event1, event2, tolerance=1e-6):
                     # Positive example: events are similar
                     example = Example({group_name: [event1, event2]})
-                    hypotheses[hypo].positive_examples.add_example(example)
+                    hypotheses[func_name].positive_examples.add_example(example)
                 else:
                     # Negative example: events are not similar
                     example = Example({group_name: [event1, event2]})
-                    hypotheses[hypo].negative_examples.add_example(example)
+                    hypotheses[func_name].negative_examples.add_example(example)
 
         # Evaluate hypotheses
         invariants = []
+
+        # TODO: Implement failed hypotheses
+        failed_hypos = []
+
         for hypo, hypothesis in hypotheses.items():
             pos_count = len(hypothesis.positive_examples.examples)
             neg_count = len(hypothesis.negative_examples.examples)
@@ -90,11 +91,11 @@ class EqualRelation(Relation):
             positive_ratio = pos_count / total
             
             # TODO: replace it with a threshold
-            if positive_ratio >= 0:
-                # Optionally infer preconditions
+            if positive_ratio >= 0.5:
+                # Infer preconditions
                 preconditions = find_precondition(
                     hypothesis,
-                    keys_to_skip=['time']  # Skip 'time' field in precondition inference
+                    keys_to_skip=['time']
                 )
 
                 if preconditions is not None:
@@ -102,8 +103,9 @@ class EqualRelation(Relation):
                 invariants.append(hypothesis.invariant)
             else:
                 logger.debug(f"Function {hypo}: positive_ratio {positive_ratio} below threshold")
+                failed_hypos.append(FailedHypothesis(hypothesis))
 
-        return invariants
+        return invariants, failed_hypos
 
 
 def events_are_similar(event1, event2, tolerance=1e-6):
@@ -130,6 +132,7 @@ def events_are_similar(event1, event2, tolerance=1e-6):
             return False
 
     return True
+
 
 def values_are_equal(value1, value2, tolerance=1e-6):
     """Compare two values for equality, with tolerance for numerical types."""

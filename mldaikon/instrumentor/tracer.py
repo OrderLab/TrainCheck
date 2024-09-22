@@ -1165,7 +1165,7 @@ class Instrumentor:
                     scan_proxy_in_args=self.scan_proxy_in_args,
                     disable_dump=self.should_disable_dump(attr),
                     dump_stack_trace=self.API_dump_stack_trace,
-                    dump_func_args=self.FUNC_ARG_dump_stack_trace
+                    dump_func_args=self.FUNC_ARG_dump_stack_trace,
                     cond_dump=self.cond_dump,
                 )
                 try:
