@@ -177,18 +177,18 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
 
     The merge logic is as follows:
     We first group the hypotheses based on the attributes that are mergeable.
-    Each group should produce one merged hypothesis, with all original hypotheses henceforth deleted.
+    Each group should produce one merged hypotheses, with all original hypotheses henceforth deleted.
 
     For each group, we determine whether to merge the hypotheses or not based on the following rules:
-    1. We calculate the likelihood of the original hypotheses, and the likelihood of the merged hypothesis
-    2. If the likelihood of the merged hypothesis is significantly higher than the likelihood of the original hypotheses, we merge the hypotheses
+    1. We calculate the likelihood of the original hypotheses, and the likelihood of the merged hypotheses
+    2. If the likelihood of the merged hypotheses is significantly higher than the likelihood of the original hypotheses, we merge the hypotheses
 
     # group the hypotheses based on the mergeable attributes
 
 
     NOTE: This is a ad-hoc version of the merge_hypotheses function, and should be improved in the future, it only merges for the case where the child param is a VarTypeParam|VarNameParam
     """
-    assert len(hypotheses) > 0, "Expected at least one hypothesis to be merged"
+    assert len(hypotheses) > 0, "Expected at least one hypotheses to be merged"
 
     pos_exp_group_names = hypotheses[0].positive_examples.get_group_names()
     neg_exp_group_names = hypotheses[0].negative_examples.get_group_names()
@@ -260,11 +260,11 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
         for field, field_values in possible_common_fields.items():
             for field_value, idxs_specific_field_value in field_values.items():
                 if len(idxs_specific_field_value) == 1:
-                    # only one hypothesis has this field value, we can't make this a common field
+                    # only one hypotheses has this field value, we can't make this a common field
                     continue
                 """ check for the related hypotheses and compute how many examples that can be generalized
                 logic, all positive examples will still be negative examples, all negative examples that 
-                showed in another hypothesis's positive examples will not be negative examples anymore
+                showed in another hypotheses's positive examples will not be negative examples anymore
                 """
 
                 all_positive_examples = set()
@@ -301,7 +301,7 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                             hypotheses[idx].positive_examples.examples
                         )
 
-                # calculate the likelihood of the merged hypothesis now
+                # calculate the likelihood of the merged hypotheses now
                 merged_likelihood = calc_likelihood(
                     len(all_positive_examples), len(all_negative_examples)
                 )
@@ -311,7 +311,7 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                     )  # HACK
                     setattr(merged_child_param, field, field_value)
 
-                    # construct the param for the merged hypothesis
+                    # construct the param for the merged hypotheses
                     for field_to_generalize in all_customized_fields[0]:
                         if field_to_generalize == field:
                             continue
@@ -329,7 +329,7 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                             merged_child_param, field_to_generalize, generalized_value
                         )
 
-                # now we got the merged_child_param, generate the hypothesis for it
+                # now we got the merged_child_param, generate the hypotheses for it
                 merged_hypothesis = Hypothesis(
                     invariant=Invariant(
                         relation=hypotheses[0].invariant.relation,
@@ -383,7 +383,7 @@ class APIContainRelation(Relation):
         logger = logging.getLogger(__name__)
 
         # split the trace into groups based on (process_id and thread_id)
-        hypothesis: dict[
+        hypotheses: dict[
             APIParam, dict[APIParam | VarTypeParam | VarNameParam, Hypothesis]
         ] = {}
         hypothesis_should_use_causal_vars_for_negative_examples: dict[
@@ -421,7 +421,7 @@ class APIContainRelation(Relation):
                 all_contained_events[parent_func_call_id] = contained_events
 
             # MARK: HYPOTHESIS CREATION
-            """Create hypothesis for each specific event (a event is defined by its __dict__)"""
+            """Create hypotheses for each specific event (a event is defined by its __dict__)"""
             parent_param = APIParam(parent)
             hypos_for_dynamic_analysis: list[tuple[Param, Param]] = []
             for (
@@ -430,8 +430,8 @@ class APIContainRelation(Relation):
             ) in all_contained_events.items():
                 parent_event = trace.query_func_call_event(parent_func_call_id)
                 parent_param = construct_api_param(parent_event)
-                if parent_param not in hypothesis:
-                    hypothesis[parent_param] = {}
+                if parent_param not in hypotheses:
+                    hypotheses[parent_param] = {}
                     hypothesis_should_use_causal_vars_for_negative_examples[parent] = {}
 
                 events_grouped_by_type = _group_events_by_type(local_contained_events)
@@ -441,7 +441,7 @@ class APIContainRelation(Relation):
                     child_param: APIParam | VarTypeParam | VarNameParam = (
                         construct_var_param_from_var_change(event)
                     )
-                    if child_param in hypothesis[parent_param]:
+                    if child_param in hypotheses[parent_param]:
                         continue
                     # if dynamic analysis is available for this child_param, we can use it to find negative examples
                     should_use_causal_vars_for_negative_examples = False
@@ -457,7 +457,7 @@ class APIContainRelation(Relation):
                             hypos_for_dynamic_analysis.append(
                                 (parent_param, child_param)
                             )
-                    hypothesis[parent_param][child_param] = Hypothesis(
+                    hypotheses[parent_param][child_param] = Hypothesis(
                         Invariant(
                             relation=APIContainRelation,
                             params=[parent_param, child_param],
@@ -478,8 +478,8 @@ class APIContainRelation(Relation):
                 for event_type in events_grouped_by_type:
                     for event in events_grouped_by_type[event_type]:
                         child_param = construct_api_param(event)
-                        if child_param not in hypothesis[parent_param]:
-                            hypothesis[parent_param][child_param] = Hypothesis(
+                        if child_param not in hypotheses[parent_param]:
+                            hypotheses[parent_param][child_param] = Hypothesis(
                                 Invariant(
                                     relation=APIContainRelation,
                                     params=[parent_param, child_param],
@@ -498,24 +498,24 @@ class APIContainRelation(Relation):
             ) in all_contained_events.items():
                 parent_event = trace.query_func_call_event(parent_func_call_id)
                 parent_param = construct_api_param(parent_event)
-                parent_hypos = hypothesis[
+                parent_hypos = hypotheses[
                     parent_param
-                ].copy()  # keep record of all hypothesis related to the parent function
+                ].copy()  # keep record of all hypotheses related to the parent function
 
                 # adding positive examples
                 events_grouped_by_type = _group_events_by_type(local_contained_events)
                 for event in events_grouped_by_type[VarChangeEvent]:
                     child_param = construct_var_param_from_var_change(event)
                     assert (
-                        child_param in hypothesis[parent_param]
-                    ), f"Internal error: child_param {child_param} not found in the hypothesis during the example collection phase"
+                        child_param in hypotheses[parent_param]
+                    ), f"Internal error: child_param {child_param} not found in the hypotheses during the example collection phase"
                     parent_hypos.pop(
                         child_param, None
                     )  # same child event can occur multiple times in a particular parent event, due to the above assert it is save to use None to ignore the KeyError
                     example = Example()
                     example.add_group(PARENT_GROUP_NAME, [parent_event.pre_record])
                     example.add_group(VAR_GROUP_NAME, event.get_traces())
-                    hypothesis[parent_param][child_param].positive_examples.add_example(
+                    hypotheses[parent_param][child_param].positive_examples.add_example(
                         example
                     )
 
@@ -524,13 +524,13 @@ class APIContainRelation(Relation):
                     for event in events_grouped_by_type[event_type]:
                         child_param = construct_api_param(event)
                         assert (
-                            child_param in hypothesis[parent_param]
-                        ), f"Internal error: child_param {child_param} not found in the hypothesis during the example collection phase"
+                            child_param in hypotheses[parent_param]
+                        ), f"Internal error: child_param {child_param} not found in the hypotheses during the example collection phase"
 
                         parent_hypos.pop(
                             child_param, None
                         )  # same child event can occur multiple times in a particular parent event, due to the above assert it is save to use None to ignore the KeyError
-                        hypothesis[parent_param][
+                        hypotheses[parent_param][
                             child_param
                         ].positive_examples.add_example(
                             Example({PARENT_GROUP_NAME: [parent_event.pre_record]})
@@ -539,7 +539,7 @@ class APIContainRelation(Relation):
                 # adding negative examples for hypotheses that are not modified above
                 for child_param in parent_hypos:
                     if (parent_param, child_param) not in hypos_for_dynamic_analysis:
-                        hypothesis[parent_param][
+                        hypotheses[parent_param][
                             child_param
                         ].negative_examples.add_example(
                             Example({PARENT_GROUP_NAME: [parent_event.pre_record]})
@@ -568,28 +568,56 @@ class APIContainRelation(Relation):
                                     var_id, parent_event.pre_record["time"]
                                 ),
                             )
-                            hypothesis[parent_param][
+                            hypotheses[parent_param][
                                 child_param
                             ].negative_examples.add_example(example)
+
+        # extra step: merge invariants
+        for parent_param in hypotheses:
+            # group the child_hypotheses by core_fields
+            all_mergeable_hypotheses: dict[
+                VarNameParam | VarTypeParam, list[Hypothesis]
+            ] = {}
+            for child_param in hypotheses[parent_param]:
+                if isinstance(child_param, APIParam):
+                    continue
+                core_child_param = child_param.with_no_customization()
+                if core_child_param not in all_mergeable_hypotheses:
+                    all_mergeable_hypotheses[core_child_param] = []
+                all_mergeable_hypotheses[core_child_param].append(
+                    hypotheses[parent_param][child_param]
+                )
+
+            hypotheses[parent_param] = {}
+            # for each key in all_mergeable_hypotheses, invoke the hypotheses merging process.
+            for hypotheses_to_be_merged in all_mergeable_hypotheses.values():
+                merged_hypotheses = _merge_hypotheses(hypotheses_to_be_merged)
+                # delete original hypotheses in the original `hypotheses` structure
+                for hypo in merged_hypotheses:
+                    new_child_param = hypo.invariant.params[1]
+                    assert isinstance(new_child_param, (VarNameParam | VarTypeParam))
+                    hypotheses[parent_param][
+                        new_child_param
+                    ] = hypo  # index 1 here is to get the var_name or var_type param, a hack. Correctness should be guaranteed by the isinstance above
 
         pbar = tqdm(
             total=len(
                 [
                     child_param
-                    for parent_param in hypothesis
-                    for child_param in hypothesis[parent_param]
+                    for parent_param in hypotheses
+                    for child_param in hypotheses[parent_param]
                 ]
             ),
             desc="Infering preconditions",
         )
         all_invariants: list[Invariant] = []
         failed_hypotheses = []
-        for parent_param in hypothesis:
-            for child_param in hypothesis[parent_param]:
-                hypo = hypothesis[parent_param][child_param]
+        for parent_param in hypotheses:
+            for child_param in hypotheses[parent_param]:
+                hypo = hypotheses[parent_param][child_param]
                 pbar.update(1)
                 logger.debug(
-                    f"Starting the inference of precondition for the hypothesis: {hypo.invariant.text_description}"
+                    f"Starting the inference of precondition for the hypotheses: {hypo.invariant.text_description}"
                 )
                 found_precondition = find_precondition(hypo)
                 if (
@@ -600,7 +628,7 @@ class APIContainRelation(Relation):
                     hypo.invariant.num_negative_examples = len(hypo.negative_examples)
                     all_invariants.append(hypo.invariant)
                 else:
-                    logger.debug(f"Precondition not found for the hypothesis: {hypo}")
+                    logger.debug(f"Precondition not found for the hypotheses: {hypo}")
                     failed_hypotheses.append(FailedHypothesis(hypo))
 
         return all_invariants, failed_hypotheses
