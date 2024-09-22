@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from dataclasses import dataclass
 from typing import NamedTuple
 
 from mldaikon.instrumentor.tracer import TraceLineType
@@ -19,6 +18,12 @@ class Liveness:
     def __str__(self):
         return f"Start Time: {self.start_time}, End Time: {self.end_time}, Duration: {self.end_time - self.start_time}"
 
+    def __eq__(self, other):
+        return self.start_time == other.start_time and self.end_time == other.end_time
+
+    def __hash__(self) -> int:
+        return hash(str(self.__dict__))
+
 
 class AttrState:
     def __init__(self, value: type, liveness: Liveness, traces: list[dict]):
@@ -29,11 +34,16 @@ class AttrState:
     def __str__(self):
         return f"Value: {self.value}, Liveness: {self.liveness}"
 
+    def __eq__(self, other):
+        return self.value == other.value and self.liveness == other.liveness
+
+    def __hash__(self) -> int:
+        return hash(str(self.__dict__))
+
 
 """High-level events to be extracted from the low-level trace events (a low-level event is a single line in a trace file)."""
 
 
-@dataclass
 class HighLevelEvent(object):
     """Base class for high-level events. A high-level event is an conceptual event that is extracted from the low-level trace events (each line in the trace).
     For example, a function call event is a high-level event that is extracted from the low-level trace events of 'function_call (pre)' and 'function_call (post)'.
@@ -52,7 +62,6 @@ class HighLevelEvent(object):
         return self.__dict__ == other.__dict__
 
 
-@dataclass
 class FuncCallEvent(HighLevelEvent):
     """A function call event."""
 
@@ -71,8 +80,13 @@ class FuncCallEvent(HighLevelEvent):
     def get_traces(self):
         return [self.pre_record, self.post_record]
 
+    def __hash__(self) -> int:
+        return super().__hash__()
 
-@dataclass
+    def __eq__(self, other) -> bool:
+        return super().__eq__(other)
+
+
 class IncompleteFuncCallEvent(HighLevelEvent):
     """An outermost function call event, but without the post record."""
 
@@ -88,8 +102,13 @@ class IncompleteFuncCallEvent(HighLevelEvent):
     def get_traces(self):
         return [self.pre_record]
 
+    def __hash__(self) -> int:
+        return super().__hash__()
 
-@dataclass
+    def __eq__(self, other) -> bool:
+        return super().__eq__(other)
+
+
 class FuncCallExceptionEvent(HighLevelEvent):
     def __init__(self, func_name: str, pre_record: dict, post_record: dict):
         self.func_name = func_name
@@ -106,8 +125,13 @@ class FuncCallExceptionEvent(HighLevelEvent):
     def get_traces(self):
         return [self.pre_record, self.post_record]
 
+    def __hash__(self) -> int:
+        return super().__hash__()
 
-@dataclass
+    def __eq__(self, other) -> bool:
+        return super().__eq__(other)
+
+
 class VarChangeEvent(HighLevelEvent):
     def __init__(
         self,
@@ -128,3 +152,9 @@ class VarChangeEvent(HighLevelEvent):
 
     def get_traces(self):
         return self.old_state.traces + self.new_state.traces
+
+    def __hash__(self) -> int:
+        return super().__hash__()
+
+    def __eq__(self, other) -> bool:
+        return super().__eq__(other)

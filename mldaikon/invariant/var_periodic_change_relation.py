@@ -8,6 +8,7 @@ from mldaikon.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
+    FailedHypothesis,
     Hypothesis,
     Invariant,
     Relation,
@@ -41,7 +42,7 @@ def calculate_hypo_value(value) -> str:
 
 class VarPeriodicChangeRelation(Relation):
     @staticmethod
-    def infer(trace: Trace) -> list[Invariant]:
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants for the VariableChangeRelation."""
         logger = logging.getLogger(__name__)
         ## 1. Pre-scanning: Collecting variable instances and their values from the trace
@@ -49,7 +50,7 @@ class VarPeriodicChangeRelation(Relation):
         var_insts = trace.get_var_insts()
         if len(var_insts) == 0:
             logger.warning("No variables found in the trace.")
-            return []
+            return [], []
         ## 2.Counting: count the number of each value of every variable attribute
         # TODO: record the intervals between occurrencess
         # TODO: improve time and memory efficiency
@@ -136,13 +137,19 @@ class VarPeriodicChangeRelation(Relation):
 
         # 4. find preconditions
         valid_invariants = []
+        failed_hypothesis = []
         for hypothesis in all_hypothesis.values():
             preconditions = find_precondition(hypothesis)
             if preconditions:
                 hypothesis.invariant.precondition = preconditions
                 valid_invariants.append(hypothesis.invariant)
+            else:
+                logger.debug(
+                    f"Skip the invariant {hypothesis.invariant.text_description} due to failed precondition inference."
+                )
+                failed_hypothesis.append(FailedHypothesis(hypothesis))
 
-        return valid_invariants
+        return valid_invariants, failed_hypothesis
 
     @staticmethod
     def evaluate(value_group: list) -> bool:

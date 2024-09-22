@@ -2,6 +2,7 @@ import argparse
 import datetime
 import json
 import logging
+import re
 
 from tqdm import tqdm
 
@@ -24,12 +25,12 @@ def check_engine(
                 inv.precondition is not None
             ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
             logger.info("=====================================")
-            logger.debug("Checking invariant %s", inv.text_description)
+            # logger.debug("Checking invariant %s on trace %s", inv, trace)
             res = inv.check(trace, check_relation_first)
             res.calc_and_set_time_precentage(
                 trace.get_start_time(), trace.get_end_time()
             )
-            # logger.info("Invariant %s on trace %s: %s", inv, trace, res)
+            logger.info("Invariant %s on trace %s: %s", inv, trace, res)
             results.append(res)
 
     return results
@@ -104,9 +105,17 @@ if __name__ == "__main__":
     invs = read_inv_file(args.invariants)
 
     logger.info("Reading traces from %s", "\n".join(args.traces))
-    traces = [
-        read_trace_file(args.traces)
-    ]  # TODO: we don't really support multiple traces yet, these are just traces from different processes and they are 'logically' the same trace as they
+
+    traces_string = args.traces[0]
+
+    trace_groups = re.findall(r"\[(.*?)\]", traces_string)
+
+    if len(trace_groups) == 0:
+        traces = [read_trace_file(args.traces)]
+    else:
+        trace_file_groups = [group.split(", ") for group in trace_groups]
+
+        traces = [read_trace_file(group) for group in trace_file_groups]
 
     results = check_engine(traces, invs, args.check_relation_first)
 

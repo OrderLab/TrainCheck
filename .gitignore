@@ -52,3 +52,4 @@ Deepspeed/
 !config.json
 # local dummy files from yijun's branch
 84911_100_proxy_trace
+/lightning-thunder
