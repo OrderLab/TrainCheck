@@ -1,29 +1,26 @@
 import logging
 import polars as pl
 import itertools
-from collections import defaultdict
 
 from mldaikon.config import config
 from mldaikon.invariant.base_cls import (
-    CheckerResult,
     Example,
     ExampleList,
     Hypothesis,
     Invariant,
     Relation,
-    VarTypeParam,
     APIParam,
     FailedHypothesis
 )
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Liveness, Trace
+from mldaikon.trace.trace import Trace
 
 
-class EqualRelation(Relation):
+class VarPreserveRelation(Relation):
 
     @staticmethod
     def infer(trace: Trace) -> list[Invariant]:
-        """Infer Invariants for the EqualRelation."""
+        """Infer Invariants for the VarPreserveRelation."""
 
         logger = logging.getLogger(__name__)
 
@@ -54,12 +51,12 @@ class EqualRelation(Relation):
             param = APIParam(api_full_name=func_name)
             hypotheses[func_name] = Hypothesis(
                 invariant=Invariant(
-                    relation=EqualRelation,
+                    relation=VarPreserveRelation,
                     params=[param],
                     precondition=None,
                     text_description=f"Events of function {func_name} are similar."
                 ),
-                positive_examples=ExampleList({group_name}),
+                positive_examples=ExampleList({group_name}),  # TODO: Add group name
                 negative_examples=ExampleList({group_name})
             )
 
@@ -77,7 +74,6 @@ class EqualRelation(Relation):
         # Evaluate hypotheses
         invariants = []
 
-        # TODO: Implement failed hypotheses
         failed_hypos = []
 
         for hypo, hypothesis in hypotheses.items():
