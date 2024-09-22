@@ -60,6 +60,10 @@ class Param:
     def get_customizable_fields(self) -> dict[str, type]:
         """Returns the fields that can be customized for the param."""
         raise NotImplementedError("get_customizable_fields method should not be called on the base class.")
+    
+    @abc.abstractmethod
+    def with_no_customization(self) -> Param:
+        pass
 
 
 def generalize_values(values: list[type]) -> type:
@@ -98,10 +102,7 @@ def generalize_values(values: list[type]) -> type:
         # for other types, only check if None is in the values
         if none_in_values:
             return "non_none"
-        return None
-    
-    raise ValueError(f"Invalid values: {values}")
-        
+        raise ValueError(f"Cannot generalize, check values: {values}")
 class APIParam(Param):
     def __init__(self, api_full_name: str, exception: Exception | _NOT_SET = _NOT_SET):
         self.api_full_name = api_full_name
@@ -754,6 +755,9 @@ class Example:
 
     def get_group(self, group_name: str) -> list[dict]:
         return self.trace_groups[group_name]
+    
+    def get_group_names(self) -> list[str]:
+        return list[self.trace_groups.keys()]
 
     def __iter__(self):
         return iter(self.trace_groups)
@@ -787,8 +791,22 @@ class ExampleList:
 
     def __len__(self):
         return len(self.examples)
+    
+    @staticmethod
+    def from_iterable_of_examples(input: Iterable[Example]) -> ExampleList:
+        group_names = None
+        examples = []
+        for exp in input:
+            if group_names is None:
+                group_names = exp.get_group_names()
+            else:
+                assert group_names == exp.get_group_names()
+            examples.append(exp)
 
-
+        example_list = ExampleList(group_names)
+        example_list.examples = examples
+        return example_list
+            
 def calc_likelihood(num_pos_exps: int, num_neg_exps: int) -> float:
     assert num_pos_exps > 0, "No positive examples found for the hypothesis, check the inference process, calc_likelihood should only be called after the example collection process"
 
