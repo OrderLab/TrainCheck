@@ -7,7 +7,7 @@ import torchvision
 INTERNAL_LIBS = None
 
 # traverse the user script. Change to the target path.
-EXTERNAL_LIBS = "example_pipelines/bug_84911_ml_daikon.py"
+EXTERNAL_LIBS = None
 
 # ============================== USED IN INTERNAL ==============================
 
@@ -42,4 +42,4 @@ BLACKLIST_PATH = [
 # Only used in external.
 # top-level modules that will be considered as a internal library. If you want
 # to observe "torch.optim.Adam", you should add "torch" to the list.
-WHITELIST_MODULES = ["torch", "torchvision", "deepspeed"]
+WHITELIST_MODULES = ["torch", "torchvision", "deepspeed", "thunder"]

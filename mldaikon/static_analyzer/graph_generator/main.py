@@ -50,16 +50,26 @@ def traverse_torch_dir(libname: str):
         input_path = input_path.replace(".", "/")
         if input_path.startswith("torch/"):
             input_path = input_path[6:]
-        return os.path.join(torch_home, input_path)
+            return os.path.join(torch_home, input_path)
+        else:
+            input_path = input_path.replace("/", ".")
+            return "/home/beijie/repos/daikon/lightning-thunder/thunder/dynamo"
+            # try:
+            #     import pdb; pdb.set_trace()
+            #     module = importlib.import_module(input_path)
+            #     return "/".join(module.__file__.split("/")[:-1])
+            # except ModuleNotFoundError:
+            #     return None
 
     # traverse the directory
     filenames = []
     dirname = get_torch_path(libname)
-    for dir_root, _, files in os.walk(dirname):
-        for file in files:
-            if file.endswith(".py"):
-                full_path = os.path.join(dir_root, file)
-                filenames.append(full_path)
+    if dirname is not None:
+        for dir_root, _, files in os.walk(dirname):
+            for file in files:
+                if file.endswith(".py"):
+                    full_path = os.path.join(dir_root, file)
+                    filenames.append(full_path)
 
     return filenames
 
@@ -245,6 +255,7 @@ def main(cli_args=None):
         filtering(known_args, visitor)
         visitor.assign_levels()
         visitor.dump_levels(output_path=output_path, show_hidden=config.SHOW_HIDDEN)
+        call_graph_parser_to_df(output_path)
         return
 
     # if there is an extern library
