@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726999474613,
+  "lastUpdate": 1727009645069,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -3760,6 +3760,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.6590083444260979",
             "extra": "mean: 210.98556185880443 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31838999+Essoz@users.noreply.github.com",
+            "name": "Yuxuan",
+            "username": "Essoz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ffcb8d88445a527c80537b5d2e3ee26bd968d5b0",
+          "message": "Merge pull request #92 from OrderLab/contain-specific-events\n\nAccounting for Fine-grained Events in APIContainRelation",
+          "timestamp": "2024-09-22T00:57:55-04:00",
+          "tree_id": "ccde3609893f2380ce70a93e3fc7416a841c7716",
+          "url": "https://github.com/OrderLab/ml-daikon/commit/ffcb8d88445a527c80537b5d2e3ee26bd968d5b0"
+        },
+        "date": 1727009644487,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.003992047370365905,
+            "unit": "iter/sec",
+            "range": "stddev: 0.43906257340394533",
+            "extra": "mean: 250.49802951319725 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.0056762028084111115,
+            "unit": "iter/sec",
+            "range": "stddev: 0.26611747022557336",
+            "extra": "mean: 176.17411388440524 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_cond_dump_jit_and_c_tracing_disabled",
+            "value": 0.006370462548713279,
+            "unit": "iter/sec",
+            "range": "stddev: 0.262380234273673",
+            "extra": "mean: 156.97447278800536 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0015438677906478597,
+            "unit": "iter/sec",
+            "range": "stddev: 1.6701090905031524",
+            "extra": "mean: 647.7238569634035 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.0047314287933280215,
+            "unit": "iter/sec",
+            "range": "stddev: 0.402363767406598",
+            "extra": "mean: 211.352647092595 sec\nrounds: 5"
           }
         ]
       }
