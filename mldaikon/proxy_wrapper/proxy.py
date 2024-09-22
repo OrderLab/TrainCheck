@@ -12,23 +12,18 @@ import typing
 from typing import Dict
 
 import torch
-import torch.nn.parameter
 
+import mldaikon.config.config as general_config
+import mldaikon.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
+from mldaikon.instrumentor.tracer import should_dump_trace
 from mldaikon.proxy_wrapper.dumper import (
     SkippedDumpingObj,
     dump_attributes,
-    dump_meta_vars,
+    get_meta_vars,
 )
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
-from mldaikon.proxy_wrapper.dumper import torch_serialize
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
-from mldaikon.proxy_wrapper.proxy_config import (
-    dump_info_config,
-    exclude_file_names,
-    primitive_types,
-    proxy_update_limit,
-)
 from mldaikon.proxy_wrapper.proxy_handler import handled_obj_type
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.utils import typename
@@ -114,7 +109,7 @@ class Proxy:
     def get_frame_array(frame):
         frame_array = []
         while frame:
-            if frame.f_code.co_filename in exclude_file_names:
+            if "mldaikon" in frame.f_code.co_filename:
                 frame = frame.f_back
                 continue
 
@@ -137,6 +132,16 @@ class Proxy:
         prev_trace_info=None,
         disable_sampling=False,
     ):
+        if not should_dump_trace(
+            general_config.ENABLE_COND_DUMP,
+            None,
+            f"VAR: {typename(self._obj)}: {self.__dict__['var_name']}",
+            None,
+            None,
+        ):
+            # skip dumping
+            return SkippedDumpingObj(self._obj)
+
         if Proxy.var_dict.get(self.__dict__["var_name"]) is None:
             # create
             self.__dict__["last_update_timestamp"] = 0
@@ -147,7 +152,7 @@ class Proxy:
             - Proxy.var_dict[self.__dict__["var_name"]].__dict__[
                 "last_update_timestamp"
             ]
-            > proxy_update_limit
+            > proxy_config.proxy_update_limit
             or disable_sampling
         ):
             dump_pre_and_post_trace = False
@@ -240,7 +245,9 @@ class Proxy:
             var_name == self.__dict__["dumped_varname_list"]
         ), f"var_name {var_name} is not consistent with dumped_varname_list {self.__dict__['dumped_varname_list']}"
         assert var_name is not None  # '' is allowed as a var_name (root object)
-        filter_by_tensor_version = dump_info_config["filter_by_tensor_version"]
+        filter_by_tensor_version = proxy_config.dump_info_config[
+            "filter_by_tensor_version"
+        ]
         if filter_by_tensor_version and status == "update":
             if hasattr(obj, "_version"):
                 if (
@@ -249,21 +256,21 @@ class Proxy:
                 ):
                     return
         # Strong assertion: the previous type and current type of the object should be the same
-        var_type = type(self._obj)
+        # assert typename(obj) == typename(
+        #     self._obj
+        # ), f"Type of the object is changed from {typename(self._obj)} to {typename(obj)}, needs careful check"
 
         if not issubclass(type(obj), torch.nn.Module):
-            dumped_val = str(torch_serialize(obj))
             self.jsondumper.dump_json(
-                self.process_id,
-                self.thread_id,
-                current_time,
-                dump_meta_vars(self, proxy_file_path=__file__),
-                self.__dict__["dumped_varname_list"],
-                var_type.__name__,
-                dumped_val,
-                status,
-                dump_attributes(self, obj),
-                dumped_frame_array,
+                process_id=self.process_id,
+                thread_id=self.thread_id,
+                time=current_time,
+                meta_vars=get_meta_vars(self),
+                var_name=self.__dict__["dumped_varname_list"],
+                var_type=typename(obj),
+                change_type=status,
+                var_attributes=dump_attributes(self, obj),
+                stack_trace=dumped_frame_array,
             )
 
     def __init__(
@@ -375,8 +382,8 @@ class Proxy:
         ):  # if the object is not proxied yet
 
             self.__dict__["_obj"] = obj
-            dump_call_return = dump_info_config["dump_call_return"]
-            dump_iter = dump_info_config["dump_iter"]
+            dump_call_return = proxy_config.dump_info_config["dump_call_return"]
+            dump_iter = proxy_config.dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
             if not dump_iter and from_iter:
@@ -415,11 +422,11 @@ class Proxy:
                 - Proxy.var_dict[current_var_name_list].__dict__[
                     "last_update_timestamp"
                 ]
-                < proxy_update_limit
+                < proxy_config.proxy_update_limit
             ):
                 return
-            dump_call_return = dump_info_config["dump_call_return"]
-            dump_iter = dump_info_config["dump_iter"]
+            dump_call_return = proxy_config.dump_info_config["dump_call_return"]
+            dump_iter = proxy_config.dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
 
@@ -518,7 +525,7 @@ class Proxy:
                     ),
                 )
             # dump frame array
-            if type(value) in primitive_types:
+            if type(value) in proxy_config.primitive_types:
                 self.dump_trace("update", disable_sampling=True)
             else:
                 self.dump_trace("update")

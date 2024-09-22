@@ -99,7 +99,17 @@ if __name__ == "__main__":
     if not os.path.isfile(input_program):
         input_program_dir = os.path.join(example_pipelines_dir, script_name)
         input_program_list = find_files(input_program_dir, prefix="", suffix=".py")
+        # input program should not include _ml_daikon at the beginning of the name
+        # e.g. '../../example_pipelines/LT-725/_ml_daikon_LT725.py' is not a valid input program
+        input_program_list = [
+            file
+            for file in input_program_list
+            if not os.path.basename(file).startswith("_ml_daikon")
+        ]
         input_bash_script_list = find_files(input_program_dir, prefix="", suffix=".sh")
+        input_bash_script_list = [
+            file for file in input_bash_script_list if not file.endswith("install.sh")
+        ]
         input_config_file = os.path.join(input_program_dir, "config.json")
         print(f"input_config_file: {input_config_file}")
         if not os.path.exists(input_config_file):
@@ -154,7 +164,7 @@ if __name__ == "__main__":
         # "allow_disable_dump": False,
         # "funcs_of_inv_interest": None,
         "output_dir": output_dir,
-        "API_log_dir": api_log_dir,
+        "API_LOG_DIR": api_log_dir,
         "profiling": str(args.profiling),
         "only_var": str(args.only_var),
         "only_func": str(args.only_func),

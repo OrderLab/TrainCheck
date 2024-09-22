@@ -44,6 +44,7 @@ PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be th
 ]
 
 # precondition inference configs
+MAX_PRECOND_DEPTH = 3  # the maximum depth of the precondition inference
 ENABLE_PRECOND_SAMPLING = True  # whether to enable sampling of positive and negative examples for precondition inference, can be overridden by the command line argument
 PRECOND_SAMPLING_THRESHOLD = 10000  # the number of samples to take for precondition inference, if the number of samples is larger than this threshold, we will sample this number of samples
 NOT_USE_AS_CLAUSE_FIELDS = [
@@ -67,3 +68,32 @@ API_log_dir = "."
 # Beijie: for func_arg trace
 # The file should contain all the functions that we need to dump for the FUNC_ARG trace
 FUNC_ARG_RECORDED_FILE = "mldaikon/pre_instrument/collect_func.json"
+API_LOG_DIR = "."
+
+META_VARS_FORBID_LIST = [
+    "pre_process",
+    "post_process",
+    "__name__",
+    "__file__",
+    "__loader__",
+    "__doc__",
+    "logdir",
+    "log_level",
+    "is_root",
+    "var_name",
+    "mode",
+    "process_id",
+    "thread_id",
+    "dumped_frame_array",
+    "func_call_id",
+    "mldaikon_folder",
+    "enable_auto_observer_depth",
+    "neglect_hidden_func",
+    "neglect_hidden_module",
+    "observe_then_unproxy",
+    "observe_up_to_depth",
+    "log_file",
+    "log_dir",
+]
+
+ENABLE_COND_DUMP = False

@@ -18,6 +18,7 @@ class InsertTracerVisitor(ast.NodeTransformer):
         use_full_instr: bool,
         funcs_of_inv_interest: list[str] | None,
         API_dump_stack_trace: bool,
+        cond_dump: bool,
     ):
         super().__init__()
         if not modules_to_instr:
@@ -29,10 +30,11 @@ class InsertTracerVisitor(ast.NodeTransformer):
         self.use_full_instr = use_full_instr
         self.funcs_of_inv_interest = funcs_of_inv_interest
         self.API_dump_stack_trace = API_dump_stack_trace
+        self.cond_dump = cond_dump
 
     def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_of_inv_interest={str(self.funcs_of_inv_interest)}, API_dump_stack_trace={self.API_dump_stack_trace}).instrument()"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_of_inv_interest={str(self.funcs_of_inv_interest)}, API_dump_stack_trace={self.API_dump_stack_trace}, cond_dump={self.cond_dump}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -80,6 +82,7 @@ def instrument_source(
     use_full_instr: bool,
     funcs_of_inv_interest: list[str] | None,
     API_dump_stack_trace: bool,
+    cond_dump: bool,
 ) -> str:
     """
     Instruments the given source code and returns the instrumented source code.
@@ -101,6 +104,7 @@ def instrument_source(
         use_full_instr,
         funcs_of_inv_interest,
         API_dump_stack_trace,
+        cond_dump,
     )
     root = visitor.visit(root)
     source = ast.unparse(root)
@@ -118,6 +122,7 @@ def instrument_file(
     proxy_module: str,
     adjusted_proxy_config: list[dict[str, int | bool | str]],
     API_dump_stack_trace: bool,
+    cond_dump: bool,
     output_dir: str,
 ) -> str:
     """
@@ -144,6 +149,7 @@ def instrument_file(
         use_full_instr,
         funcs_of_inv_interest,
         API_dump_stack_trace,
+        cond_dump,
     )
 
     # logging configs
@@ -152,6 +158,11 @@ import os
 os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
 """
 
+    # general config update
+    general_config_update = f"""
+import mldaikon.config.config as general_config
+general_config.ENABLE_COND_DUMP = {cond_dump}
+"""
     ## proxy configs
     proxy_start_code = ""
     auto_observer_code = ""
@@ -178,7 +189,7 @@ from mldaikon.proxy_wrapper.proxy import Proxy
 """
 
         if auto_observer_config["enable_auto_observer"]:
-            auto_observer_code = """
+            auto_observer_code = f"""
 import glob
 import importlib
 from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
@@ -198,20 +209,21 @@ if observe_up_to_depth:
     print("observe up to the depth of the function call")
 else:
     print("observe only the function call at the depth")
-from mldaikon.static_analyzer.graph_generator.call_graph_parser import call_graph_parser
+from mldaikon.static_analyzer.graph_generator.call_graph_parser import add_observer_given_call_graph
 
 log_files = glob.glob(
     os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
 )
 print("log_files: ", log_files)
 for log_file in log_files:
-    call_graph_parser(
+    add_observer_given_call_graph(
         log_file,
         depth=enable_auto_observer_depth,
         observe_up_to_depth=observe_up_to_depth,
         neglect_hidden_func=neglect_hidden_func,
         neglect_hidden_module=neglect_hidden_module,
         observe_then_unproxy=observe_then_unproxy,
+        cond_dump={cond_dump}
     )
 """
         # find the main() function
@@ -266,6 +278,7 @@ for log_file in log_files:
     instrumented_source = (
         instrumented_source.split("\n")[0]
         + logging_start_code
+        + general_config_update
         + proxy_start_code
         + auto_observer_code
         + "\n".join(instrumented_source.split("\n")[1:])

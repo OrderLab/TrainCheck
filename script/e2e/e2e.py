@@ -57,7 +57,7 @@ def run_e2e(
     modules_to_instrument: str = input_config["modules_to_instrument"]  # with -t flag
     proxy_module = input_config["proxy_module"]  # with --proxy_module flag
     proxy_log_dir = input_config["proxy_log_dir"]  # with --proxy_log_dir flag
-    api_log_dir = input_config["API_log_dir"]  # with --API_log_dir flag
+    api_log_dir = input_config["API_LOG_DIR"]  # with --API_LOG_DIR flag
     profiling = input_config["profiling"]  # with --profiling flag
 
     # run the script with the given arguments and environment variables
@@ -72,7 +72,7 @@ def run_e2e(
         proxy_module,
         "--proxy_log_dir",
         proxy_log_dir,
-        "--API_log_dir",
+        "--API_LOG_DIR",
         api_log_dir,
         "--profiling",
         profiling,
@@ -172,7 +172,7 @@ if __name__ == "__main__":
         # "funcs_of_inv_interest": None,
         "proxy_module": "model_transfer",
         "proxy_log_dir": output_dir,
-        "API_log_dir": api_log_dir,
+        "API_LOG_DIR": api_log_dir,
         "profiling": "True",
     }
     input_env = {"PYTORCH_JIT": "0"}
