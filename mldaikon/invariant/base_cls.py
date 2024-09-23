@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import json
 import logging
+import math
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
@@ -72,11 +73,16 @@ class Param:
         "Check if the high level event contains the required information for the param."
         raise NotImplementedError("check_event_match method is not implemented yet.")
 
-    # @abc.abstractmethod
-    def get_customizable_fields(self) -> dict[str, type]:
+    def get_customizable_field_names(self) -> set[str]:
+        """Returns the field names that can be customized for the param."""
+        raise NotImplementedError(
+            "get_customizable_field_names method is not implemented yet."
+        )
+
+    def get_customized_fields(self) -> dict[str, type]:
         """Returns the fields that can be customized for the param."""
         raise NotImplementedError(
-            "get_customizable_fields method should not be called on the base class."
+            "get_customized_fields method should not be called on the base class."
         )
 
     # @abc.abstractmethod
@@ -156,12 +162,15 @@ class APIParam(Param):
     def with_no_customization(self) -> APIParam:
         return APIParam(self.api_full_name)
 
-    def get_necessary_fields(self) -> dict[str, type]:
+    def get_necessary_fields(self) -> dict[str, str]:
         return {
-            "api_full_name": str,
+            "api_full_name": self.api_full_name,
         }
 
-    def get_customizable_fields(self) -> dict[str, type]:
+    def get_customizable_field_names(self) -> set[str]:
+        return {"exception"}
+
+    def get_customized_fields(self) -> dict[str, type]:
         if self.exception == _NOT_SET:
             return {}
 
@@ -235,13 +244,16 @@ class VarTypeParam(Param):
     def with_no_customization(self) -> VarTypeParam:
         return VarTypeParam(self.var_type, self.attr_name)
 
-    def get_necessary_fields(self) -> dict[str, type]:
+    def get_necessary_fields(self) -> dict[str, str]:
         return {
-            "var_type": str,
-            "attr_name": str,
+            "var_type": self.var_type,
+            "attr_name": self.attr_name,
         }
 
-    def get_customizable_fields(self) -> dict[str, type]:
+    def get_customizable_field_names(self) -> set[str]:
+        return {"pre_value", "post_value", "recur_value"}
+
+    def get_customized_fields(self) -> dict[str, type]:
         fields = {}
         for attr in ["pre_value", "post_value", "recur_value"]:
             if getattr(self, attr) != _NOT_SET:
@@ -315,7 +327,10 @@ class VarNameParam(Param):
             "attr_name": self.attr_name,
         }
 
-    def get_customizable_fields(self) -> dict[str, Any]:
+    def get_customizable_field_names(self) -> set[str]:
+        return {"pre_value", "post_value", "recur_value"}
+
+    def get_customized_fields(self) -> dict[str, Any]:
         fields = {}
         for attr in ["pre_value", "post_value", "recur_value"]:
             if getattr(self, attr) != _NOT_SET:
@@ -844,7 +859,9 @@ class ExampleList:
         return [example.get_group(group_name) for example in self.examples]
 
     def get_group_names(self) -> set[str]:
-        assert len(self.group_names) != 0, "This example has not be initialized yet, please check implementation"
+        assert (
+            len(self.group_names) != 0
+        ), "This example has not be initialized yet, please check implementation"
         return self.group_names
 
     def __len__(self):
@@ -865,27 +882,34 @@ class ExampleList:
             assert group_names is None
             return ExampleList(set())
 
-        assert group_names is not None 
+        assert group_names is not None
         example_list = ExampleList(group_names)
         example_list.examples = examples
         return example_list
 
 
+# def calc_likelihood(num_pos_exps: int, num_neg_exps: int) -> float:
+#     assert (
+#         num_pos_exps > 0
+#     ), "No positive examples found for the hypothesis, check the inference process, calc_likelihood should only be called after the example collection process"
+
+#     # calculate the likelihood with smoothing factors
+#     likelihood = (num_pos_exps + 1) / (
+#         num_pos_exps + num_neg_exps + 2
+#     )  # alpha = 1, beta = 1 (Posterior Likelihood)
+
+#     return likelihood
+
+
 def calc_likelihood(num_pos_exps: int, num_neg_exps: int) -> float:
     assert (
         num_pos_exps > 0
-    ), "No positive examples found for the hypothesis, check the inference process, calc_likelihood should only be called after the example collection process"
+    ), "No positive examples found for the hypothesis, check the inference process."
 
-    # calculate the likelihood with smoothing factors
-    likelihood = (num_pos_exps + 1) / (
-        num_pos_exps + num_neg_exps + 2
-    )  # alpha = 1, beta = 1 (Posterior Likelihood)
-
-    # this likelihood should also be low if the num_pos_exps is very low
-    if (
-        num_pos_exps < 10
-    ):  # this is a heuristic value, perhaps let it adaptive based on the number of trace lines? or normalize it w.r.t time duration
-        likelihood = likelihood / 2
+    # Scale the difference between positive and negative examples
+    # You can tune the scaling factor (lambda) to control sensitivity
+    scale_factor = 0.1  # You can adjust this to make the function more or less sensitive to differences
+    likelihood = 1 / (1 + math.exp(-scale_factor * (num_pos_exps - num_neg_exps)))
 
     return likelihood
 
