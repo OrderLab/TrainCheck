@@ -280,10 +280,13 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                             for pre_record in pre_records
                         ]
                         all_positive_examples.update(exps_with_only_parent)
-
-                    all_positive_examples.update(
-                        hypotheses[idx].positive_examples.examples
-                    )
+                    else:
+                        assert (
+                            False
+                        ), "NOT SURE IF MERGING FOR DYNAMIC ANALYSIS WORKS OR NOT, PROCEED (by commenting out this assertion) WITH CAUTION"
+                        all_positive_examples.update(
+                            hypotheses[idx].positive_examples.examples
+                        )
                     all_negative_examples.update(
                         hypotheses[idx].negative_examples.examples
                     )
@@ -333,7 +336,10 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                     merged_hypothesis = Hypothesis(
                         invariant=Invariant(
                             relation=hypotheses[0].invariant.relation,
-                            params=[hypotheses[0].invariant.params[0], merged_child_param],
+                            params=[
+                                hypotheses[0].invariant.params[0],
+                                merged_child_param,
+                            ],
                             text_description="TBD merged",
                             num_positive_examples=len(all_positive_examples),
                             num_negative_examples=len(all_positive_examples),
@@ -351,7 +357,7 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                     output_hypotheses.append(merged_hypothesis)
 
     for idx, hypo in enumerate(hypotheses):
-        if idx not in output_hypotheses:
+        if idx not in merged_hypotheses_idxs:
             output_hypotheses.append(hypo)
 
     return output_hypotheses

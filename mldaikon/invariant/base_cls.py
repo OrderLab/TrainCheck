@@ -41,13 +41,15 @@ class Param:
             if value == _NOT_SET:
                 continue
             if isinstance(value, Exception):
-                ret[field] = f"Exception: {type(value)}, msg: {value}"  # TODO: hack, this is not seralizable back to python Exceptions
+                ret[field] = (
+                    f"Exception: {type(value)}, msg: {value}"  # TODO: hack, this is not seralizable back to python Exceptions
+                )
                 continue
             # try if the value is seralizable
             try:
                 json.dumps({field: value})
                 ret[field] = value
-            except TypeError as e:
+            except TypeError:
                 ret[field] = f"NOT SERIALIZABLE: {str(value)}"
 
         return ret
@@ -84,11 +86,11 @@ class Param:
         )
 
 
-def generalize_values(values: list[type]) -> None | str:
+def generalize_values(values: list[type]) -> None | type | str:
     """Given a list of values, should return a generalized value."""
     if len(values) == 0:
         return None
-    
+
     if len(set(values)) == 1:
         # no need to generalize
         return values[0]
@@ -344,6 +346,8 @@ def construct_api_param(
 def construct_var_param_from_var_change(
     event: VarChangeEvent,
 ) -> VarTypeParam | VarNameParam:
+    """NOTE as of its current form APICONTAINRELATION can invoke this"""
+
     pre_value = event.old_state.value
     new_value = event.new_state.value
 
@@ -353,7 +357,7 @@ def construct_var_param_from_var_change(
             event.attr_name,
             pre_value=pre_value,
             post_value=new_value,
-            recur_value=None,
+            # recur_value=None, # TODO
         )
     elif config.VAR_INV_TYPE == "name":
         return VarNameParam(
@@ -362,7 +366,7 @@ def construct_var_param_from_var_change(
             event.attr_name,
             pre_value=pre_value,
             post_value=new_value,
-            recur_value=None,
+            # recur_value=None, # TODO
         )
 
     raise ValueError(f"Invalid VAR_INV_TYPE: {config.VAR_INV_TYPE}")
@@ -777,6 +781,19 @@ class CheckerResult:
         return result_dict
 
 
+def make_hashable(value):
+    """Recursively convert a value into a hashable form."""
+    if isinstance(value, dict):
+        # Convert dictionary into a tuple of sorted (key, hashable_value) pairs
+        return frozenset((key, make_hashable(val)) for key, val in value.items())
+    elif isinstance(value, (list, set, tuple)):
+        # Convert lists, sets, and tuples into a tuple of hashable values
+        return tuple(make_hashable(item) for item in value)
+    else:
+        # Return the value as-is if it is already hashable (e.g., int, str)
+        return value
+
+
 class Example:
     def __init__(self, trace_groups: dict[str, list[dict]] | None = None):
         self.trace_groups: dict[str, list[dict]] = trace_groups or {}
@@ -801,13 +818,12 @@ class Example:
         return f"Example with Groups: {self.trace_groups.keys()}"
 
     def __hash__(self) -> int:
-        trace_groups_using_hashable_objects = []
-        for group in self.trace_groups:
-            trace_groups_using_hashable_objects.append(
-                (group, tuple(frozenset(record) for record in self.trace_groups[group]))
-            )
-        trace_groups_using_hashable_objects = tuple(trace_groups_using_hashable_objects)
-        return hash(trace_groups_using_hashable_objects)
+        hashable_trace_groups = make_hashable(self.trace_groups)
+        return hash(hashable_trace_groups)
+
+    def __eq__(self, value: object) -> bool:
+        return hash(self) == hash(value)
+
 
 class ExampleList:
     def __init__(self, group_names: set[str]):
