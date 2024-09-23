@@ -38,45 +38,54 @@ class VarPreserveRelation(Relation):
         hypotheses = {}
         group_name = 'events'
 
-        for func_name in func_names:
+        func_events_df = trace.events
+
+        func_call_ids = func_events_df['func_call_id'].unique().to_list()
+
+        for func_call_id in func_call_ids:
             # Filter events for this function
-            func_events_df = trace.events.filter(pl.col('func_name') == func_name)
+            func_events_df = trace.events.filter(pl.col('func_call_id') == func_call_id)
             func_events = [row for row in func_events_df.iter_rows(named=True)]
 
-            if len(func_events) < 2:
+            if len(func_events) != 2:
                 # Not enough events to compare
                 continue
 
+            func_name = func_events[0]['func_name']
+
             # Initialize hypothesis for this function
             param = APIParam(api_full_name=func_name)
-            hypotheses[func_name] = Hypothesis(
-                invariant=Invariant(
-                    relation=VarPreserveRelation,
-                    params=[param],
-                    precondition=None,
-                    text_description=f"Events of function {func_name} are similar."
-                ),
-                positive_examples=ExampleList({group_name}),  # TODO: Add group name
-                negative_examples=ExampleList({group_name})
-            )
 
-            # Compare each pair of events
-            for event1, event2 in itertools.combinations(func_events, 2):
-                if events_are_similar(event1, event2, tolerance=1e-6):
-                    # Positive example: events are similar
-                    example = Example({group_name: [event1, event2]})
-                    hypotheses[func_name].positive_examples.add_example(example)
-                else:
-                    # Negative example: events are not similar
-                    example = Example({group_name: [event1, event2]})
-                    hypotheses[func_name].negative_examples.add_example(example)
+            # Bug: 
+            if func_name not in hypotheses:
+                hypotheses[func_name] = Hypothesis(
+                    invariant=Invariant(
+                        relation=VarPreserveRelation,
+                        params=[param],
+                        precondition=None,
+                        text_description=f"Events of function {func_name} are similar."
+                    ),
+                    positive_examples=ExampleList({group_name}),
+                    negative_examples=ExampleList({group_name})
+                )
+
+            event1 = func_events[0]
+            event2 = func_events[1]
+
+            if events_are_similar(event1, event2, tolerance=1e-6):
+                # Positive example: events are similar
+                example = Example({group_name: [event1, event2]})
+                hypotheses[func_name].positive_examples.add_example(example)
+            else:
+                # Negative example: events are not similar
+                example = Example({group_name: [event1, event2]})
+                hypotheses[func_name].negative_examples.add_example(example)
 
         # Evaluate hypotheses
         invariants = []
         failed_hypos = []
 
-        import pdb; pdb.set_trace()
-        for hypo, hypothesis in hypotheses.items():
+        for func_name, hypothesis in hypotheses.items():
             pos_count = len(hypothesis.positive_examples.examples)
             neg_count = len(hypothesis.negative_examples.examples)
             total = pos_count + neg_count
@@ -87,7 +96,7 @@ class VarPreserveRelation(Relation):
             positive_ratio = pos_count / total
             
             # TODO: replace it with a threshold
-            if positive_ratio >= 0.5:
+            if positive_ratio >= 0.8:
                 # Infer preconditions
                 preconditions = find_precondition(
                     hypothesis,
@@ -98,7 +107,7 @@ class VarPreserveRelation(Relation):
                     hypothesis.invariant.precondition = preconditions
                 invariants.append(hypothesis.invariant)
             else:
-                logger.debug(f"Function {hypo}: positive_ratio {positive_ratio} below threshold")
+                logger.debug(f"Function {func_name}: positive_ratio {positive_ratio} below threshold")
                 failed_hypos.append(FailedHypothesis(hypothesis))
 
         return invariants, failed_hypos
@@ -107,9 +116,7 @@ class VarPreserveRelation(Relation):
 def events_are_similar(event1, event2, tolerance=1e-6):
     """Compare two events for similarity, allowing for small differences in numerical values."""
     # Get the set of all keys in both events
-    keys = set(event1.keys()) | set(event2.keys())
-    keys.remove('time')
-    keys.remove('var_name')
+    keys = set(["self_stat.min", "self_stat.max", "self_stat.mean", "self_stat.std", "self_stat.shape"])
 
     for key in keys:
         value1 = event1.get(key)

@@ -543,7 +543,8 @@ def global_wrapper(
 
                     if self_stat:
                         self_record = {
-                            "type": "Pre",
+                            "func_call_id": func_call_id,
+                            "type": "function_call (pre)",
                             "is_method": is_method,
                             "var_type": typename(arg_value),
                             "var_name": "self",
@@ -557,7 +558,8 @@ def global_wrapper(
 
                 if "Tensor" in typename(arg_value) or "Linear" in typename(arg_value):
                     func_arg_record = {
-                        "type": "Pre",
+                        "func_call_id": func_call_id,
+                        "type": "function_call (pre)",
                         "is_method": is_method,
                         "var_type": typename(arg_value),
                         "var_name": idx,
@@ -667,7 +669,8 @@ def global_wrapper(
 
         if result_stat:
             self_record = {
-                "type": "Post",
+                "func_call_id": func_call_id,
+                "type": "function_call (post)",
                 "is_method": is_method,
                 "var_type": typename(arg_value),
                 "var_name": "self",
