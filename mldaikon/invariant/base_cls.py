@@ -831,15 +831,20 @@ class ExampleList:
         self.examples: list[Example] = []
 
     def add_example(self, example: Example):
-        assert (
-            set(example.trace_groups.keys()) == self.group_names
-        ), f"Example groups do not match the expected group names, expected: {self.group_names}, got: {set(example.trace_groups.keys())}"
+        if len(self.group_names) == 0:
+            assert len(self.examples) == 0
+            self.group_names = example.get_group_names()
+        else:
+            assert (
+                example.get_group_names() == self.group_names
+            ), f"Example groups do not match the expected group names, expected: {self.group_names}, got: {set(example.trace_groups.keys())}"
         self.examples.append(example)
 
     def get_group_from_examples(self, group_name: str) -> list[list[dict]]:
         return [example.get_group(group_name) for example in self.examples]
 
     def get_group_names(self) -> set[str]:
+        assert len(self.group_names) != 0, "This example has not be initialized yet, please check implementation"
         return self.group_names
 
     def __len__(self):
@@ -856,7 +861,11 @@ class ExampleList:
                 assert group_names == exp.get_group_names()
             examples.append(exp)
 
-        assert group_names is not None
+        if len(examples) == 0:
+            assert group_names is None
+            return ExampleList(set())
+
+        assert group_names is not None 
         example_list = ExampleList(group_names)
         example_list.examples = examples
         return example_list
