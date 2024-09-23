@@ -6,7 +6,7 @@ import random
 import time
 
 import mldaikon.config.config as config
-from mldaikon.invariant.base_cls import Invariant
+from mldaikon.invariant.base_cls import FailedHypothesis, Invariant
 from mldaikon.invariant.relation_pool import relation_pool
 # from mldaikon.trace.trace import Trace, read_trace_file
 
@@ -35,6 +35,12 @@ def save_invs(invs: list[Invariant], output_file: str):
     with open(output_file, "w") as f:
         for inv in invs:
             f.write(json.dumps(inv.to_dict()))
+            f.write("\n")
+
+def save_failed_hypos(failed_hypos: list[FailedHypothesis], output_file: str):
+    with open(output_file, "w") as f:
+        for failed_hypo in failed_hypos:
+            f.write(json.dumps(failed_hypo.to_dict()))
             f.write("\n")
 
 
@@ -85,22 +91,26 @@ if __name__ == "__main__":
     Trace, read_trace_file = select_trace_implementation(args.backend)
 
     class InferEngine:
-        def __init__(self, traces: list[any]):
+        def __init__(self, traces):
             self.traces = traces
             pass
 
         def infer(self):
             all_invs = []
+            all_failed_hypos = []
             for trace in self.traces:
                 for relation in relation_pool:
                     logger.info(f"Infering invariants for relation: {relation.__name__}")
-                    invs = relation.infer(trace)
+                    invs, failed_hypos = relation.infer(trace)
                     logger.info(
                         f"Found {len(invs)} invariants for relation: {relation.__name__}"
                     )
                     all_invs.extend(invs)
-            logger.info(f"Found {len(all_invs)} invariants.")
-            return all_invs
+                    all_failed_hypos.extend(failed_hypos)
+            logger.info(
+                f"Found {len(all_invs)} invariants, {len(all_failed_hypos)} failed hypotheses due to precondition inference"
+            )
+            return all_invs, all_failed_hypos
         
 
     if args.debug:
@@ -126,8 +136,9 @@ if __name__ == "__main__":
 
     time_start = time.time()
     engine = InferEngine(traces)
-    invs = engine.infer()
+    invs, failed_hypos = engine.infer()
     time_end = time.time()
     logger.info(f"Inference completed in {time_end - time_start} seconds.")
 
     save_invs(invs, args.output)
+    save_failed_hypos(failed_hypos, args.output + ".failed")

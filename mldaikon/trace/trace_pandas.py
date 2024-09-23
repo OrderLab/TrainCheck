@@ -798,6 +798,18 @@ class Trace_Pandas:
         )
 
 
+
+class ML_NONE:
+    pass
+
+
+def replace_none_with_placeholder(val):
+    if val is None:
+        return ML_NONE  # Replace None with your placeholder
+    return val
+
+
+
 def read_trace_file_Pandas(
     file_path: str | list[str], truncate_incomplete_func_calls=True
 ) -> Trace_Pandas:
@@ -820,7 +832,7 @@ def read_trace_file_Pandas(
 
     events = json_normalize(events.to_dict(orient="records"), sep=".")
     # TODO: normalize abandon the empty dicts, check whether it matters
-
+    events = events.applymap(replace_none_with_placeholder)
     # events.to_json('pandas_events.json', orient='records', lines=True)
 
     return Trace_Pandas(

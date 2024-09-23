@@ -2,9 +2,9 @@ import logging
 import random
 from itertools import combinations
 from typing import Hashable
-
+import pandas as pd
 from tqdm import tqdm
-
+from mldaikon.trace.trace_pandas import ML_NONE
 import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import (
     PT,
@@ -59,20 +59,26 @@ def _find_local_clauses(
         for value in prop_values_seen:
             if value is None:
                 continue
+            if pd.isna(value):
+                continue
             if prop_dtype is None:
                 prop_dtype = type(value)
-            if prop_dtype != type(value) and value is not None:
-                raise ValueError(
-                    f"Property {prop} has inconsistent types {prop_dtype, type(value)} in the example"
-                )
+            # if prop_dtype != type(value) and value is not None:
+            #     raise ValueError(
+            #         f"Property {prop} has inconsistent types {prop_dtype, type(value)} in the example"
+            #     )
 
         if prop_dtype is None:
             # logger.warning(
             #     f"Property {prop} has no real values in the example, skipping this property as a clause."
             # )
             continue
-
+        
         if len(prop_values_seen) == 1 and prop_dtype is not None:
+            if prop_dtype is ML_NONE:
+                clauses.append(
+                    PreconditionClause(prop, None, PT.CONSTANT, None)
+                )
             clauses.append(
                 PreconditionClause(prop, prop_dtype, PT.CONSTANT, prop_values_seen)
             )
@@ -223,6 +229,7 @@ def find_precondition_from_single_group(
     keys_to_skip: list[str] = [],
     _pruned_clauses: set[PreconditionClause] = set(),
     _skip_pruning: bool = False,
+    _current_depth: int = 0,
 ) -> list[Precondition]:
     """Given a hypothesis, should return a list of `Precondition` objects that invariants should hold if one of the `Precondition` is satisfied.
 
@@ -241,8 +248,14 @@ def find_precondition_from_single_group(
     To implement the invariant split OP. We need to determine how this verification / pruning process should be done, because now all the `Precondition` objects have to be violated in the negative examples.
     """
     logger.debug(
-        f"Calling precondition inference with \n# positive examples: {len(positive_examples)}, \n# negative examples: {len(negative_examples)}"
+        f"Calling precondition inference with \n# positive examples: {len(positive_examples)}, \n# negative examples: {len(negative_examples)}, at depth {_current_depth}"
     )
+
+    if _current_depth > config.MAX_PRECOND_DEPTH:
+        logger.debug(
+            f"Max depth reached, returning empty preconditions, current depth: {_current_depth}"
+        )
+        return []
 
     if len(negative_examples) == 0:
         assert (
@@ -428,8 +441,26 @@ def find_precondition_from_single_group(
     # print("==============================")
 
     # construct the sub-hypothesis with the top-level partial examples
+    coverred_exp_ids: set[int] = set()
     preconditions: list[Precondition] = []
-    for exp_ids in top_level_exp_ids:
+    logger.debug(
+        f"Depth:{_current_depth}, Splitting into {len(top_level_exp_ids)} sub-hypotheses, with size {[len(exp_ids) for exp_ids in top_level_exp_ids]}"
+    )
+    for i, exp_ids in enumerate(top_level_exp_ids):
+        # if coverred_exp_ids and the potentially coverred exp_ids does not cover all the positive examples, we should directly return inference failure (empty preconditions)
+        all_future_exp_ids: set[int] = set()
+        for j in range(i, len(top_level_exp_ids)):
+            all_future_exp_ids.update(top_level_exp_ids[j])
+
+        if len(positive_examples) != len(coverred_exp_ids.union(all_future_exp_ids)):
+            logger.debug(
+                f"Depth:{_current_depth}, Warning: no chances to cover all the positive examples already, early stopping (i={i}, len(coverred_exp_ids.union(all_future_exp_ids) = {len(coverred_exp_ids.union(all_future_exp_ids))}, len(positive_examples) = {len(positive_examples)}"
+            )
+            return []
+
+        logger.debug(
+            f"Depth:{_current_depth}, Current at the {i}-th sub-hypothesis, with size {len(exp_ids)}"
+        )
         sub_positive_examples = [positive_examples[i] for i in exp_ids]
         sub_preconditions = find_precondition_from_single_group(
             sub_positive_examples,
@@ -437,9 +468,12 @@ def find_precondition_from_single_group(
             keys_to_skip=keys_to_skip,
             _pruned_clauses=_pruned_clauses,
             _skip_pruning=True,
+            _current_depth=_current_depth + 1,
         )
         if len(sub_preconditions) == 0:
             print("Warning: empty preconditions found in the sub-hypothesis")
+        else:
+            coverred_exp_ids.update(exp_ids)
 
         preconditions.extend(sub_preconditions)
 
