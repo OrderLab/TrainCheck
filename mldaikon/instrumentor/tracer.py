@@ -5,6 +5,7 @@ import inspect
 import json
 import logging
 import os
+import sys
 import threading
 import traceback
 import types
@@ -198,6 +199,10 @@ def get_instrumentation_logger_for_process():
 def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
+def is_numerical_value_too_large(value: Any) -> bool:
+    if isinstance(value, (int, float)):
+        return sys.getsizeof(value) > 32
+    return False
 
 def get_meta_vars() -> dict:
     frame = inspect.currentframe()
@@ -221,6 +226,7 @@ def get_meta_vars() -> dict:
             for name, value in frame_vars.items()
             # Ziming: only dump primitive types, block the var name on the black list
             if isinstance(value, (int, float, str, bool))
+            and not is_numerical_value_too_large(value)
             and (
                 not name.startswith("__")
                 and "mldaikon" not in name
