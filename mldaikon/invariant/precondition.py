@@ -2,9 +2,10 @@ import logging
 import random
 from itertools import combinations
 from typing import Hashable
+
 import pandas as pd
 from tqdm import tqdm
-from mldaikon.trace.trace_pandas import ML_NONE
+
 import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import (
     PT,
@@ -14,6 +15,7 @@ from mldaikon.invariant.base_cls import (
     PreconditionClause,
     UnconditionalPrecondition,
 )
+from mldaikon.trace.trace_pandas import ML_NONE
 
 logger = logging.getLogger("Precondition")
 

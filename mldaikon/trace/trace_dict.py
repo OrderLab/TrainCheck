@@ -1,6 +1,8 @@
+import json
 import logging
 import re
-import json
+from collections import defaultdict
+
 from tqdm import tqdm
 
 from mldaikon.config import config
@@ -14,7 +16,6 @@ from mldaikon.trace.types import (
     VarChangeEvent,
     VarInstId,
 )
-from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,8 @@ class TraceDict(Trace):
         """Get the start time of the trace. If process_id or thread_id is provided,
         the start time of the specific process or thread will be returned."""
 
+        start_times: list[float] = []
+
         if process_id is not None and thread_id is not None:
             return min(event["time"] for event in self.events[process_id][thread_id])
 
@@ -96,11 +99,14 @@ class TraceDict(Trace):
         for process in self.events.values():
             for times in process.values():
                 start_times.extend(event["time"] for event in times)
-        return min(start_times)
+        start_time = min(start_times)
+        return start_time
 
     def get_end_time(self, process_id=None, thread_id=None) -> float:
         """Get the end time of the trace. If process_id or thread_id is provided,
         the end time of the specific process or thread will be returned."""
+
+        end_times: list[float] = []
 
         if process_id is not None and thread_id is not None:
             return max(event["time"] for event in self.events[process_id][thread_id])
@@ -440,7 +446,7 @@ class TraceDict(Trace):
 
             state_changes.sort(key=lambda x: x["time"])
 
-            attr_values = {}
+            attr_values: dict[str, list[AttrState]] = {}
             for state_change in state_changes:
                 for col, value in state_change.items():
                     if col.startswith(config.VAR_ATTR_PREFIX):

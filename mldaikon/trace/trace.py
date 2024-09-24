@@ -76,6 +76,7 @@ class Trace:
         """
         self.events = events
         self.truncate_incomplete_func_calls = truncate_incomplete_func_calls
+        self.var_changes: list[VarChangeEvent] | None = None
         raise NotImplementedError("This class should not be instantiated directly.")
 
     def _rm_incomplete_trailing_func_calls(self):
@@ -99,13 +100,13 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
-    def get_start_time(self, process_id=None, thread_id=None) -> int:
+    def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
         raise NotImplementedError(
             "This function should be implemented in the child class."
         )
 
-    def get_end_time(self, process_id=None, thread_id=None) -> int:
+    def get_end_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
         raise NotImplementedError(
             "This function should be implemented in the child class."

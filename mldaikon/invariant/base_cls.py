@@ -397,7 +397,9 @@ PT = PreconditionClauseType
 
 
 class PreconditionClause:
-    def __init__(self, prop_name: str, prop_dtype: type, _type: PT, values: set | None):
+    def __init__(
+        self, prop_name: str, prop_dtype: type | None, _type: PT, values: set | None
+    ):
         assert _type in [
             PT.CONSISTENT,
             PT.CONSTANT,
@@ -424,7 +426,7 @@ class PreconditionClause:
         clause_dict: dict[str, str | list] = {
             "type": self.type.value,
             "prop_name": self.prop_name,
-            "prop_dtype": self.prop_dtype.__name__,
+            "prop_dtype": self.prop_dtype.__name__ if self.prop_dtype else "None",
         }
         if self.type in [PT.CONSTANT, PT.CONSISTENT]:
             clause_dict["values"] = list(self.values)

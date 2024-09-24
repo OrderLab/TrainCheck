@@ -3,10 +3,10 @@ import argparse
 from tqdm import tqdm
 
 from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.trace.trace import Trace, read_trace_file
+from mldaikon.trace.trace_polars import TracePolars, read_trace_file
 
 
-def check_every_func_pre_has_post(trace: Trace):
+def check_every_func_pre_has_post(trace: TracePolars) -> bool:
     print("Checking if every function pre has a post call.")
     for row in tqdm(trace.events.rows(named=True)):
         if row["type"] == TraceLineType.FUNC_CALL_PRE:

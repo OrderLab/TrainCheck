@@ -16,7 +16,8 @@ from mldaikon.invariant.base_cls import (
     VarTypeParam,
 )
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Liveness, Trace
+from mldaikon.trace.trace import Trace
+from mldaikon.trace.types import Liveness
 
 tracker_var_field_prefix = "attributes."
 
@@ -377,7 +378,7 @@ class ConsistencyRelation(Relation):
         # collect value pairs to be checked
         start_time_collecting_pairs = time.time()
         num_collected_pairs = 0
-        value_pairs_to_check: dict[int, list[tuple]] = {}
+        value_pairs_to_check: dict[float, list[tuple]] = {}
         for i, var1_id in enumerate(type1_attr1):
             for j, var2_id in enumerate(type2_attr2):
                 if var_type1 == var_type2 and attr1 == attr2 and i >= j:

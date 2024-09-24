@@ -241,7 +241,7 @@ class TracePolars(Trace):
                     == 0
                 ), f"Incomplete function call is not removed: {record}"
 
-    def get_start_time(self, process_id=None, thread_id=None) -> int:
+    def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
         if process_id is not None and thread_id is not None:
             return self.events.filter(
@@ -256,7 +256,7 @@ class TracePolars(Trace):
 
         return self.events["time"].min()
 
-    def get_end_time(self, process_id=None, thread_id=None) -> int:
+    def get_end_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
 
         if process_id is not None and thread_id is not None:

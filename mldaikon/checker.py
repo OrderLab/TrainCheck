@@ -7,7 +7,8 @@ import re
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import CheckerResult, Invariant, read_inv_file
-from mldaikon.trace.trace import Trace, read_trace_file
+from mldaikon.trace.trace import Trace
+from mldaikon.trace.trace_polars import read_trace_file
 
 
 def check_engine(

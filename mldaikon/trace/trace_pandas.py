@@ -7,8 +7,8 @@ from tqdm import tqdm
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.trace.trace import (
-    Trace,
+from mldaikon.trace.trace import Trace
+from mldaikon.trace.types import (
     AttrState,
     FuncCallEvent,
     FuncCallExceptionEvent,
@@ -184,7 +184,7 @@ class TracePandas(Trace):
 
         # test_dump(self.events)
 
-    def get_start_time(self, process_id=None, thread_id=None) -> int:
+    def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
         if process_id is not None and thread_id is not None:
             return self.events[
@@ -200,7 +200,7 @@ class TracePandas(Trace):
 
         return self.events["time"].min()
 
-    def get_end_time(self, process_id=None, thread_id=None) -> int:
+    def get_end_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
 
         if process_id is not None and thread_id is not None:

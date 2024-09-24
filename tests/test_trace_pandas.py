@@ -1,15 +1,13 @@
+import cProfile
 import timeit
 import unittest
 
-# import modin.pandas as pd
-# import polars
-
-from mldaikon.trace.trace import Trace, read_trace_file
-
 # Import the module to test
 from mldaikon.trace.trace_pandas import TracePandas, read_trace_file_Pandas
+from mldaikon.trace.trace_polars import TracePolars, read_trace_file
 
-import cProfile
+# import modin.pandas as pd
+# import polars
 
 
 def profile(func):
@@ -34,7 +32,7 @@ class TestTracePandas(unittest.TestCase):
         self.trace_data_pandas = read_trace_file_Pandas(self.trace_file)
         self.start_time = self.trace_data_pandas.get_start_time()
         self.end_time = self.trace_data_pandas.get_end_time()
-        assert isinstance(self.trace_data_polars, Trace)
+        assert isinstance(self.trace_data_polars, TracePolars)
         assert isinstance(self.trace_data_pandas, TracePandas)
 
     # def test_read_trace_file(self):
