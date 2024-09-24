@@ -1,8 +1,12 @@
+"""TODOs @Boyu:
+1. Implementation Clean-up for both Cover and Lead Relations
+    1. add comments to certain variable names as they are a bit unclear.
+"""
+
 import logging
-from itertools import combinations
+from itertools import permutations
 from typing import Any, Dict, List, Set, Tuple
 
-import polars as pl
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import (
@@ -10,6 +14,7 @@ from mldaikon.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
+    FailedHypothesis,
     GroupedPreconditions,
     Hypothesis,
     Invariant,
@@ -69,46 +74,35 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
     for start_node in start_nodes:
         dfs(start_node, [], set())
 
-    print(paths)
+    # print(paths)
     return paths
 
 
 class FunctionCoverRelation(Relation):
 
     @staticmethod
-    def infer(trace: Trace) -> list[Invariant]:
+    def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
         """Infer Invariants for the FunctionCoverRelation."""
 
         logger = logging.getLogger(__name__)
 
         # 1. Pre-process all the events
+        print("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
 
-        events = trace.events
+        # If the trace contains no function, safely exists infer process
+        func_names = trace.get_func_names()
+        if len(func_names) == 0:
+            logger.warning(
+                "No function calls found in the trace, skipping the analysis"
+            )
+            return [], []
 
-        events = events.filter(~events["function"].str.contains(r"\.__*__"))
-        events = events.filter(~events["function"].str.contains(r"\._"))
-        threshold = 6
-        events = events.with_columns(
-            (events["function"] != events["function"].shift())
-            .cum_sum()
-            .alias("group_id")
-        )
-
-        group_counts = events.group_by("group_id").agg(
-            [
-                pl.col("function").first().alias("function"),
-                pl.count("function").alias("count"),
-            ]
-        )
-
-        functions_to_remove = group_counts.filter(pl.col("count") > threshold)[
-            "function"
-        ]
-
-        events = events.filter(~events["function"].is_in(functions_to_remove))
-        function_pool = set(events["function"].unique().to_list())
+        events = trace.get_filtered_function()
+        function_pool = set(
+            events["function"].unique().to_list()
+        )  # All filtered function names
 
         with open("check_function_pool.txt", "w") as file:
             for function in function_pool:
@@ -120,7 +114,6 @@ class FunctionCoverRelation(Relation):
                 f"Missing column: {required_columns - set(events.columns)}"
             )
 
-        print("Start preprocessing....")
         group_by_events = events.group_by(["process_id", "thread_id"])
 
         for group_events in tqdm(group_by_events):
@@ -196,7 +189,7 @@ class FunctionCoverRelation(Relation):
             (process_id, thread_id), _ = group_events
             same_level_func[(process_id, thread_id)] = {}
             for funcA, funcB in tqdm(
-                combinations(function_pool, 2),
+                permutations(function_pool, 2),
                 ascii=True,
                 leave=True,
                 desc="Combinations Checked",
@@ -293,10 +286,11 @@ class FunctionCoverRelation(Relation):
         brief_moode = False
         if_merge = True
 
+        failed_hypothesis = []
         if not brief_moode:
             # Do complete precondition inference
             print("Start precondition inference...")
-            hypos_to_delete = []
+            hypos_to_delete: list[tuple[str, str]] = []
             for hypo in hypothesis_with_examples:
                 logger.debug(
                     f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
@@ -310,14 +304,21 @@ class FunctionCoverRelation(Relation):
                     )
                 else:
                     logger.debug(f"Precondition not found for {hypo}")
+                    failed_hypothesis.append(
+                        FailedHypothesis(hypothesis_with_examples[hypo])
+                    )
                     hypos_to_delete.append(hypo)
 
             for hypo in hypos_to_delete:
-                del hypothesis_with_examples[hypo]
+                # remove key from hypothesis_with_examples
+                hypothesis_with_examples.pop(hypo)
 
             if not if_merge:
-                return list(
-                    [hypo.invariant for hypo in hypothesis_with_examples.values()]
+                return (
+                    list(
+                        [hypo.invariant for hypo in hypothesis_with_examples.values()]
+                    ),
+                    failed_hypothesis,
                 )
             print("End precondition inference")
 
@@ -325,7 +326,10 @@ class FunctionCoverRelation(Relation):
             print("Start merging invariants...")
             relation_pool: Dict[
                 GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
-            ] = {}
+            ] = (
+                {}
+            )  # relation_pool contains all binary relations classified by GroupedPreconditions (key)
+
             for hypo in hypothesis_with_examples:
                 if (
                     hypothesis_with_examples[hypo].invariant.precondition
@@ -358,7 +362,7 @@ class FunctionCoverRelation(Relation):
                     merged_ininvariants.append(new_invariant)
             print("End merging invariants")
 
-            return merged_ininvariants
+            return merged_ininvariants, failed_hypothesis
 
         else:
 
@@ -386,6 +390,11 @@ class FunctionCoverRelation(Relation):
 
                 if current_precondition is None:
                     pairs.remove(pair)
+                    failed_hypothesis.append(
+                        FailedHypothesis(
+                            hypothesis_with_examples[(a.api_full_name, b.api_full_name)]
+                        )
+                    )
                     return None
 
                 for next_pair in pairs[:]:
@@ -465,7 +474,7 @@ class FunctionCoverRelation(Relation):
                     )
                     merged_ininvariants.append(new_invariant)
 
-            return merged_ininvariants
+            return merged_ininvariants, failed_hypothesis
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
@@ -494,16 +503,23 @@ class FunctionCoverRelation(Relation):
         """
         assert inv.precondition is not None, "Invariant should have a precondition."
 
+        # If the trace contains no function, return vacuous true result
+        func_names = trace.get_func_names()
+        if len(func_names) == 0:
+            print("No function calls found in the trace, skipping the checking")
+            return CheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        events = trace.get_filtered_function()
+
+        function_pool = (
+            []
+        )  # Here function_pool only contains functions existing in given invariant
+
         invariant_length = len(inv.params)
-
-        events = trace.events
-
-        # all_function_df = events.filter()
-
-        # all_function = set(all_function_df["function"].unique().to_list())
-
-        function_pool = []
-
         for i in range(invariant_length):
             func = inv.params[i]
             assert isinstance(
@@ -524,6 +540,7 @@ class FunctionCoverRelation(Relation):
 
         for group_events in group_by_events:
             (process_id, thread_id), evs = group_events
+            assert isinstance(process_id, str) and isinstance(thread_id, str)
             sorted_group_events = evs.sort("time")
             if (process_id, thread_id) not in function_id_map:
                 function_id_map[(process_id, thread_id)] = {}
@@ -592,7 +609,8 @@ class FunctionCoverRelation(Relation):
             ), "Invariant parameters should be string."
 
             for group_events in group_by_events:
-                (_, _), evs = group_events
+                (process_id, thread_id), evs = group_events
+                assert isinstance(process_id, str) and isinstance(thread_id, str)
                 sorted_group_events = evs.sort("time")
 
                 funcA = func_A.api_full_name
@@ -606,6 +624,8 @@ class FunctionCoverRelation(Relation):
                 flag_B = None
                 pre_recordB = None
                 for event in sorted_group_events.iter_rows(named=True):
+                    if event["type"] != "function_call (pre)":
+                        continue
 
                     if funcA == event["function"]:
                         # flag_A = event["time"]

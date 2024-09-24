@@ -1,7 +1,9 @@
 import logging
 import random
 import time
+from typing import Type
 
+import numpy as np
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import (
@@ -9,15 +11,27 @@ from mldaikon.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
+    FailedHypothesis,
     Hypothesis,
     Invariant,
     Param,
     Relation,
+    VarNameParam,
     VarTypeParam,
+    calc_likelihood,
+    construct_api_param,
+    construct_var_param_from_var_change,
+    generalize_values,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
-from mldaikon.trace.types import FuncCallEvent, FuncCallExceptionEvent, VarChangeEvent
+from mldaikon.trace.types import (
+    ALL_EVENT_TYPES,
+    FuncCallEvent,
+    FuncCallExceptionEvent,
+    IncompleteFuncCallEvent,
+    VarChangeEvent,
+)
 from mldaikon.utils import typename
 
 PARENT_GROUP_NAME = "parent_func_call_pre"
@@ -58,6 +72,25 @@ cache_events_scanner: dict[
 ] = {}
 
 
+def _group_events_by_type(events: list):
+    """Group the events by their type, for event types not present in the list, an empty list is created"""
+    grouped_events: dict[
+        Type[FuncCallEvent]
+        | Type[FuncCallExceptionEvent]
+        | Type[IncompleteFuncCallEvent]
+        | Type[VarChangeEvent],
+        list[
+            FuncCallEvent
+            | FuncCallExceptionEvent
+            | IncompleteFuncCallEvent
+            | VarChangeEvent
+        ],
+    ] = {event_type: [] for event_type in ALL_EVENT_TYPES}
+    for event in events:
+        grouped_events[type(event)].append(event)
+    return grouped_events
+
+
 def events_scanner(
     trace: Trace, func_call_id: str
 ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
@@ -88,29 +121,335 @@ def events_scanner(
     return events
 
 
-def skip_func_call(total_func_calls, list_num_events_scanned: list[int]):
+def prune_func_call(total_func_calls, list_num_events_scanned: list[int]) -> bool:
+    """Pruning logic for determining whether a function's contained events should be processed and queried
+
+    Args:
+        total_func_calls: int
+            - the total number of function calls
+        list_num_events_scanned: list[int]
+            - the list of number of events scanned for the function calls so far
+
+    Returns:
+        bool
+            - whether the function call should be pruned or not
+
+    The pruning logic is as follows:
+    - If the number of function calls total present in the trace is less than 1000, no pruning is done
+    - Pruning is probabilistic, with initial probability of (1 - 1000/total_func_calls)
+    - If `list_num_events_scanned` indicates that the last 10 function calls have the same number of events scanned, the pruning probability is increased by 100 times for the next function call
+    - We use random.random() to determine whether the function call should be pruned or not
+    """
+
     logger = logging.getLogger(__name__)
 
     MAX_FUNC_CALLS = 1000
-    threshold_skip = min(MAX_FUNC_CALLS / total_func_calls, 1)
-    # if num_events_scanned is always the same (TODO: does having the same number of events indicate same set of events?), we should skip the function call (@BEIJIE: static analysis)
+    not_pruning_prob = min(MAX_FUNC_CALLS / total_func_calls, 1)
 
     if (
         len(list_num_events_scanned) > 10
         and len(set(list_num_events_scanned[-10:])) == 1
     ):
         # look at the last 10 number of events scanned, if they are all the same, skip the function call with a probability
-        threshold_skip /= 100
+        not_pruning_prob /= 100
         logger.debug(
-            f"Same number of events observed in the last 10 attempts: {list_num_events_scanned[0]}, reducing the skipping threshold to: {threshold_skip}"
+            f"Same number of events observed in the last 10 attempts: {list_num_events_scanned[0]}, increasing the pruning probability to: {1 - not_pruning_prob}"
         )
 
-    is_skipping = random.random() > threshold_skip
+    is_skipping = random.random() > not_pruning_prob
     if is_skipping:
         logger.debug(
-            f"Skipping the function call due to sampling with a probability of: {threshold_skip}"
+            f"Skipping the function call due to sampling with a pruning probability of: {1 - not_pruning_prob}"
         )
     return is_skipping
+
+
+# def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
+#     """Merge the hypotheses that might be generalizable
+
+#     Args:
+#         hypotheses: list[Hypothesis]
+#             - the list of hypotheses to be merged, these hypotheses must be mergeable, i.e. parent param type and child param type should be the same
+
+#     Returns:
+#         list[Hypothesis]
+#             - the list of merged hypotheses and original hypotheses that are not merged
+
+#     The merge logic is as follows:
+#     We first group the hypotheses based on the attributes that are mergeable.
+#     Each group should produce one merged hypotheses, with all original hypotheses henceforth deleted.
+
+#     For each group, we determine whether to merge the hypotheses or not based on the following rules:
+#     1. We calculate the likelihood of the original hypotheses, and the likelihood of the merged hypotheses
+#     2. If the likelihood of the merged hypotheses is significantly higher than the likelihood of the original hypotheses, we merge the hypotheses
+
+#     # group the hypotheses based on the mergeable attributes
+
+
+#     NOTE: This is a ad-hoc version of the merge_hypotheses function, and should be improved in the future, it only merges for the case where the child param is a VarTypeParam|VarNameParam
+#     """
+#     assert len(hypotheses) > 0, "Expected at least one hypotheses to be merged"
+
+#     pos_exp_group_names = hypotheses[0].positive_examples.get_group_names()
+#     neg_exp_group_names = hypotheses[0].negative_examples.get_group_names()
+
+#     output_hypotheses: list[Hypothesis] = []
+#     merged_hypotheses_idxs: set[int] = set()
+
+#     dynamic_analysis_enabled = False
+#     if pos_exp_group_names == neg_exp_group_names:
+#         dynamic_analysis_enabled = True  # HACK: dynamic analysis is enabled only when the positive and negative examples are the same
+
+#     assert all(
+#         hypo.positive_examples.get_group_names() == pos_exp_group_names
+#         and hypo.negative_examples.get_group_names() == neg_exp_group_names
+#         for hypo in hypotheses
+#     ), "Expected all hypotheses to have the same group names"
+
+#     # NOTE: the first step of debugging this function should be to check the usage of `idx` below. All `idx` should be coming from the input `hypotheses` variable and should only be used on it
+
+#     grouped_hypos_idxs_wrt_child_param: dict[VarNameParam | VarTypeParam, list[int]] = (
+#         {}
+#     )
+#     for idx, _ in enumerate(hypotheses):
+#         inv = hypotheses[idx].invariant
+#         assert isinstance(
+#             inv.params[1], (VarTypeParam, VarNameParam)
+#         ), "Merging is only supported for VarTypeParam and VarNameParam"
+#         param_with_no_customization = inv.params[1].with_no_customization()
+
+#         if param_with_no_customization not in grouped_hypos_idxs_wrt_child_param:
+#             grouped_hypos_idxs_wrt_child_param[param_with_no_customization] = []
+#         grouped_hypos_idxs_wrt_child_param[param_with_no_customization].append(idx)
+
+#     assert (
+#         len(grouped_hypos_idxs_wrt_child_param) == 1
+#     ), "Expected only one group of hypotheses to be merged in current usage"
+
+#     for _, grouped_hypos_idxs in grouped_hypos_idxs_wrt_child_param.items():
+#         # calculate the likelihood of the original hypotheses
+#         likelihood_original_hypos = [
+#             hypotheses[idx].calc_likelihood() for idx in grouped_hypos_idxs
+#         ]
+#         all_child_params = [
+#             hypotheses[idx].invariant.params[1] for idx in grouped_hypos_idxs
+#         ]
+#         # generate possible merged hypotheses by 1. find common attributes (exactly the same) 2. find the attributes that are different and try to generalize them minimally
+
+#         all_customized_fields = [
+#             child_param.get_customized_fields() for child_param in all_child_params
+#         ]
+#         assert (
+#             len(all_customized_fields) > 0
+#         ), "Expected at least one child param to be present"
+#         # group by the field values
+#         possible_common_fields: dict[str, dict[Hashable, list[int]]] = (
+#             {}
+#         )  # the dict is the new child param, and the list is the indexes to corresponding original hypotheses
+#         for field in all_customized_fields[0]:
+#             if field not in possible_common_fields:
+#                 possible_common_fields[field] = {}
+#             for idx, customized_fields in zip(
+#                 grouped_hypos_idxs, all_customized_fields
+#             ):  # refactorize this
+#                 if customized_fields[field] not in possible_common_fields[field]:
+#                     possible_common_fields[field][customized_fields[field]] = []
+#                 possible_common_fields[field][customized_fields[field]].append(idx)
+
+#         # for each possible common field, check if the field is the same for all the original hypotheses
+#         for field, field_values in possible_common_fields.items():
+#             for field_value, idxs_specific_field_value in field_values.items():
+#                 if len(idxs_specific_field_value) == 1:
+#                     # only one hypotheses has this field value, we can't make this a common field
+#                     continue
+#                 """ check for the related hypotheses and compute how many examples that can be generalized
+#                 logic, all positive examples will still be negative examples, all negative examples that
+#                 showed in another hypotheses's positive examples will not be negative examples anymore
+#                 """
+
+#                 all_positive_examples = set()
+#                 all_negative_examples = set()
+#                 for idx in idxs_specific_field_value:
+#                     if not dynamic_analysis_enabled:
+#                         # positive example should only include the parent function call to be consistent with the child param
+#                         pre_records = hypotheses[
+#                             idx
+#                         ].positive_examples.get_group_from_examples(PARENT_GROUP_NAME)
+#                         exps_with_only_parent = [
+#                             Example({PARENT_GROUP_NAME: pre_record})
+#                             for pre_record in pre_records
+#                         ]
+#                         all_positive_examples.update(exps_with_only_parent)
+#                     else:
+#                         assert (
+#                             False
+#                         ), "NOT SURE IF MERGING FOR DYNAMIC ANALYSIS WORKS OR NOT, PROCEED (by commenting out this assertion) WITH CAUTION"
+#                         all_positive_examples.update(
+#                             hypotheses[idx].positive_examples.examples
+#                         )
+#                     all_negative_examples.update(
+#                         hypotheses[idx].negative_examples.examples
+#                     )
+
+#                 # let's remove those negative examples that are present in the positive examples of other hypotheses
+#                 all_negative_examples = all_negative_examples.difference(
+#                     all_positive_examples
+#                 )
+
+#                 # recalculate all_positive_examples using all groups under no dynamic analysis
+#                 all_positive_examples = set()
+#                 if not dynamic_analysis_enabled:
+#                     for idx in idxs_specific_field_value:
+#                         all_positive_examples.update(
+#                             hypotheses[idx].positive_examples.examples
+#                         )
+
+#                 # calculate the likelihood of the merged hypotheses now
+#                 merged_likelihood = calc_likelihood(
+#                     len(all_positive_examples), len(all_negative_examples)
+#                 )
+#                 if merged_likelihood / np.mean(likelihood_original_hypos) > 2:
+#                     merged_child_param = (
+#                         hypotheses[0].invariant.params[1].with_no_customization()
+#                     )  # HACK
+#                     setattr(merged_child_param, field, field_value)
+
+#                     # construct the param for the merged hypotheses
+#                     for field_to_generalize in all_customized_fields[0]:
+#                         if field_to_generalize == field:
+#                             continue
+
+#                         # get the values to be generalized
+#                         values_to_generalize = [
+#                             all_customized_fields[grouped_hypos_idxs.index(idx)][
+#                                 field_to_generalize
+#                             ]
+#                             for idx in idxs_specific_field_value
+#                         ]
+#                         # generalize the values
+#                         generalized_value = generalize_values(values_to_generalize)
+#                         setattr(
+#                             merged_child_param, field_to_generalize, generalized_value
+#                         )
+
+#                     # now we got the merged_child_param, generate the hypotheses for it
+#                     merged_hypothesis = Hypothesis(
+#                         invariant=Invariant(
+#                             relation=hypotheses[0].invariant.relation,
+#                             params=[
+#                                 hypotheses[0].invariant.params[0],
+#                                 merged_child_param,
+#                             ],
+#                             text_description="TBD merged",
+#                             num_positive_examples=len(all_positive_examples),
+#                             num_negative_examples=len(all_positive_examples),
+#                             precondition=None,  # to be inferred later
+#                         ),
+#                         positive_examples=ExampleList.from_iterable_of_examples(
+#                             all_positive_examples
+#                         ),
+#                         negative_examples=ExampleList.from_iterable_of_examples(
+#                             all_negative_examples
+#                         ),
+#                     )
+
+#                     merged_hypotheses_idxs.update(idxs_specific_field_value)
+#                     output_hypotheses.append(merged_hypothesis)
+
+#     for idx, hypo in enumerate(hypotheses):
+#         if idx not in merged_hypotheses_idxs:
+#             output_hypotheses.append(hypo)
+
+#     return output_hypotheses
+
+
+def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
+    assert len(hypotheses) > 0, "Expected at least one hypotheses to be merged"
+
+    pos_exp_group_names = hypotheses[0].positive_examples.get_group_names()
+    neg_exp_group_names = hypotheses[0].negative_examples.get_group_names()
+
+    if pos_exp_group_names == neg_exp_group_names:
+        assert (
+            False
+        ), "NOT SURE IF MERGING FOR DYNAMIC ANALYSIS WORKS OR NOT, PROCEED (by commenting out this assertion) WITH CAUTION"
+
+    # try to merge the hypotheses if individual hypotheses have too low likelihood
+    all_likelihoods = [hypo.calc_likelihood() for hypo in hypotheses]
+
+    # calculate the number of positive and negative examples after merge
+    all_positive_examples = set()
+    all_positive_parent_examples = set()
+    all_negative_examples = set()
+
+    for idx in range(len(hypotheses)):
+
+        pre_records = hypotheses[idx].positive_examples.get_group_from_examples(
+            PARENT_GROUP_NAME
+        )
+        exps_with_only_parent = [
+            Example({PARENT_GROUP_NAME: pre_record}) for pre_record in pre_records
+        ]
+        all_positive_parent_examples.update(exps_with_only_parent)
+        all_positive_examples.update(hypotheses[idx].positive_examples.examples)
+        all_negative_examples.update(hypotheses[idx].negative_examples.examples)
+
+    # let's remove those negative examples that are present in the positive examples of other hypotheses
+    all_negative_examples = all_negative_examples.difference(
+        all_positive_parent_examples
+    )
+
+    # calculate the likelihood of the merged hypotheses now
+    merged_likelihood = calc_likelihood(
+        len(all_positive_examples), len(all_negative_examples)
+    )
+
+    if merged_likelihood / np.mean(all_likelihoods) < 1.3:
+        # no merging if the likelihood is not significantly higher
+        return hypotheses
+
+    # construct the param for the merged hypotheses
+    merged_child_param = hypotheses[0].invariant.params[1].with_no_customization()
+    # get the values to be generalized
+    all_customized_fields = [
+        child_param.get_customized_fields()
+        for child_param in [hypo.invariant.params[1] for hypo in hypotheses]
+    ]
+    all_customizable_fields = set(merged_child_param.get_customizable_field_names())
+    for field in all_customizable_fields:
+        if all(
+            field not in customized_fields
+            for customized_fields in all_customized_fields
+        ):
+            continue
+
+        assert all(
+            field in customized_fields for customized_fields in all_customized_fields
+        ), "Expected all hypotheses to have the same customizable fields"
+        values = [
+            customized_fields[field] for customized_fields in all_customized_fields
+        ]
+        generalized_value = generalize_values(values)
+        setattr(merged_child_param, field, generalized_value)
+
+    # construct the merged hypotheses
+    merged_hypothesis = Hypothesis(
+        invariant=Invariant(
+            relation=hypotheses[0].invariant.relation,
+            params=[
+                hypotheses[0].invariant.params[0],
+                merged_child_param,
+            ],
+            text_description="TBD merged",
+            num_positive_examples=len(all_positive_examples),
+            num_negative_examples=len(all_positive_examples),
+            precondition=None,  # to be inferred later
+        ),
+        positive_examples=ExampleList.from_iterable_of_examples(all_positive_examples),
+        negative_examples=ExampleList.from_iterable_of_examples(all_negative_examples),
+    )
+
+    return [merged_hypothesis]
 
 
 class APIContainRelation(Relation):
@@ -118,14 +457,30 @@ class APIContainRelation(Relation):
     In the API contain relation, an parent API call will always contain the child API call.
     """
 
+    """ After this PR, APIContainRelation should be able to tell events that are semantically different apart. 
+    For now, for example for the APICall related events, we don't distinguish whether the API failed or not.
+    Also for VarChangeEvent, we don't consider the values before/after the change.
+
+    In this PR we are trying to count for these delicate differences, and generalize only the common parts.
+    Thus, we should be able to infer the additional invariant that `zero_grad` always lead to a `VarChangeEvent` from "anything" to "None".
+    TODOs:
+    - [ ] Refine the intersection logic, instead of relying on intersects provided by set class and Event class's __eq__ method, we should
+    define a function that does this compare
+        - [ ] Compare every attribute of the event, and return True if all attributes are the same
+        - [ ] Try to generalize the event when seeing the same type event with different attributes 
+    - [ ] Make the Dynamic Analysis part less ad-hoc as of its current form in the code
+    """
+
     @staticmethod
-    def infer(trace: Trace) -> list[Invariant]:
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants with Preconditions"""
 
         logger = logging.getLogger(__name__)
 
         # split the trace into groups based on (process_id and thread_id)
-        hypothesis: dict[str, dict[str, dict[str | tuple[str, ...], Hypothesis]]] = {}
+        hypotheses: dict[
+            APIParam, dict[APIParam | VarTypeParam | VarNameParam, Hypothesis]
+        ] = {}
         hypothesis_should_use_causal_vars_for_negative_examples: dict[
             str, dict[str, dict[str | tuple[str, ...], bool]]
         ] = {}
@@ -135,14 +490,13 @@ class APIContainRelation(Relation):
             logger.warning(
                 "No function calls found in the trace, skipping the analysis"
             )
-            return []
+            return [], []
 
         for parent in tqdm(
             func_names, desc="Scanning through function calls to generate hypotheses"
         ):
             is_parent_a_bound_method = trace.get_func_is_bound_method(parent)
             logger.debug(f"Starting the analysis for the parent function: {parent}")
-            # get all parent func_call_ids
             parent_func_call_ids = trace.get_func_call_ids(parent)
             logger.debug(
                 f"Found {len(parent_func_call_ids)} invocations for the function: {parent}"
@@ -151,189 +505,236 @@ class APIContainRelation(Relation):
                 str, list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
             ] = {}
 
-            num_events_scanned: list[int] = []
+            nums_contained_events: list[int] = []
             for parent_func_call_id in parent_func_call_ids:
-                # get all contained events (can be any child function calls, var changes, etc.)
-                if skip_func_call(len(parent_func_call_ids), num_events_scanned):
+                if prune_func_call(len(parent_func_call_ids), nums_contained_events):
                     continue
                 contained_events = events_scanner(
                     trace=trace, func_call_id=parent_func_call_id
                 )
-                num_events_scanned.append(len(contained_events))
+                nums_contained_events.append(len(contained_events))
                 all_contained_events[parent_func_call_id] = contained_events
 
-            """Create hypothesis for each "kind" of contained events
-                For FuncCall events, the "kind" is defined by the function name
-                For VarChange events, the "kind" is defined by the variable type
-            """
-            hypothesis[parent] = {}
-            hypothesis_should_use_causal_vars_for_negative_examples[parent] = {}
-            for local_contained_events in all_contained_events.values():
-                for event in local_contained_events:
-                    high_level_event_type = typename(event)
-                    target: str | tuple[str, ...] = (
-                        event.func_name
-                        if isinstance(event, (FuncCallEvent, FuncCallExceptionEvent))
-                        else (event.var_id.var_type, event.attr_name)
+            # MARK: HYPOTHESIS CREATION
+            """Create hypotheses for each specific event (a event is defined by its __dict__)"""
+            parent_param = APIParam(parent)
+            hypos_for_dynamic_analysis: list[tuple[Param, Param]] = []
+            for (
+                parent_func_call_id,
+                local_contained_events,
+            ) in all_contained_events.items():
+                parent_event = trace.query_func_call_event(parent_func_call_id)
+                parent_param = construct_api_param(parent_event)
+                if parent_param not in hypotheses:
+                    hypotheses[parent_param] = {}
+                    hypothesis_should_use_causal_vars_for_negative_examples[parent] = {}
+
+                events_grouped_by_type = _group_events_by_type(local_contained_events)
+                for event in events_grouped_by_type[VarChangeEvent]:
+                    # dynamic analysis can be applied to VarChangeEvent
+                    # child_param = VarNameParam(event.var_id.var_type, event.attr_name)
+                    child_param: APIParam | VarTypeParam | VarNameParam = (
+                        construct_var_param_from_var_change(event)
                     )
-
-                    if high_level_event_type not in hypothesis[parent]:
-                        hypothesis[parent][high_level_event_type] = {}
-                        hypothesis_should_use_causal_vars_for_negative_examples[parent][
-                            high_level_event_type
-                        ] = {}
-
-                    if target not in hypothesis[parent][high_level_event_type]:
+                    if child_param in hypotheses[parent_param]:
+                        continue
+                    # if dynamic analysis is available for this child_param, we can use it to find negative examples
+                    should_use_causal_vars_for_negative_examples = False
+                    if isinstance(child_param, VarTypeParam):
+                        # dynamic analysis only applicable to Var type based analysis
                         should_use_causal_vars_for_negative_examples = (
-                            can_func_be_bound_method(
+                            is_parent_a_bound_method
+                            and can_func_be_bound_method(
                                 trace, parent, event.var_id.var_type, event.attr_name
                             )
-                            if is_parent_a_bound_method
-                            and isinstance(event, VarChangeEvent)
-                            else False
-                        )  # can_func_be_bound_method is super costly so we only call it when necessary
-                        hypothesis_should_use_causal_vars_for_negative_examples[parent][
-                            high_level_event_type
-                        ][target] = should_use_causal_vars_for_negative_examples
-
-                        group_names = (
-                            {PARENT_GROUP_NAME, VAR_GROUP_NAME}
-                            if isinstance(event, VarChangeEvent)
-                            else {PARENT_GROUP_NAME}
                         )
+                        if should_use_causal_vars_for_negative_examples:
+                            hypos_for_dynamic_analysis.append(
+                                (parent_param, child_param)
+                            )
+                    hypotheses[parent_param][child_param] = Hypothesis(
+                        Invariant(
+                            relation=APIContainRelation,
+                            params=[parent_param, child_param],
+                            precondition=None,
+                            text_description=f"{parent} contains {child_param} of type {typename(event)}",
+                        ),
+                        positive_examples=ExampleList(
+                            {PARENT_GROUP_NAME, VAR_GROUP_NAME}
+                        ),
+                        negative_examples=ExampleList(
+                            {PARENT_GROUP_NAME, VAR_GROUP_NAME}
+                            if should_use_causal_vars_for_negative_examples
+                            else {PARENT_GROUP_NAME}
+                        ),
+                    )
 
-                        params: list[Param] = [APIParam(parent)]
-                        if isinstance(event, VarChangeEvent):
-                            params.append(
-                                VarTypeParam(event.var_id.var_type, event.attr_name)
+                events_grouped_by_type.pop(VarChangeEvent)
+                for event_type in events_grouped_by_type:
+                    for event in events_grouped_by_type[event_type]:
+                        child_param = construct_api_param(event)
+                        if child_param not in hypotheses[parent_param]:
+                            hypotheses[parent_param][child_param] = Hypothesis(
+                                Invariant(
+                                    relation=APIContainRelation,
+                                    params=[parent_param, child_param],
+                                    precondition=None,
+                                    text_description=f"{parent} contains {child_param} of type {typename(event)}",
+                                ),
+                                positive_examples=ExampleList({PARENT_GROUP_NAME}),
+                                negative_examples=ExampleList({PARENT_GROUP_NAME}),
                             )
 
-                            # params.append(VarNameParam(event.var_id.var_type, event.attr_name)) # TODO: add a switch to enable using the attribute name as a parameter
-                        elif isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
-                            params.append(APIParam(event.func_name))
-
-                        hypothesis[parent][high_level_event_type][target] = Hypothesis(
-                            Invariant(
-                                relation=APIContainRelation,
-                                params=params,
-                                precondition=None,
-                                text_description=f"{parent} contains {target} of type {typename(event)}",
-                                # text_description=f"{parent} (is_bound_method: {is_parent_a_bound_method}, should_use_causal_vars_for_negative_examples: {should_use_causal_vars_for_negative_examples}) contains {target} of type {typename(event)}",
-                            ),
-                            positive_examples=ExampleList(group_names),
-                            negative_examples=ExampleList(
-                                group_names
-                                if should_use_causal_vars_for_negative_examples
-                                else {PARENT_GROUP_NAME}
-                            ),
-                        )
-                        """If the parent function is a bound method, we can leverage the dynamic analysis to find variables that are not changed but are causally related to the parent function.
-                            These variables can be used as negative examples for the hypothesis.
-                            If the parent function is not a bound method, we won't be able to find such variables that are not changed.
-                            Another way to figure this out is to establish the causal relationship from the function input
-                        """
-
+            # MARK: PRECONDITION INFERENCE PREPARATION
             # scan the child_func_names for positive and negative examples
             for (
                 parent_func_call_id,
                 local_contained_events,
             ) in all_contained_events.items():
-                touched: dict[str, set] = {}
-                pre_record = trace.get_pre_func_call_record(parent_func_call_id)
-                for event in local_contained_events:
-                    high_level_event_type = typename(event)
+                parent_event = trace.query_func_call_event(parent_func_call_id)
+                parent_param = construct_api_param(parent_event)
+                parent_hypos = hypotheses[
+                    parent_param
+                ].copy()  # keep record of all hypotheses related to the parent function
 
-                    target = (
-                        event.func_name
-                        if isinstance(event, (FuncCallEvent, FuncCallExceptionEvent))
-                        else (event.var_id.var_type, event.attr_name)
+                # adding positive examples
+                events_grouped_by_type = _group_events_by_type(local_contained_events)
+                for event in events_grouped_by_type[VarChangeEvent]:
+                    child_param = construct_var_param_from_var_change(event)
+                    assert (
+                        child_param in hypotheses[parent_param]
+                    ), f"Internal error: child_param {child_param} not found in the hypotheses during the example collection phase"
+                    parent_hypos.pop(
+                        child_param, None
+                    )  # same child event can occur multiple times in a particular parent event, due to the above assert it is save to use None to ignore the KeyError
+                    example = Example()
+                    example.add_group(PARENT_GROUP_NAME, [parent_event.pre_record])
+                    example.add_group(VAR_GROUP_NAME, event.get_traces())
+                    hypotheses[parent_param][child_param].positive_examples.add_example(
+                        example
                     )
 
-                    assert target in hypothesis[parent][high_level_event_type]
-                    example = Example()
-                    example.add_group(PARENT_GROUP_NAME, [pre_record])
-                    if isinstance(event, VarChangeEvent):
-                        example.add_group(VAR_GROUP_NAME, event.get_traces())
-                    hypothesis[parent][high_level_event_type][
-                        target
-                    ].positive_examples.add_example(example)
+                events_grouped_by_type.pop(VarChangeEvent)
+                for event_type in events_grouped_by_type:
+                    for event in events_grouped_by_type[event_type]:
+                        child_param = construct_api_param(event)
+                        assert (
+                            child_param in hypotheses[parent_param]
+                        ), f"Internal error: child_param {child_param} not found in the hypotheses during the example collection phase"
 
-                    if high_level_event_type not in touched:
-                        touched[high_level_event_type] = set()
-                    touched[high_level_event_type].add(target)
+                        parent_hypos.pop(
+                            child_param, None
+                        )  # same child event can occur multiple times in a particular parent event, due to the above assert it is save to use None to ignore the KeyError
+                        hypotheses[parent_param][
+                            child_param
+                        ].positive_examples.add_example(
+                            Example({PARENT_GROUP_NAME: [parent_event.pre_record]})
+                        )
 
-                for high_level_event_type in hypothesis[parent]:
-                    for target in hypothesis[parent][high_level_event_type]:
-                        if hypothesis_should_use_causal_vars_for_negative_examples[
-                            parent
-                        ][high_level_event_type][target]:
-                            assert high_level_event_type == typename(VarChangeEvent)
-                            unchanged_var_ids = (
-                                trace.get_var_ids_unchanged_but_causally_related(
-                                    parent_func_call_id,
-                                    target[0],
-                                    target[1],
-                                )
+                # adding negative examples for hypotheses that are not modified above
+                for child_param in parent_hypos:
+                    if (parent_param, child_param) not in hypos_for_dynamic_analysis:
+                        hypotheses[parent_param][
+                            child_param
+                        ].negative_examples.add_example(
+                            Example({PARENT_GROUP_NAME: [parent_event.pre_record]})
+                        )
+                    else:
+                        # use dynamic analysis to find negative examples
+                        assert isinstance(
+                            child_param, (VarTypeParam)
+                        )  # dynamic analysis only applicable to Var type based analysis
+
+                        unchanged_var_ids = (
+                            trace.get_var_ids_unchanged_but_causally_related(
+                                parent_func_call_id,
+                                child_param.var_type,
+                                child_param.attr_name,
                             )
-                            for var_id in unchanged_var_ids:
-                                example = Example()
-                                example.add_group(PARENT_GROUP_NAME, [pre_record])
-                                example.add_group(
-                                    VAR_GROUP_NAME,
-                                    trace.get_var_raw_event_before_time(
-                                        var_id, pre_record["time"]
-                                    ),
-                                )
-                                hypothesis[parent][high_level_event_type][
-                                    target
-                                ].negative_examples.add_example(example)
-                            continue
-
-                        # if we haven't seen the target in the current trace, add this API invocation as a negative example
-                        if (
-                            high_level_event_type not in touched
-                            or target not in touched[high_level_event_type]
-                        ):
+                        )
+                        for var_id in unchanged_var_ids:
                             example = Example()
-                            example.add_group(PARENT_GROUP_NAME, [pre_record])
-                            hypothesis[parent][high_level_event_type][
-                                target
+                            example.add_group(
+                                PARENT_GROUP_NAME, [parent_event.pre_record]
+                            )
+                            example.add_group(
+                                VAR_GROUP_NAME,
+                                trace.get_var_raw_event_before_time(
+                                    var_id, parent_event.pre_record["time"]
+                                ),
+                            )
+                            hypotheses[parent_param][
+                                child_param
                             ].negative_examples.add_example(example)
+
+        # extra step: merge invariants
+        for parent_param in hypotheses:
+            # group the child_hypotheses by core_fields
+            all_mergeable_hypotheses: dict[
+                VarNameParam | VarTypeParam, list[Hypothesis]
+            ] = {}
+            for child_param in hypotheses[parent_param]:
+                if isinstance(child_param, APIParam):
+                    continue
+                core_child_param = child_param.with_no_customization()
+                if core_child_param not in all_mergeable_hypotheses:
+                    all_mergeable_hypotheses[core_child_param] = []
+                all_mergeable_hypotheses[core_child_param].append(
+                    hypotheses[parent_param][child_param]
+                )
+
+            # hypotheses[parent_param] = {} # this is wrong, we should only remove the hypotheses that are passed to the merge_hypotheses function
+            # remove all the hypotheses that have the second param as VarNameParam or VarTypeParam
+            to_be_merged_child_params = []
+            for child_param in hypotheses[parent_param]:
+                if isinstance(child_param, (VarNameParam | VarTypeParam)):
+                    to_be_merged_child_params.append(child_param)
+            for child_param in to_be_merged_child_params:
+                hypotheses[parent_param].pop(child_param)
+
+            # for each key in all_mergeable_hypotheses, invoke the hypotheses merging process.
+            for hypotheses_to_be_merged in all_mergeable_hypotheses.values():
+                merged_hypotheses = _merge_hypotheses(hypotheses_to_be_merged)
+                # delete original hypotheses in the original `hypotheses` structure
+                for hypo in merged_hypotheses:
+                    new_child_param = hypo.invariant.params[1]
+                    assert isinstance(new_child_param, (VarNameParam | VarTypeParam))
+                    hypotheses[parent_param][
+                        new_child_param
+                    ] = hypo  # index 1 here is to get the var_name or var_type param, a hack. Correctness should be guaranteed by the isinstance above
 
         pbar = tqdm(
             total=len(
                 [
-                    hypothesis[parent][event_type][target]
-                    for parent in hypothesis
-                    for event_type in hypothesis[parent]
-                    for target in hypothesis[parent][event_type]
+                    child_param
+                    for parent_param in hypotheses
+                    for child_param in hypotheses[parent_param]
                 ]
             ),
             desc="Infering preconditions",
         )
         all_invariants: list[Invariant] = []
-        all_hypotheses = []
-        for parent in hypothesis:
-            for high_level_event_type in hypothesis[parent]:
-                for target in hypothesis[parent][high_level_event_type]:
-                    pbar.update(1)
-                    h = hypothesis[parent][high_level_event_type][target]
-                    logger.debug(
-                        f"Starting the inference of precondition for the hypothesis: {h.invariant.text_description}"
-                    )
-                    found_precondition = find_precondition(h)
-                    if (
-                        found_precondition is not None
-                    ):  # TODO: abstract this precondition inference part to a function
-                        h.invariant.precondition = found_precondition
-                        all_invariants.append(h.invariant)
-                        all_hypotheses.append((h, f"{high_level_event_type}"))
-                    else:
-                        logger.debug(f"Precondition not found for the hypothesis: {h}")
+        failed_hypotheses = []
+        for parent_param in hypotheses:
+            for child_param in hypotheses[parent_param]:
+                hypo = hypotheses[parent_param][child_param]
+                pbar.update(1)
+                logger.debug(
+                    f"Starting the inference of precondition for the hypotheses: {hypo.invariant.text_description}"
+                )
+                found_precondition = find_precondition(hypo)
+                if (
+                    found_precondition is not None
+                ):  # TODO: abstract this precondition inference part to a function
+                    hypo.invariant.precondition = found_precondition
+                    hypo.invariant.num_positive_examples = len(hypo.positive_examples)
+                    hypo.invariant.num_negative_examples = len(hypo.negative_examples)
+                    all_invariants.append(hypo.invariant)
+                else:
+                    logger.debug(f"Precondition not found for the hypotheses: {hypo}")
+                    failed_hypotheses.append(FailedHypothesis(hypo))
 
-        # sort the hypotheses for debugging purposes
-        all_hypotheses.sort(key=lambda h: len(h[0].positive_examples), reverse=True)
-        return all_invariants
+        return all_invariants, failed_hypotheses
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
@@ -418,11 +819,11 @@ Defaulting to skip the var preconditon check for now.
                 skip_var_unchanged_check = True
 
         # the main checking loop: the online checker function will be the body of this loop, which will be called repeatedly
-        num_events_scanned: list[int] = []
+        nums_contained_events: list[int] = []
         for parent_func_call_id in tqdm(
             parent_func_call_ids, desc=f"Checking invariants for {inv.text_description}"
         ):
-            if skip_func_call(len(parent_func_call_ids), num_events_scanned):
+            if prune_func_call(len(parent_func_call_ids), nums_contained_events):
                 continue
 
             # check for parent precondition
@@ -443,7 +844,7 @@ Defaulting to skip the var preconditon check for now.
 
                 # invariant check
                 events = events_scanner(trace=trace, func_call_id=parent_func_call_id)
-                num_events_scanned.append(len(events))
+                nums_contained_events.append(len(events))
                 for event in events:
                     if child_param.check_event_match(event):
                         found_expected_child_event = True
@@ -451,7 +852,7 @@ Defaulting to skip the var preconditon check for now.
             else:
                 # invariant check
                 events = events_scanner(trace=trace, func_call_id=parent_func_call_id)
-                num_events_scanned.append(len(events))
+                nums_contained_events.append(len(events))
                 for event in events:
                     if child_param.check_event_match(event):
                         found_expected_child_event = True

@@ -44,6 +44,13 @@ def save_failed_hypos(failed_hypos: list[FailedHypothesis], output_file: str):
             f.write("\n")
 
 
+def save_failed_hypos(failed_hypos: list[FailedHypothesis], output_file: str):
+    with open(output_file, "w") as f:
+        for failed_hypo in failed_hypos:
+            f.write(json.dumps(failed_hypo.to_dict()))
+            f.write("\n")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Invariant Finder for ML Pipelines in Python"
@@ -122,7 +129,7 @@ if __name__ == "__main__":
     logging.basicConfig(
         filename=f'mldaikon_infer_engine_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log',
         level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        format="%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)s - %(funcName)20s()] - %(message)s",
     )
 
     config.ENABLE_PRECOND_SAMPLING = not args.disable_precond_sampling

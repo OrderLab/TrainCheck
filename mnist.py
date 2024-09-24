@@ -9,8 +9,6 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
-from mldaikon.proxy_wrapper.proxy import Proxy
-
 
 class Net(nn.Module):
     def __init__(self):
@@ -46,8 +44,6 @@ def train(args, model, device, train_loader, optimizer, epoch):
         output = model(data)
         loss = F.nll_loss(output, target)
         loss.backward()
-        # print("YUXUAN: updating parameters")
-        # tracer.inspect_model(model)
         optimizer.step()
 
         if batch_idx % args.log_interval == 0:
@@ -62,12 +58,15 @@ def train(args, model, device, train_loader, optimizer, epoch):
             )
             if args.dry_run:
                 break
+        if batch_idx == 10:
+            break
 
 
 def test(model, device, test_loader):
     model.eval()
     test_loss = 0
     correct = 0
+    idx = 0
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
@@ -79,6 +78,9 @@ def test(model, device, test_loader):
                 dim=1, keepdim=True
             )  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
+            idx += 1
+            if idx == 2:
+                break
 
     test_loss /= len(test_loader.dataset)
 
@@ -112,7 +114,7 @@ def main():
     parser.add_argument(
         "--epochs",
         type=int,
-        default=14,
+        default=1,
         metavar="N",
         help="number of epochs to train (default: 14)",
     )
@@ -195,7 +197,6 @@ def main():
 
     print("Defining model...")
     model = Net()
-    model = Proxy(model, is_root=True)
     model = model.to(device)
     # tracer.trace_state_variables(model)
 
