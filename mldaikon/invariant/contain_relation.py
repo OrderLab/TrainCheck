@@ -486,8 +486,6 @@ class APIContainRelation(Relation):
         ] = {}
         func_names = trace.get_func_names()
 
-        # func_names = ["torch.optim.adadelta.Adadelta.step"]
-
         if len(func_names) == 0:
             logger.warning(
                 "No function calls found in the trace, skipping the analysis"
@@ -687,9 +685,12 @@ class APIContainRelation(Relation):
 
             # hypotheses[parent_param] = {} # this is wrong, we should only remove the hypotheses that are passed to the merge_hypotheses function
             # remove all the hypotheses that have the second param as VarNameParam or VarTypeParam
+            to_be_merged_child_params = []
             for child_param in hypotheses[parent_param]:
                 if isinstance(child_param, (VarNameParam | VarTypeParam)):
-                    hypotheses[parent_param].pop(child_param)
+                    to_be_merged_child_params.append(child_param)
+            for child_param in to_be_merged_child_params:
+                hypotheses[parent_param].pop(child_param)
 
             # for each key in all_mergeable_hypotheses, invoke the hypotheses merging process.
             for hypotheses_to_be_merged in all_mergeable_hypotheses.values():
