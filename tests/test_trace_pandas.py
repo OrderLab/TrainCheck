@@ -7,10 +7,10 @@ import unittest
 from mldaikon.trace.trace import Trace, read_trace_file
 
 # Import the module to test
-from mldaikon.trace.trace_pandas import Trace_Pandas, read_trace_file_Pandas
+from mldaikon.trace.trace_pandas import TracePandas, read_trace_file_Pandas
 
-from mldaikon.trace.trace_ori_pandas import Trace_Ori_Pandas, read_trace_file_Ori_Pandas
 import cProfile
+
 
 def profile(func):
     def wrapper(*args, **kwargs):
@@ -24,6 +24,7 @@ def profile(func):
 
     return wrapper
 
+
 # Differential test: check the output of the two implementations (modin.pandas and polars) are the same
 class TestTracePandas(unittest.TestCase):
 
@@ -31,11 +32,10 @@ class TestTracePandas(unittest.TestCase):
         self.trace_file = "tests/test_trace_pandas/test_API_trace.log"
         self.trace_data_polars = read_trace_file(self.trace_file)
         self.trace_data_pandas = read_trace_file_Pandas(self.trace_file)
-        self.trace_data_ori_pandas = read_trace_file_Ori_Pandas(self.trace_file)
         self.start_time = self.trace_data_pandas.get_start_time()
         self.end_time = self.trace_data_pandas.get_end_time()
         assert isinstance(self.trace_data_polars, Trace)
-        assert isinstance(self.trace_data_pandas, Trace_Pandas)
+        assert isinstance(self.trace_data_pandas, TracePandas)
 
     # def test_read_trace_file(self):
     #     # Check the two implementations return the same output
@@ -224,16 +224,13 @@ class TestTracePandas(unittest.TestCase):
         @profile
         def get_func_call_ids():
             self.trace_data_polars.get_func_call_ids()
+
         @profile
         def get_func_call_ids_pandas():
             self.trace_data_pandas.get_func_call_ids()
-        @profile
-        def get_func_call_ids_ori_pandas():
-            self.trace_data_ori_pandas.get_func_call_ids()
-        
+
         get_func_call_ids()
         get_func_call_ids_pandas()
-        get_func_call_ids_ori_pandas()
 
     # def test_get_var_ids(self):
     #     self.assertEqual(
@@ -457,7 +454,7 @@ class TestTracePandas(unittest.TestCase):
     #             print("func_call_id: ", func_call_id)
     #             continue
     #         # convert all nan values to None
-            
+
     #         self.assertEqual(
     #             result_polars,
     #             result_pandas,

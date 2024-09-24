@@ -73,12 +73,10 @@ def _find_local_clauses(
             #     f"Property {prop} has no real values in the example, skipping this property as a clause."
             # )
             continue
-        
+
         if len(prop_values_seen) == 1 and prop_dtype is not None:
             if prop_dtype is ML_NONE:
-                clauses.append(
-                    PreconditionClause(prop, None, PT.CONSTANT, None)
-                )
+                clauses.append(PreconditionClause(prop, None, PT.CONSTANT, None))
             clauses.append(
                 PreconditionClause(prop, prop_dtype, PT.CONSTANT, prop_values_seen)
             )
