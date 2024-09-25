@@ -78,7 +78,6 @@ class TracePolars(Trace):
             - Truncates incomplete trailing function calls from the trace if `truncate_incomplete_func_calls` is True.
             - Checks if the time column is present in the events DataFrame.
         """
-        super().__init__(events, truncate_incomplete_func_calls)
         self.events = events
         self.var_ids = None
         self.var_insts = None

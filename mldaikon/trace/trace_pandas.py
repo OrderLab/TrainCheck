@@ -2,8 +2,8 @@ import logging
 import re
 
 import pandas as pd
-from pandas import json_normalize
 from tqdm import tqdm
+import json # only json can be used as we might have Infinity in the trace (doable if we use orjson for trace dumping as well)   
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
@@ -34,7 +34,6 @@ def get_attr_name(col_name: str) -> str:
 
 class TracePandas(Trace):
     def __init__(self, events, truncate_incomplete_func_calls=True):
-        super().__init__(events, truncate_incomplete_func_calls)
         self.events = events
         self.var_ids = None
         self.var_insts = None
@@ -808,12 +807,18 @@ class TracePandas(Trace):
 class ML_NONE:
     pass
 
-
-def replace_none_with_placeholder(val):
-    if val is None:
-        return ML_NONE  # Replace None with your placeholder
-    return val
-
+def read_jsonlines(file_path: str):
+    docs = []
+    with open(file_path, "r") as f:
+        for line in f.readlines():
+            try:
+                docs.append(json.loads(line))
+            except Exception as e:
+                logger.error(f"Failed to read line {line} due to {e}. skipping")
+                print(line)
+                raise e
+    return docs
+    
 
 def read_trace_file_Pandas(
     file_path: str | list[str], truncate_incomplete_func_calls=True
@@ -823,7 +828,7 @@ def read_trace_file_Pandas(
         dfs = []
         for f in file_path:
             try:
-                dfs.append(pd.read_json(f, lines=True, precise_float=True))
+                dfs.append(pd.json_normalize(read_jsonlines(f), sep="."))
                 logger.info(f"Done reading {f}")
             except Exception as e:
                 logger.error(f"Failed to read {f} due to {e}. aborting")
@@ -832,13 +837,8 @@ def read_trace_file_Pandas(
         events = pd.concat(dfs, ignore_index=True)
         logger.info("Done concatenating the DataFrames")
     else:
-        events = pd.read_json(file_path, lines=True)
+        events = pd.json_normalize(read_jsonlines(file_path), sep=".")
         logger.info(f"Done reading {file_path}")
-
-    events = json_normalize(events.to_dict(orient="records"), sep=".")
-    # TODO: normalize abandon the empty dicts, check whether it matters
-    events = events.applymap(replace_none_with_placeholder)
-    # events.to_json('pandas_events.json', orient='records', lines=True)
 
     return TracePandas(
         events,
