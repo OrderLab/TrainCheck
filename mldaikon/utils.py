@@ -21,6 +21,8 @@ def safe_getattr(obj, attr, default=None):
 
 
 def typename(o):
+    if isinstance(o, torch.nn.Parameter):
+        return "torch.nn.Parameter"
     if isinstance(o, torch.Tensor):
         return o.type()
     module = safe_getattr(o, "__module__", "")

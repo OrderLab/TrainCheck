@@ -10,6 +10,7 @@ from mldaikon.trace.types import (
     AttrState,
     FuncCallEvent,
     FuncCallExceptionEvent,
+    IncompleteFuncCallEvent,
     Liveness,
     VarChangeEvent,
     VarInstId,
@@ -99,7 +100,7 @@ class Trace:
         ), "time column not found in the events, cannot infer invariants as the analysis does a lot of queries based on time."
 
         # TODO: we need to handle the schema issue in polars quickly as it will force us to split the traces by schema, which will cause traces from one process to be split into multiple files and thus we will have to sort the entire trace by time, which is costly
-        logger.warn(
+        logger.warning(
             "Infer engine won't sort the events by time anymore as sorting is costly for large traces. Please make sure every separate file is sorted by time, and traces belong to the same process should be in the same file. For variable traces, we will still be sorting them by time so no need to worry about that."
         )
 
@@ -172,6 +173,7 @@ class Trace:
             if outermost_func_call_post.height == 0:
                 outermost_incomplete = True
             else:
+                outermost_incomplete = False
                 outermost_func_call_post_record = outermost_func_call_post.row(
                     0, named=True
                 )
@@ -196,9 +198,16 @@ class Trace:
                     - config.INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST
                 ):
                     logger.warning(f"Removing incomplete function call: {record}")
+                    prev_var_height = self.events.filter(
+                        pl.col("type") == "state_change"
+                    ).height
                     self.events = self.events.filter(
-                        pl.col("func_call_id") != record["func_call_id"]
+                        pl.col("func_call_id").ne_missing(record["func_call_id"])
                     )
+                    assert (
+                        self.events.filter(pl.col("type") == "state_change").height
+                        == prev_var_height
+                    ), f"Incomplete function call removal incorrect, removed var traces incorrectly. func_call_id: {record['func_call_id']}, prev_height: {prev_var_height}, new_height: {self.events.filter(pl.col('type') == 'state_change').height}"
                 else:
                     raise ValueError(
                         f"Incomplete function call is not close enough to the outermost function call post event: {record}"
@@ -209,12 +218,20 @@ class Trace:
                 logger.warning(
                     f"Removing incomplete function call and everything after it on the same thread and process: {record}"
                 )
+
+                prev_var_height = self.events.filter(
+                    pl.col("type") == "state_change"
+                ).height
                 self.events = self.events.filter(
-                    (pl.col("process_id") != process_id)
-                    | (pl.col("thread_id") != thread_id)
+                    (pl.col("process_id").ne_missing(process_id))
+                    | (pl.col("thread_id").ne_missing(thread_id))
                     | (pl.col("time") < record["time"])
                 )
 
+                assert (
+                    self.events.filter(pl.col("type") == "state_change").height
+                    == prev_var_height
+                ), "Incomplete function call removal incorrect, removed var traces incorrectly."
                 # assert the record's func_call_id is no longer in the events
                 assert (
                     self.events.filter(
@@ -686,6 +703,32 @@ class Trace:
 
         return post_record
 
+    def query_func_call_event(
+        self, func_call_id: str
+    ) -> FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent:
+        """Extract a function call event from the trace, given its func_call_id."""
+        pre_record = self.get_pre_func_call_record(func_call_id)
+        post_record = self.get_post_func_call_record(func_call_id)
+
+        if post_record is None:
+            # query the end time of the trace on the specific process and thread
+            potential_end_time = self.get_end_time(
+                pre_record["process_id"], pre_record["thread_id"]
+            )
+            return IncompleteFuncCallEvent(
+                pre_record["function"], pre_record, potential_end_time
+            )
+
+        if post_record["type"] == TraceLineType.FUNC_CALL_POST:
+            return FuncCallEvent(pre_record["function"], pre_record, post_record)
+
+        if post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+            return FuncCallExceptionEvent(
+                pre_record["function"], pre_record, post_record
+            )
+
+        raise ValueError(f"Unknown function call event type: {post_record['type']}")
+
     def query_func_call_events_within_time(
         self,
         time_range: tuple[int | float, int | float],
@@ -777,7 +820,9 @@ class Trace:
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
         if post_record is None:
-            logger.warning(f"Post call event not found for {func_call_id}")
+            logger.warning(
+                f"Post call event not found for {func_call_id} ({pre_record['function']})"
+            )
             # let's get the end time of the trace on the specific process and thread
             end_time = (
                 self.get_end_time(pre_record["process_id"], pre_record["thread_id"])
@@ -802,6 +847,29 @@ class Trace:
         return (time - self.get_start_time()) / (
             self.get_end_time() - self.get_start_time()
         )
+
+    def get_filtered_function(self) -> pl.DataFrame:
+        """Filter API calls in traces and return filtered events."""
+        events = self.events
+        events = events.filter(~events["function"].str.contains(r"\.__*__"))
+        events = events.filter(~events["function"].str.contains(r"\._"))
+        threshold = 6
+        events = events.with_columns(
+            (events["function"] != events["function"].shift())
+            .cum_sum()
+            .alias("group_id")
+        )
+        group_counts = events.group_by("group_id").agg(
+            [
+                pl.col("function").first().alias("function"),
+                pl.count("function").alias("count"),
+            ]
+        )
+        functions_to_remove = group_counts.filter(pl.col("count") > threshold)[
+            "function"
+        ]
+        events = events.filter(~events["function"].is_in(functions_to_remove))
+        return events
 
 
 def read_trace_file(

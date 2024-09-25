@@ -3,16 +3,23 @@ from __future__ import annotations
 import abc
 import json
 import logging
+import math
 from enum import Enum
-from typing import Hashable, Iterable, Optional, Type
+from typing import Any, Hashable, Iterable, Optional, Type
 
+import mldaikon.config.config as config
 from mldaikon.trace.trace import Trace, VarInstId
 from mldaikon.trace.types import (
     FuncCallEvent,
     FuncCallExceptionEvent,
     HighLevelEvent,
+    IncompleteFuncCallEvent,
     VarChangeEvent,
 )
+
+
+class _NOT_SET:
+    pass
 
 
 class Param:
@@ -27,11 +34,26 @@ class Param:
         return self.to_dict() == other.to_dict()
 
     def to_dict(self):
-        self_dict = {
+        ret = {
             "param_type": self.__class__.__name__,
         }
-        self_dict.update(self.__dict__)
-        return self_dict
+        self_state = self.__dict__
+        for field, value in self_state.items():
+            if value == _NOT_SET:
+                continue
+            if isinstance(value, Exception):
+                ret[field] = (
+                    f"Exception: {type(value)}, msg: {value}"  # TODO: hack, this is not seralizable back to python Exceptions
+                )
+                continue
+            # try if the value is seralizable
+            try:
+                json.dumps({field: value})
+                ret[field] = value
+            except TypeError:
+                ret[field] = f"NOT SERIALIZABLE: {str(value)}"
+
+        return ret
 
     @staticmethod
     def from_dict(param_dict: dict) -> Param:
@@ -42,7 +64,7 @@ class Param:
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
-        "Check if the event contains the required information for the param."
+        """Checks whether the trace line is a candidate described by the param."""
         raise NotImplementedError(
             "check_trace_line_match method is not implemented yet."
         )
@@ -51,10 +73,81 @@ class Param:
         "Check if the high level event contains the required information for the param."
         raise NotImplementedError("check_event_match method is not implemented yet.")
 
+    def get_customizable_field_names(self) -> set[str]:
+        """Returns the field names that can be customized for the param."""
+        raise NotImplementedError(
+            "get_customizable_field_names method is not implemented yet."
+        )
+
+    def get_customized_fields(self) -> dict[str, type]:
+        """Returns the fields that can be customized for the param."""
+        raise NotImplementedError(
+            "get_customized_fields method should not be called on the base class."
+        )
+
+    # @abc.abstractmethod
+    def with_no_customization(self) -> Param:
+        raise NotImplementedError(
+            "with_no_customization method should not be called on the base class"
+        )
+
+
+def generalize_values(values: list[type]) -> None | type | str:
+    """Given a list of values, should return a generalized value."""
+    if len(values) == 0:
+        return None
+
+    if len(set(values)) == 1:
+        # no need to generalize
+        return values[0]
+
+    none_in_values = None in values
+
+    assert (
+        len(set([type(v) for v in values])) - none_in_values == 1
+    ), f"Values should have the same type, got: {set([type(v) for v in values])} ({values})"
+
+    if any(isinstance(v, (int, float)) for v in values):
+        all_non_none_values: list[int | float] = [
+            v for v in values if isinstance(v, (int, float))
+        ]
+
+        min_value = min(all_non_none_values)  # type: ignore
+        max_value = max(all_non_none_values)  # type: ignore
+
+        assert (
+            min_value != max_value
+        ), "Min and max values are the same, you don't need to generalize the values"
+        if min_value > 0:
+            return "above_zero"
+        elif min_value >= 0:
+            return "non_negative"
+        elif max_value < 0:
+            return "below_zero"
+        elif max_value <= 0:
+            return "non_positive"
+        elif min_value < 0 and max_value > 0 and 0 not in values:
+            return "non_zero"
+        elif min_value < 0 and max_value > 0 and 0 in values and not none_in_values:
+            return "non_none"
+        else:
+            # numerical values should always be mergable
+            raise ValueError(f"Invalid values: {values}")
+
+    else:
+        # for other types, only check if None is in the values
+        if none_in_values:
+            return "non_none"
+        raise ValueError(f"Cannot generalize, check values: {values}")
+
 
 class APIParam(Param):
-    def __init__(self, api_full_name: str):
+    def __init__(
+        self, api_full_name: str, exception: Exception | Type[_NOT_SET] = _NOT_SET
+    ):
         self.api_full_name = api_full_name
+
+        self.exception = exception
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
         if "function" not in trace_line:
@@ -66,6 +159,25 @@ class APIParam(Param):
             return False
         return event.func_name == self.api_full_name
 
+    def with_no_customization(self) -> APIParam:
+        return APIParam(self.api_full_name)
+
+    def get_necessary_fields(self) -> dict[str, str]:
+        return {
+            "api_full_name": self.api_full_name,
+        }
+
+    def get_customizable_field_names(self) -> set[str]:
+        return {"exception"}
+
+    def get_customized_fields(self) -> dict[str, type]:
+        if self.exception == _NOT_SET:
+            return {}
+
+        return {
+            "exception": Exception,
+        }
+
     def __eq__(self, other):
         if isinstance(other, APIParam):
             return self.api_full_name == other.api_full_name
@@ -75,16 +187,36 @@ class APIParam(Param):
         return hash(self.api_full_name)
 
     def __str__(self):
-        return self.api_full_name
+        return f"{self.api_full_name} {self.exception}"
 
     def __repr__(self):
         return self.__str__()
 
 
 class VarTypeParam(Param):
-    def __init__(self, var_type: str, attr_name: str):
+    def __init__(
+        self,
+        var_type: str,
+        attr_name: str,
+        pre_value: Any = _NOT_SET,
+        post_value: Any = _NOT_SET,
+        recur_value: Any = _NOT_SET,
+    ):
         self.var_type = var_type
         self.attr_name = attr_name
+
+        """ TODO:
+        Can we use symbolic values here (for the below parameterizable params)? For example, instead of giving a specific value, we can state that the pre_value should be a non-null value.
+        This can be useful in cases where the exact value is not known, but the type of the value is known.
+        """
+
+        ## === optional parametrized values ===
+        # for the APIContainRelation relation
+        self.pre_value = pre_value
+        self.post_value = post_value
+
+        # for the VarPeriodicChangeRelation relation
+        self.recur_value = recur_value
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
         if "var_type" not in trace_line:
@@ -92,6 +224,14 @@ class VarTypeParam(Param):
         return trace_line["var_type"] == self.var_type
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
+        """Checks whether the event is a candidate described by the param.
+        Note that, only var_type and attr_name are checked here.
+        The parameterized values (e.g. pre_value and recur_value) should be checked in the relation's evaluate method.
+
+        TODO: potential value of using higher level events is that we can capture higher level information. For example,
+        `zero_grad` does assign zero to the gradients of the model everytime, but call to `zero_grad` is only correct if the previous value
+        of the gradients was not zero. This information can be captured in the higher level event.
+        """
         if not isinstance(event, VarChangeEvent):
             return False
         return (
@@ -101,12 +241,53 @@ class VarTypeParam(Param):
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type
 
+    def with_no_customization(self) -> VarTypeParam:
+        return VarTypeParam(self.var_type, self.attr_name)
+
+    def get_necessary_fields(self) -> dict[str, str]:
+        return {
+            "var_type": self.var_type,
+            "attr_name": self.attr_name,
+        }
+
+    def get_customizable_field_names(self) -> set[str]:
+        return {"pre_value", "post_value", "recur_value"}
+
+    def get_customized_fields(self) -> dict[str, type]:
+        fields = {}
+        for attr in ["pre_value", "post_value", "recur_value"]:
+            if getattr(self, attr) != _NOT_SET:
+                fields[attr] = getattr(self, attr)
+        return fields
+
+    def __str__(self) -> str:
+        return f"{self.var_type} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
 
 class VarNameParam(Param):
-    def __init__(self, var_type: str, var_name: str, attr_name: str):
+    def __init__(
+        self,
+        var_type: str,
+        var_name: str,
+        attr_name: str,
+        pre_value: Any = _NOT_SET,
+        post_value: Any = _NOT_SET,
+        recur_value: Any = _NOT_SET,
+    ):
         self.var_type = var_type
         self.var_name = var_name
         self.attr_name = attr_name
+
+        ## === optional parametrized values ===
+        # for the APIContainRelation relation
+        self.pre_value = pre_value
+        self.post_value = post_value
+
+        # for the VarPeriodicChangeRelation relation
+        self.recur_value = recur_value
 
     def check_trace_line_match(self, trace_line: dict) -> bool:
         if "var_type" not in trace_line:
@@ -117,6 +298,14 @@ class VarNameParam(Param):
         )
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
+        """Checks whether the event is a candidate described by the param.
+        Note that, only var_type and attr_name are checked here.
+        The parameterized values (e.g. pre_value and recur_value) should be checked in the relation's evaluate method.
+
+        TODO: potential value of using higher level events is that we can capture higher level information. For example,
+        `zero_grad` does assign zero to the gradients of the model everytime, but call to `zero_grad` is only correct if the previous value
+        of the gradients was not zero. This information can be captured in the higher level event.
+        """
         if not isinstance(event, VarChangeEvent):
             return False
         return (
@@ -127,6 +316,75 @@ class VarNameParam(Param):
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type and var_id.var_name == self.var_name
+
+    def with_no_customization(self) -> VarNameParam:
+        return VarNameParam(self.var_type, self.var_name, self.attr_name)
+
+    def get_necessary_fields(self) -> dict[str, str]:
+        return {
+            "var_type": self.var_type,
+            "var_name": self.var_name,
+            "attr_name": self.attr_name,
+        }
+
+    def get_customizable_field_names(self) -> set[str]:
+        return {"pre_value", "post_value", "recur_value"}
+
+    def get_customized_fields(self) -> dict[str, Any]:
+        fields = {}
+        for attr in ["pre_value", "post_value", "recur_value"]:
+            if getattr(self, attr) != _NOT_SET:
+                fields[attr] = getattr(self, attr)
+        return fields
+
+    def __str__(self) -> str:
+        return f"{self.var_type} {self.var_name} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+def construct_api_param(
+    event: FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent,
+) -> APIParam:
+    if isinstance(event, FuncCallEvent):
+        return APIParam(event.func_name)
+    if isinstance(event, IncompleteFuncCallEvent):
+        return APIParam(event.func_name)
+
+    if isinstance(event, FuncCallExceptionEvent):
+        return APIParam(event.func_name, event.exception)
+
+    raise ValueError(f"Invalid event type: {type(event)}")
+
+
+def construct_var_param_from_var_change(
+    event: VarChangeEvent,
+) -> VarTypeParam | VarNameParam:
+    """NOTE as of its current form APICONTAINRELATION can invoke this"""
+
+    pre_value = event.old_state.value
+    new_value = event.new_state.value
+
+    if config.VAR_INV_TYPE == "type":
+        return VarTypeParam(
+            event.var_id.var_type,
+            event.attr_name,
+            pre_value=pre_value,
+            post_value=new_value,
+            # recur_value=None, # TODO
+        )
+    elif config.VAR_INV_TYPE == "name":
+        return VarNameParam(
+            event.var_id.var_type,
+            event.var_id.var_name,
+            event.attr_name,
+            pre_value=pre_value,
+            post_value=new_value,
+            # recur_value=None, # TODO
+        )
+
+    raise ValueError(f"Invalid VAR_INV_TYPE: {config.VAR_INV_TYPE}")
 
 
 class PreconditionClauseType(Enum):
@@ -419,26 +677,49 @@ class Invariant:
         params: list[Param],
         precondition: GroupedPreconditions | None,
         text_description: str | None = None,
+        num_positive_examples: int | None = None,
+        num_negative_examples: int | None = None,
     ):
         self.relation = relation
-        self.params = params  ## params to be used in the check
+        self.params = params
         self.precondition = precondition
         self.text_description = text_description
+
+        # optional values for the number of positive and negative examples -- potentially for invariant amendement at runtime
+        self.num_positive_examples = num_positive_examples
+        self.num_negative_examples = num_negative_examples
 
     def __str__(self) -> str:
         return f"""Relation: {self.relation}\nParam Selectors: {self.params}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
 
-    def to_dict(self) -> dict:
-        assert (
-            self.precondition is not None
-        ), f"Invariant precondition is not set, check the infer function of {self.relation.__name__}"
+    def to_dict(self, _dumping_for_failed_cases=False) -> dict:
 
-        return {
-            "text_description": self.text_description,
-            "relation": self.relation.__name__,
-            "params": [param.to_dict() for param in self.params],
-            "precondition": self.precondition.to_dict(),
-        }
+        # when normally dumping the invariants, the precondition must be set (as only invariants that have preconditions are dumped)
+        if not _dumping_for_failed_cases:
+            assert (
+                self.precondition is not None
+            ), f"Invariant precondition is not set, check the infer function of {self.relation.__name__} (invariant text description: {self.text_description})"
+
+            return {
+                "text_description": self.text_description,
+                "relation": self.relation.__name__,
+                "params": [param.to_dict() for param in self.params],
+                "precondition": self.precondition.to_dict(),
+                "num_positive_examples": self.num_positive_examples,
+                "num_negative_examples": self.num_negative_examples,
+            }
+        else:
+            assert (
+                self.precondition is None
+            ), "Precondition should be None for failed cases"
+            return {
+                "text_description": self.text_description,
+                "relation": self.relation.__name__,
+                "params": [param.to_dict() for param in self.params],
+                "precondition": "Failed",
+                "num_positive_examples": self.num_positive_examples,
+                "num_negative_examples": self.num_negative_examples,
+            }
 
     @staticmethod
     def from_dict(invariant_dict: dict) -> Invariant:
@@ -515,6 +796,19 @@ class CheckerResult:
         return result_dict
 
 
+def make_hashable(value):
+    """Recursively convert a value into a hashable form."""
+    if isinstance(value, dict):
+        # Convert dictionary into a tuple of sorted (key, hashable_value) pairs
+        return frozenset((key, make_hashable(val)) for key, val in value.items())
+    elif isinstance(value, (list, set, tuple)):
+        # Convert lists, sets, and tuples into a tuple of hashable values
+        return tuple(make_hashable(item) for item in value)
+    else:
+        # Return the value as-is if it is already hashable (e.g., int, str)
+        return value
+
+
 class Example:
     def __init__(self, trace_groups: dict[str, list[dict]] | None = None):
         self.trace_groups: dict[str, list[dict]] = trace_groups or {}
@@ -526,6 +820,9 @@ class Example:
     def get_group(self, group_name: str) -> list[dict]:
         return self.trace_groups[group_name]
 
+    def get_group_names(self) -> set[str]:
+        return set(self.trace_groups.keys())
+
     def __iter__(self):
         return iter(self.trace_groups)
 
@@ -535,6 +832,13 @@ class Example:
     def __repr__(self):
         return f"Example with Groups: {self.trace_groups.keys()}"
 
+    def __hash__(self) -> int:
+        hashable_trace_groups = make_hashable(self.trace_groups)
+        return hash(hashable_trace_groups)
+
+    def __eq__(self, value: object) -> bool:
+        return hash(self) == hash(value)
+
 
 class ExampleList:
     def __init__(self, group_names: set[str]):
@@ -542,19 +846,72 @@ class ExampleList:
         self.examples: list[Example] = []
 
     def add_example(self, example: Example):
-        assert (
-            set(example.trace_groups.keys()) == self.group_names
-        ), "Example groups do not match the expected group names"
+        if len(self.group_names) == 0:
+            assert len(self.examples) == 0
+            self.group_names = example.get_group_names()
+        else:
+            assert (
+                example.get_group_names() == self.group_names
+            ), f"Example groups do not match the expected group names, expected: {self.group_names}, got: {set(example.trace_groups.keys())}"
         self.examples.append(example)
 
     def get_group_from_examples(self, group_name: str) -> list[list[dict]]:
         return [example.get_group(group_name) for example in self.examples]
 
     def get_group_names(self) -> set[str]:
+        assert (
+            len(self.group_names) != 0
+        ), "This example has not be initialized yet, please check implementation"
         return self.group_names
 
     def __len__(self):
         return len(self.examples)
+
+    @staticmethod
+    def from_iterable_of_examples(input: Iterable[Example]) -> ExampleList:
+        group_names = None
+        examples = []
+        for exp in input:
+            if group_names is None:
+                group_names = exp.get_group_names()
+            else:
+                assert group_names == exp.get_group_names()
+            examples.append(exp)
+
+        if len(examples) == 0:
+            assert group_names is None
+            return ExampleList(set())
+
+        assert group_names is not None
+        example_list = ExampleList(group_names)
+        example_list.examples = examples
+        return example_list
+
+
+# def calc_likelihood(num_pos_exps: int, num_neg_exps: int) -> float:
+#     assert (
+#         num_pos_exps > 0
+#     ), "No positive examples found for the hypothesis, check the inference process, calc_likelihood should only be called after the example collection process"
+
+#     # calculate the likelihood with smoothing factors
+#     likelihood = (num_pos_exps + 1) / (
+#         num_pos_exps + num_neg_exps + 2
+#     )  # alpha = 1, beta = 1 (Posterior Likelihood)
+
+#     return likelihood
+
+
+def calc_likelihood(num_pos_exps: int, num_neg_exps: int) -> float:
+    assert (
+        num_pos_exps > 0
+    ), "No positive examples found for the hypothesis, check the inference process."
+
+    # Scale the difference between positive and negative examples
+    # You can tune the scaling factor (lambda) to control sensitivity
+    scale_factor = 0.1  # You can adjust this to make the function more or less sensitive to differences
+    likelihood = 1 / (1 + math.exp(-scale_factor * (num_pos_exps - num_neg_exps)))
+
+    return likelihood
 
 
 class Hypothesis:
@@ -578,12 +935,29 @@ class Hypothesis:
     def _print_debug(self):
         return f"Hypothesized Invariant: {self.invariant}\n# Positive examples: {len(self.positive_examples)}\n# Negative examples: {len(self.negative_examples)}"
 
+    def calc_likelihood(self):
+        return calc_likelihood(len(self.positive_examples), len(self.negative_examples))
+
+
+class FailedHypothesis:
+    def __init__(self, hypothesis: Hypothesis):
+        self.hypothesis = hypothesis
+
+    def to_dict(self):
+        return {
+            "invariant": self.hypothesis.invariant.to_dict(
+                _dumping_for_failed_cases=True
+            ),
+            "num_positive_examples": len(self.hypothesis.positive_examples),
+            "num_negative_examples": len(self.hypothesis.negative_examples),
+        }
+
 
 class Relation(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def infer(trace) -> list[Invariant]:
+    def infer(trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Given a trace, should return a boolean value indicating
         whether the relation holds or not.
 
