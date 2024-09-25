@@ -21,6 +21,7 @@ from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.replace_functions import (
     adapt_func_for_proxy,
     funcs_to_be_replaced,
+    is_funcs_to_be_unproxied,
 )
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_arg
 from mldaikon.proxy_wrapper.proxy_config import (
@@ -295,6 +296,9 @@ def global_wrapper(
 
         # type wrapper for the original function
         original_function = adapt_func_for_proxy(original_function)
+    elif is_funcs_to_be_unproxied(original_function):
+        args = [unproxy_arg(arg, inspect_torch_module=True) for arg in args]
+        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
     elif C_level_call:
         args = [unproxy_arg(arg) for arg in args]
         kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
