@@ -10,7 +10,7 @@ class MD_NONE:
 
     def __eq__(self, o: object) -> bool:
         return type(o) == MD_NONE
-    
+
     def to_dict(self):
         """Return a serializable dictionary representation of the object."""
         return None

@@ -1,9 +1,9 @@
+import json  # only json can be used as we might have Infinity in the trace (doable if we use orjson for trace dumping as well)
 import logging
 import re
 
 import pandas as pd
 from tqdm import tqdm
-import json  # only json can be used as we might have Infinity in the trace (doable if we use orjson for trace dumping as well)
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
@@ -252,8 +252,12 @@ class TracePandas(Trace):
         return self.events["func_call_id"].dropna().unique().tolist()
 
     def get_column_dtype(self, column_name: str) -> type:
-        """Get the data type of a column."""
-        return self.events[column_name].dtype
+        # pandas dataframes are schemaless so we have to find the first non-null value to infer the type
+        for _, row in self.events.iterrows():
+            if pd.notna(row[column_name]):
+                return type(row[column_name])
+
+        assert False, f"Column {column_name} has every value as null."
 
     def get_func_names(self) -> list[str]:
         """Find all function names from the trace."""
@@ -798,6 +802,7 @@ class TracePandas(Trace):
         return (time - self.get_start_time()) / (
             self.get_end_time() - self.get_start_time()
         )
+
 
 def read_trace_file_Pandas(
     file_path: str | list[str], truncate_incomplete_func_calls=True

@@ -8,11 +8,9 @@ import threading
 import time
 import traceback
 
-
 import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import FailedHypothesis, Invariant
 from mldaikon.invariant.relation_pool import relation_pool
-
 
 # from mldaikon.trace.trace import Trace, read_trace_file
 
@@ -47,7 +45,8 @@ class InferEngine:
 
 def select_trace_implementation(choice):
     if choice == "polars":
-        from mldaikon.trace.trace_polars import TracePolars as Trace, read_trace_file
+        from mldaikon.trace.trace_polars import TracePolars as Trace
+        from mldaikon.trace.trace_polars import read_trace_file
     elif choice == "pandas":
         from mldaikon.trace.trace_pandas import TracePandas as Trace
         from mldaikon.trace.trace_pandas import (

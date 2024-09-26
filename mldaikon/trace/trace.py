@@ -142,7 +142,9 @@ class Trace:
         """Get the data type of a column in the trace.
         When implementing this in schemaless dataframes, just use the first non-null value in the column to infer the type, and print a warning saying that the type might not be accurate.
         """
-        return self.events[column_name].dtype
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
 
     def get_func_is_bound_method(self, func_name: str) -> bool:
         """Check if a function is bound to a class (i.e. method of a object).

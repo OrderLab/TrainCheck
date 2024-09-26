@@ -119,7 +119,6 @@ class ConsistencyRelation(Relation):
                 hypo in hypothesis or (hypo[2], hypo[3], hypo[0], hypo[1]) in hypothesis
             )
 
-        # TODO: polars refactorization needed
         def skip_attrs_with_different_dtypes(attr1, attr2):
             return trace.get_column_dtype(
                 tracker_var_field_prefix + attr1
@@ -304,6 +303,12 @@ class ConsistencyRelation(Relation):
 
             if preconditions is not None:
                 hypothesis_with_examples[hypo].invariant.precondition = preconditions
+                hypothesis_with_examples[hypo].invariant.num_positive_examples = len(
+                    hypothesis_with_examples[hypo].positive_examples
+                )
+                hypothesis_with_examples[hypo].invariant.num_negative_examples = len(
+                    hypothesis_with_examples[hypo].negative_examples
+                )
                 passed_hypothesis.append(hypothesis_with_examples[hypo])
             else:
                 logger.debug(f"Precondition not found for {hypo}")

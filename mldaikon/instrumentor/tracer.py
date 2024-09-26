@@ -196,7 +196,6 @@ def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
 
-
 def get_meta_vars() -> dict:
     frame = inspect.currentframe()
 
