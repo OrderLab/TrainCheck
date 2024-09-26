@@ -47,7 +47,7 @@ class InferEngine:
 
 def select_trace_implementation(choice):
     if choice == "polars":
-        from mldaikon.trace.trace_polars import Trace, read_trace_file
+        from mldaikon.trace.trace_polars import TracePolars as Trace, read_trace_file
     elif choice == "pandas":
         from mldaikon.trace.trace_pandas import TracePandas as Trace
         from mldaikon.trace.trace_pandas import (

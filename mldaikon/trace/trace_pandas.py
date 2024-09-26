@@ -803,23 +803,46 @@ class TracePandas(Trace):
             self.get_end_time() - self.get_start_time()
         )
 
+class MD_NONE:
+    def __hash__(self) -> int:
+        return hash(None)
+    def __eq__(self, o: object) -> bool:
+        return type(o) == MD_NONE
 
-class ML_NONE:
-    pass
+from collections.abc import MutableMapping
 
-def read_jsonlines(file_path: str):
+def _flatten_dict_gen(d, parent_key, sep):
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, MutableMapping):
+            yield from flatten_dict(v, new_key, sep=sep).items()
+        else:
+            yield new_key, v
+
+def flatten_dict(d: MutableMapping, parent_key: str = '', sep: str = '.'):
+    return dict(_flatten_dict_gen(d, parent_key, sep))
+
+def replace_none_with_md_none(obj):
+    # print(obj)
+    for child in obj:
+        if obj[child] is None:
+            obj[child] = MD_NONE()
+        if isinstance(obj[child], dict):
+            obj[child] = replace_none_with_md_none(obj[child])
+    return obj
+
+def read_jsonlines_flattened_with_md_none(file_path: str):
     docs = []
     with open(file_path, "r") as f:
         for line in f.readlines():
             try:
-                docs.append(json.loads(line))
+                docs.append(flatten_dict(json.loads(line, object_hook=replace_none_with_md_none)))
             except Exception as e:
                 logger.error(f"Failed to read line {line} due to {e}. skipping")
                 print(line)
                 raise e
     return docs
     
-
 def read_trace_file_Pandas(
     file_path: str | list[str], truncate_incomplete_func_calls=True
 ) -> TracePandas:
@@ -828,7 +851,7 @@ def read_trace_file_Pandas(
         dfs = []
         for f in file_path:
             try:
-                dfs.append(pd.json_normalize(read_jsonlines(f), sep="."))
+                dfs.append(pd.DataFrame(read_jsonlines_flattened_with_md_none(f)))
                 logger.info(f"Done reading {f}")
             except Exception as e:
                 logger.error(f"Failed to read {f} due to {e}. aborting")
@@ -837,7 +860,7 @@ def read_trace_file_Pandas(
         events = pd.concat(dfs, ignore_index=True)
         logger.info("Done concatenating the DataFrames")
     else:
-        events = pd.json_normalize(read_jsonlines(file_path), sep=".")
+        events = pd.DataFrame(read_jsonlines_flattened_with_md_none(file_path))
         logger.info(f"Done reading {file_path}")
 
     return TracePandas(

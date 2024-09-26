@@ -915,7 +915,7 @@ def read_trace_file(
         events = pl.read_ndjson(file_path)
         logger.info(f"Done reading {file_path}")
 
-    return Trace(
+    return TracePolars(
         unnest_all(events),
         truncate_incomplete_func_calls=truncate_incomplete_func_calls,
     )
