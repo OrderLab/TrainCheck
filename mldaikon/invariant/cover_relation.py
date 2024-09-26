@@ -100,7 +100,9 @@ class FunctionCoverRelation(Relation):
                 "No function calls found in the trace, skipping the analysis"
             )
             return [], []
-        function_pool, function_times, function_id_map, listed_events = trace.get_data_processed()
+        function_pool, function_times, function_id_map, listed_events = (
+            trace.get_data_processed()
+        )
         print("End preprocessing")
 
         # 2. Check if two function on the same level for each thread and process
@@ -171,7 +173,9 @@ class FunctionCoverRelation(Relation):
 
         # 4. Add positive and negative examples
         print("Start adding examples...")
-        for (process_id, thread_id), events_list in tqdm(listed_events.items(), ascii=True, leave=True, desc="Group"):
+        for (process_id, thread_id), events_list in tqdm(
+            listed_events.items(), ascii=True, leave=True, desc="Group"
+        ):
             for (func_A, func_B), _ in tqdm(
                 valid_relations.items(), ascii=True, leave=True, desc="Function Pair"
             ):
@@ -449,7 +453,6 @@ class FunctionCoverRelation(Relation):
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
-        function_pool: Set[Any] = set()
 
         # If the trace contains no function, return vacuous true result
         func_names = trace.get_func_names()
@@ -506,7 +509,7 @@ class FunctionCoverRelation(Relation):
                 func_B, APIParam
             ), "Invariant parameters should be string."
 
-        for (process_id, thread_id), events_list in listed_events.items():
+            for (process_id, thread_id), events_list in listed_events.items():
                 assert isinstance(process_id, str) and isinstance(thread_id, str)
 
                 funcA = func_A.api_full_name

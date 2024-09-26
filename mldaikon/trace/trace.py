@@ -1,12 +1,12 @@
 import logging
 import re
+from typing import Any, Dict, List, Tuple
 
 import polars as pl
 from tqdm import tqdm
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
-from typing import Any, Dict, List, Tuple
 from mldaikon.trace.types import (
     AttrState,
     FuncCallEvent,
@@ -870,9 +870,7 @@ class Trace:
             "function"
         ]
         events = events.filter(~events["function"].is_in(functions_to_remove))
-        function_pool = set(
-            events["function"].unique().to_list()
-        )
+        function_pool = set(events["function"].unique().to_list())
         with open("check_function_pool.txt", "w") as file:
             for function in function_pool:
                 file.write(f"{function}\n")
