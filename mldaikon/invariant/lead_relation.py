@@ -84,6 +84,8 @@ class FunctionLeadRelation(Relation):
         print("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+        listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+        function_pool: Set[Any] = set()
 
         # If the trace contains no function, safely exists infer process
         func_names = trace.get_func_names()
@@ -93,60 +95,7 @@ class FunctionLeadRelation(Relation):
             )
             return [], []
 
-        events = trace.get_filtered_function()
-        function_pool = set(
-            events["function"].unique().to_list()
-        )  # All filtered function names
-
-        with open("check_function_pool.txt", "w") as file:
-            for function in function_pool:
-                file.write(f"{function}\n")
-
-        required_columns = {"function", "func_call_id", "type", "time"}
-        if not required_columns.issubset(events.columns):
-            raise ValueError(
-                f"Missing column: {required_columns - set(events.columns)}"
-            )
-
-        group_by_events = events.group_by(["process_id", "thread_id"])
-
-        for group_events in tqdm(group_by_events):
-            (process_id, thread_id), evs = group_events
-            sorted_group_events = evs.sort("time")
-            if (process_id, thread_id) not in function_id_map:
-                function_id_map[(process_id, thread_id)] = {}
-
-            if (process_id, thread_id) not in function_times:
-                function_times[(process_id, thread_id)] = {}
-
-            for event in sorted_group_events.iter_rows(named=True):
-                if event["function"] in function_pool:
-                    if (
-                        event["function"]
-                        not in function_id_map[(process_id, thread_id)]
-                    ):
-                        function_id_map[(process_id, thread_id)][event["function"]] = []
-                    func_id = event["func_call_id"]
-                    function_id_map[(process_id, thread_id)][event["function"]].append(
-                        func_id
-                    )
-
-                    if event["type"] == "function_call (pre)":
-                        if func_id not in function_times[(process_id, thread_id)]:
-                            function_times[(process_id, thread_id)][func_id] = {}
-                        function_times[(process_id, thread_id)][func_id]["start"] = (
-                            event["time"]
-                        )
-                        function_times[(process_id, thread_id)][func_id]["function"] = (
-                            event["function"]
-                        )
-                    elif event["type"] in [
-                        "function_call (post)",
-                        "function_call (post) (exception)",
-                    ]:
-                        function_times[(process_id, thread_id)][func_id]["end"] = event[
-                            "time"
-                        ]
+        function_pool, function_times, function_id_map, listed_events = trace.get_data_processed()
         print("End preprocessing")
 
         # 2. Check if two function on the same level for each thread and process
@@ -177,10 +126,9 @@ class FunctionLeadRelation(Relation):
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
-        for group_events in tqdm(
-            group_by_events, ascii=True, leave=True, desc="Groups Processed"
+        for (process_id, thread_id), _ in tqdm(
+            listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
         ):
-            (process_id, thread_id), _ = group_events
             same_level_func[(process_id, thread_id)] = {}
             for funcA, funcB in tqdm(
                 permutations(function_pool, 2),
@@ -220,9 +168,7 @@ class FunctionLeadRelation(Relation):
 
         # 4. Add positive and negative examples
         print("Start adding examples...")
-        for group_events in tqdm(group_by_events, ascii=True, leave=True, desc="Group"):
-            (process_id, thread_id), evs = group_events
-            sorted_group_events = evs.sort("time")
+        for (process_id, thread_id), events_list in tqdm(listed_events.items(), ascii=True, leave=True, desc="Group"):
 
             for (func_A, func_B), _ in tqdm(
                 valid_relations.items(),
@@ -244,7 +190,7 @@ class FunctionLeadRelation(Relation):
                 pre_record_A = []
                 # pre_record_B = []
 
-                for event in sorted_group_events.iter_rows(named=True):
+                for event in events_list:
                     if event["type"] != "function_call (pre)":
                         continue
 
@@ -509,6 +455,11 @@ class FunctionLeadRelation(Relation):
 
         assert inv.precondition is not None, "Invariant should have a precondition."
 
+        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+        listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+        function_pool: Set[Any] = set()
+
         # If the trace contains no function, return vacuous true result
         func_names = trace.get_func_names()
         if len(func_names) == 0:
@@ -519,7 +470,7 @@ class FunctionLeadRelation(Relation):
                 check_passed=True,
             )
 
-        events = trace.get_filtered_function()
+        _, function_times, function_id_map, listed_events = trace.get_data_processed()
 
         function_pool = (
             []
@@ -532,56 +483,6 @@ class FunctionLeadRelation(Relation):
                 func, APIParam
             ), "Invariant parameters should be APIParam."
             function_pool.append(func.api_full_name)
-
-        required_columns = {"function", "func_call_id", "type", "time"}
-        if not required_columns.issubset(events.columns):
-            raise ValueError(
-                f"Missing column: {required_columns - set(events.columns)}"
-            )
-
-        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
-        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
-
-        group_by_events = events.group_by(["process_id", "thread_id"])
-
-        for group_events in group_by_events:
-            (process_id, thread_id), evs = group_events
-            assert isinstance(process_id, str) and isinstance(thread_id, str)
-            sorted_group_events = evs.sort("time")
-            if (process_id, thread_id) not in function_id_map:
-                function_id_map[(process_id, thread_id)] = {}
-
-            if (process_id, thread_id) not in function_times:
-                function_times[(process_id, thread_id)] = {}
-
-            for event in sorted_group_events.iter_rows(named=True):
-                if event["function"] in function_pool:
-                    if (
-                        event["function"]
-                        not in function_id_map[(process_id, thread_id)]
-                    ):
-                        function_id_map[(process_id, thread_id)][event["function"]] = []
-                    func_id = event["func_call_id"]
-                    function_id_map[(process_id, thread_id)][event["function"]].append(
-                        func_id
-                    )
-
-                    if event["type"] == "function_call (pre)":
-                        if func_id not in function_times[(process_id, thread_id)]:
-                            function_times[(process_id, thread_id)][func_id] = {}
-                        function_times[(process_id, thread_id)][func_id]["start"] = (
-                            event["time"]
-                        )
-                        function_times[(process_id, thread_id)][func_id]["function"] = (
-                            event["function"]
-                        )
-                    elif event["type"] in [
-                        "function_call (post)",
-                        "function_call (post) (exception)",
-                    ]:
-                        function_times[(process_id, thread_id)][func_id]["end"] = event[
-                            "time"
-                        ]
 
         def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
             if funcA == funcB:
@@ -610,10 +511,8 @@ class FunctionLeadRelation(Relation):
             func_A = inv.params[i]
             func_B = inv.params[i + 1]
 
-            for group_events in group_by_events:
-                (process_id, thread_id), evs = group_events
+            for (process_id, thread_id), events_list in listed_events.items():
                 assert isinstance(process_id, str) and isinstance(thread_id, str)
-                sorted_group_events = evs.sort("time")
 
                 assert isinstance(func_A, APIParam) and isinstance(
                     func_B, APIParam
@@ -628,7 +527,7 @@ class FunctionLeadRelation(Relation):
                 # check
                 flag_A = None
                 pre_recordA = None
-                for event in sorted_group_events.iter_rows(named=True):
+                for event in events_list:
 
                     if event["type"] != "function_call (pre)":
                         continue
@@ -639,7 +538,7 @@ class FunctionLeadRelation(Relation):
                             pre_recordA = event
                             continue
 
-                        if inv.precondition.verify([events], "func_lead"):
+                        if inv.precondition.verify([events_list], "func_lead"):
                             return CheckerResult(
                                 trace=[pre_recordA, event],
                                 invariant=inv,

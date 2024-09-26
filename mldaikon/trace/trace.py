@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
+from typing import Any, Dict, List, Tuple
 from mldaikon.trace.types import (
     AttrState,
     FuncCallEvent,
@@ -848,8 +849,8 @@ class Trace:
             self.get_end_time() - self.get_start_time()
         )
 
-    def get_filtered_function(self) -> pl.DataFrame:
-        """Filter API calls in traces and return filtered events."""
+    def get_data_processed(self) -> tuple:
+        """Process data for inference."""
         events = self.events
         events = events.filter(~events["function"].str.contains(r"\.__*__"))
         events = events.filter(~events["function"].str.contains(r"\._"))
@@ -869,7 +870,63 @@ class Trace:
             "function"
         ]
         events = events.filter(~events["function"].is_in(functions_to_remove))
-        return events
+        function_pool = set(
+            events["function"].unique().to_list()
+        )
+        with open("check_function_pool.txt", "w") as file:
+            for function in function_pool:
+                file.write(f"{function}\n")
+        required_columns = {"function", "func_call_id", "type", "time"}
+        if not required_columns.issubset(events.columns):
+            raise ValueError(
+                f"Missing column: {required_columns - set(events.columns)}"
+            )
+        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+        listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+
+        group_by_events = events.group_by(["process_id", "thread_id"])
+        for group_events in tqdm(group_by_events):
+            (process_id, thread_id), evs = group_events
+            assert isinstance(process_id, str) and isinstance(thread_id, str)
+            sorted_group_events = evs.sort("time")
+            listed_events[process_id, thread_id] = []
+            if (process_id, thread_id) not in function_id_map:
+                function_id_map[(process_id, thread_id)] = {}
+
+            if (process_id, thread_id) not in function_times:
+                function_times[(process_id, thread_id)] = {}
+
+            for event in sorted_group_events.iter_rows(named=True):
+                listed_events[process_id, thread_id].append(event)
+                if event["function"] in function_pool:
+                    if (
+                        event["function"]
+                        not in function_id_map[(process_id, thread_id)]
+                    ):
+                        function_id_map[(process_id, thread_id)][event["function"]] = []
+                    func_id = event["func_call_id"]
+                    function_id_map[(process_id, thread_id)][event["function"]].append(
+                        func_id
+                    )
+
+                    if event["type"] == "function_call (pre)":
+                        if func_id not in function_times[(process_id, thread_id)]:
+                            function_times[(process_id, thread_id)][func_id] = {}
+                        function_times[(process_id, thread_id)][func_id]["start"] = (
+                            event["time"]
+                        )
+                        function_times[(process_id, thread_id)][func_id]["function"] = (
+                            event["function"]
+                        )
+                    elif event["type"] in [
+                        "function_call (post)",
+                        "function_call (post) (exception)",
+                    ]:
+                        function_times[(process_id, thread_id)][func_id]["end"] = event[
+                            "time"
+                        ]
+        return (function_pool, function_times, function_id_map, listed_events)
 
 
 def read_trace_file(
