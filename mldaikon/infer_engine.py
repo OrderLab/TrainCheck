@@ -75,6 +75,7 @@ def save_failed_hypos(failed_hypos: list[FailedHypothesis], output_file: str):
             f.write(json.dumps(failed_hypo.to_dict()))
             f.write("\n")
 
+
 def handle_excepthook(typ, message, stack):
     """Custom exception handler
 
@@ -106,7 +107,7 @@ def thread_excepthook(args):
     if issubclass(exc_type, KeyboardInterrupt):
         threading.__excepthook__(args)
         return
-    
+
     stack_info = traceback.StackSummary.extract(
         traceback.walk_tb(exc_traceback), capture_locals=True
     ).format()
@@ -114,6 +115,7 @@ def thread_excepthook(args):
     for i in stack_info:
         logger.critical(i.encode().decode("unicode-escape"))
     return
+
 
 sys.excepthook = handle_excepthook
 threading.excepthook = thread_excepthook

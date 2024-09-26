@@ -454,8 +454,6 @@ class TraceDict(Trace):
                         if any(
                             re.match(pattern, attr_name)
                             for pattern in config.PROP_ATTR_PATTERNS
-                        ) or any(
-                            isinstance(value, _type) for _type in config.PROP_ATTR_TYPES
                         ):
                             continue
 

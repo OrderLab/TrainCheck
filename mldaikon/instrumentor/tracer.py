@@ -196,45 +196,43 @@ def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
 
-def get_meta_vars() -> dict[str, Any]:
-    return {}
 
-# def get_meta_vars() -> dict:
-#     frame = inspect.currentframe()
+def get_meta_vars() -> dict:
+    frame = inspect.currentframe()
 
-#     all_frame_vars = {}
-#     # get the file name list inside the repo
-#     while frame is not None:
-#         if "mldaikon" in frame.f_code.co_filename:
-#             frame = frame.f_back
-#             continue
+    all_frame_vars = {}
+    # get the file name list inside the repo
+    while frame is not None:
+        if "mldaikon" in frame.f_code.co_filename:
+            frame = frame.f_back
+            continue
 
-#         frame_vars = frame.f_locals
+        frame_vars = frame.f_locals
 
-#         file_full_path = frame.f_code.co_filename
-#         if "/site-packages/" in file_full_path:
-#             file_full_path = file_full_path.split("/site-packages/")[1]
-#         file_full_path = file_full_path.strip("/home/")
+        file_full_path = frame.f_code.co_filename
+        if "/site-packages/" in file_full_path:
+            file_full_path = file_full_path.split("/site-packages/")[1]
+        file_full_path = file_full_path.strip("/home/")
 
-#         frame_vars = {
-#             name: value
-#             for name, value in frame_vars.items()
-#             # Ziming: only dump primitive types, block the var name on the black list
-#             if isinstance(value, (int, float, str, bool))
-#             and (
-#                 not name.startswith("__")
-#                 and "mldaikon" not in name
-#                 and name not in META_VARS_FORBID_LIST
-#             )
-#         }
+        frame_vars = {
+            name: value
+            for name, value in frame_vars.items()
+            # Ziming: only dump primitive types, block the var name on the black list
+            if isinstance(value, (int, float, str, bool))
+            and (
+                not name.startswith("__")
+                and "mldaikon" not in name
+                and name not in META_VARS_FORBID_LIST
+            )
+        }
 
-#         if frame_vars:
-#             if file_full_path not in all_frame_vars:
-#                 all_frame_vars[file_full_path] = frame_vars
-#             else:
-#                 all_frame_vars[file_full_path].update(frame_vars)
-#         frame = frame.f_back
-#     return all_frame_vars
+        if frame_vars:
+            if file_full_path not in all_frame_vars:
+                all_frame_vars[file_full_path] = frame_vars
+            else:
+                all_frame_vars[file_full_path].update(frame_vars)
+        frame = frame.f_back
+    return all_frame_vars
 
 
 def should_dump_trace(

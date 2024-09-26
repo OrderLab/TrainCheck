@@ -51,7 +51,10 @@ class Param:
                 json.dumps({field: value})
                 ret[field] = value
             except TypeError:
-                ret[field] = f"NOT SERIALIZABLE: {str(value)}"
+                if hasattr(value, "to_dict"):
+                    ret[field] = value.to_dict()
+                else:
+                    ret[field] = f"NOT SERIALIZABLE: {str(value)}"
 
         return ret
 

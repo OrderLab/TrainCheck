@@ -15,7 +15,7 @@ from mldaikon.invariant.base_cls import (
     PreconditionClause,
     UnconditionalPrecondition,
 )
-from mldaikon.trace.trace_pandas import MD_NONE
+from mldaikon.trace.types import MD_NONE
 
 logger = logging.getLogger("Precondition")
 

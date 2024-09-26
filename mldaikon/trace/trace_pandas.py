@@ -3,7 +3,7 @@ import re
 
 import pandas as pd
 from tqdm import tqdm
-import json # only json can be used as we might have Infinity in the trace (doable if we use orjson for trace dumping as well)   
+import json  # only json can be used as we might have Infinity in the trace (doable if we use orjson for trace dumping as well)
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
@@ -16,6 +16,7 @@ from mldaikon.trace.types import (
     VarChangeEvent,
     VarInstId,
 )
+from mldaikon.trace.utils import flatten_dict, read_jsonlines_flattened_with_md_none
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +45,8 @@ class TracePandas(Trace):
         ):
             self.events = pd.concat(events, ignore_index=True)
         elif isinstance(events, list) and all([isinstance(e, dict) for e in events]):
+            events = [flatten_dict(e) for e in events]
             self.events = pd.DataFrame(events)
-            self.events = json_normalize(self.events.to_dict(orient="records"), sep=".")
 
         assert isinstance(
             self.events, pd.DataFrame
@@ -489,11 +490,6 @@ class TracePandas(Trace):
                                 re.match(pattern, attr_name) is not None
                                 for pattern in config.PROP_ATTR_PATTERNS
                             ]
-                        ) or any(
-                            [
-                                self.events[col].dtype == _type
-                                for _type in config.PROP_ATTR_TYPES
-                            ]
                         ):
                             continue
 
@@ -803,46 +799,6 @@ class TracePandas(Trace):
             self.get_end_time() - self.get_start_time()
         )
 
-class MD_NONE:
-    def __hash__(self) -> int:
-        return hash(None)
-    def __eq__(self, o: object) -> bool:
-        return type(o) == MD_NONE
-
-from collections.abc import MutableMapping
-
-def _flatten_dict_gen(d, parent_key, sep):
-    for k, v in d.items():
-        new_key = parent_key + sep + k if parent_key else k
-        if isinstance(v, MutableMapping):
-            yield from flatten_dict(v, new_key, sep=sep).items()
-        else:
-            yield new_key, v
-
-def flatten_dict(d: MutableMapping, parent_key: str = '', sep: str = '.'):
-    return dict(_flatten_dict_gen(d, parent_key, sep))
-
-def replace_none_with_md_none(obj):
-    # print(obj)
-    for child in obj:
-        if obj[child] is None:
-            obj[child] = MD_NONE()
-        if isinstance(obj[child], dict):
-            obj[child] = replace_none_with_md_none(obj[child])
-    return obj
-
-def read_jsonlines_flattened_with_md_none(file_path: str):
-    docs = []
-    with open(file_path, "r") as f:
-        for line in f.readlines():
-            try:
-                docs.append(flatten_dict(json.loads(line, object_hook=replace_none_with_md_none)))
-            except Exception as e:
-                logger.error(f"Failed to read line {line} due to {e}. skipping")
-                print(line)
-                raise e
-    return docs
-    
 def read_trace_file_Pandas(
     file_path: str | list[str], truncate_incomplete_func_calls=True
 ) -> TracePandas:

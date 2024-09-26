@@ -4,6 +4,18 @@ from typing import NamedTuple
 from mldaikon.instrumentor.tracer import TraceLineType
 
 
+class MD_NONE:
+    def __hash__(self) -> int:
+        return hash(None)
+
+    def __eq__(self, o: object) -> bool:
+        return type(o) == MD_NONE
+    
+    def to_dict(self):
+        """Return a serializable dictionary representation of the object."""
+        return None
+
+
 class VarInstId(NamedTuple):
     process_id: int
     var_name: str
