@@ -1,4 +1,3 @@
-import json  # only json can be used as we might have Infinity in the trace (doable if we use orjson for trace dumping as well)
 import logging
 import re
 
@@ -9,6 +8,7 @@ from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import (
+    MD_NONE,
     AttrState,
     FuncCallEvent,
     FuncCallExceptionEvent,
@@ -66,6 +66,8 @@ class TracePandas(Trace):
             logger.info(
                 "Done truncating incomplete trailing function calls from the trace."
             )
+
+        self.column_dtypes_cached = {}
 
     def _rm_incomplete_trailing_func_calls(self):
         """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
@@ -253,11 +255,22 @@ class TracePandas(Trace):
 
     def get_column_dtype(self, column_name: str) -> type:
         # pandas dataframes are schemaless so we have to find the first non-null value to infer the type
-        for _, row in self.events.iterrows():
-            if pd.notna(row[column_name]):
-                return type(row[column_name])
 
-        assert False, f"Column {column_name} has every value as null."
+        # TODO: this is painfully slow, we need to find a faster way to infer the type
+        # find a value that's not nan and not MD_NONE
+        if column_name in self.column_dtypes_cached:
+            return self.column_dtypes_cached[column_name]
+
+        filtered_values = self.events[column_name].dropna()
+        filtered_values = filtered_values[filtered_values != MD_NONE()]
+
+        if filtered_values.empty:
+            self.column_dtypes_cached[column_name] = MD_NONE
+            return MD_NONE
+
+        # Return the type of the first valid value
+        self.column_dtypes_cached[column_name] = type(filtered_values.iloc[0])
+        return self.column_dtypes_cached[column_name]
 
     def get_func_names(self) -> list[str]:
         """Find all function names from the trace."""
