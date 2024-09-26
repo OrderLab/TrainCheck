@@ -410,10 +410,12 @@ class PreconditionClause:
         ], f"Invalid Precondition type {_type}"
 
         if _type in [PT.CONSISTENT, PT.CONSTANT]:
-            assert (
-                values is not None and len(values) > 0
-            ), "Values should not be empty for CONSTANT or CONSISTENT type"
-
+            if prop_dtype is None:
+                assert values == {None}, "Values should be None for prop_dtype None"
+            else:
+                assert (
+                    values is not None and len(values) > 0 and prop_dtype is not None
+                ), "Values should be provided for constant or consistent preconditions"
         self.prop_name = prop_name
         self.prop_dtype = prop_dtype
         self.type = _type
