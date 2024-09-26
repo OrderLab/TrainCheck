@@ -3,11 +3,16 @@ import datetime
 import json
 import logging
 import random
+import sys
+import threading
 import time
+import traceback
+
 
 import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import FailedHypothesis, Invariant
 from mldaikon.invariant.relation_pool import relation_pool
+
 
 # from mldaikon.trace.trace import Trace, read_trace_file
 
@@ -70,6 +75,48 @@ def save_failed_hypos(failed_hypos: list[FailedHypothesis], output_file: str):
             f.write(json.dumps(failed_hypo.to_dict()))
             f.write("\n")
 
+def handle_excepthook(typ, message, stack):
+    """Custom exception handler
+
+    Print detailed stack information with local variables
+    """
+    logger = logging.getLogger("mldaikon")
+
+    if issubclass(typ, KeyboardInterrupt):
+        sys.__excepthook__(typ, message, stack)
+        return
+
+    stack_info = traceback.StackSummary.extract(
+        traceback.walk_tb(stack), capture_locals=True
+    ).format()
+    logger.critical("An exception occured: %s: %s.", typ, message)
+    for i in stack_info:
+        logger.critical(i.encode().decode("unicode-escape"))
+    return
+
+
+def thread_excepthook(args):
+    """Exception notifier for threads"""
+    logger = logging.getLogger("threading")
+
+    exc_type = args.exc_type
+    exc_value = args.exc_value
+    exc_traceback = args.exc_traceback
+    _ = args.thread
+    if issubclass(exc_type, KeyboardInterrupt):
+        threading.__excepthook__(args)
+        return
+    
+    stack_info = traceback.StackSummary.extract(
+        traceback.walk_tb(exc_traceback), capture_locals=True
+    ).format()
+    logger.critical("An exception occured: %s: %s.", exc_type, exc_value)
+    for i in stack_info:
+        logger.critical(i.encode().decode("unicode-escape"))
+    return
+
+sys.excepthook = handle_excepthook
+threading.excepthook = thread_excepthook
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
