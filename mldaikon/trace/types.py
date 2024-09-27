@@ -16,6 +16,15 @@ class MD_NONE:
         return None
 
 
+class MD_NULL:
+    def __eq__(self, o: object) -> bool:
+        return type(o) == MD_NULL
+
+    def to_dict(self):
+        """Return a serializable dictionary representation of the object."""
+        raise NotImplementedError("MD_NULL cannot be serialized")
+
+
 class VarInstId(NamedTuple):
     process_id: int
     var_name: str

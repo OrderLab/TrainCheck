@@ -583,6 +583,16 @@ class TracePandas(Trace):
                     change_time = var_insts[var_id][attr][i].liveness.start_time
                     old_state = var_insts[var_id][attr][i - 1]
                     new_state = var_insts[var_id][attr][i]
+
+                    # for debugging
+                    import pandas as pd
+
+                    assert not pd.isna(
+                        old_state.value
+                    ), f"Old state is NaN for {var_id} {attr}"
+                    assert not pd.isna(
+                        new_state.value
+                    ), f"New state is NaN for {var_id} {attr}"
                     assert (
                         change_time is not None
                     ), f"Start time not found for {var_id} {attr} {var_insts[var_id][attr][i].value}"
