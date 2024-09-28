@@ -156,6 +156,8 @@ def generalize_values(values: list[type]) -> None | type | str:
         # for other types, only check if None is in the values
         if MD_NONE() not in values:
             return "non_none"
+        else:
+            return "anything"
         raise ValueError(f"Cannot generalize, check values: {values}")
 
 
