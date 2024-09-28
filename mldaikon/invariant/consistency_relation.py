@@ -16,7 +16,8 @@ from mldaikon.invariant.base_cls import (
     VarTypeParam,
 )
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Liveness, Trace
+from mldaikon.trace.trace import Trace
+from mldaikon.trace.types import Liveness
 
 tracker_var_field_prefix = "attributes."
 
@@ -118,7 +119,6 @@ class ConsistencyRelation(Relation):
                 hypo in hypothesis or (hypo[2], hypo[3], hypo[0], hypo[1]) in hypothesis
             )
 
-        # TODO: polars refactorization needed
         def skip_attrs_with_different_dtypes(attr1, attr2):
             return trace.get_column_dtype(
                 tracker_var_field_prefix + attr1
@@ -303,6 +303,12 @@ class ConsistencyRelation(Relation):
 
             if preconditions is not None:
                 hypothesis_with_examples[hypo].invariant.precondition = preconditions
+                hypothesis_with_examples[hypo].invariant.num_positive_examples = len(
+                    hypothesis_with_examples[hypo].positive_examples
+                )
+                hypothesis_with_examples[hypo].invariant.num_negative_examples = len(
+                    hypothesis_with_examples[hypo].negative_examples
+                )
                 passed_hypothesis.append(hypothesis_with_examples[hypo])
             else:
                 logger.debug(f"Precondition not found for {hypo}")
@@ -377,7 +383,7 @@ class ConsistencyRelation(Relation):
         # collect value pairs to be checked
         start_time_collecting_pairs = time.time()
         num_collected_pairs = 0
-        value_pairs_to_check: dict[int, list[tuple]] = {}
+        value_pairs_to_check: dict[float, list[tuple]] = {}
         for i, var1_id in enumerate(type1_attr1):
             for j, var2_id in enumerate(type2_attr2):
                 if var_type1 == var_type2 and attr1 == attr2 and i >= j:

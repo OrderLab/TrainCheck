@@ -4,6 +4,27 @@ from typing import NamedTuple
 from mldaikon.instrumentor.tracer import TraceLineType
 
 
+class MD_NONE:
+    def __hash__(self) -> int:
+        return hash(None)
+
+    def __eq__(self, o: object) -> bool:
+        return type(o) == MD_NONE
+
+    def to_dict(self):
+        """Return a serializable dictionary representation of the object."""
+        return None
+
+
+class MD_NULL:
+    def __eq__(self, o: object) -> bool:
+        return type(o) == MD_NULL
+
+    def to_dict(self):
+        """Return a serializable dictionary representation of the object."""
+        raise NotImplementedError("MD_NULL cannot be serialized")
+
+
 class VarInstId(NamedTuple):
     process_id: int
     var_name: str
@@ -11,7 +32,7 @@ class VarInstId(NamedTuple):
 
 
 class Liveness:
-    def __init__(self, start_time: int | None, end_time: int | None):
+    def __init__(self, start_time: float | None, end_time: float | None):
         self.start_time = start_time
         self.end_time = end_time
 
@@ -90,7 +111,7 @@ class FuncCallEvent(HighLevelEvent):
 class IncompleteFuncCallEvent(HighLevelEvent):
     """An outermost function call event, but without the post record."""
 
-    def __init__(self, func_name: str, pre_record: dict, potential_end_time: int):
+    def __init__(self, func_name: str, pre_record: dict, potential_end_time: float):
         self.func_name = func_name
         self.pre_record = pre_record
         self.potential_end_time = potential_end_time
@@ -138,7 +159,7 @@ class VarChangeEvent(HighLevelEvent):
         self,
         var_id: VarInstId,
         attr_name: str,
-        change_time: int,
+        change_time: float,
         old_state: AttrState,
         new_state: AttrState,
     ):

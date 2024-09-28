@@ -7,9 +7,12 @@ import math
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
+import pandas as pd
+
 import mldaikon.config.config as config
 from mldaikon.trace.trace import Trace, VarInstId
 from mldaikon.trace.types import (
+    MD_NONE,
     FuncCallEvent,
     FuncCallExceptionEvent,
     HighLevelEvent,
@@ -51,7 +54,10 @@ class Param:
                 json.dumps({field: value})
                 ret[field] = value
             except TypeError:
-                ret[field] = f"NOT SERIALIZABLE: {str(value)}"
+                if hasattr(value, "to_dict"):
+                    ret[field] = value.to_dict()
+                else:
+                    ret[field] = f"NOT SERIALIZABLE: {str(value)}"
 
         return ret
 
@@ -101,10 +107,20 @@ def generalize_values(values: list[type]) -> None | type | str:
         # no need to generalize
         return values[0]
 
-    none_in_values = None in values
+    all_values = set()
+    all_non_none_types = set()
+    seen_nan_already = False
+    for v in values:
+        if pd.isna(v):
+            if seen_nan_already:
+                continue
+            seen_nan_already = True
+        all_values.add(v)
+        if v is not None and not isinstance(v, MD_NONE):
+            all_non_none_types.add(type(v))
 
     assert (
-        len(set([type(v) for v in values])) - none_in_values == 1
+        len(all_non_none_types) == 1
     ), f"Values should have the same type, got: {set([type(v) for v in values])} ({values})"
 
     if any(isinstance(v, (int, float)) for v in values):
@@ -128,7 +144,9 @@ def generalize_values(values: list[type]) -> None | type | str:
             return "non_positive"
         elif min_value < 0 and max_value > 0 and 0 not in values:
             return "non_zero"
-        elif min_value < 0 and max_value > 0 and 0 in values and not none_in_values:
+        elif (
+            min_value < 0 and max_value > 0 and 0 in values and MD_NONE() not in values
+        ):
             return "non_none"
         else:
             # numerical values should always be mergable
@@ -136,8 +154,10 @@ def generalize_values(values: list[type]) -> None | type | str:
 
     else:
         # for other types, only check if None is in the values
-        if none_in_values:
+        if MD_NONE() not in values:
             return "non_none"
+        else:
+            return "anything"
         raise ValueError(f"Cannot generalize, check values: {values}")
 
 
@@ -397,7 +417,9 @@ PT = PreconditionClauseType
 
 
 class PreconditionClause:
-    def __init__(self, prop_name: str, prop_dtype: type, _type: PT, values: set | None):
+    def __init__(
+        self, prop_name: str, prop_dtype: type | None, _type: PT, values: set | None
+    ):
         assert _type in [
             PT.CONSISTENT,
             PT.CONSTANT,
@@ -405,10 +427,12 @@ class PreconditionClause:
         ], f"Invalid Precondition type {_type}"
 
         if _type in [PT.CONSISTENT, PT.CONSTANT]:
-            assert (
-                values is not None and len(values) > 0
-            ), "Values should not be empty for CONSTANT or CONSISTENT type"
-
+            if prop_dtype is None:
+                assert values == {None}, "Values should be None for prop_dtype None"
+            else:
+                assert (
+                    values is not None and len(values) > 0 and prop_dtype is not None
+                ), "Values should be provided for constant or consistent preconditions"
         self.prop_name = prop_name
         self.prop_dtype = prop_dtype
         self.type = _type
@@ -424,7 +448,7 @@ class PreconditionClause:
         clause_dict: dict[str, str | list] = {
             "type": self.type.value,
             "prop_name": self.prop_name,
-            "prop_dtype": self.prop_dtype.__name__,
+            "prop_dtype": self.prop_dtype.__name__ if self.prop_dtype else "None",
         }
         if self.type in [PT.CONSTANT, PT.CONSISTENT]:
             clause_dict["values"] = list(self.values)
