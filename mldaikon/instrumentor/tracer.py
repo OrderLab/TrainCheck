@@ -360,13 +360,6 @@ def global_wrapper(
     1. Log the post-call information
     """
 
-    # If function prefix is torch.nn, get the type
-    is_type_nn = False
-    try: 
-        is_type_nn = original_function.__module__.startswith("torch.nn")
-    except:
-        pass
-
     # if one variable is of Tensor type, dump the FUNC_ARG trace
     def tensor_stats(tensor):
         stats = {}
@@ -419,23 +412,6 @@ def global_wrapper(
             return None
 
 
-    def convert_self_dict_to_json(self_dict):
-        def convert_value(v):
-            if isinstance(v, OrderedDict):
-                return {k: convert_value(vv) for k, vv in v.items()}
-            elif isinstance(v, set):
-                return list(v)
-            elif isinstance(v, torch.nn.Parameter):
-                return v.detach().cpu().numpy().tolist()
-            elif isinstance(v, torch.Tensor):
-                return v.cpu().numpy().tolist()
-            elif v is None:
-                return 'null'
-            return v
-
-        ret_dict = {k: convert_value(v) for k, v in self_dict.items()}
-        return ret_dict
-
     import uuid
 
     logger = logging.getLogger(__name__)
@@ -479,12 +455,6 @@ def global_wrapper(
             if func_name == func:
                 should_dump_func_arg_trace = True
                 break
-
-    # try:
-    #     if '.to' in func_name[6:]:
-    #         import pdb; pdb.set_trace()
-    # except:
-    #     pass
 
     # Dump the function arguments
     if should_dump_func_arg_trace:
@@ -615,7 +585,6 @@ def global_wrapper(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                 )
 
-    dump_trace_API(pre_record)
     if enable_C_level_observer and C_level_call:
         from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
     dump_trace_API(pre_record)
@@ -660,7 +629,7 @@ def global_wrapper(
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
     post_record["meta_vars"] = get_meta_vars()
-    post_record["return_type"] = typename(result) if result is not None else None
+    # post_record["return_type"] = typename(result) if result is not None else None
     dump_trace_API(post_record)
 
     # If the result is of Tensor type, dump the result Tensor stats
