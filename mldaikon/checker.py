@@ -7,8 +7,7 @@ import re
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import CheckerResult, Invariant, read_inv_file
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.trace_polars import read_trace_file
+from mldaikon.trace import Trace, select_trace_implementation
 
 
 def check_engine(
@@ -75,9 +74,17 @@ if __name__ == "__main__":
             which opens opportunity for precondition refinement. Note that the precondition 
             refinement algorithm is not implemented yet.""",
     )
+    parser.add_argument(
+        "-b",
+        "--backend",
+        type=str,
+        choices=["pandas", "polars", "dict"],
+        default="pandas",
+        help="Specify the backend to use for Trace",
+    )
 
     args = parser.parse_args()
-
+    _, read_trace_file = select_trace_implementation(args.backend)
     # read the invariants
 
     if args.debug:

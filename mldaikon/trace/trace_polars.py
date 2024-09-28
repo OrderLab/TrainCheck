@@ -866,7 +866,7 @@ class TracePolars(Trace):
         return events
 
 
-def read_trace_file(
+def read_trace_file_polars(
     file_path: str | list[str], truncate_incomplete_func_calls=True
 ) -> Trace:
     """Reads the trace file and returns the trace instance.

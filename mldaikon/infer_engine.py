@@ -11,6 +11,7 @@ import traceback
 import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import FailedHypothesis, Invariant
 from mldaikon.invariant.relation_pool import relation_pool
+from mldaikon.trace import select_trace_implementation
 
 # from mldaikon.trace.trace import Trace, read_trace_file
 
@@ -41,24 +42,6 @@ class InferEngine:
             f"Found {len(all_invs)} invariants, {len(all_failed_hypos)} failed hypotheses due to precondition inference"
         )
         return all_invs, all_failed_hypos
-
-
-def select_trace_implementation(choice):
-    if choice == "polars":
-        from mldaikon.trace.trace_polars import TracePolars as Trace
-        from mldaikon.trace.trace_polars import read_trace_file
-    elif choice == "pandas":
-        from mldaikon.trace.trace_pandas import TracePandas as Trace
-        from mldaikon.trace.trace_pandas import (
-            read_trace_file_Pandas as read_trace_file,
-        )
-    elif choice == "dict":
-        from mldaikon.trace.trace_dict import TraceDict as Trace
-        from mldaikon.trace.trace_dict import read_trace_file_dict as read_trace_file
-    else:
-        raise ValueError(f"Invalid choice: {choice}")
-
-    return Trace, read_trace_file
 
 
 def save_invs(invs: list[Invariant], output_file: str):
@@ -157,9 +140,9 @@ if __name__ == "__main__":
         "-b",
         "--backend",
         type=str,
-        choices=["polars", "pandas", "dict"],
-        default="polars",
-        help="Specify the backend to use for Trace and read_trace_file [Choices: impl1, impl2, impl3]",
+        choices=["pandas", "polars", "dict"],
+        default="pandas",
+        help="Specify the backend to use for Trace",
     )
     args = parser.parse_args()
 
