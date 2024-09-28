@@ -11,3 +11,4 @@ pytest-benchmark
 efficientnet_pytorch
 astor
 numba
+pandas
