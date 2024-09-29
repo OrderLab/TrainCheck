@@ -511,16 +511,14 @@ def global_wrapper(
                 func_type_dict = dict(func_type_dict)
 
             # kwargs substitution
-            # Beijie: whether to substitute the kwargs if it does not exist?
+            # Beijie: not substitute the kwargs if it does not exist in sig
             for k, v in kwargs_value.items():
                 if k in func_type_dict and func_type_dict[k] == "<class 'inspect._empty'>":
                     func_type_dict[k] = str(type(v))
 
             for idx, arg_value in enumerate(args_value):  # Note that args_value may contain "self"
                 if is_method and idx == 0:
-                    # Beijie: if self is complex, how to dump the trace?
-                    # if func_name == 'torch.nn.modules.module.Module.__init__':
-                    #     import pdb; pdb.set_trace()
+                    # Beijie: if self is complex, dump a simple trace
                     self_stat = func_arg_stats(args[0])
 
                     if self_stat:
@@ -627,8 +625,6 @@ def global_wrapper(
                 "meta_vars": get_meta_vars(),
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": func_name,
-                # "args": [f"{arg}" for arg in args],
-                # "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
                 "exception": typename(e),
                 "exception_msg": str(e),
                 "is_bound_method": is_bound_method,
