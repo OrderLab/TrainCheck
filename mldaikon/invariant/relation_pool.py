@@ -13,6 +13,5 @@ relation_pool: list[Type] = [
     VarPeriodicChangeRelation,
     FunctionCoverRelation,
     FunctionLeadRelation,
-    EqualRelation,
     VarPreserveRelation,
 ]
