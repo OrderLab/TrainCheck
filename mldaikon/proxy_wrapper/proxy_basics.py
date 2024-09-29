@@ -14,24 +14,37 @@ def is_proxied(obj):
     return False
 
 
-def unproxy_arg(arg):
+def unproxy_arg(arg, inspect_torch_module=False):
 
     if is_proxied(arg):
-        return unproxy_arg(arg._obj)
+        return unproxy_arg(arg._obj, inspect_torch_module)
     elif type(arg) in [list]:
-        return [unproxy_arg(element) for element in arg]
+        return [unproxy_arg(element, inspect_torch_module) for element in arg]
     elif type(arg) in [tuple]:
-        return tuple(unproxy_arg(element) for element in arg)
+        return tuple(unproxy_arg(element, inspect_torch_module) for element in arg)
+    # if it is a torch module, unproxy all its named children
+    elif inspect_torch_module:
+        import torch
+
+        if isinstance(arg, torch.nn.Module):
+            for name, module in arg.named_children():
+                arg._modules[name] = unproxy_arg(module, inspect_torch_module)
+            # handle named_parameters
+            for name, param in arg.named_parameters():
+                arg._parameters[name] = unproxy_arg(param, inspect_torch_module)
+            return arg
+
+        return arg
     else:
         return arg
 
 
-def unproxy_func(func):
+def unproxy_func(func, inspect_torch_module=False):
     original_func = func
 
     @functools.wraps(original_func)
     def wrapper(*args, **kwargs):
-        args = [unproxy_arg(arg) for arg in args]
+        args = [unproxy_arg(arg, inspect_torch_module) for arg in args]
         kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
         return original_func(*args, **kwargs)
 
