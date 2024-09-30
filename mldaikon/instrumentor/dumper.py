@@ -5,7 +5,19 @@ import os
 import threading
 from queue import Empty, Queue
 
+import torch
+
 from mldaikon.instrumentor.types import PTID
+from mldaikon.proxy_wrapper.proxy_config import (
+    attribute_black_list,
+    primitive_types,
+    tensor_dump_format,
+)
+if torch.cuda.is_available():
+    from mldaikon.proxy_wrapper.hash import tensor_hash
+from mldaikon.proxy_wrapper.utils import print_debug
+
+from mldaikon.utils import typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 
@@ -108,7 +120,7 @@ def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     trace_queue = get_trace_API_dumper_queue()
     trace["time"] = datetime.datetime.now().timestamp()
-    trace_queue.put(trace)
+    trace_queue.put(trace.copy())  # this is additional copying important, as the trace is mutable and we don't want subsequent changes to affect the trace
 
 
 def dump_trace_VAR(trace: dict):
@@ -140,3 +152,92 @@ def get_instrumentation_logger_for_process():
     logger.addHandler(file_handler)
     instrumentation_loggers[pid] = logger
     return logger
+
+
+def tensor_stats(tensor: torch.Tensor):
+    min = float(tensor.min().item())
+    max = float(tensor.max().item())
+    mean = float(tensor.mean().item())
+    std = float(tensor.std().item())
+    shape = tuple(int(x) for x in tensor.size())
+    return {
+        "min": min,
+        "max": max,
+        "mean": mean,
+        "std": std,
+        "shape": shape,
+    }
+
+
+def dump_tensor(value):
+    param_list = None
+    if isinstance(value, torch.Tensor):
+        if tensor_dump_format["dump_tensor_stats"]:
+            param_list = tensor_stats(value)
+        elif tensor_dump_format["dump_tensor_hash"]:
+            if not torch.cuda.is_available():
+                raise Exception(
+                    "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full' or 'stats'."
+                )
+            param_list = tensor_hash(value)
+        elif tensor_dump_format["dump_tensor_full"]:
+            param_list = value.detach().flatten().tolist()
+        else:
+            raise ValueError(
+                "Invalid tensor dump format, please set '--tensor-dump-format' to 'full', 'stats' or 'hash'."
+            )
+
+    return param_list
+
+
+def convert_var_to_dict(var, include_tensor_data=True) -> dict:
+    result = {}
+        # currently only dump primitive types, tensors and nn.Module
+    try:
+        attr_names = [name for name in dir(var) if not name.startswith("__")]
+    except Exception as e:
+        get_instrumentation_logger_for_process().debug(
+            f"Failed to get attributes of object type {type(var)}, skipping it. Error: {e}."
+        )
+        return result
+    
+    for attr_name in attr_names:
+        # don't track the attr_name starts with a _ (private variable)
+        if attr_name.startswith("_"):
+            continue
+        if attr_name in attribute_black_list:
+            continue
+        try:
+            attr = var.__dict__.get(attr_name)
+            if attr is None:
+                result[attr_name] = None
+            if type(attr) in primitive_types:
+                result[attr_name] = attr
+
+            elif include_tensor_data and isinstance(attr, torch.Tensor):
+                result[attr_name] = dump_tensor(attr)
+
+            elif include_tensor_data and isinstance(attr, torch.nn.parameter.Parameter):
+                result[attr_name] = attr.__class__.__name__ + "(Parameter)"
+                result[attr_name] = dump_tensor(attr.data)
+
+            elif include_tensor_data and isinstance(attr, torch.nn.Module):
+                result[attr_name] = attr.__class__.__name__ + "(nn.Module)"
+                # dump out all tensors inside the nn.Module
+                for name, param in attr.named_parameters():
+                    result[attr_name] += f"\n{name}: {dump_tensor(param)}"
+
+            if attr_name == "grad_fn":  # FIXME: ad-hoc
+                assert attr is None or callable(
+                    attr
+                ), f"grad_fn should be None or callable, but got {attr}"
+                # result[attr_name] = typename(attr) if attr is not None else None
+
+            # if attr_name == "dtype":
+            #     # result[attr_name] = typename(attr)
+            #     result[attr_name] = str(attr)
+
+        except Exception as e:  # noqa
+            print_debug(
+                lambda: f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it. Error: {e}."  # noqa
+            )
