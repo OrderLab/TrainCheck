@@ -13,11 +13,10 @@ from mldaikon.proxy_wrapper.proxy_config import (
     primitive_types,
     tensor_dump_format,
 )
+
 if torch.cuda.is_available():
     from mldaikon.proxy_wrapper.hash import tensor_hash
 from mldaikon.proxy_wrapper.utils import print_debug
-
-from mldaikon.utils import typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 
@@ -120,7 +119,9 @@ def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     trace_queue = get_trace_API_dumper_queue()
     trace["time"] = datetime.datetime.now().timestamp()
-    trace_queue.put(trace.copy())  # this is additional copying important, as the trace is mutable and we don't want subsequent changes to affect the trace
+    trace_queue.put(
+        trace.copy()
+    )  # this is additional copying important, as the trace is mutable and we don't want subsequent changes to affect the trace
 
 
 def dump_trace_VAR(trace: dict):
@@ -191,8 +192,8 @@ def dump_tensor(value):
 
 
 def convert_var_to_dict(var, include_tensor_data=True) -> dict:
-    result = {}
-        # currently only dump primitive types, tensors and nn.Module
+    result: dict[str, object | str] = {}
+    # currently only dump primitive types, tensors and nn.Module
     try:
         attr_names = [name for name in dir(var) if not name.startswith("__")]
     except Exception as e:
@@ -200,7 +201,7 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
             f"Failed to get attributes of object type {type(var)}, skipping it. Error: {e}."
         )
         return result
-    
+
     for attr_name in attr_names:
         # don't track the attr_name starts with a _ (private variable)
         if attr_name.startswith("_"):
@@ -225,7 +226,7 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
                 result[attr_name] = attr.__class__.__name__ + "(nn.Module)"
                 # dump out all tensors inside the nn.Module
                 for name, param in attr.named_parameters():
-                    result[attr_name] += f"\n{name}: {dump_tensor(param)}"
+                    result[attr_name] += f"\n{name}: {dump_tensor(param)}"  # type: ignore
 
             if attr_name == "grad_fn":  # FIXME: ad-hoc
                 assert attr is None or callable(
@@ -241,3 +242,5 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
             print_debug(
                 lambda: f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it. Error: {e}."  # noqa
             )
+
+    return result

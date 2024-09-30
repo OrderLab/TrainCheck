@@ -9,7 +9,7 @@ import threading
 import traceback
 import types
 import uuid
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 import torch
 import torch.utils
@@ -17,6 +17,7 @@ import torch.utils
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.caches import cache_meta_vars
 from mldaikon.instrumentor.dumper import (
+    convert_var_to_dict,
     dump_trace_API,
     dump_trace_VAR,
     get_instrumentation_logger_for_process,
@@ -38,6 +39,8 @@ disable_proxy_class = disable_proxy_class
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
 METRIC_INSTRUMENTED_FUNC_LIST: dict[str, list[str]] = {"dump": [], "no_dump": []}
+
+IS_INSTRUMENTING = False
 
 
 class TraceLineType:
@@ -73,6 +76,10 @@ def should_dump_trace(
 
     If True is returned, cache_meta_vars will be updated with the current meta_vars
     """
+    global IS_INSTRUMENTING
+    if IS_INSTRUMENTING:
+        # don't dump anything during instrumentation
+        return False
 
     if not cond_dump:
         return True
@@ -88,7 +95,6 @@ def should_dump_trace(
 
     prev_meta_vars = cache_meta_vars[ptid][key]
     if not prev_meta_vars:
-        # print(f"prev_meta_vars is None for {key}")
         if update_cache:
             cache_meta_vars[ptid][key] = meta_vars
         return True
@@ -105,10 +111,28 @@ def should_dump_trace(
     if prev_targets != targets:
         if update_cache:
             cache_meta_vars[ptid][key] = meta_vars
-        # print(f"meta_vars have changed for {key}")
         return True
 
     return False
+
+
+def to_dict_args_kwargs(args, kwargs) -> dict:
+    # for args, we will convert the args to a list of strings, if the arg is a tensor, we only dump the shape and dtype
+    result = {
+        "args": [convert_var_to_dict(arg) for arg in args],
+        "kwargs": (
+            {key: convert_var_to_dict(value) for key, value in kwargs.items()}
+            if kwargs
+            else None
+        ),
+    }
+    return result
+
+
+def to_dict_return_value(result) -> dict | list[dict]:
+    if isinstance(result, Iterable):
+        return [convert_var_to_dict(r) for r in result]
+    return convert_var_to_dict(result)
 
 
 def global_wrapper(
@@ -135,7 +159,6 @@ def global_wrapper(
     Post-call Phase
     1. Log the post-call information
     """
-
     logger = logging.getLogger(__name__)
 
     func_call_id = uuid.uuid4().hex
@@ -204,6 +227,9 @@ def global_wrapper(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                 )
 
+    dict_args_kwargs = to_dict_args_kwargs(args, kwargs)
+    pre_record["args"] = dict_args_kwargs["args"]
+    pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
     if enable_C_level_observer and is_builtin:
         from mldaikon.proxy_wrapper.proxy_observer import (  # import here to avoid circular import
@@ -241,11 +267,14 @@ def global_wrapper(
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
 
+    pre_record.pop("args")
+    pre_record.pop("kwargs")
     post_record = (
         pre_record.copy()
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
     post_record["meta_vars"] = get_meta_vars()
+    post_record["return_value"] = to_dict_return_value(result)
     dump_trace_API(post_record)
 
     return result
@@ -482,6 +511,8 @@ class Instrumentor:
         if not self.instrumenting:
             return 0
 
+        global IS_INSTRUMENTING
+        IS_INSTRUMENTING = True
         visited_file_paths: set[str] = set()
 
         first_pass_instrumented_count = 0
@@ -565,6 +596,7 @@ class Instrumentor:
                     f"Not all functions required by the provided invariants are instrumented (e.g. due to transfering ), some invariants might not be active at all, funcs not instrumented: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
                 )  # TODO: report a number of functions not instrumented and thus the invariants that will not be active
 
+        IS_INSTRUMENTING = False
         return self.instrumented_count
 
     def _should_skip_module_or_cls(self, pymodule: object) -> str | None:
