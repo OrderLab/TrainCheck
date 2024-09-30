@@ -17,10 +17,10 @@ import torch.utils
 from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.caches import cache_meta_vars
 from mldaikon.instrumentor.dumper import (
-    convert_var_to_dict,
     dump_trace_API,
     dump_trace_VAR,
     get_instrumentation_logger_for_process,
+    var_to_serializable,
 )
 from mldaikon.instrumentor.replace_functions import (
     funcs_to_be_replaced,
@@ -117,22 +117,17 @@ def should_dump_trace(
 
 
 def to_dict_args_kwargs(args, kwargs) -> dict:
-    # for args, we will convert the args to a list of strings, if the arg is a tensor, we only dump the shape and dtype
     result = {
-        "args": [convert_var_to_dict(arg) for arg in args],
-        "kwargs": (
-            {key: convert_var_to_dict(value) for key, value in kwargs.items()}
-            if kwargs
-            else None
-        ),
+        "args": [var_to_serializable(arg) for arg in args],
+        "kwargs": {k: var_to_serializable(v) for k, v in kwargs.items()},
     }
     return result
 
 
 def to_dict_return_value(result) -> dict | list[dict]:
     if isinstance(result, Iterable):
-        return [convert_var_to_dict(r) for r in result]
-    return convert_var_to_dict(result)
+        return [var_to_serializable(r) for r in result]
+    return var_to_serializable(result)
 
 
 def global_wrapper(
@@ -266,7 +261,7 @@ def global_wrapper(
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
-
+    print(f"result: {result}")
     pre_record.pop("args")
     pre_record.pop("kwargs")
     post_record = (

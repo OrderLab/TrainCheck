@@ -209,7 +209,10 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
         if attr_name in attribute_black_list:
             continue
         try:
-            attr = var.__dict__.get(attr_name)
+            if hasattr(var, "__dict__"):
+                attr = var.__dict__.get(attr_name)
+            else:
+                attr = getattr(var, attr_name)
             if attr is None:
                 result[attr_name] = None
             if type(attr) in primitive_types:
@@ -244,3 +247,13 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
             )
 
     return result
+
+
+def var_to_serializable(obj):
+    try:
+        json.dumps({"foo": obj})
+        return obj
+    except TypeError:
+        var_dict = convert_var_to_dict(obj)
+        assert var_dict, f"Failed to convert object {obj} to dict."
+        return var_dict
