@@ -6,9 +6,9 @@ import torch
 if torch.cuda.is_available():
     from mldaikon.proxy_wrapper.hash import tensor_hash
 
+from mldaikon.instrumentor.caches import meta_vars
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
-from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
@@ -186,6 +186,10 @@ def dump_attributes(obj, value):
                     attr
                 ), f"grad_fn should be None or callable, but got {attr}"
                 result[attr_name] = typename(attr) if attr is not None else None
+
+            if attr_name == "dtype":
+                # result[attr_name] = typename(attr)
+                result[attr_name] = str(attr)
 
         except Exception as e:  # noqa
             print_debug(
