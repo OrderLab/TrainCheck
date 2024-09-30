@@ -12,19 +12,12 @@ import types
 import uuid
 from collections import defaultdict
 from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 import torch
 import torch.utils
 
-if TYPE_CHECKING:
-    from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
-
-from mldaikon.config.config import (
-    INSTR_MODULES_TO_SKIP,
-    META_VARS_FORBID_LIST,
-    WRAP_WITHOUT_DUMP,
-)
+from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
 from mldaikon.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
@@ -199,51 +192,15 @@ def get_instrumentation_logger_for_process():
 def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
+
 def is_numerical_value_too_large(value: Any) -> bool:
     if isinstance(value, (int, float)):
         return sys.getsizeof(value) > 32
     return False
 
+
 def get_meta_vars() -> dict:
     return {}
-    
-# def get_meta_vars() -> dict:
-#     frame = inspect.currentframe()
-
-#     all_frame_vars = {}
-#     # get the file name list inside the repo
-#     while frame is not None:
-#         if "mldaikon" in frame.f_code.co_filename:
-#             frame = frame.f_back
-#             continue
-
-#         frame_vars = frame.f_locals
-
-#         file_full_path = frame.f_code.co_filename
-#         if "/site-packages/" in file_full_path:
-#             file_full_path = file_full_path.split("/site-packages/")[1]
-#         file_full_path = file_full_path.strip("/home/")
-
-#         frame_vars = {
-#             name: value
-#             for name, value in frame_vars.items()
-#             # Ziming: only dump primitive types, block the var name on the black list
-#             if isinstance(value, (int, float, str, bool))
-#             and not is_numerical_value_too_large(value)
-#             and (
-#                 not name.startswith("__")
-#                 and "mldaikon" not in name
-#                 and name not in META_VARS_FORBID_LIST
-#             )
-#         }
-
-#         if frame_vars:
-#             if file_full_path not in all_frame_vars:
-#                 all_frame_vars[file_full_path] = frame_vars
-#             else:
-#                 all_frame_vars[file_full_path].update(frame_vars)
-#         frame = frame.f_back
-#     return all_frame_vars
 
 
 def should_dump_trace(
@@ -790,7 +747,7 @@ class Instrumentor:
         if (
             attr_name.startswith("__")
             and attr_name.endswith("__")
-            and attr_name not in ["__init__", "__call__"]
+            and attr_name not in ["__init__", "__call__", "__enter__", "__exit__"]
         ):
             return "Skipping magic functions"
 
