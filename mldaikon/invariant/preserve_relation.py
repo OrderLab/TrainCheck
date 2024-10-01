@@ -1,21 +1,15 @@
-import logging
-import polars as pl
 import itertools
+import logging
+from typing import Type
+
+import polars as pl
 
 from mldaikon.config import config
-from mldaikon.invariant.base_cls import (
-    Example,
-    ExampleList,
-    Hypothesis,
-    Invariant,
-    Relation,
-    APIParam,
-    FailedHypothesis,
-    CheckerResult,
-)
+from mldaikon.invariant.base_cls import (APIParam, CheckerResult, Example,
+                                         ExampleList, FailedHypothesis,
+                                         Hypothesis, Invariant, Relation)
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
-from typing import Type
 
 
 class VarPreserveRelation(Relation):

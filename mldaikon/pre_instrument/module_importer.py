@@ -1,9 +1,10 @@
 # Description: This script imports a module dynamically and extracts information about classes and methods in the module.
 
-import json
-import inspect
 import importlib
+import inspect
+import json
 import logging
+
 import torch
 
 logger = logging.getLogger("module_importer")
