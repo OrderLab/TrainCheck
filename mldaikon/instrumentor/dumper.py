@@ -17,6 +17,7 @@ from mldaikon.proxy_wrapper.proxy_config import (
 if torch.cuda.is_available():
     from mldaikon.proxy_wrapper.hash import tensor_hash
 from mldaikon.proxy_wrapper.utils import print_debug
+from mldaikon.utils import typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 
@@ -46,8 +47,7 @@ def trace_dumper(task_queue: Queue, trace_file_name: str, stop_event: threading.
                 if stop_event.is_set():
                     break
                 continue
-            trace_str = json.dumps(trace)
-            f.write(f"{trace_str}\n")
+            f.write(f"{trace}\n")
             task_queue.task_done()
 
 
@@ -120,7 +120,7 @@ def dump_trace_API(trace: dict):
     trace_queue = get_trace_API_dumper_queue()
     trace["time"] = datetime.datetime.now().timestamp()
     trace_queue.put(
-        trace.copy()
+        json.dumps(trace)
     )  # this is additional copying important, as the trace is mutable and we don't want subsequent changes to affect the trace
 
 
@@ -129,7 +129,7 @@ def dump_trace_VAR(trace: dict):
     trace_queue = get_trace_VAR_dumper_queue()
     if "time" not in trace:
         trace["time"] = datetime.datetime.now().timestamp()
-    trace_queue.put(trace)
+    trace_queue.put(json.dumps(trace))
 
 
 def get_instrumentation_logger_for_process():
@@ -226,11 +226,11 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
                 for name, param in attr.named_parameters():
                     result[attr_name] += f"\n{name}: {dump_tensor(param)}"  # type: ignore
 
-            if attr_name == "grad_fn":  # FIXME: ad-hoc
-                assert attr is None or callable(
-                    attr
-                ), f"grad_fn should be None or callable, but got {attr}"
-                # result[attr_name] = typename(attr) if attr is not None else None
+            # if attr_name == "grad_fn":  # FIXME: ad-hoc
+            #     assert attr is None or callable(
+            #         attr
+            #     ), f"grad_fn should be None or callable, but got {attr}"
+            # result[attr_name] = typename(attr) if attr is not None else None
 
             if attr_name == "dtype":
                 # result[attr_name] = typename(attr)
@@ -245,11 +245,11 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
     return result
 
 
-def var_to_serializable(obj):
+def var_to_serializable(obj) -> dict[type, object]:
     try:
         json.dumps({"foo": obj})
-        return obj
+        return {typename(obj): obj}
     except TypeError:
         var_dict = convert_var_to_dict(obj, include_tensor_data=False)
         # assert var_dict, f"Failed to convert object {obj} to dict."
-        return var_dict
+        return {typename(obj): var_dict}
