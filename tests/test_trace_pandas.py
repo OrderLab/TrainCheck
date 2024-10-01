@@ -4,7 +4,7 @@ import unittest
 
 # Import the module to test
 from mldaikon.trace.trace_pandas import TracePandas, read_trace_file_Pandas
-from mldaikon.trace.trace_polars import TracePolars, read_trace_file_polars
+from mldaikon.trace.trace_polars import TracePolars, read_trace_file  # noqa: F401
 
 # import modin.pandas as pd
 # import polars
