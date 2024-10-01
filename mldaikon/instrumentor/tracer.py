@@ -20,17 +20,17 @@ import torch.utils
 if TYPE_CHECKING:
     from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
 
-from mldaikon.config.config import (
+from mldaikon.config.config import (  # isort:skip
     FUNC_ARG_RECORDED_FILE,
     INSTR_MODULES_TO_SKIP,
     WRAP_WITHOUT_DUMP,
 )
-from mldaikon.instrumentor.replace_functions import (
+from mldaikon.instrumentor.replace_functions import (  # isort:skip
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
-from mldaikon.proxy_wrapper.proxy_config import (
+from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func  # isort:skip
+from mldaikon.proxy_wrapper.proxy_config import (  # isort:skip
     disable_proxy_class,
     enable_C_level_observer,
 )
@@ -608,7 +608,7 @@ def global_wrapper(
 
     dump_trace_API(pre_record)
     if enable_C_level_observer and is_builtin:
-        from mldaikon.proxy_wrapper.proxy_observer import (
+        from mldaikon.proxy_wrapper.proxy_observer import (  # isort:skip
             add_observer_to_func,
         )  # import here to avoid circular import
 
