@@ -9,7 +9,7 @@ import threading
 import traceback
 import types
 import uuid
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Optional
 
 import torch
 import torch.utils
@@ -125,7 +125,7 @@ def to_dict_args_kwargs(args, kwargs) -> dict:
 
 
 def to_dict_return_value(result) -> dict | list[dict]:
-    if isinstance(result, Iterable):
+    if isinstance(result, tuple):
         return [var_to_serializable(r) for r in result]
     return var_to_serializable(result)
 
@@ -261,7 +261,6 @@ def global_wrapper(
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
-    print(f"result: {result}")
     pre_record.pop("args")
     pre_record.pop("kwargs")
     post_record = (

@@ -209,12 +209,7 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
         if attr_name in attribute_black_list:
             continue
         try:
-            if hasattr(var, "__dict__"):
-                attr = var.__dict__.get(attr_name)
-            else:
-                attr = getattr(var, attr_name)
-            if attr is None:
-                result[attr_name] = None
+            attr = getattr(var, attr_name)
             if type(attr) in primitive_types:
                 result[attr_name] = attr
 
@@ -237,14 +232,15 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
                 ), f"grad_fn should be None or callable, but got {attr}"
                 # result[attr_name] = typename(attr) if attr is not None else None
 
-            # if attr_name == "dtype":
-            #     # result[attr_name] = typename(attr)
-            #     result[attr_name] = str(attr)
+            if attr_name == "dtype":
+                # result[attr_name] = typename(attr)
+                result[attr_name] = str(attr)
 
         except Exception as e:  # noqa
             print_debug(
                 lambda: f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it. Error: {e}."  # noqa
             )
+            continue
 
     return result
 
@@ -254,6 +250,6 @@ def var_to_serializable(obj):
         json.dumps({"foo": obj})
         return obj
     except TypeError:
-        var_dict = convert_var_to_dict(obj)
-        assert var_dict, f"Failed to convert object {obj} to dict."
+        var_dict = convert_var_to_dict(obj, include_tensor_data=False)
+        # assert var_dict, f"Failed to convert object {obj} to dict."
         return var_dict
