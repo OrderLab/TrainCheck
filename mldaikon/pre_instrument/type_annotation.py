@@ -10,7 +10,9 @@ from typing import DefaultDict, Set
 def type_annotation_from_trace(trace_path: str):
     """Extract type information from a trace file."""
 
-    combined_results: DefaultDict[str, DefaultDict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
+    combined_results: DefaultDict[str, DefaultDict[str, Set[str]]] = defaultdict(
+        lambda: defaultdict(set)
+    )
 
     elements_to_extract = ["function", "args", "return_type"]
 

@@ -20,14 +20,21 @@ import torch.utils
 if TYPE_CHECKING:
     from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
 
-from mldaikon.config.config import (FUNC_ARG_RECORDED_FILE,
-                                    INSTR_MODULES_TO_SKIP,
-                                    META_VARS_FORBID_LIST, WRAP_WITHOUT_DUMP)
-from mldaikon.instrumentor.replace_functions import (funcs_to_be_replaced,
-                                                     is_funcs_to_be_unproxied)
+from mldaikon.config.config import (
+    FUNC_ARG_RECORDED_FILE,
+    INSTR_MODULES_TO_SKIP,
+    META_VARS_FORBID_LIST,
+    WRAP_WITHOUT_DUMP,
+)
+from mldaikon.instrumentor.replace_functions import (
+    funcs_to_be_replaced,
+    is_funcs_to_be_unproxied,
+)
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
-from mldaikon.proxy_wrapper.proxy_config import (disable_proxy_class,
-                                                 enable_C_level_observer)
+from mldaikon.proxy_wrapper.proxy_config import (
+    disable_proxy_class,
+    enable_C_level_observer,
+)
 from mldaikon.utils import typename
 
 meta_vars: dict[str, object] = (
@@ -606,8 +613,9 @@ def global_wrapper(
         from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
     dump_trace_API(pre_record)
     if enable_C_level_observer and is_builtin:
-        from mldaikon.proxy_wrapper.proxy_observer import \
-            add_observer_to_func  # import here to avoid circular import
+        from mldaikon.proxy_wrapper.proxy_observer import (
+            add_observer_to_func,
+        )  # import here to avoid circular import
 
         original_function = add_observer_to_func(
             original_function, cond_dump=cond_dump, unproxy=True

@@ -3,9 +3,16 @@ from typing import Type
 
 import polars as pl
 
-from mldaikon.invariant.base_cls import (APIParam, CheckerResult, Example,
-                                         ExampleList, FailedHypothesis,
-                                         Hypothesis, Invariant, Relation)
+from mldaikon.invariant.base_cls import (
+    APIParam,
+    CheckerResult,
+    Example,
+    ExampleList,
+    FailedHypothesis,
+    Hypothesis,
+    Invariant,
+    Relation,
+)
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 
@@ -104,7 +111,7 @@ class VarPreserveRelation(Relation):
                 failed_hypos.append(FailedHypothesis(hypothesis))
 
         return invariants, failed_hypos
-    
+
     @staticmethod
     def evaluate(value_group: list) -> bool:
         return True
