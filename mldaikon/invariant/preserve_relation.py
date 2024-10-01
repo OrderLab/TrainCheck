@@ -11,15 +11,17 @@ from mldaikon.invariant.base_cls import (
     Relation,
     APIParam,
     FailedHypothesis,
+    CheckerResult,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+from typing import Type
 
 
 class VarPreserveRelation(Relation):
 
     @staticmethod
-    def infer(trace: Trace) -> list[Invariant]:
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants for the VarPreserveRelation."""
 
         logger = logging.getLogger(__name__)
@@ -27,13 +29,13 @@ class VarPreserveRelation(Relation):
         # Check if the DataFrame is empty
         if trace.events.is_empty() or "func_name" not in trace.events.columns:
             logger.warning("The trace contains no events.")
-            return [], []
+            return ([], [])
 
         # Group events by 'func_name'
         func_names = trace.events["func_name"].unique().to_list()
         if not func_names:
             logger.warning("No 'func_name' found in the events.")
-            return [], []
+            return ([], [])
 
         hypotheses = {}
         group_name = "events"
@@ -110,6 +112,24 @@ class VarPreserveRelation(Relation):
                 failed_hypos.append(FailedHypothesis(hypothesis))
 
         return invariants, failed_hypos
+    
+    @staticmethod
+    def evaluate(value_group: list) -> bool:
+        return True
+
+    @staticmethod
+    def from_name(relation_name: str) -> Type[Relation]:
+        for type_relation in Relation.__subclasses__():
+            if type_relation.__name__ == relation_name:
+                return type_relation
+
+        raise ValueError(f"Relation {relation_name} not found")
+
+    @staticmethod
+    def static_check_all(
+        trace: Trace, inv: Invariant, check_relation_first: bool
+    ) -> CheckerResult:
+        return CheckerResult(None, inv, check_relation_first)
 
 
 def events_are_similar(event1, event2, tolerance=1e-6):
