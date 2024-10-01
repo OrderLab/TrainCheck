@@ -10,7 +10,7 @@ import threading
 import traceback
 import types
 import uuid
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
 
@@ -20,21 +20,14 @@ import torch.utils
 if TYPE_CHECKING:
     from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
 
-from mldaikon.config.config import (
-    FUNC_ARG_RECORDED_FILE,
-    INSTR_MODULES_TO_SKIP,
-    META_VARS_FORBID_LIST,
-    WRAP_WITHOUT_DUMP,
-)
-from mldaikon.instrumentor.replace_functions import (
-    funcs_to_be_replaced,
-    is_funcs_to_be_unproxied,
-)
+from mldaikon.config.config import (FUNC_ARG_RECORDED_FILE,
+                                    INSTR_MODULES_TO_SKIP,
+                                    WRAP_WITHOUT_DUMP)
+from mldaikon.instrumentor.replace_functions import (funcs_to_be_replaced,
+                                                     is_funcs_to_be_unproxied)
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
-from mldaikon.proxy_wrapper.proxy_config import (
-    disable_proxy_class,
-    enable_C_level_observer,
-)
+from mldaikon.proxy_wrapper.proxy_config import (disable_proxy_class,
+                                                 enable_C_level_observer)
 from mldaikon.utils import typename
 
 meta_vars: dict[str, object] = (
@@ -379,27 +372,27 @@ def global_wrapper(
         stats = {}
         try:
             stats["min"] = float(tensor.min().item())
-        except Exception as e:
+        except Exception:
             pass
 
         try:
             stats["max"] = float(tensor.max().item())
-        except Exception as e:
+        except Exception:
             pass
 
         try:
             stats["mean"] = float(tensor.mean().item())
-        except Exception as e:
+        except Exception:
             pass
 
         try:
             stats["std"] = float(tensor.std().item())
-        except Exception as e:
+        except Exception:
             pass
 
         try:
             stats["shape"] = tuple(int(x) for x in tensor.size())
-        except Exception as e:
+        except Exception:
             pass
 
         assert stats, f"Error in tensor_stats: {tensor}"
@@ -424,7 +417,6 @@ def global_wrapper(
         else:
             return None
 
-    import uuid
 
     logger = logging.getLogger(__name__)
 
@@ -475,7 +467,7 @@ def global_wrapper(
             # Get signature
             try:  # Builtin functions do not have signature
                 func_type_annotations = inspect.signature(original_function).parameters
-            except:
+            except (ValueError, TypeError):
                 print(f"Error in inspect.signature: {func_name}")
                 break  # skip the dumping
 
@@ -609,13 +601,10 @@ def global_wrapper(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                 )
 
-    if enable_C_level_observer and C_level_call:
-        from mldaikon.proxy_wrapper.proxy_observer import add_observer_to_func
     dump_trace_API(pre_record)
     if enable_C_level_observer and is_builtin:
-        from mldaikon.proxy_wrapper.proxy_observer import (
-            add_observer_to_func,
-        )  # import here to avoid circular import
+        from mldaikon.proxy_wrapper.proxy_observer import \
+            add_observer_to_func  # import here to avoid circular import
 
         original_function = add_observer_to_func(
             original_function, cond_dump=cond_dump, unproxy=True
