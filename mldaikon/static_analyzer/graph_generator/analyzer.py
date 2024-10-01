@@ -7,10 +7,18 @@ import logging
 import symtable
 from typing import Union
 
-from .anutils import (ExecuteInInnerScope, Scope, UnresolvedSuperCallError,
-                      format_alias, get_ast_node_name, get_module_name,
-                      is_hidden, resolve_method_resolution_order,
-                      sanitize_exprs, tail)
+from .anutils import (
+    ExecuteInInnerScope,
+    Scope,
+    UnresolvedSuperCallError,
+    format_alias,
+    get_ast_node_name,
+    get_module_name,
+    is_hidden,
+    resolve_method_resolution_order,
+    sanitize_exprs,
+    tail,
+)
 from .node import Flavor, Node
 
 # TODO: add Cython support (strip type annotations in a preprocess step, then treat as Python)
