@@ -5,8 +5,6 @@ import inspect
 import json
 import logging
 
-import torch
-
 logger = logging.getLogger("module_importer")
 logger.setLevel(logging.INFO)
 

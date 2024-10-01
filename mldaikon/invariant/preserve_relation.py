@@ -1,10 +1,8 @@
-import itertools
 import logging
 from typing import Type
 
 import polars as pl
 
-from mldaikon.config import config
 from mldaikon.invariant.base_cls import (APIParam, CheckerResult, Example,
                                          ExampleList, FailedHypothesis,
                                          Hypothesis, Invariant, Relation)
