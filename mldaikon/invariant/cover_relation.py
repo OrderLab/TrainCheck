@@ -57,6 +57,18 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
 
     paths: List[List[APIParam]] = []
 
+    def is_subset(path1: List[APIParam], path2: List[APIParam]) -> bool:
+        return set(path1).issubset(set(path2))
+
+    def add_path(new_path: List[APIParam]) -> None:
+        nonlocal paths
+        for existing_path in paths[:]:
+            if is_subset(existing_path, new_path):
+                paths.remove(existing_path)
+            if is_subset(new_path, existing_path):
+                return
+        paths.append(new_path)
+
     def dfs(node: APIParam, path: List[APIParam], visited: Set[APIParam]) -> None:
         path.append(node)
         visited.add(node)
@@ -67,7 +79,7 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
                 ):
                     dfs(neighbor, path, visited)
         if not graph.get(node):
-            paths.append(path.copy())
+            add_path(path.copy())
         path.pop()
         visited.remove(node)
 
