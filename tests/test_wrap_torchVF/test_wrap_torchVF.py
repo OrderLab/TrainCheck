@@ -64,7 +64,7 @@ class VFProxy:
 
 if __name__ == "__main__":
     # Replace torch._VF with the proxy instance
-    torch._VF = VFProxy(torch._VF)
+    torch._VF = VFProxy(torch._VF)  # type: ignore
 
     # Example usage to test the proxy
     x = torch.randn(3, 3)
