@@ -242,14 +242,17 @@ def get_instrumentation_logger_for_process():
 def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
+
 def is_numerical_value_too_large(value: Any) -> bool:
     if isinstance(value, (int, float)):
         return sys.getsizeof(value) > 32
     return False
 
+
 def get_meta_vars() -> dict:
     return {}
-    
+
+
 # def get_meta_vars() -> dict:
 #     frame = inspect.currentframe()
 
@@ -376,34 +379,33 @@ def global_wrapper(
     def tensor_stats(tensor):
         stats = {}
         try:
-            stats['min'] = float(tensor.min().item())
+            stats["min"] = float(tensor.min().item())
         except Exception as e:
             pass
-        
+
         try:
-            stats['max'] = float(tensor.max().item())
+            stats["max"] = float(tensor.max().item())
         except Exception as e:
             pass
-        
+
         try:
-            stats['mean'] = float(tensor.mean().item())
+            stats["mean"] = float(tensor.mean().item())
         except Exception as e:
             pass
-        
+
         try:
-            stats['std'] = float(tensor.std().item())
+            stats["std"] = float(tensor.std().item())
         except Exception as e:
             pass
-        
+
         try:
-            stats['shape'] = tuple(int(x) for x in tensor.size())
+            stats["shape"] = tuple(int(x) for x in tensor.size())
         except Exception as e:
             pass
 
         assert stats, f"Error in tensor_stats: {tensor}"
-        
-        return stats
 
+        return stats
 
     def func_arg_stats(arg):
         if isinstance(arg, torch.Tensor):
@@ -411,18 +413,17 @@ def global_wrapper(
         elif isinstance(arg, torch.nn.parameter.Parameter):
             return tensor_stats(arg.data)
         elif isinstance(arg, torch.nn.modules.linear.Linear):
-            if '_parameters' in arg.__dict__ and 'weight' in arg._parameters:
-                return tensor_stats(args[0]._parameters['weight'])
+            if "_parameters" in arg.__dict__ and "weight" in arg._parameters:
+                return tensor_stats(args[0]._parameters["weight"])
             else:
                 return None
         elif isinstance(arg, torch.nn.DataParallel):
             # import pdb; pdb.set_trace()
-            if 'parameters' in arg.__dir__():
+            if "parameters" in arg.__dir__():
                 return tensor_stats(list(arg.parameters())[0])
             return str(arg.module.named_parameters)
         else:
             return None
-
 
     import uuid
 
@@ -457,13 +458,13 @@ def global_wrapper(
 
     # If function is mentioned in the FUNC_ARG_RECORDED_FILE, dump the trace
     should_dump_func_arg_trace = False
-    for starter in recorded_funcs['starts_with']:
+    for starter in recorded_funcs["starts_with"]:
         if func_name.startswith(starter):
             should_dump_func_arg_trace = True
             break
 
     if not should_dump_func_arg_trace:
-        for func in recorded_funcs['functions']:
+        for func in recorded_funcs["functions"]:
             if func_name == func:
                 should_dump_func_arg_trace = True
                 break
@@ -479,14 +480,18 @@ def global_wrapper(
                 print(f"Error in inspect.signature: {func_name}")
                 break  # skip the dumping
 
-            func_type_dict = {k: str(v.annotation) for k, v in func_type_annotations.items()}
+            func_type_dict = {
+                k: str(v.annotation) for k, v in func_type_annotations.items()
+            }
 
             # args and kwargs
             # if it is has "self", start from the second element
-            is_method = 'self' in func_type_annotations
+            is_method = "self" in func_type_annotations
 
             # check if the signature has wild cast
-            is_wild_cast = 'args' in func_type_annotations and 'kwargs' in func_type_annotations
+            is_wild_cast = (
+                "args" in func_type_annotations and "kwargs" in func_type_annotations
+            )
 
             if is_wild_cast:
                 # Beijie: if a function has wild cast, how to decide the args?
@@ -506,17 +511,25 @@ def global_wrapper(
                         continue
 
                     if func_type_dict[idx][1] == "<class 'inspect._empty'>":
-                        func_type_dict[idx] = (func_type_dict[idx][0], str(type(arg_value)))
+                        func_type_dict[idx] = (
+                            func_type_dict[idx][0],
+                            str(type(arg_value)),
+                        )
 
                 func_type_dict = dict(func_type_dict)
 
             # kwargs substitution
             # Beijie: not substitute the kwargs if it does not exist in sig
             for k, v in kwargs_value.items():
-                if k in func_type_dict and func_type_dict[k] == "<class 'inspect._empty'>":
+                if (
+                    k in func_type_dict
+                    and func_type_dict[k] == "<class 'inspect._empty'>"
+                ):
                     func_type_dict[k] = str(type(v))
 
-            for idx, arg_value in enumerate(args_value):  # Note that args_value may contain "self"
+            for idx, arg_value in enumerate(
+                args_value
+            ):  # Note that args_value may contain "self"
                 if is_method and idx == 0:
                     # Beijie: if self is complex, dump a simple trace
                     self_stat = func_arg_stats(args[0])

@@ -27,7 +27,7 @@ def is_same_ret_type(info_list):
 def judge_info(args_dict):
     tensor_count = 0
     for arg_name, arg_type in args_dict.items():
-        if "Tensor" in arg_type: 
+        if "Tensor" in arg_type:
             tensor_count += 1
     return tensor_count == 1
 
@@ -55,14 +55,14 @@ if __name__ == "__main__":
             if not lines:
                 break
 
-            match = re.match(r'- func: (\w+)(?:\.(\w+))?\((.*)\) -> (.+)', lines)
+            match = re.match(r"- func: (\w+)(?:\.(\w+))?\((.*)\) -> (.+)", lines)
 
             if match:
                 func_name = match.group(1)
                 overload_name = match.group(2)
                 args_part = match.group(3)
                 return_type = match.group(4)
-                
+
                 parsed_args, default_args = parse_args(args_part)
 
                 func_entry = {
@@ -75,12 +75,12 @@ if __name__ == "__main__":
                 # Find tags. If "tags" is pointwise, it means that it does some operations, so we can filter it.
                 while True:
                     next_line = f.readline().strip()
-                    if not next_line or next_line.startswith('- func:'):
-                        if next_line.startswith('- func:'):
+                    if not next_line or next_line.startswith("- func:"):
+                        if next_line.startswith("- func:"):
                             f.seek(f.tell() - len(next_line) - 1)
                         break
 
-                    tag_match = re.match(r'tags: (.+)', next_line)
+                    tag_match = re.match(r"tags: (.+)", next_line)
                     if tag_match:
                         func_entry["tags"] = tag_match.group(1)
                         break
@@ -106,5 +106,5 @@ if __name__ == "__main__":
 
         if true_count > len(decisions) / 2:
             filtered_func_name.add(func_name)
-    
+
     open("filtered_func_name.json", "w").write(str(filtered_func_name))

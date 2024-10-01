@@ -11,12 +11,13 @@ logger.setLevel(logging.INFO)
 
 file_handler = logging.FileHandler("module_importer.log")
 file_handler.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 
 visited_modules = set()
+
 
 def extract_module_info(module_name):
     # Check if the module has already been visited
@@ -43,7 +44,7 @@ def extract_module_info(module_name):
             class_info = {
                 "class_name": name,
                 "class_methods": dir(attr),
-                "module": module_name
+                "module": module_name,
             }
             module_info.append(class_info)
         elif inspect.ismodule(attr) and attr.__name__.startswith(module.__name__):
@@ -53,9 +54,11 @@ def extract_module_info(module_name):
 
     return module_info
 
+
 def save_to_json(data, filename):
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         json.dump(data, f, indent=4)
+
 
 if __name__ == "__main__":
     module_name = "torch"
