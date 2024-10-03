@@ -764,7 +764,11 @@ class Invariant:
 
 class CheckerResult:
     def __init__(
-        self, trace: Optional[list[dict]], invariant: Invariant, check_passed: bool
+        self,
+        trace: Optional[list[dict]],
+        invariant: Invariant,
+        check_passed: bool,
+        triggered: bool,
     ):
         if trace is None:
             assert check_passed, "Check passed should be True for None trace"
@@ -773,6 +777,7 @@ class CheckerResult:
         self.trace = trace
         self.invariant = invariant
         self.check_passed = check_passed
+        self.triggered = triggered
 
     def __str__(self) -> str:
         return f"Trace: {self.trace}\nInvariant: {self.invariant}\nResult: {self.check_passed}"
@@ -803,6 +808,7 @@ class CheckerResult:
         result_dict = {
             "invariant": self.invariant.to_dict(),
             "check_passed": self.check_passed,
+            "triggered": self.triggered,
         }
 
         if not self.check_passed:
@@ -813,7 +819,7 @@ class CheckerResult:
                 {
                     "detection_time": self.get_max_time(),  # the time when the invariant was detected, using max_time as the invariant cannot be checked before the
                     "detection_time_percentage": self.time_precentage,
-                    "trace": MD_NONE.replace_with_none(self.trace),
+                    "trace": self.trace,
                 }
             )
 

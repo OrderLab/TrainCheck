@@ -790,6 +790,10 @@ class APIContainRelation(Relation):
 
         parent_func_name = parent_param.api_full_name
         preconditions = inv.precondition
+        inv_triggered = (
+            False  # should be set to True if precondition is met at least once
+        )
+
         assert (
             preconditions is not None
         ), "Expected the precondition to be set for the invariant"
@@ -842,6 +846,9 @@ Defaulting to skip the var preconditon check for now.
                     )
                     continue
 
+                # precondition passed
+                inv_triggered = True
+
                 # invariant check
                 events = events_scanner(trace=trace, func_call_id=parent_func_call_id)
                 nums_contained_events.append(len(events))
@@ -866,6 +873,9 @@ Defaulting to skip the var preconditon check for now.
                         f"Precondition not met for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}, skipping the contained events check"
                     )
                     continue
+
+                # precondition passed
+                inv_triggered = True
 
             if not skip_var_unchanged_check:
                 assert isinstance(
@@ -905,10 +915,14 @@ Defaulting to skip the var preconditon check for now.
                 )
 
                 # TODO: improve reported error message + include the trace for variables that didn't change in the causal relation case
+                assert (
+                    inv_triggered
+                ), "Expected the invariant to be triggered, check internal logic correctness"
                 result = CheckerResult(
                     trace=[parent_pre_record],
                     invariant=inv,
                     check_passed=False,
+                    triggered=inv_triggered,
                 )
                 return result
 
@@ -916,4 +930,5 @@ Defaulting to skip the var preconditon check for now.
             trace=None,
             invariant=inv,
             check_passed=True,
+            triggered=inv_triggered,
         )

@@ -514,7 +514,7 @@ class FunctionCoverRelation(Relation):
                 The invariant to check on the trace.
         """
         assert inv.precondition is not None, "Invariant should have a precondition."
-
+        inv_triggered = False
         # If the trace contains no function, return vacuous true result
         func_names = trace.get_func_names()
         if len(func_names) == 0:
@@ -523,6 +523,7 @@ class FunctionCoverRelation(Relation):
                 trace=None,
                 invariant=inv,
                 check_passed=True,
+                triggered=False,
             )
 
         events = trace.get_filtered_function()
@@ -647,10 +648,12 @@ class FunctionCoverRelation(Relation):
                     if funcB == event["function"]:
                         if flag_B is not None:
                             if inv.precondition.verify([events], "func_cover"):
+                                inv_triggered = True
                                 return CheckerResult(
                                     trace=[pre_recordB, event],
                                     invariant=inv,
                                     check_passed=False,
+                                    triggered=True,
                                 )
 
                         flag_B = event["time"]
@@ -664,8 +667,10 @@ class FunctionCoverRelation(Relation):
                         #             check_passed=False,
                         #         )
 
+        # FIXME: triggered is always False for passing invariants
         return CheckerResult(
             trace=None,
             invariant=inv,
             check_passed=True,
+            triggered=inv_triggered,
         )

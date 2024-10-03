@@ -126,6 +126,28 @@ if __name__ == "__main__":
         traces = [read_trace_file(group) for group in trace_file_groups]
 
     results = check_engine(traces, invs, args.check_relation_first)
+    results_failed = [res for res in results if not res.check_passed]
+    results_not_triggered = [res for res in results if res.triggered is False]
+
+    logger.addHandler(logging.StreamHandler())
+
+    logger.info("Checking finished. %d invariants checked", len(results))
+    logger.info(
+        "Total failed invariants: %d/%d",
+        len(results_failed),
+        len(results),
+    )
+    logger.info(
+        "Total passed invariants: %d/%d",
+        len(results) - len(results_failed),
+        len(results),
+    )
+    # TODO:
+    logger.info(
+        "Total invariants that's not triggered: %d/%d",
+        len(results_not_triggered),
+        len(results),
+    )
 
     # dump the results to a file
     with open(

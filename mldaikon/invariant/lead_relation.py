@@ -521,6 +521,7 @@ class FunctionLeadRelation(Relation):
 
         assert inv.precondition is not None, "Invariant should have a precondition."
 
+        inv_triggered = False
         # If the trace contains no function, return vacuous true result
         func_names = trace.get_func_names()
         if len(func_names) == 0:
@@ -529,6 +530,7 @@ class FunctionLeadRelation(Relation):
                 trace=None,
                 invariant=inv,
                 check_passed=True,
+                triggered=False,
             )
 
         events = trace.get_filtered_function()
@@ -652,10 +654,12 @@ class FunctionLeadRelation(Relation):
                             continue
 
                         if inv.precondition.verify([events], "func_lead"):
+                            inv_triggered = True
                             return CheckerResult(
                                 trace=[pre_recordA, event],
                                 invariant=inv,
                                 check_passed=False,
+                                triggered=True,
                             )
 
                     if funcB == event["function"]:
@@ -675,4 +679,5 @@ class FunctionLeadRelation(Relation):
             trace=None,
             invariant=inv,
             check_passed=True,
+            triggered=inv_triggered,
         )
