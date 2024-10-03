@@ -813,7 +813,7 @@ class CheckerResult:
                 {
                     "detection_time": self.get_max_time(),  # the time when the invariant was detected, using max_time as the invariant cannot be checked before the
                     "detection_time_percentage": self.time_precentage,
-                    "trace": self.trace,
+                    "trace": MD_NONE.replace_with_none(self.trace),
                 }
             )
 
