@@ -1,3 +1,5 @@
+from typing import Any
+
 import pandas as pd
 
 from mldaikon.trace.types import MD_NONE
@@ -10,29 +12,39 @@ NON_ZERO = "non_zero"
 NON_NONE = "non_none"
 ANYTHING = "anything"
 
+GENERALIZED_TYPES = {
+    ABOVE_ZERO,
+    BELOW_ZERO,
+    NON_POSITIVE,
+    NON_NEGATIVE,
+    NON_ZERO,
+    NON_NONE,
+    ANYTHING,
+}
+
 
 def is_above_zero(value: int | float) -> bool:
-    return value is not None and value > 0
+    return not isinstance(value, MD_NONE) and value > 0
 
 
 def is_below_zero(value: int | float) -> bool:
-    return value is not None and value < 0
+    return not isinstance(value, MD_NONE) and value < 0
 
 
 def is_non_positive(value: int | float) -> bool:
-    return value is not None and value <= 0
+    return isinstance(value, MD_NONE) or value <= 0
 
 
 def is_non_negative(value: int | float) -> bool:
-    return value is not None and value >= 0
+    return isinstance(value, MD_NONE) or value >= 0
 
 
 def is_non_zero(value: int | float) -> bool:
-    return value is not None and value != 0
+    return not isinstance(value, MD_NONE) and value != 0
 
 
 def is_non_none(value: int | float) -> bool:
-    return value is not None
+    return not isinstance(value, MD_NONE)
 
 
 def is_anything(value: int | float) -> bool:
@@ -50,18 +62,21 @@ generalized_value_match = {
 }
 
 
-def check_generalized_value_match(generalized_type: str, value: int | float) -> bool:
+def check_generalized_value_match(generalized_type: str, value: Any) -> bool:
     """Check if a concrete value matches a generalized type."""
     assert (
         generalized_type in generalized_value_match
     ), f"Invalid generalized type: {generalized_type}, expected one of {generalized_value_match.keys()}"
+
+    assert isinstance(
+        value, (int, float)
+    ), f"Expecting value to be a numeric type (though we should support more), got: {value}"
     return generalized_value_match[generalized_type](value)
 
 
-def generalize_values(values: list[type]) -> None | type | str:
+def generalize_values(values: list[type]) -> MD_NONE | type | str:
     """Given a list of values, should return a generalized value."""
-    if len(values) == 0:
-        return None
+    assert values, "Values should not be empty"
 
     if len(set(values)) == 1:
         # no need to generalize
@@ -76,7 +91,7 @@ def generalize_values(values: list[type]) -> None | type | str:
                 continue
             seen_nan_already = True
         all_values.add(v)
-        if v is not None and not isinstance(v, MD_NONE):
+        if v is not MD_NONE and not isinstance(v, MD_NONE):
             all_non_none_types.add(type(v))
 
     assert (
@@ -113,7 +128,7 @@ def generalize_values(values: list[type]) -> None | type | str:
             raise ValueError(f"Invalid values: {values}")
 
     else:
-        # for other types, only check if None is in the values
+        # for other types, only check if MD_NONE is in the values
         if MD_NONE() not in values:
             return NON_NONE
         else:
