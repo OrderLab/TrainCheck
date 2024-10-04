@@ -21,9 +21,9 @@ from mldaikon.invariant.base_cls import (
     calc_likelihood,
     construct_api_param,
     construct_var_param_from_var_change,
-    generalize_values,
 )
 from mldaikon.invariant.precondition import find_precondition
+from mldaikon.invariant.symbolic_value import generalize_values
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import (
     ALL_EVENT_TYPES,
@@ -783,8 +783,10 @@ class APIContainRelation(Relation):
             parent_param, APIParam
         ), "Expected the first parameter to be an APIParam"
         assert isinstance(
-            child_param, (APIParam, VarTypeParam)
+            child_param, (APIParam, VarTypeParam, VarNameParam)
         ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
+
+        # TODO: support VarNameParam in the future
 
         logger = logging.getLogger(__name__)
 

@@ -7,12 +7,9 @@ import math
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
-import pandas as pd
-
 import mldaikon.config.config as config
 from mldaikon.trace.trace import Trace, VarInstId
 from mldaikon.trace.types import (
-    MD_NONE,
     FuncCallEvent,
     FuncCallExceptionEvent,
     HighLevelEvent,
@@ -69,12 +66,6 @@ class Param:
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
 
-    def check_trace_line_match(self, trace_line: dict) -> bool:
-        """Checks whether the trace line is a candidate described by the param."""
-        raise NotImplementedError(
-            "check_trace_line_match method is not implemented yet."
-        )
-
     def check_event_match(self, event: HighLevelEvent) -> bool:
         "Check if the high level event contains the required information for the param."
         raise NotImplementedError("check_event_match method is not implemented yet.")
@@ -98,69 +89,6 @@ class Param:
         )
 
 
-def generalize_values(values: list[type]) -> None | type | str:
-    """Given a list of values, should return a generalized value."""
-    if len(values) == 0:
-        return None
-
-    if len(set(values)) == 1:
-        # no need to generalize
-        return values[0]
-
-    all_values = set()
-    all_non_none_types = set()
-    seen_nan_already = False
-    for v in values:
-        if pd.isna(v):
-            if seen_nan_already:
-                continue
-            seen_nan_already = True
-        all_values.add(v)
-        if v is not None and not isinstance(v, MD_NONE):
-            all_non_none_types.add(type(v))
-
-    assert (
-        len(all_non_none_types) == 1
-    ), f"Values should have the same type, got: {set([type(v) for v in values])} ({values})"
-
-    if any(isinstance(v, (int, float)) for v in values):
-        all_non_none_values: list[int | float] = [
-            v for v in values if isinstance(v, (int, float))
-        ]
-
-        min_value = min(all_non_none_values)  # type: ignore
-        max_value = max(all_non_none_values)  # type: ignore
-
-        assert (
-            min_value != max_value
-        ), "Min and max values are the same, you don't need to generalize the values"
-        if min_value > 0:
-            return "above_zero"
-        elif min_value >= 0:
-            return "non_negative"
-        elif max_value < 0:
-            return "below_zero"
-        elif max_value <= 0:
-            return "non_positive"
-        elif min_value < 0 and max_value > 0 and 0 not in values:
-            return "non_zero"
-        elif (
-            min_value < 0 and max_value > 0 and 0 in values and MD_NONE() not in values
-        ):
-            return "non_none"
-        else:
-            # numerical values should always be mergable
-            raise ValueError(f"Invalid values: {values}")
-
-    else:
-        # for other types, only check if None is in the values
-        if MD_NONE() not in values:
-            return "non_none"
-        else:
-            return "anything"
-        raise ValueError(f"Cannot generalize, check values: {values}")
-
-
 class APIParam(Param):
     def __init__(
         self, api_full_name: str, exception: Exception | Type[_NOT_SET] = _NOT_SET
@@ -168,11 +96,6 @@ class APIParam(Param):
         self.api_full_name = api_full_name
 
         self.exception = exception
-
-    def check_trace_line_match(self, trace_line: dict) -> bool:
-        if "function" not in trace_line:
-            return False
-        return trace_line["function"] == self.api_full_name
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
@@ -237,11 +160,6 @@ class VarTypeParam(Param):
 
         # for the VarPeriodicChangeRelation relation
         self.recur_value = recur_value
-
-    def check_trace_line_match(self, trace_line: dict) -> bool:
-        if "var_type" not in trace_line:
-            return False
-        return trace_line["var_type"] == self.var_type
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         """Checks whether the event is a candidate described by the param.
@@ -308,14 +226,6 @@ class VarNameParam(Param):
 
         # for the VarPeriodicChangeRelation relation
         self.recur_value = recur_value
-
-    def check_trace_line_match(self, trace_line: dict) -> bool:
-        if "var_type" not in trace_line:
-            return False
-        return (
-            trace_line["var_type"] == self.var_type
-            and trace_line["var_name"] == self.var_name
-        )
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         """Checks whether the event is a candidate described by the param.
