@@ -17,6 +17,7 @@ from mldaikon.proxy_wrapper.proxy_config import (
     tensor_dump_format,
 )
 from mldaikon.proxy_wrapper.utils import print_debug
+from mldaikon.utils import typename
 
 delta_dump = delta_dump_config["delta_dump"]
 delta_dump_attributes = delta_dump_config["delta_dump_attributes"]
@@ -168,6 +169,24 @@ def dump_attributes(obj, value):
                 # dump out all tensors inside the nn.Module
                 for name, param in attr.named_parameters():
                     result[attr_name] += f"\n{name}: {dump_tensor(param)}"
+            # elif callable(attr):
+            #     result[attr_name] = typename(attr)
+            # else:
+            #     # if serializable, dump the object
+            #     try:
+            #         json.dumps({"": attr})
+            #         result[attr_name] = attr
+            #     except TypeError:
+            #         if hasattr(attr, "to_dict"):
+            #             result[attr_name] = attr.to_dict()
+            #         else:
+            #             result[attr_name] = f"NOT SERIALIZABLE {type(attr)}: {str(attr)}"
+            if attr_name == "grad_fn":  # FIXME: ad-hoc
+                assert attr is None or callable(
+                    attr
+                ), f"grad_fn should be None or callable, but got {attr}"
+                result[attr_name] = typename(attr) if attr is not None else None
+
         except Exception as e:  # noqa
             print_debug(
                 lambda: f"Failed to get attribute {attr_name} of object type {type(value)}, skipping it. Error: {e}."  # noqa

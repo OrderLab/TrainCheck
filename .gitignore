@@ -52,6 +52,7 @@ Deepspeed/
 !config.json
 # local dummy files from yijun's branch
 84911_100_proxy_trace
+!/tests/test_trace_pandas/test_API_trace.log
 /lightning-thunder
 /machine-learning-issues/examples
 *.bin

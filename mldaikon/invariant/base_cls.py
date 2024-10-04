@@ -8,8 +8,13 @@ from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
 import mldaikon.config.config as config
+from mldaikon.invariant.symbolic_value import (
+    GENERALIZED_TYPES,
+    check_generalized_value_match,
+)
 from mldaikon.trace.trace import Trace, VarInstId
 from mldaikon.trace.types import (
+    MD_NONE,
     FuncCallEvent,
     FuncCallExceptionEvent,
     HighLevelEvent,
@@ -51,7 +56,10 @@ class Param:
                 json.dumps({field: value})
                 ret[field] = value
             except TypeError:
-                ret[field] = f"NOT SERIALIZABLE: {str(value)}"
+                if hasattr(value, "to_dict"):
+                    ret[field] = value.to_dict()
+                else:
+                    ret[field] = f"NOT SERIALIZABLE: {str(value)}"
 
         return ret
 
@@ -60,14 +68,12 @@ class Param:
         for param_type in Param.__subclasses__():
             if param_type.__name__ == param_dict["param_type"]:
                 args = {k: v for k, v in param_dict.items() if k != "param_type"}
+                # if any of the v is null, convert to MD_NONE
+                for k, v in args.items():
+                    if v is None:
+                        args[k] = MD_NONE()
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
-
-    def check_trace_line_match(self, trace_line: dict) -> bool:
-        """Checks whether the trace line is a candidate described by the param."""
-        raise NotImplementedError(
-            "check_trace_line_match method is not implemented yet."
-        )
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         "Check if the high level event contains the required information for the param."
@@ -92,72 +98,27 @@ class Param:
         )
 
 
-def generalize_values(values: list[type]) -> None | type | str:
-    """Given a list of values, should return a generalized value."""
-    if len(values) == 0:
-        return None
-
-    if len(set(values)) == 1:
-        # no need to generalize
-        return values[0]
-
-    none_in_values = None in values
-
-    assert (
-        len(set([type(v) for v in values])) - none_in_values == 1
-    ), f"Values should have the same type, got: {set([type(v) for v in values])} ({values})"
-
-    if any(isinstance(v, (int, float)) for v in values):
-        all_non_none_values: list[int | float] = [
-            v for v in values if isinstance(v, (int, float))
-        ]
-
-        min_value = min(all_non_none_values)  # type: ignore
-        max_value = max(all_non_none_values)  # type: ignore
-
-        assert (
-            min_value != max_value
-        ), "Min and max values are the same, you don't need to generalize the values"
-        if min_value > 0:
-            return "above_zero"
-        elif min_value >= 0:
-            return "non_negative"
-        elif max_value < 0:
-            return "below_zero"
-        elif max_value <= 0:
-            return "non_positive"
-        elif min_value < 0 and max_value > 0 and 0 not in values:
-            return "non_zero"
-        elif min_value < 0 and max_value > 0 and 0 in values and not none_in_values:
-            return "non_none"
-        else:
-            # numerical values should always be mergable
-            raise ValueError(f"Invalid values: {values}")
-
-    else:
-        # for other types, only check if None is in the values
-        if none_in_values:
-            return "non_none"
-        raise ValueError(f"Cannot generalize, check values: {values}")
-
-
 class APIParam(Param):
     def __init__(
         self, api_full_name: str, exception: Exception | Type[_NOT_SET] = _NOT_SET
     ):
         self.api_full_name = api_full_name
-
         self.exception = exception
-
-    def check_trace_line_match(self, trace_line: dict) -> bool:
-        if "function" not in trace_line:
-            return False
-        return trace_line["function"] == self.api_full_name
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
             return False
-        return event.func_name == self.api_full_name
+
+        matched = event.func_name == self.api_full_name
+        if self.exception != _NOT_SET:
+            matched = (
+                matched
+                and isinstance(event, FuncCallExceptionEvent)
+                and event.exception == self.exception
+            )
+        else:
+            matched = matched and not isinstance(event, FuncCallExceptionEvent)
+        return matched
 
     def with_no_customization(self) -> APIParam:
         return APIParam(self.api_full_name)
@@ -216,12 +177,7 @@ class VarTypeParam(Param):
         self.post_value = post_value
 
         # for the VarPeriodicChangeRelation relation
-        self.recur_value = recur_value
-
-    def check_trace_line_match(self, trace_line: dict) -> bool:
-        if "var_type" not in trace_line:
-            return False
-        return trace_line["var_type"] == self.var_type
+        self.recur_value = recur_value  # CHECKING OF THIS VALUE CAN ONLY BE DONE IN THE RELATION'S EVALUATE METHOD
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         """Checks whether the event is a candidate described by the param.
@@ -234,9 +190,42 @@ class VarTypeParam(Param):
         """
         if not isinstance(event, VarChangeEvent):
             return False
-        return (
+        var_attr_matched = (
             event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
         )
+
+        if self.recur_value != _NOT_SET:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "Recur value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
+            )
+
+        pre_and_post_value_matched = True
+        if self.pre_value != _NOT_SET:
+            if self.pre_value != event.old_state.value:
+                if self.pre_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.pre_value, event.old_state.value
+                        )
+                    )
+                else:
+                    return False
+
+        if self.post_value != _NOT_SET:
+            if self.post_value != event.new_state.value:
+                if self.post_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.post_value, event.new_state.value
+                        )
+                    )
+                else:
+                    return False
+
+        return var_attr_matched and pre_and_post_value_matched
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type
@@ -289,14 +278,6 @@ class VarNameParam(Param):
         # for the VarPeriodicChangeRelation relation
         self.recur_value = recur_value
 
-    def check_trace_line_match(self, trace_line: dict) -> bool:
-        if "var_type" not in trace_line:
-            return False
-        return (
-            trace_line["var_type"] == self.var_type
-            and trace_line["var_name"] == self.var_name
-        )
-
     def check_event_match(self, event: HighLevelEvent) -> bool:
         """Checks whether the event is a candidate described by the param.
         Note that, only var_type and attr_name are checked here.
@@ -308,11 +289,42 @@ class VarNameParam(Param):
         """
         if not isinstance(event, VarChangeEvent):
             return False
-        return (
-            event.var_id.var_type == self.var_type
-            and event.var_id.var_name == self.var_name
-            and event.attr_name == self.attr_name
+        var_attr_matched = (
+            event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
         )
+
+        if self.recur_value != _NOT_SET:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "Recur value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
+            )
+
+        pre_and_post_value_matched = True
+        if self.pre_value != _NOT_SET:
+            if self.pre_value != event.old_state.value:
+                if self.pre_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.pre_value, event.old_state.value
+                        )
+                    )
+                else:
+                    return False
+
+        if self.post_value != _NOT_SET:
+            if self.post_value != event.new_state.value:
+                if self.post_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.post_value, event.new_state.value
+                        )
+                    )
+                else:
+                    return False
+
+        return var_attr_matched and pre_and_post_value_matched
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type and var_id.var_name == self.var_name
@@ -397,7 +409,9 @@ PT = PreconditionClauseType
 
 
 class PreconditionClause:
-    def __init__(self, prop_name: str, prop_dtype: type, _type: PT, values: set | None):
+    def __init__(
+        self, prop_name: str, prop_dtype: type | None, _type: PT, values: set | None
+    ):
         assert _type in [
             PT.CONSISTENT,
             PT.CONSTANT,
@@ -405,10 +419,12 @@ class PreconditionClause:
         ], f"Invalid Precondition type {_type}"
 
         if _type in [PT.CONSISTENT, PT.CONSTANT]:
-            assert (
-                values is not None and len(values) > 0
-            ), "Values should not be empty for CONSTANT or CONSISTENT type"
-
+            if prop_dtype is None:
+                assert values == {None}, "Values should be None for prop_dtype None"
+            else:
+                assert (
+                    values is not None and len(values) > 0 and prop_dtype is not None
+                ), "Values should be provided for constant or consistent preconditions"
         self.prop_name = prop_name
         self.prop_dtype = prop_dtype
         self.type = _type
@@ -424,7 +440,7 @@ class PreconditionClause:
         clause_dict: dict[str, str | list] = {
             "type": self.type.value,
             "prop_name": self.prop_name,
-            "prop_dtype": self.prop_dtype.__name__,
+            "prop_dtype": self.prop_dtype.__name__ if self.prop_dtype else "None",
         }
         if self.type in [PT.CONSTANT, PT.CONSISTENT]:
             clause_dict["values"] = list(self.values)
@@ -740,7 +756,11 @@ class Invariant:
 
 class CheckerResult:
     def __init__(
-        self, trace: Optional[list[dict]], invariant: Invariant, check_passed: bool
+        self,
+        trace: Optional[list[dict]],
+        invariant: Invariant,
+        check_passed: bool,
+        triggered: bool,
     ):
         if trace is None:
             assert check_passed, "Check passed should be True for None trace"
@@ -749,6 +769,7 @@ class CheckerResult:
         self.trace = trace
         self.invariant = invariant
         self.check_passed = check_passed
+        self.triggered = triggered
 
     def __str__(self) -> str:
         return f"Trace: {self.trace}\nInvariant: {self.invariant}\nResult: {self.check_passed}"
@@ -776,20 +797,26 @@ class CheckerResult:
         return self.time_precentage
 
     def to_dict(self):
+        """Convert the CheckerResult object to a json serializable dictionary."""
         result_dict = {
             "invariant": self.invariant.to_dict(),
             "check_passed": self.check_passed,
+            "triggered": self.triggered,
         }
 
         if not self.check_passed:
             assert hasattr(
                 self, "time_precentage"
             ), "Time percentage not set for failed check, please call calc_and_set_time_precentage before converting to dict"
+
+            trace = self.trace.copy()
+            MD_NONE.replace_with_none(trace)
+
             result_dict.update(
                 {
                     "detection_time": self.get_max_time(),  # the time when the invariant was detected, using max_time as the invariant cannot be checked before the
                     "detection_time_percentage": self.time_precentage,
-                    "trace": self.trace,
+                    "trace": trace,
                 }
             )
 

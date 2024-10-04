@@ -33,7 +33,7 @@ POSITIVE_EXAMPLES_THRESHOLD = 2  # in ConsistencyRelation, we need to see at lea
 # trace configs
 VAR_ATTR_PREFIX = "attributes."
 INCOMPLETE_FUNC_CALL_SECONDS_TO_OUTERMOST_POST = 0.001  # only truncate the incomplete function call if it is no earlier than 1ms to the outermost function call's post event
-PROP_ATTR_TYPES = [
+PROP_ATTR_TYPES = [  # we can't use this due to difficulties in determining the type of the variable (pd.Object == pl.Boolean --> True??)
     bool,
     pl.Boolean,
 ]

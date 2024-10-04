@@ -16,7 +16,8 @@ from mldaikon.invariant.base_cls import (
     VarTypeParam,
 )
 from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Liveness, Trace
+from mldaikon.trace.trace import Trace
+from mldaikon.trace.types import Liveness
 
 tracker_var_field_prefix = "attributes."
 
@@ -118,7 +119,6 @@ class ConsistencyRelation(Relation):
                 hypo in hypothesis or (hypo[2], hypo[3], hypo[0], hypo[1]) in hypothesis
             )
 
-        # TODO: polars refactorization needed
         def skip_attrs_with_different_dtypes(attr1, attr2):
             return trace.get_column_dtype(
                 tracker_var_field_prefix + attr1
@@ -303,6 +303,12 @@ class ConsistencyRelation(Relation):
 
             if preconditions is not None:
                 hypothesis_with_examples[hypo].invariant.precondition = preconditions
+                hypothesis_with_examples[hypo].invariant.num_positive_examples = len(
+                    hypothesis_with_examples[hypo].positive_examples
+                )
+                hypothesis_with_examples[hypo].invariant.num_negative_examples = len(
+                    hypothesis_with_examples[hypo].negative_examples
+                )
                 passed_hypothesis.append(hypothesis_with_examples[hypo])
             else:
                 logger.debug(f"Precondition not found for {hypo}")
@@ -347,6 +353,7 @@ class ConsistencyRelation(Relation):
         assert isinstance(param1, VarTypeParam) and isinstance(
             param2, VarTypeParam
         ), "Invariant parameters should be VarTypeParam."
+        inv_triggered = False
 
         var_type1, attr1 = param1.var_type, param1.attr_name
         var_type2, attr2 = param2.var_type, param2.attr_name
@@ -372,12 +379,13 @@ class ConsistencyRelation(Relation):
                 trace=None,
                 invariant=inv,
                 check_passed=True,
+                triggered=False,
             )
 
         # collect value pairs to be checked
         start_time_collecting_pairs = time.time()
         num_collected_pairs = 0
-        value_pairs_to_check: dict[int, list[tuple]] = {}
+        value_pairs_to_check: dict[float, list[tuple]] = {}
         for i, var1_id in enumerate(type1_attr1):
             for j, var2_id in enumerate(type2_attr2):
                 if var_type1 == var_type2 and attr1 == attr2 and i >= j:
@@ -430,6 +438,7 @@ class ConsistencyRelation(Relation):
                     if not compare_result:
                         # check for precondition match, if yes, report alarm
                         if inv.precondition.verify(traces, VAR_GROUP_NAME):
+                            inv_triggered = True
                             logger.error(
                                 f"Invariant {inv} violated near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"  # type: ignore
                             )
@@ -441,6 +450,7 @@ class ConsistencyRelation(Relation):
                                 trace=traces,
                                 invariant=inv,
                                 check_passed=False,
+                                triggered=True,
                             )
                         else:
                             logger.debug(
@@ -448,6 +458,7 @@ class ConsistencyRelation(Relation):
                             )
                 else:
                     if inv.precondition.verify(traces, VAR_GROUP_NAME):
+                        inv_triggered = True
                         compare_result = ConsistencyRelation.evaluate(
                             [attr1_val.value, attr2_val.value]
                         )
@@ -463,6 +474,7 @@ class ConsistencyRelation(Relation):
                                 trace=traces,
                                 invariant=inv,
                                 check_passed=False,
+                                triggered=True,
                             )
                     else:
                         logger.debug(
@@ -478,4 +490,5 @@ class ConsistencyRelation(Relation):
             trace=None,
             invariant=inv,
             check_passed=True,
+            triggered=inv_triggered,
         )

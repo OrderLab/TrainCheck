@@ -7,7 +7,7 @@ import re
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import CheckerResult, Invariant, read_inv_file
-from mldaikon.trace.trace import Trace, read_trace_file
+from mldaikon.trace import Trace, select_trace_implementation
 
 
 def check_engine(
@@ -74,9 +74,17 @@ if __name__ == "__main__":
             which opens opportunity for precondition refinement. Note that the precondition 
             refinement algorithm is not implemented yet.""",
     )
+    parser.add_argument(
+        "-b",
+        "--backend",
+        type=str,
+        choices=["pandas", "polars", "dict"],
+        default="pandas",
+        help="Specify the backend to use for Trace",
+    )
 
     args = parser.parse_args()
-
+    _, read_trace_file = select_trace_implementation(args.backend)
     # read the invariants
 
     if args.debug:
@@ -118,6 +126,28 @@ if __name__ == "__main__":
         traces = [read_trace_file(group) for group in trace_file_groups]
 
     results = check_engine(traces, invs, args.check_relation_first)
+    results_failed = [res for res in results if not res.check_passed]
+    results_not_triggered = [res for res in results if res.triggered is False]
+
+    logger.addHandler(logging.StreamHandler())
+
+    logger.info("Checking finished. %d invariants checked", len(results))
+    logger.info(
+        "Total failed invariants: %d/%d",
+        len(results_failed),
+        len(results),
+    )
+    logger.info(
+        "Total passed invariants: %d/%d",
+        len(results) - len(results_failed),
+        len(results),
+    )
+    # TODO:
+    logger.info(
+        "Total invariants that's not triggered: %d/%d",
+        len(results_not_triggered),
+        len(results),
+    )
 
     # dump the results to a file
     with open(

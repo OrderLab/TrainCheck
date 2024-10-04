@@ -57,6 +57,18 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
 
     paths: List[List[APIParam]] = []
 
+    def is_subset(path1: List[APIParam], path2: List[APIParam]) -> bool:
+        return set(path1).issubset(set(path2))
+
+    def add_path(new_path: List[APIParam]) -> None:
+        nonlocal paths
+        for existing_path in paths[:]:
+            if is_subset(existing_path, new_path):
+                paths.remove(existing_path)
+            if is_subset(new_path, existing_path):
+                return
+        paths.append(new_path)
+
     def dfs(node: APIParam, path: List[APIParam], visited: Set[APIParam]) -> None:
         path.append(node)
         visited.add(node)
@@ -67,7 +79,7 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
                 ):
                     dfs(neighbor, path, visited)
         if not graph.get(node):
-            paths.append(path.copy())
+            add_path(path.copy())
         path.pop()
         visited.remove(node)
 
@@ -454,6 +466,7 @@ class FunctionCoverRelation(Relation):
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
 
+        inv_triggered = False
         # If the trace contains no function, return vacuous true result
         func_names = trace.get_func_names()
         if len(func_names) == 0:
@@ -462,6 +475,7 @@ class FunctionCoverRelation(Relation):
                 trace=None,
                 invariant=inv,
                 check_passed=True,
+                triggered=False,
             )
 
         _, function_times, function_id_map, listed_events = trace.get_data_processed()
@@ -534,10 +548,12 @@ class FunctionCoverRelation(Relation):
                     if funcB == event["function"]:
                         if flag_B is not None:
                             if inv.precondition.verify([events_list], "func_cover"):
+                                inv_triggered = True
                                 return CheckerResult(
                                     trace=[pre_recordB, event],
                                     invariant=inv,
                                     check_passed=False,
+                                    triggered=True,
                                 )
 
                         flag_B = event["time"]
@@ -551,8 +567,10 @@ class FunctionCoverRelation(Relation):
                         #             check_passed=False,
                         #         )
 
+        # FIXME: triggered is always False for passing invariants
         return CheckerResult(
             trace=None,
             invariant=inv,
             check_passed=True,
+            triggered=inv_triggered,
         )

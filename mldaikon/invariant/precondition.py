@@ -3,6 +3,7 @@ import random
 from itertools import combinations
 from typing import Hashable
 
+import pandas as pd
 from tqdm import tqdm
 
 import mldaikon.config.config as config
@@ -14,6 +15,7 @@ from mldaikon.invariant.base_cls import (
     PreconditionClause,
     UnconditionalPrecondition,
 )
+from mldaikon.trace.types import MD_NONE
 
 logger = logging.getLogger("Precondition")
 
@@ -59,12 +61,14 @@ def _find_local_clauses(
         for value in prop_values_seen:
             if value is None:
                 continue
+            if pd.isna(value):
+                continue
             if prop_dtype is None:
                 prop_dtype = type(value)
-            if prop_dtype != type(value) and value is not None:
-                raise ValueError(
-                    f"Property {prop} has inconsistent types {prop_dtype, type(value)} in the example"
-                )
+            # if prop_dtype != type(value) and value is not None:
+            #     raise ValueError(
+            #         f"Property {prop} has inconsistent types {prop_dtype, type(value)} in the example"
+            #     )
 
         if prop_dtype is None:
             # logger.warning(
@@ -73,6 +77,8 @@ def _find_local_clauses(
             continue
 
         if len(prop_values_seen) == 1 and prop_dtype is not None:
+            if prop_dtype is MD_NONE:
+                clauses.append(PreconditionClause(prop, None, PT.CONSTANT, {None}))
             clauses.append(
                 PreconditionClause(prop, prop_dtype, PT.CONSTANT, prop_values_seen)
             )
@@ -207,8 +213,8 @@ def find_precondition(
             positive_examples, negative_examples, keys_to_skip
         )
 
-    # if every group's precondition is of length 0, return None
-    if all(
+    # if any group's precondition is of length 0, return None
+    if any(
         len(grouped_preconditions[group_name]) == 0
         for group_name in grouped_preconditions
     ):
