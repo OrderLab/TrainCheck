@@ -23,31 +23,31 @@ GENERALIZED_TYPES = {
 }
 
 
-def is_above_zero(value: int | float) -> bool:
+def is_above_zero(value: int | float | MD_NONE) -> bool:
     return not isinstance(value, MD_NONE) and value > 0
 
 
-def is_below_zero(value: int | float) -> bool:
+def is_below_zero(value: int | float | MD_NONE) -> bool:
     return not isinstance(value, MD_NONE) and value < 0
 
 
-def is_non_positive(value: int | float) -> bool:
+def is_non_positive(value: int | float | MD_NONE) -> bool:
     return isinstance(value, MD_NONE) or value <= 0
 
 
-def is_non_negative(value: int | float) -> bool:
+def is_non_negative(value: int | float | MD_NONE) -> bool:
     return isinstance(value, MD_NONE) or value >= 0
 
 
-def is_non_zero(value: int | float) -> bool:
+def is_non_zero(value: int | float | MD_NONE) -> bool:
     return not isinstance(value, MD_NONE) and value != 0
 
 
-def is_non_none(value: int | float) -> bool:
+def is_non_none(value: int | float | MD_NONE) -> bool:
     return not isinstance(value, MD_NONE)
 
 
-def is_anything(value: int | float) -> bool:
+def is_anything(value: int | float | MD_NONE) -> bool:
     return True
 
 
@@ -69,7 +69,7 @@ def check_generalized_value_match(generalized_type: str, value: Any) -> bool:
     ), f"Invalid generalized type: {generalized_type}, expected one of {generalized_value_match.keys()}"
 
     assert isinstance(
-        value, (int, float)
+        value, (int, float, MD_NONE)
     ), f"Expecting value to be a numeric type (though we should support more), got: {value}"
     return generalized_value_match[generalized_type](value)
 
