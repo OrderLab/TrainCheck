@@ -36,9 +36,13 @@ def get_attr_name(col_name: str) -> str:
 class TracePandas(Trace):
     def __init__(self, events, truncate_incomplete_func_calls=True):
         self.events = events
+
+        ## all caches
         self.var_ids = None
         self.var_insts = None
         self.var_changes = None
+
+        self.all_func_call_ids: dict[str, list[str]] = {}
 
         if isinstance(events, list) and all(
             [isinstance(e, pd.DataFrame) for e in events]
@@ -244,13 +248,21 @@ class TracePandas(Trace):
                 "func_call_id column not found in the events, no function related invariants will be extracted."
             )
             return []
+
+        if func_name in self.all_func_call_ids:
+            return self.all_func_call_ids[func_name]
+
         if func_name:
-            return (
+            result = (
                 self.events[self.events["function"] == func_name]["func_call_id"]
                 .dropna()
                 .unique()
                 .tolist()
             )
+            self.all_func_call_ids[func_name] = result
+            return result
+
+        assert False, "Why do you need to call this function without a function name?"
         return self.events["func_call_id"].dropna().unique().tolist()
 
     def get_column_dtype(self, column_name: str) -> type:
@@ -280,6 +292,37 @@ class TracePandas(Trace):
             )
             return []
         return self.events["function"].dropna().unique().tolist()
+
+    def get_max_num_consecutive_call_func(self, func_name: str) -> int:
+        """Find the maximum number of contiguous calls to a function in the trace.
+
+        TODO: THIS IS NOT SOUND NOR THE CORRECT WAY TO GET NUMBER OF CONSECUTIVE CALLS OF A FUNCTION. SHOULD ONLY BE CALLED BY THE LEAD/COVER RELATION AS A TEMPORARY PRUNING SOLUTION.
+        """
+        # Create group IDs for consecutive function calls
+        if not hasattr(self, "_cache_group_counts"):
+
+            events = self.events.copy()
+            events["group_id"] = (
+                events["function"] != events["function"].shift()
+            ).cumsum()
+
+            # Group by group_id and count the consecutive function calls
+            group_counts = (
+                events.groupby("group_id")
+                .agg(function=("function", "first"), count=("function", "size"))
+                .reset_index(drop=True)
+            )
+            self._cache_group_counts = (
+                group_counts  # a temporary cache for efficient querying
+            )
+        else:
+            group_counts = self._cache_group_counts
+        # Filter for the given function name and find the maximum count
+        max_consecutive = group_counts.loc[
+            group_counts["function"] == func_name, "count"
+        ].max()
+
+        return max_consecutive if pd.notna(max_consecutive) else 0
 
     def get_func_is_bound_method(self, func_name: str) -> bool:
         """Check if a function is bound to a class (i.e. method of a object).

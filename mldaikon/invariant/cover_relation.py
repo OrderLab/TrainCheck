@@ -1,8 +1,3 @@
-"""TODOs @Boyu:
-1. Implementation Clean-up for both Cover and Lead Relations
-    1. add comments to certain variable names as they are a bit unclear.
-"""
-
 import logging
 from itertools import permutations
 from typing import Any, Dict, List, Set, Tuple
@@ -20,8 +15,14 @@ from mldaikon.invariant.base_cls import (
     Invariant,
     Relation,
 )
+from mldaikon.invariant.lead_relation import (
+    get_func_data_per_PT,
+    get_func_names_to_deal_with,
+)
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+
+EXP_GROUP_NAME = "func_cover"
 
 
 def is_complete_subgraph(
@@ -86,11 +87,15 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
     for start_node in start_nodes:
         dfs(start_node, [], set())
 
-    # print(paths)
     return paths
 
 
 class FunctionCoverRelation(Relation):
+    """FunctionCoverRelation is a relation that checks if one function covers another function.
+
+    say function A and function B are two functions in the trace, we say function A covers function B when
+    every time function B is called, a function A invocation exists before it.
+    """
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
@@ -102,69 +107,20 @@ class FunctionCoverRelation(Relation):
         print("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+        listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+        function_pool: Set[Any] = set()
 
         # If the trace contains no function, safely exists infer process
-        func_names = trace.get_func_names()
-        if len(func_names) == 0:
+        function_pool = set(get_func_names_to_deal_with(trace))
+        if len(function_pool) == 0:
             logger.warning(
-                "No function calls found in the trace, skipping the analysis"
+                "No relevant function calls found in the trace, skipping the analysis"
             )
             return [], []
 
-        events = trace.get_filtered_function()
-        function_pool = set(
-            events["function"].unique().to_list()
-        )  # All filtered function names
-
-        with open("check_function_pool.txt", "w") as file:
-            for function in function_pool:
-                file.write(f"{function}\n")
-
-        required_columns = {"function", "func_call_id", "type", "time"}
-        if not required_columns.issubset(events.columns):
-            raise ValueError(
-                f"Missing column: {required_columns - set(events.columns)}"
-            )
-
-        group_by_events = events.group_by(["process_id", "thread_id"])
-
-        for group_events in tqdm(group_by_events):
-            (process_id, thread_id), evs = group_events
-            sorted_group_events = evs.sort("time")
-            if (process_id, thread_id) not in function_id_map:
-                function_id_map[(process_id, thread_id)] = {}
-
-            if (process_id, thread_id) not in function_times:
-                function_times[(process_id, thread_id)] = {}
-
-            for event in sorted_group_events.iter_rows(named=True):
-                if event["function"] in function_pool:
-                    if (
-                        event["function"]
-                        not in function_id_map[(process_id, thread_id)]
-                    ):
-                        function_id_map[(process_id, thread_id)][event["function"]] = []
-                    func_id = event["func_call_id"]
-                    function_id_map[(process_id, thread_id)][event["function"]].append(
-                        func_id
-                    )
-
-                    if event["type"] == "function_call (pre)":
-                        if func_id not in function_times[(process_id, thread_id)]:
-                            function_times[(process_id, thread_id)][func_id] = {}
-                        function_times[(process_id, thread_id)][func_id]["start"] = (
-                            event["time"]
-                        )
-                        function_times[(process_id, thread_id)][func_id]["function"] = (
-                            event["function"]
-                        )
-                    elif event["type"] in [
-                        "function_call (post)",
-                        "function_call (post) (exception)",
-                    ]:
-                        function_times[(process_id, thread_id)][func_id]["end"] = event[
-                            "time"
-                        ]
+        function_times, function_id_map, listed_events = get_func_data_per_PT(
+            trace, function_pool
+        )
         print("End preprocessing")
 
         # 2. Check if two function on the same level for each thread and process
@@ -195,10 +151,9 @@ class FunctionCoverRelation(Relation):
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
-        for group_events in tqdm(
-            group_by_events, ascii=True, leave=True, desc="Groups Processed"
+        for (process_id, thread_id), _ in tqdm(
+            listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
         ):
-            (process_id, thread_id), _ = group_events
             same_level_func[(process_id, thread_id)] = {}
             for funcA, funcB in tqdm(
                 permutations(function_pool, 2),
@@ -215,7 +170,6 @@ class FunctionCoverRelation(Relation):
 
         # 3. Generating hypothesis
         print("Start generating hypo...")
-        group_name = "func_cover"
         hypothesis_with_examples = {
             (func_A, func_B): Hypothesis(
                 invariant=Invariant(
@@ -227,8 +181,8 @@ class FunctionCoverRelation(Relation):
                     precondition=None,
                     text_description=f"FunctionCoverRelation between {func_A} and {func_B}",
                 ),
-                positive_examples=ExampleList({group_name}),
-                negative_examples=ExampleList({group_name}),
+                positive_examples=ExampleList({EXP_GROUP_NAME}),
+                negative_examples=ExampleList({EXP_GROUP_NAME}),
             )
             for (func_A, func_B), _ in valid_relations.items()
         }
@@ -236,12 +190,13 @@ class FunctionCoverRelation(Relation):
 
         # 4. Add positive and negative examples
         print("Start adding examples...")
-        for group_events in tqdm(group_by_events, ascii=True, leave=True, desc="Group"):
-            (process_id, thread_id), evs = group_events
-            sorted_group_events = evs.sort("time")
+        for (process_id, thread_id), events_list in tqdm(
+            listed_events.items(), ascii=True, leave=True, desc="Group"
+        ):
 
             for (func_A, func_B), _ in tqdm(
-                valid_relations.items(), ascii=True, leave=True, desc="Function Pair"
+                valid_relations.items(),
+                desc="Function Pair",
             ):
 
                 if func_A not in same_level_func[(process_id, thread_id)]:
@@ -255,7 +210,7 @@ class FunctionCoverRelation(Relation):
                 pre_record_A = []
                 pre_record_B = []
 
-                for event in sorted_group_events.iter_rows(named=True):
+                for event in events_list:
                     if event["type"] != "function_call (pre)":
                         continue
 
@@ -268,7 +223,7 @@ class FunctionCoverRelation(Relation):
                         if flag_B is not None:
                             valid_relations[(func_A, func_B)] = False
                             neg = Example()
-                            neg.add_group(group_name, pre_record_B)
+                            neg.add_group(EXP_GROUP_NAME, pre_record_B)
                             hypothesis_with_examples[
                                 (func_A, func_B)
                             ].negative_examples.add_example(neg)
@@ -280,13 +235,13 @@ class FunctionCoverRelation(Relation):
                         if flag_A is None:
                             valid_relations[(func_A, func_B)] = False
                             neg = Example()
-                            neg.add_group(group_name, [event])
+                            neg.add_group(EXP_GROUP_NAME, [event])
                             hypothesis_with_examples[
                                 (func_A, func_B)
                             ].negative_examples.add_example(neg)
                         else:
                             pos = Example()
-                            pos.add_group(group_name, pre_record_A)
+                            pos.add_group(EXP_GROUP_NAME, pre_record_A)
                             hypothesis_with_examples[
                                 (func_A, func_B)
                             ].positive_examples.add_example(pos)
@@ -299,6 +254,7 @@ class FunctionCoverRelation(Relation):
         if_merge = True
 
         failed_hypothesis = []
+
         if not brief_moode:
             # Do complete precondition inference
             print("Start precondition inference...")
@@ -338,10 +294,8 @@ class FunctionCoverRelation(Relation):
             print("Start merging invariants...")
             relation_pool: Dict[
                 GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
-            ] = (
-                {}
-            )  # relation_pool contains all binary relations classified by GroupedPreconditions (key)
-
+            ] = {}
+            # relation_pool contains all binary relations classified by GroupedPreconditions (key)
             for hypo in hypothesis_with_examples:
                 if (
                     hypothesis_with_examples[hypo].invariant.precondition
@@ -358,7 +312,7 @@ class FunctionCoverRelation(Relation):
                 GroupedPreconditions | None, List[List[APIParam]]
             ] = {}
 
-            for key, values in relation_pool.items():
+            for key, values in tqdm(relation_pool.items(), desc="Merging Invariants"):
                 merged_relations[key] = merge_relations(values)
 
             merged_ininvariants = []
@@ -513,7 +467,13 @@ class FunctionCoverRelation(Relation):
             inv: Invariant
                 The invariant to check on the trace.
         """
+
         assert inv.precondition is not None, "Invariant should have a precondition."
+
+        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+        listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+
         inv_triggered = False
         # If the trace contains no function, return vacuous true result
         func_names = trace.get_func_names()
@@ -525,8 +485,6 @@ class FunctionCoverRelation(Relation):
                 check_passed=True,
                 triggered=False,
             )
-
-        events = trace.get_filtered_function()
 
         function_pool = (
             []
@@ -540,55 +498,24 @@ class FunctionCoverRelation(Relation):
             ), "Invariant parameters should be APIParam."
             function_pool.append(func.api_full_name)
 
-        required_columns = {"function", "func_call_id", "type", "time"}
-        if not required_columns.issubset(events.columns):
-            raise ValueError(
-                f"Missing column: {required_columns - set(events.columns)}"
+        function_pool = list(set(function_pool).intersection(func_names))
+
+        # YUXUAN ASK: if function_pool is not stictly subset of func_names, should we directly return false?
+
+        if len(function_pool) == 0:
+            print(
+                "No relevant function calls found in the trace, skipping the checking"
+            )
+            return CheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+                triggered=False,
             )
 
-        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
-        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
-
-        group_by_events = events.group_by(["process_id", "thread_id"])
-
-        for group_events in group_by_events:
-            (process_id, thread_id), evs = group_events
-            assert isinstance(process_id, str) and isinstance(thread_id, str)
-            sorted_group_events = evs.sort("time")
-            if (process_id, thread_id) not in function_id_map:
-                function_id_map[(process_id, thread_id)] = {}
-
-            if (process_id, thread_id) not in function_times:
-                function_times[(process_id, thread_id)] = {}
-
-            for event in sorted_group_events.iter_rows(named=True):
-                if event["function"] in function_pool:
-                    if (
-                        event["function"]
-                        not in function_id_map[(process_id, thread_id)]
-                    ):
-                        function_id_map[(process_id, thread_id)][event["function"]] = []
-                    func_id = event["func_call_id"]
-                    function_id_map[(process_id, thread_id)][event["function"]].append(
-                        func_id
-                    )
-
-                    if event["type"] == "function_call (pre)":
-                        if func_id not in function_times[(process_id, thread_id)]:
-                            function_times[(process_id, thread_id)][func_id] = {}
-                        function_times[(process_id, thread_id)][func_id]["start"] = (
-                            event["time"]
-                        )
-                        function_times[(process_id, thread_id)][func_id]["function"] = (
-                            event["function"]
-                        )
-                    elif event["type"] in [
-                        "function_call (post)",
-                        "function_call (post) (exception)",
-                    ]:
-                        function_times[(process_id, thread_id)][func_id]["end"] = event[
-                            "time"
-                        ]
+        function_times, function_id_map, listed_events = get_func_data_per_PT(
+            trace, function_pool
+        )
 
         def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
             if funcA == funcB:
@@ -621,10 +548,8 @@ class FunctionCoverRelation(Relation):
                 func_B, APIParam
             ), "Invariant parameters should be string."
 
-            for group_events in group_by_events:
-                (process_id, thread_id), evs = group_events
+            for (process_id, thread_id), events_list in listed_events.items():
                 assert isinstance(process_id, str) and isinstance(thread_id, str)
-                sorted_group_events = evs.sort("time")
 
                 funcA = func_A.api_full_name
                 funcB = func_B.api_full_name
@@ -633,21 +558,19 @@ class FunctionCoverRelation(Relation):
                     continue
 
                 # check
-                # flag_A = None
                 flag_B = None
                 pre_recordB = None
-                for event in sorted_group_events.iter_rows(named=True):
+                for event in events_list:
                     if event["type"] != "function_call (pre)":
                         continue
 
                     if funcA == event["function"]:
-                        # flag_A = event["time"]
                         flag_B = None
                         pre_recordB = None
 
                     if funcB == event["function"]:
                         if flag_B is not None:
-                            if inv.precondition.verify([events], "func_cover"):
+                            if inv.precondition.verify([events_list], EXP_GROUP_NAME):
                                 inv_triggered = True
                                 return CheckerResult(
                                     trace=[pre_recordB, event],
@@ -655,17 +578,8 @@ class FunctionCoverRelation(Relation):
                                     check_passed=False,
                                     triggered=True,
                                 )
-
                         flag_B = event["time"]
                         pre_recordB = event
-
-                        # if flag_A is None:
-                        #     if inv.precondition.verify([events], "func_cover"):
-                        #         return CheckerResult(
-                        #             trace=[event],
-                        #             invariant=inv,
-                        #             check_passed=False,
-                        #         )
 
         # FIXME: triggered is always False for passing invariants
         return CheckerResult(
