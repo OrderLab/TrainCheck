@@ -213,8 +213,8 @@ def find_precondition(
             positive_examples, negative_examples, keys_to_skip
         )
 
-    # if every group's precondition is of length 0, return None
-    if all(
+    # if any group's precondition is of length 0, return None
+    if any(
         len(grouped_preconditions[group_name]) == 0
         for group_name in grouped_preconditions
     ):

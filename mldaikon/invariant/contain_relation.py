@@ -21,9 +21,9 @@ from mldaikon.invariant.base_cls import (
     calc_likelihood,
     construct_api_param,
     construct_var_param_from_var_change,
-    generalize_values,
 )
 from mldaikon.invariant.precondition import find_precondition
+from mldaikon.invariant.symbolic_value import generalize_values
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import (
     ALL_EVENT_TYPES,
@@ -507,8 +507,9 @@ class APIContainRelation(Relation):
 
             nums_contained_events: list[int] = []
             for parent_func_call_id in parent_func_call_ids:
-                if prune_func_call(len(parent_func_call_ids), nums_contained_events):
-                    continue
+                # if prune_func_call(len(parent_func_call_ids), nums_contained_events):
+                #     """This is not sound"""
+                #     continue
                 contained_events = events_scanner(
                     trace=trace, func_call_id=parent_func_call_id
                 )
@@ -783,13 +784,19 @@ class APIContainRelation(Relation):
             parent_param, APIParam
         ), "Expected the first parameter to be an APIParam"
         assert isinstance(
-            child_param, (APIParam, VarTypeParam)
+            child_param, (APIParam, VarTypeParam, VarNameParam)
         ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
+
+        # TODO: support VarNameParam in the future
 
         logger = logging.getLogger(__name__)
 
         parent_func_name = parent_param.api_full_name
         preconditions = inv.precondition
+        inv_triggered = (
+            False  # should be set to True if precondition is met at least once
+        )
+
         assert (
             preconditions is not None
         ), "Expected the precondition to be set for the invariant"
@@ -842,6 +849,9 @@ Defaulting to skip the var preconditon check for now.
                     )
                     continue
 
+                # precondition passed
+                inv_triggered = True
+
                 # invariant check
                 events = events_scanner(trace=trace, func_call_id=parent_func_call_id)
                 nums_contained_events.append(len(events))
@@ -866,6 +876,9 @@ Defaulting to skip the var preconditon check for now.
                         f"Precondition not met for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}, skipping the contained events check"
                     )
                     continue
+
+                # precondition passed
+                inv_triggered = True
 
             if not skip_var_unchanged_check:
                 assert isinstance(
@@ -905,10 +918,14 @@ Defaulting to skip the var preconditon check for now.
                 )
 
                 # TODO: improve reported error message + include the trace for variables that didn't change in the causal relation case
+                assert (
+                    inv_triggered
+                ), "Expected the invariant to be triggered, check internal logic correctness"
                 result = CheckerResult(
                     trace=[parent_pre_record],
                     invariant=inv,
                     check_passed=False,
+                    triggered=inv_triggered,
                 )
                 return result
 
@@ -916,4 +933,5 @@ Defaulting to skip the var preconditon check for now.
             trace=None,
             invariant=inv,
             check_passed=True,
+            triggered=inv_triggered,
         )

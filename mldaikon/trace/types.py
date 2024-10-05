@@ -15,6 +15,27 @@ class MD_NONE:
         """Return a serializable dictionary representation of the object."""
         return None
 
+    @staticmethod
+    def json_encoder(d):
+        if type(d) == MD_NONE:
+            return None
+        return d
+
+    @staticmethod
+    def replace_with_none(list_or_dict):
+        if isinstance(list_or_dict, list):
+            for i, value in enumerate(list_or_dict):
+                if isinstance(value, MD_NONE):
+                    list_or_dict[i] = None
+                elif isinstance(value, dict):
+                    MD_NONE.replace_with_none(value)
+        elif isinstance(list_or_dict, dict):
+            for key, value in list_or_dict.items():
+                if isinstance(value, MD_NONE):
+                    list_or_dict[key] = None
+                elif isinstance(value, dict):
+                    MD_NONE.replace_with_none(value)
+
 
 class MD_NULL:
     def __eq__(self, o: object) -> bool:
