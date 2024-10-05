@@ -36,9 +36,13 @@ def get_attr_name(col_name: str) -> str:
 class TracePandas(Trace):
     def __init__(self, events, truncate_incomplete_func_calls=True):
         self.events = events
+
+        ## all caches
         self.var_ids = None
         self.var_insts = None
         self.var_changes = None
+
+        self.all_func_call_ids: dict[str, list[str]] = {}
 
         if isinstance(events, list) and all(
             [isinstance(e, pd.DataFrame) for e in events]
@@ -244,13 +248,21 @@ class TracePandas(Trace):
                 "func_call_id column not found in the events, no function related invariants will be extracted."
             )
             return []
+
+        if func_name in self.all_func_call_ids:
+            return self.all_func_call_ids[func_name]
+
         if func_name:
-            return (
+            result = (
                 self.events[self.events["function"] == func_name]["func_call_id"]
                 .dropna()
                 .unique()
                 .tolist()
             )
+            self.all_func_call_ids[func_name] = result
+            return result
+
+        assert False, "Why do you need to call this function without a function name?"
         return self.events["func_call_id"].dropna().unique().tolist()
 
     def get_column_dtype(self, column_name: str) -> type:

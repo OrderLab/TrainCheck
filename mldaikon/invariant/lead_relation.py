@@ -1,6 +1,7 @@
 import logging
+import re
 from itertools import permutations
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from tqdm import tqdm
 
@@ -12,11 +13,105 @@ from mldaikon.invariant.base_cls import (
     FailedHypothesis,
     GroupedPreconditions,
     Hypothesis,
+    IncompleteFuncCallEvent,
     Invariant,
     Relation,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+
+EXP_GROUP_NAME = "func_lead"
+FUNC_CALL_FILTERING_THRESHOLD = 100  # ideally this should be proportional to the number of training and testing iterations in the trace
+
+
+def get_func_names_to_deal_with(trace: Trace) -> List[str]:
+    """Get all functions in the trace."""
+    function_pool: Set[str] = set()
+
+    # get all functions in the trace
+    all_func_names = trace.get_func_names()
+
+    # filtering 1: remove private functions
+    private_function_patterns = ["_.*"]
+    for func_name in all_func_names:
+        for pattern in private_function_patterns:
+            if re.match(pattern, func_name):
+                continue
+        function_pool.add(func_name)
+
+    # filtering 2: remove functions that occurred too many times
+    func_occur_num = {
+        func_name: len(trace.get_func_call_ids(func_name))
+        for func_name in function_pool
+    }
+    for func_name, occur_num in func_occur_num.items():
+        if occur_num > FUNC_CALL_FILTERING_THRESHOLD:
+            function_pool.remove(func_name)
+
+    return list(function_pool)
+
+
+def get_func_data_per_PT(trace: Trace, function_pool: Iterable[str]):
+    """
+    Get
+        1. all function timestamps per process and thread.
+        2. all function ids per process and thread.
+        3. all events per process and thread.
+
+    # see below code for the structure of the return values
+
+    """
+    function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = (
+        {}
+    )  # map from (process_id, thread_id) to function call id to start and end time and function name
+    function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = (
+        {}
+    )  # map from (process_id, thread_id) to function name to function call ids
+    listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = (
+        {}
+    )  # map from (process_id, thread_id) to all events
+    # for all func_ids, get their corresponding events
+    for func_name in function_pool:
+        func_call_ids = trace.get_func_call_ids(func_name)
+        for func_call_id in func_call_ids:
+            event = trace.query_func_call_event(func_call_id)
+            assert not isinstance(
+                event, IncompleteFuncCallEvent
+            ), "why would we hypothesize on incomplete events (incomplete func calls are typically outermost functions)?"
+            process_id = event.pre_record["process_id"]
+            thread_id = event.pre_record["thread_id"]
+
+            # populate the function_times
+            if (process_id, thread_id) not in function_times:
+                function_times[(process_id, thread_id)] = {}
+
+            function_times[(process_id, thread_id)][func_call_id] = {
+                "start": event.pre_record["time"],
+                "end": event.post_record["time"],
+                "function": func_name,
+            }
+
+            # populate the function_id_map
+            if (process_id, thread_id) not in function_id_map:
+                function_id_map[(process_id, thread_id)] = {}
+            if func_name not in function_id_map[(process_id, thread_id)]:
+                function_id_map[(process_id, thread_id)][func_name] = []
+            function_id_map[(process_id, thread_id)][func_name].append(func_call_id)
+
+            # populate the listed_events
+            if (process_id, thread_id) not in listed_events:
+                listed_events[(process_id, thread_id)] = []
+            listed_events[(process_id, thread_id)].extend(
+                [event.pre_record, event.post_record]
+            )
+
+    # sort the listed_events
+    for (process_id, thread_id), events_list in listed_events.items():
+        listed_events[(process_id, thread_id)] = sorted(
+            events_list, key=lambda x: x["time"]
+        )
+
+    return function_times, function_id_map, listed_events
 
 
 def is_complete_subgraph(
@@ -85,6 +180,11 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
 
 
 class FunctionLeadRelation(Relation):
+    """FunctionLeadRelation is a relation that checks if one function covers another function.
+
+    say function A and function B are two functions in the trace, we say function A covers function B when
+    every time function A is called, a function B invocation follows.
+    """
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
@@ -100,15 +200,15 @@ class FunctionLeadRelation(Relation):
         function_pool: Set[Any] = set()
 
         # If the trace contains no function, safely exists infer process
-        func_names = trace.get_func_names()
-        if len(func_names) == 0:
+        function_pool = set(get_func_names_to_deal_with(trace))
+        if len(function_pool) == 0:
             logger.warning(
-                "No function calls found in the trace, skipping the analysis"
+                "No relevant function calls found in the trace, skipping the analysis"
             )
             return [], []
 
-        function_pool, function_times, function_id_map, listed_events = (
-            trace.get_data_processed()
+        function_times, function_id_map, listed_events = get_func_data_per_PT(
+            trace, function_pool
         )
         print("End preprocessing")
 
@@ -149,8 +249,6 @@ class FunctionLeadRelation(Relation):
                 ascii=True,
                 leave=True,
                 desc="Combinations Checked",
-                mininterval=5,
-                maxinterval=10,
             ):
                 if check_same_level(funcA, funcB, process_id, thread_id):
                     if funcA not in same_level_func[(process_id, thread_id)]:
@@ -161,7 +259,6 @@ class FunctionLeadRelation(Relation):
 
         # 3. Generating hypothesis
         print("Start generating hypo...")
-        group_name = "func_lead"
         hypothesis_with_examples = {
             (func_A, func_B): Hypothesis(
                 invariant=Invariant(
@@ -173,8 +270,8 @@ class FunctionLeadRelation(Relation):
                     precondition=None,
                     text_description=f"FunctionLeadRelation between {func_A} and {func_B}",
                 ),
-                positive_examples=ExampleList({group_name}),
-                negative_examples=ExampleList({group_name}),
+                positive_examples=ExampleList({EXP_GROUP_NAME}),
+                negative_examples=ExampleList({EXP_GROUP_NAME}),
             )
             for (func_A, func_B), _ in valid_relations.items()
         }
@@ -188,11 +285,7 @@ class FunctionLeadRelation(Relation):
 
             for (func_A, func_B), _ in tqdm(
                 valid_relations.items(),
-                ascii=True,
-                leave=True,
                 desc="Function Pair",
-                mininterval=5,
-                maxinterval=10,
             ):
 
                 if func_A not in same_level_func[(process_id, thread_id)]:
@@ -219,7 +312,7 @@ class FunctionLeadRelation(Relation):
 
                         valid_relations[(func_A, func_B)] = False
                         neg = Example()
-                        neg.add_group("func_lead", pre_record_A)
+                        neg.add_group(EXP_GROUP_NAME, pre_record_A)
                         hypothesis_with_examples[
                             (func_A, func_B)
                         ].negative_examples.add_example(neg)
@@ -233,7 +326,7 @@ class FunctionLeadRelation(Relation):
                             continue
 
                         pos = Example()
-                        pos.add_group("func_lead", pre_record_A)
+                        pos.add_group(EXP_GROUP_NAME, pre_record_A)
                         hypothesis_with_examples[
                             (func_A, func_B)
                         ].positive_examples.add_example(pos)
@@ -244,7 +337,7 @@ class FunctionLeadRelation(Relation):
                 if flag_A is not None:
                     flag_A = None
                     neg = Example()
-                    neg.add_group("func_lead", pre_record_A)
+                    neg.add_group(EXP_GROUP_NAME, pre_record_A)
                     hypothesis_with_examples[
                         (func_A, func_B)
                     ].negative_examples.add_example(neg)
@@ -487,8 +580,6 @@ class FunctionLeadRelation(Relation):
                 triggered=False,
             )
 
-        _, function_times, function_id_map, listed_events = trace.get_data_processed()
-
         function_pool = (
             []
         )  # Here function_pool only contains functions existing in given invariant
@@ -500,6 +591,25 @@ class FunctionLeadRelation(Relation):
                 func, APIParam
             ), "Invariant parameters should be APIParam."
             function_pool.append(func.api_full_name)
+
+        function_pool = list(set(function_pool).intersection(func_names))
+
+        # YUXUAN ASK: if function_pool is not stictly subset of func_names, should we directly return false?
+
+        if len(function_pool) == 0:
+            print(
+                "No relevant function calls found in the trace, skipping the checking"
+            )
+            return CheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+                triggered=False,
+            )
+
+        function_times, function_id_map, listed_events = get_func_data_per_PT(
+            trace, function_pool
+        )
 
         def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
             if funcA == funcB:
@@ -528,12 +638,12 @@ class FunctionLeadRelation(Relation):
             func_A = inv.params[i]
             func_B = inv.params[i + 1]
 
+            assert isinstance(func_A, APIParam) and isinstance(
+                func_B, APIParam
+            ), "Invariant parameters should be string."
+
             for (process_id, thread_id), events_list in listed_events.items():
                 assert isinstance(process_id, str) and isinstance(thread_id, str)
-
-                assert isinstance(func_A, APIParam) and isinstance(
-                    func_B, APIParam
-                ), "Invariant parameters should be string."
 
                 funcA = func_A.api_full_name
                 funcB = func_B.api_full_name
@@ -554,8 +664,7 @@ class FunctionLeadRelation(Relation):
                             flag_A = event["time"]
                             pre_recordA = event
                             continue
-
-                        if inv.precondition.verify([events_list], "func_lead"):
+                        if inv.precondition.verify([events_list], EXP_GROUP_NAME):
                             inv_triggered = True
                             return CheckerResult(
                                 trace=[pre_recordA, event],
@@ -563,19 +672,9 @@ class FunctionLeadRelation(Relation):
                                 check_passed=False,
                                 triggered=True,
                             )
-
                     if funcB == event["function"]:
                         flag_A = None
                         pre_recordA = None
-
-                # if flag_A is not None:
-                #     flag_A = None
-                #     if inv.precondition.verify([events], "func_lead"):
-                #         return CheckerResult(
-                #             trace=[pre_recordA],
-                #             invariant=inv,
-                #             check_passed=False,
-                #         )
 
         return CheckerResult(
             trace=None,
