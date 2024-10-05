@@ -312,7 +312,7 @@ class FunctionCoverRelation(Relation):
                 GroupedPreconditions | None, List[List[APIParam]]
             ] = {}
 
-            for key, values in relation_pool.items():
+            for key, values in tqdm(relation_pool.items(), desc="Merging Invariants"):
                 merged_relations[key] = merge_relations(values)
 
             merged_ininvariants = []

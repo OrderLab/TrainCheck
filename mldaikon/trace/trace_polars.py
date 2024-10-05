@@ -294,6 +294,44 @@ class TracePolars(Trace):
             self.events.select("function").drop_nulls().unique().to_series().to_list()
         )
 
+    def get_max_num_consecutive_call_func(self, func_name: str) -> int:
+        """Find the maximum number of contiguous calls to a function in the trace.
+
+        TODO: THIS IS NOT SOUND NOR THE CORRECT WAY TO GET NUMBER OF CONSECUTIVE CALLS OF A FUNCTION. SHOULD ONLY BE CALLED BY THE LEAD/COVER RELATION AS A TEMPORARY PRUNING SOLUTION.
+        """
+        if "function" not in self.events.columns:
+            logger.warning(
+                "function column not found in the events, no function related invariants will be extracted."
+            )
+            return 0
+
+        if not hasattr(self, "_cache_group_events"):
+            events = self.events
+            events = events.filter(~events["function"].str.contains(r"\.__*__"))
+            events = events.filter(~events["function"].str.contains(r"\._"))
+            events = events.with_columns(
+                (events["function"] != events["function"].shift())
+                .cum_sum()
+                .alias("group_id")
+            )
+            group_counts = events.group_by("group_id").agg(
+                [
+                    pl.col("function").first().alias("function"),
+                    pl.count("function").alias("count"),
+                ]
+            )
+        else:
+            group_counts = self._cache_group_events
+
+        # Filter for the given function name and find the maximum count
+        max_consecutive = (
+            group_counts.filter(pl.col("function") == func_name)
+            .select(pl.col("count").max())
+            .item()
+        )
+
+        return max_consecutive if max_consecutive is not None else 0
+
     def get_func_call_ids(self, func_name: str = "") -> list[str]:
         """Find all function call ids from the trace."""
         if "func_call_id" not in self.events.columns:

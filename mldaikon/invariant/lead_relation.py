@@ -1,5 +1,4 @@
 import logging
-import re
 from itertools import permutations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
@@ -21,7 +20,7 @@ from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 
 EXP_GROUP_NAME = "func_lead"
-FUNC_CALL_FILTERING_THRESHOLD = 100  # ideally this should be proportional to the number of training and testing iterations in the trace
+MAX_FUNC_NUM_CONSECUTIVE_CALL = 6  # ideally this should be proportional to the number of training and testing iterations in the trace
 
 
 def get_func_names_to_deal_with(trace: Trace) -> List[str]:
@@ -32,20 +31,15 @@ def get_func_names_to_deal_with(trace: Trace) -> List[str]:
     all_func_names = trace.get_func_names()
 
     # filtering 1: remove private functions
-    private_function_patterns = ["_.*"]
     for func_name in all_func_names:
-        for pattern in private_function_patterns:
-            if re.match(pattern, func_name):
-                continue
+        if "._" in func_name:
+            continue
         function_pool.add(func_name)
 
-    # filtering 2: remove functions that occurred too many times
-    func_occur_num = {
-        func_name: len(trace.get_func_call_ids(func_name))
-        for func_name in function_pool
-    }
-    for func_name, occur_num in func_occur_num.items():
-        if occur_num > FUNC_CALL_FILTERING_THRESHOLD:
+    # filtering 2: remove functions that have consecutive calls less than FUNC_CALL_FILTERING_THRESHOLD
+    for func_name in function_pool.copy():
+        max_num_consecutive_call = trace.get_max_num_consecutive_call_func(func_name)
+        if max_num_consecutive_call > MAX_FUNC_NUM_CONSECUTIVE_CALL:
             function_pool.remove(func_name)
 
     return list(function_pool)
@@ -406,7 +400,7 @@ class FunctionLeadRelation(Relation):
                 GroupedPreconditions | None, List[List[APIParam]]
             ] = {}
 
-            for key, values in relation_pool.items():
+            for key, values in tqdm(relation_pool.items(), desc="Merging Invariants"):
                 merged_relations[key] = merge_relations(values)
 
             merged_ininvariants = []

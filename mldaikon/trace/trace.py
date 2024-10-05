@@ -130,6 +130,12 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
+    def get_max_num_consecutive_call_func(self, func_name: str) -> int:
+        """Find the maximum number of contiguous calls to a function in the trace."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
     def get_func_call_ids(self, func_name: str = "") -> list[str]:
         """Find all function call ids from the trace.
         Optionally, filter by function name.
