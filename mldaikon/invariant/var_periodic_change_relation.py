@@ -177,4 +177,4 @@ class VarPeriodicChangeRelation(Relation):
                 The invariant to check on the trace.
         """
 
-        return CheckerResult(None, inv, True)
+        return CheckerResult(None, inv, True, False)
