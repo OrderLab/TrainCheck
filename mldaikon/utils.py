@@ -1,3 +1,5 @@
+from importlib.machinery import ModuleSpec
+
 import torch
 
 
@@ -26,6 +28,9 @@ def typename(o):
     if isinstance(o, torch.Tensor):
         return o.type()
     module = safe_getattr(o, "__module__", "")
+    if isinstance(module, ModuleSpec):
+        # handle the case when module is a ModuleSpec object
+        module = module.name
     if module in ["buitins", "__builtin__", None]:
         module = ""
     class_name = safe_getattr(o, "__qualname__", "")
