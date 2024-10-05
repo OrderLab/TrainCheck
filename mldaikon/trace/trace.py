@@ -130,6 +130,12 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
+    def get_max_num_consecutive_call_func(self, func_name: str) -> int:
+        """Find the maximum number of contiguous calls to a function in the trace."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
     def get_func_call_ids(self, func_name: str = "") -> list[str]:
         """Find all function call ids from the trace.
         Optionally, filter by function name.
@@ -405,10 +411,4 @@ class Trace:
     def get_time_precentage(self, time: int) -> float:
         return (time - self.get_start_time()) / (
             self.get_end_time() - self.get_start_time()
-        )
-
-    def get_filtered_function(self) -> pl.DataFrame:
-        """Filter API calls in traces and return filtered events."""
-        raise NotImplementedError(
-            "This function should be implemented in the child class."
         )
