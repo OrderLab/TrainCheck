@@ -469,7 +469,7 @@ def global_wrapper(
     if should_dump_func_arg_trace:
         # Note: this loop only runs once!
         while True:  # a hack that allows us to skip the dumping
-            # Get signature
+            # 1. Get signature
             try:  # Builtin functions do not have signature
                 func_type_annotations = inspect.signature(original_function).parameters
             except (ValueError, TypeError):
@@ -480,8 +480,6 @@ def global_wrapper(
                 k: str(v.annotation) for k, v in func_type_annotations.items()
             }
 
-            # args and kwargs
-            # if it is has "self", start from the second element
             is_method = "self" in func_type_annotations
 
             # check if the signature has wild cast
@@ -490,7 +488,6 @@ def global_wrapper(
             )
 
             if is_wild_cast:
-                # Beijie: if a function has wild cast, how to decide the args?
                 func_type_dict = {}
                 args_value = args
                 kwargs_value = kwargs
@@ -545,18 +542,20 @@ def global_wrapper(
 
                     continue
 
-                if "Tensor" in typename(arg_value) or "Linear" in typename(arg_value):
-                    func_arg_record = {
-                        "func_call_id": func_call_id,
-                        "type": "function_call (pre)",
-                        "is_method": is_method,
-                        "var_type": typename(arg_value),
-                        "var_name": idx,
-                        "func_name": func_name,
-                        "tensor_stats": func_arg_stats(arg_value),
-                    }
+                # Note: This part is tempoarily not used
+                # For value that is not self
+                tensor_stat = func_arg_stats(arg_value)
+                func_arg_record = {
+                    "func_call_id": func_call_id,
+                    "type": "function_call (pre)",
+                    "is_method": is_method,
+                    "var_type": typename(arg_value),
+                    "var_name": idx,
+                    "func_name": func_name,
+                    "tensor_stats": tensor_stat,
+                }
 
-                    dump_trace_FUNC_ARG(func_arg_record)
+                dump_trace_FUNC_ARG(func_arg_record)
 
             break
 
