@@ -128,7 +128,7 @@ class VarPreserveRelation(Relation):
     def static_check_all(
         trace: Trace, inv: Invariant, check_relation_first: bool
     ) -> CheckerResult:
-        return CheckerResult(None, inv, check_relation_first)
+        return CheckerResult(None, inv, check_relation_first, True)
 
 
 def events_are_similar(event1, event2, tolerance=1e-6):

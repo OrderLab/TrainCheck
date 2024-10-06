@@ -42,7 +42,7 @@ class TracePandas(Trace):
         self.var_insts = None
         self.var_changes = None
 
-        self.all_func_call_ids: dict[str, list[str]] = {}
+        self.all_func_call_ids: dict[str, list[str]] = {}  # type: ignore
 
         if isinstance(events, list) and all(
             [isinstance(e, pd.DataFrame) for e in events]
