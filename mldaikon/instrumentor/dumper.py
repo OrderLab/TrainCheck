@@ -194,6 +194,7 @@ def dump_tensor(value):
 def convert_var_to_dict(var, include_tensor_data=True) -> dict:
     result: dict[str, object | str] = {}
     # currently only dump primitive types, tensors and nn.Module
+
     try:
         attr_names = [name for name in dir(var) if not name.startswith("__")]
     except Exception as e:
@@ -250,6 +251,8 @@ def var_to_serializable(obj) -> dict[type, object]:
         json.dumps({"foo": obj})
         return {typename(obj): obj}
     except TypeError:
+        if isinstance(obj, torch.dtype):
+            return {typename(obj): str(obj)}
         var_dict = convert_var_to_dict(obj, include_tensor_data=False)
         # assert var_dict, f"Failed to convert object {obj} to dict."
         return {typename(obj): var_dict}

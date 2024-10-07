@@ -116,6 +116,10 @@ class FuncCallEvent(HighLevelEvent):
             and post_record["type"] == TraceLineType.FUNC_CALL_POST
         )
 
+        self.args = pre_record["args"]
+        self.kwargs = pre_record["kwargs"]
+        self.return_values = post_record["return_value"]
+
     def __str__(self):
         return f"FuncCallEvent: {self.func_name}"
 
@@ -137,6 +141,9 @@ class IncompleteFuncCallEvent(HighLevelEvent):
         self.pre_record = pre_record
         self.potential_end_time = potential_end_time
         assert pre_record["type"] == TraceLineType.FUNC_CALL_PRE
+
+        self.args = pre_record["args"]
+        self.kwargs = pre_record["kwargs"]
 
     def __str__(self):
         return f"IncompleteFuncCallEvent: {self.func_name}"
@@ -161,6 +168,9 @@ class FuncCallExceptionEvent(HighLevelEvent):
             pre_record["type"] == TraceLineType.FUNC_CALL_PRE
             and post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION
         )
+
+        self.args = pre_record["args"]
+        self.kwargs = pre_record["kwargs"]
 
     def __str__(self):
         return f"FuncCallExceptionEvent: {self.func_name}"
