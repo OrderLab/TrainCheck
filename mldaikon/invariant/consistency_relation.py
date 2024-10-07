@@ -100,6 +100,13 @@ class VariableValueSelector:
 
 
 class ConsistencyRelation(Relation):
+    """Infer the Consistency Relation between two variables.
+
+    the variables here are the instances of the same type, and should be long-lived variables like model parameters and optimizer states.
+
+    This relation is mainly helpful to infer nuances in distributed training,
+    where the consistency relationships of the variables across different nodes is crucial to maintain.
+    """
 
     @staticmethod
     def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
