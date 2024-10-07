@@ -6,6 +6,11 @@ INSTR_MODULES_TO_INSTR = ["torch"]
 INSTR_MODULES_TO_SKIP = [
     "torch.fx",
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
+    # "torch.autocast",
+    # "torch.amp",
+    # "torch.matmul",
+    # "torch._VariableFunctionsClass.matmul",
+    # "torch._tensor._convert",
 ]
 WRAP_WITHOUT_DUMP = [
     "torch._C",
@@ -15,6 +20,8 @@ WRAP_WITHOUT_DUMP = [
     "torch.overrides.handle_torch_function",
     "torch._ops.OpOverloadPacket",
     "torch._ops._OpNamespace",
+    # "torch.autocast",
+    # "torch.amp",
     # "torch.is_grad_enabled",
     # "torch.autograd.grad_mode",
     # "torch._VariableFunctionsClass",
