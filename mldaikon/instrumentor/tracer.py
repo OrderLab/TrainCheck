@@ -263,7 +263,7 @@ def global_wrapper(
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
     post_record["meta_vars"] = get_meta_vars()
-    post_record["return_value"] = to_dict_return_value(result)
+    post_record["return_values"] = to_dict_return_value(result)
     dump_trace_API(post_record)
 
     return result

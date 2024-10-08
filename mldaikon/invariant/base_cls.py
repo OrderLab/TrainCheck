@@ -109,6 +109,7 @@ class APIParam(Param):
         if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
             return False
 
+        # TODO: Handle Stop Iteration Exception!!!
         matched = event.func_name == self.api_full_name
         if self.exception != _NOT_SET:
             matched = (
@@ -161,7 +162,7 @@ class VarTypeParam(Param):
         attr_name: str,
         pre_value: Any = _NOT_SET,
         post_value: Any = _NOT_SET,
-        recur_value: Any = _NOT_SET,
+        const_value: Any = _NOT_SET,
     ):
         self.var_type = var_type
         self.attr_name = attr_name
@@ -177,12 +178,12 @@ class VarTypeParam(Param):
         self.post_value = post_value
 
         # for the VarPeriodicChangeRelation relation
-        self.recur_value = recur_value  # CHECKING OF THIS VALUE CAN ONLY BE DONE IN THE RELATION'S EVALUATE METHOD
+        self.const_value = const_value  # CHECKING OF THIS VALUE CAN ONLY BE DONE IN THE RELATION'S EVALUATE METHOD
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         """Checks whether the event is a candidate described by the param.
         Note that, only var_type and attr_name are checked here.
-        The parameterized values (e.g. pre_value and recur_value) should be checked in the relation's evaluate method.
+        The parameterized values (e.g. pre_value and const_value) should be checked in the relation's evaluate method.
 
         TODO: potential value of using higher level events is that we can capture higher level information. For example,
         `zero_grad` does assign zero to the gradients of the model everytime, but call to `zero_grad` is only correct if the previous value
@@ -194,10 +195,10 @@ class VarTypeParam(Param):
             event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
         )
 
-        if self.recur_value != _NOT_SET:
+        if self.const_value != _NOT_SET:
             logger = logging.getLogger(__name__)
             logger.warning(
-                "Recur value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
+                "Const value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
             )
 
         pre_and_post_value_matched = True
@@ -240,17 +241,17 @@ class VarTypeParam(Param):
         }
 
     def get_customizable_field_names(self) -> set[str]:
-        return {"pre_value", "post_value", "recur_value"}
+        return {"pre_value", "post_value", "const_value"}
 
     def get_customized_fields(self) -> dict[str, type]:
         fields = {}
-        for attr in ["pre_value", "post_value", "recur_value"]:
+        for attr in ["pre_value", "post_value", "const_value"]:
             if getattr(self, attr) != _NOT_SET:
                 fields[attr] = getattr(self, attr)
         return fields
 
     def __str__(self) -> str:
-        return f"{self.var_type} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
+        return f"{self.var_type} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, const_value: {self.const_value}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -264,7 +265,7 @@ class VarNameParam(Param):
         attr_name: str,
         pre_value: Any = _NOT_SET,
         post_value: Any = _NOT_SET,
-        recur_value: Any = _NOT_SET,
+        const_value: Any = _NOT_SET,
     ):
         self.var_type = var_type
         self.var_name = var_name
@@ -275,13 +276,13 @@ class VarNameParam(Param):
         self.pre_value = pre_value
         self.post_value = post_value
 
-        # for the VarPeriodicChangeRelation relation
-        self.recur_value = recur_value
+        # for the VarPeriodicChangeRelation and ConsistencyTransientVarsRelation
+        self.const_value = const_value
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         """Checks whether the event is a candidate described by the param.
         Note that, only var_type and attr_name are checked here.
-        The parameterized values (e.g. pre_value and recur_value) should be checked in the relation's evaluate method.
+        The parameterized values (e.g. pre_value and const_value) should be checked in the relation's evaluate method.
 
         TODO: potential value of using higher level events is that we can capture higher level information. For example,
         `zero_grad` does assign zero to the gradients of the model everytime, but call to `zero_grad` is only correct if the previous value
@@ -293,10 +294,10 @@ class VarNameParam(Param):
             event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
         )
 
-        if self.recur_value != _NOT_SET:
+        if self.const_value != _NOT_SET:
             logger = logging.getLogger(__name__)
             logger.warning(
-                "Recur value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
+                "Const value is set for VarNameParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
             )
 
         pre_and_post_value_matched = True
@@ -340,17 +341,17 @@ class VarNameParam(Param):
         }
 
     def get_customizable_field_names(self) -> set[str]:
-        return {"pre_value", "post_value", "recur_value"}
+        return {"pre_value", "post_value", "const_value"}
 
     def get_customized_fields(self) -> dict[str, Any]:
         fields = {}
-        for attr in ["pre_value", "post_value", "recur_value"]:
+        for attr in ["pre_value", "post_value", "const_value"]:
             if getattr(self, attr) != _NOT_SET:
                 fields[attr] = getattr(self, attr)
         return fields
 
     def __str__(self) -> str:
-        return f"{self.var_type} {self.var_name} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
+        return f"{self.var_type} {self.var_name} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, const_value: {self.const_value}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -384,7 +385,7 @@ def construct_var_param_from_var_change(
             event.attr_name,
             pre_value=pre_value,
             post_value=new_value,
-            # recur_value=None, # TODO
+            # const_value=None, # TODO
         )
     elif config.VAR_INV_TYPE == "name":
         return VarNameParam(
@@ -393,7 +394,7 @@ def construct_var_param_from_var_change(
             event.attr_name,
             pre_value=pre_value,
             post_value=new_value,
-            # recur_value=None, # TODO
+            # const_value=None, # TODO
         )
 
     raise ValueError(f"Invalid VAR_INV_TYPE: {config.VAR_INV_TYPE}")
@@ -964,6 +965,12 @@ class Hypothesis:
 
     def calc_likelihood(self):
         return calc_likelihood(len(self.positive_examples), len(self.negative_examples))
+
+    def __str__(self):
+        return self._print_debug()
+
+    def __repr__(self) -> str:
+        return self._print_debug()
 
 
 class FailedHypothesis:

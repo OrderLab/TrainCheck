@@ -41,7 +41,7 @@ def read_jsonlines_flattened_with_md_none(file_path: str):
                 docs.append(
                     flatten_dict(
                         json.loads(line, object_hook=replace_none_with_md_none),
-                        skip_fields=["args", "kwargs", "return_value"],
+                        skip_fields=["args", "kwargs", "return_values"],
                     )
                 )
             except Exception as e:
