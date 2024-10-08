@@ -214,7 +214,7 @@ def find_precondition(
         )
 
     # if any group's precondition is of length 0, return None
-    if any(
+    if all(
         len(grouped_preconditions[group_name]) == 0
         for group_name in grouped_preconditions
     ):

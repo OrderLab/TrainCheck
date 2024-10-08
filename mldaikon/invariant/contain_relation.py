@@ -562,6 +562,8 @@ class APIContainRelation(Relation):
                         ),
                         positive_examples=ExampleList(
                             {PARENT_GROUP_NAME, VAR_GROUP_NAME}
+                            if should_use_causal_vars_for_negative_examples
+                            else {PARENT_GROUP_NAME}
                         ),
                         negative_examples=ExampleList(
                             {PARENT_GROUP_NAME, VAR_GROUP_NAME}
@@ -610,7 +612,8 @@ class APIContainRelation(Relation):
                     )  # same child event can occur multiple times in a particular parent event, due to the above assert it is save to use None to ignore the KeyError
                     example = Example()
                     example.add_group(PARENT_GROUP_NAME, [parent_event.pre_record])
-                    example.add_group(VAR_GROUP_NAME, event.get_traces())
+                    if (parent_param, child_param) in hypos_for_dynamic_analysis:
+                        example.add_group(VAR_GROUP_NAME, event.get_traces())
                     hypotheses[parent_param][child_param].positive_examples.add_example(
                         example
                     )
