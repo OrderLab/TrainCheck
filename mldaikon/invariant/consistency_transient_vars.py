@@ -12,7 +12,7 @@ from mldaikon.invariant.base_cls import (
     VarTypeParam,
 )
 
-# from mldaikon.invariant.precondition import find_precondition
+from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import (
     FuncCallEvent,
@@ -225,10 +225,10 @@ class ConsistentTransientVarsRelation(Relation):
         # infer precondition for these hypotheses
         print(all_hypotheses)
 
-        # for func_name, hypotheses in all_hypotheses.items():
-        #     for hypothesis in hypotheses:
-        #         precondition = find_precondition(hypothesis)
-        #         print(precondition)
+        for func_name, hypotheses in all_hypotheses.items():
+            for hypothesis in hypotheses:
+                precondition = find_precondition(hypothesis)
+                print(precondition)
 
         print("done")
 
