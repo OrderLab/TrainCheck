@@ -100,6 +100,37 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
+    def _index_context_manager_meta_vars(self):
+        """Identify context manager entry and exit events, and add them to the meta_vars."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
+    def query_active_context_managers(
+        self, time: float, process_id: int, thread_id: int
+    ) -> list[dict]:
+        """Given a timestamp, query all active context managers at that time.
+
+        Args:
+            time (float): The timestamp to query the active context managers.
+            process_id (int): The process id to query the active context managers.
+            thread_id (int): The thread id to query the active context managers.
+
+        Returns:
+            list[dict]: A list of active context managers at the given time.
+            Each dict will be like:
+            {
+                "context_manager_name": "context_manager_name",
+                "args": {"arg_name": "arg_value", ...},
+                "kwargs": {"kwarg_name": "kwarg_value", ...},
+                "start_time": start_time,
+                "end_time": end_time,
+            }
+        """
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
     def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
         raise NotImplementedError(

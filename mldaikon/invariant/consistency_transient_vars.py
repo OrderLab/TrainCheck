@@ -11,7 +11,6 @@ from mldaikon.invariant.base_cls import (
     Relation,
     VarTypeParam,
 )
-
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import (
@@ -113,30 +112,6 @@ class ConsistentTransientVarsRelation(Relation):
             if func_name in funcs_with_tensors
         }
 
-        # now, group the function calls by the properties of the input and output tensors
-
-        # now that we have the functions we want to work with, how do we infer the properties of the transient variables?
-
-        # hypothesize over properties being a specific value,
-
-        # consistent ones seem to work well with the invariant hypothesis
-
-        # we are not here to replicate input and shaping constraints, but there might be some interesting properties that we can infer.
-
-        # infer 1: beijie: input / output relationship
-        # also, we migth be able to infer the matmul related issues
-        # can we replicate the pytea/NeuRI code here?
-        pass
-
-        # infer 2: input having specific properties
-        # prop-ML-related: norm, max, min, mean, std,
-        # prop-Control-related: shape, dtype, etc.
-        pass
-
-        # infer 3: output having specific properties
-        # prop-ML-related: norm, max, min, mean, std,
-        pass
-        # how do we infer the properties of the transient variables?
         all_hypotheses = {}
         for func_name in relevant_func_call_events:
             # infer per function
@@ -225,10 +200,18 @@ class ConsistentTransientVarsRelation(Relation):
         # infer precondition for these hypotheses
         print(all_hypotheses)
 
+        invariants = []
+        failed_hypotheses = []
         for func_name, hypotheses in all_hypotheses.items():
             for hypothesis in hypotheses:
                 precondition = find_precondition(hypothesis)
                 print(precondition)
+                if precondition is not None:
+                    hypothesis.invariant.precondition = precondition
+                    invariants.append(hypothesis.invariant)
+                else:
+                    print(f"Could not find precondition for {hypothesis}")
+                    failed_hypotheses.append(FailedHypothesis(hypothesis))
 
         print("done")
 
@@ -237,7 +220,7 @@ class ConsistentTransientVarsRelation(Relation):
         # can we let relation tell the precondition inference algorithm about what is already assumed?
         # then we solve the step issue.
 
-        return [], []
+        return invariants, failed_hypotheses
 
         # now let's reason about the input and output properties of these function calls' args and return values
 

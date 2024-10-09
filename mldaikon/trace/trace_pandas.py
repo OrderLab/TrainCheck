@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
+from mldaikon.instrumentor.types import PTID
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import (
     MD_NONE,
@@ -16,7 +17,12 @@ from mldaikon.trace.types import (
     VarChangeEvent,
     VarInstId,
 )
-from mldaikon.trace.utils import flatten_dict, read_jsonlines_flattened_with_md_none
+from mldaikon.trace.utils import (
+    bind_args_kwargs_to_signature,
+    flatten_dict,
+    load_signature_from_func_name,
+    read_jsonlines_flattened_with_md_none,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +49,7 @@ class TracePandas(Trace):
         self.var_changes = None
 
         self.all_func_call_ids: dict[str, list[str]] = {}
+        self.context_manager_states: dict[PTID, dict[float,]]
 
         if isinstance(events, list) and all(
             [isinstance(e, pd.DataFrame) for e in events]
@@ -189,6 +196,50 @@ class TracePandas(Trace):
                 ]
 
         # test_dump(self.events)
+
+    def _index_context_manager_meta_vars(self):
+        """Identify context manager entry and exit events, and add them to the meta_vars."""
+        # 1. Find all trace records that are related to __enter__ and __exit__ functions
+        if "function" not in self.events.columns:
+            return
+
+        if hasattr(self, "context_manager_states"):
+            return self.context_manager_states
+
+        all_context_managers: list[tuple[Liveness, list]] = []
+
+        context_manager_events = self.events[
+            self.events["function"].isin(["__enter__", "__exit__"])
+        ]
+
+        # 2. Group the context manager events by the object id --> each group should have exactly three events: __init__, __enter__, and __exit__
+        context_manager_groups = context_manager_events.groupby("obj_id")
+        for obj_id, group in context_manager_groups:
+            assert (
+                len(group) == 3
+            ), f"Context manager group for object {obj_id} does not have exactly three events: {group}"
+            # 3. Add the context manager object to the meta_vars
+            init_record = group[group["function"] == "__init__"].iloc[0]
+            enter_record = group[group["function"] == "__enter__"].iloc[0]
+            exit_record = group[group["function"] == "__exit__"].iloc[0]
+
+            start_time, end_time = enter_record["time"], exit_record["time"]
+
+            args = init_record["args"]
+            kwargs = init_record["kwargs"]
+            signature = load_signature_from_func_name(init_record["function"])
+
+            binded_args_and_kwargs = bind_args_kwargs_to_signature(
+                args, kwargs, signature
+            )
+
+            all_context_managers.append(
+                (Liveness(start_time, end_time), binded_args_and_kwargs)
+            )
+
+        self.context_manager_states = all_context_managers
+
+        return all_context_managers
 
     def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
