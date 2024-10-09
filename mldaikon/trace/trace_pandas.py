@@ -11,6 +11,7 @@ from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import (
     MD_NONE,
     AttrState,
+    ContextManagerState,
     FuncCallEvent,
     FuncCallExceptionEvent,
     Liveness,
@@ -79,6 +80,8 @@ class TracePandas(Trace):
             )
 
         self.column_dtypes_cached = {}
+
+        self._index_context_manager_meta_vars()
 
     def _rm_incomplete_trailing_func_calls(self):
         """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
@@ -206,40 +209,57 @@ class TracePandas(Trace):
         if hasattr(self, "context_manager_states"):
             return self.context_manager_states
 
-        all_context_managers: list[tuple[Liveness, list]] = []
+        all_context_managers: dict[PTID, list[tuple[Liveness, list]]] = {}
 
         context_manager_events = self.events[
-            self.events["function"].isin(["__enter__", "__exit__"])
+            self.events["function"].str.contains("__enter__|__exit__")
         ]
 
         # 2. Group the context manager events by the object id --> each group should have exactly three events: __init__, __enter__, and __exit__
         context_manager_groups = context_manager_events.groupby("obj_id")
         for obj_id, group in context_manager_groups:
             assert (
-                len(group) == 3
-            ), f"Context manager group for object {obj_id} does not have exactly three events: {group}"
-            # 3. Add the context manager object to the meta_vars
-            init_record = group[group["function"] == "__init__"].iloc[0]
-            enter_record = group[group["function"] == "__enter__"].iloc[0]
-            exit_record = group[group["function"] == "__exit__"].iloc[0]
+                len(group) == 4
+            ), f"Context manager group for object {obj_id} does not have exactly four events: {group}"
+            # post_record should have type beging function call post
+            enter_post_record = group[
+                (group["type"] == TraceLineType.FUNC_CALL_POST)
+                & (group["function"].str.contains("__enter__"))
+            ].iloc[0]
+            exit_pre_record = group[
+                (group["type"] == TraceLineType.FUNC_CALL_PRE)
+                & (group["function"].str.contains("__exit__"))
+            ].iloc[0]
 
-            start_time, end_time = enter_record["time"], exit_record["time"]
+            init_pre_record = self.events[
+                (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+                & (self.events["function"].str.contains("__init__"))
+                & (self.events["obj_id"] == obj_id)
+            ].iloc[0]
 
-            args = init_record["args"]
-            kwargs = init_record["kwargs"]
-            signature = load_signature_from_func_name(init_record["function"])
+            start_time, end_time = enter_post_record["time"], exit_pre_record["time"]
+
+            args = init_pre_record["args"]
+            kwargs = init_pre_record["kwargs"]
+            signature = load_signature_from_func_name(init_pre_record["function"])
 
             binded_args_and_kwargs = bind_args_kwargs_to_signature(
                 args, kwargs, signature
             )
 
-            all_context_managers.append(
-                (Liveness(start_time, end_time), binded_args_and_kwargs)
+            ptid = PTID(init_pre_record["process_id"], init_pre_record["thread_id"])
+            if ptid not in all_context_managers:
+                all_context_managers[ptid] = []
+            all_context_managers[ptid].append(
+                ContextManagerState(
+                    name=init_pre_record["function"].rstrip(".__init__"),
+                    ptid=ptid,
+                    liveness=Liveness(start_time, end_time),
+                    input=binded_args_and_kwargs,
+                )
             )
 
         self.context_manager_states = all_context_managers
-
-        return all_context_managers
 
     def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""

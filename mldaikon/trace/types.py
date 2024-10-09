@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import NamedTuple
 
 from mldaikon.instrumentor.tracer import TraceLineType
+from mldaikon.instrumentor.types import PTID
 
 
 class MD_NONE:
@@ -59,6 +60,9 @@ class Liveness:
 
     def __str__(self):
         return f"Start Time: {self.start_time}, End Time: {self.end_time}, Duration: {self.end_time - self.start_time}"
+
+    def __repr__(self) -> str:
+        return self.__str__()
 
     def __eq__(self, other):
         return self.start_time == other.start_time and self.end_time == other.end_time
@@ -225,3 +229,44 @@ ALL_EVENT_TYPES = [
     FuncCallExceptionEvent,
     VarChangeEvent,
 ]
+
+
+class BindedFuncInput:
+    def __init__(self, binded_args_and_kwargs: dict[str, dict]):
+        self.binded_args_and_kwargs = binded_args_and_kwargs
+
+    def get_available_args(self):
+        return self.binded_args_and_kwargs.keys()
+
+    def get_arg(self, arg_name):
+        return self.binded_args_and_kwargs[arg_name]
+
+    def get_arg_type(self, arg_name):
+        return list(self.binded_args_and_kwargs[arg_name].keys())[0]
+
+    def get_arg_value(self, arg_name):
+        return list(self.binded_args_and_kwargs[arg_name].values())[0]
+
+    def to_dict_for_precond_inference(self):
+        # flat this object later.
+        raise NotImplementedError()
+
+    def __str__(self) -> str:
+        return str(self.binded_args_and_kwargs)
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+
+class ContextManagerState:
+    def __init__(
+        self, name: str, ptid: PTID, liveness: Liveness, input: BindedFuncInput
+    ):
+        self.name = name
+        self.ptid = ptid
+        self.liveness = liveness
+        self.input = input
+
+    def to_dict(self):
+        # flat this object later.
+        raise NotImplementedError()

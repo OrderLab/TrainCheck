@@ -4,7 +4,7 @@ import json
 import logging
 from collections.abc import MutableMapping
 
-from mldaikon.trace.types import MD_NONE
+from mldaikon.trace.types import MD_NONE, BindedFuncInput
 
 
 def _flatten_dict_gen(d, parent_key, sep, skip_fields=None):
@@ -53,27 +53,6 @@ def read_jsonlines_flattened_with_md_none(file_path: str):
     return docs
 
 
-class BindedFuncInput:
-    def __init__(self, binded_args_and_kwargs: dict[str, dict]):
-        self.binded_args_and_kwargs = binded_args_and_kwargs
-
-    def get_available_args(self):
-        return self.binded_args_and_kwargs.keys()
-
-    def get_arg(self, arg_name):
-        return self.binded_args_and_kwargs[arg_name]
-
-    def get_arg_type(self, arg_name):
-        return list(self.binded_args_and_kwargs[arg_name].keys())[0]
-
-    def get_arg_value(self, arg_name):
-        return list(self.binded_args_and_kwargs[arg_name].values())[0]
-
-    def to_dict_for_precond_inference(self):
-        # flat this object later.
-        raise NotImplementedError()
-
-
 def bind_args_kwargs_to_signature(
     args, kwargs, signature: inspect.Signature
 ) -> BindedFuncInput:
@@ -91,11 +70,11 @@ def bind_args_kwargs_to_signature(
         {}
     )  # {arg_name: {type of the provided value: [{attr: value}] | the value itself}}
 
+    # let's consume all the args first
     for idx, arg_name in enumerate(signature.parameters.keys()):
-        if arg_name == "self":
-            # NOTE: I am not sure if the arg dumping process will dump the self argument or not. Let's assert all args are binded below to guard against uncertain behavior.
-            continue
-        # let's consume all the args first
+        # NOTE: when the first the argument is `self`, we usually can't properly serialize it during tracing. We don't skip it but still probably the consumer of this function should handle it properly.
+        if idx >= len(args):
+            break
         bind_args_and_kwargs[arg_name] = args[idx]
 
     # then consume the kwargs
