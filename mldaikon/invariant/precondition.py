@@ -79,12 +79,16 @@ def _find_local_clauses(
 
         if len(prop_values_seen) == 1 and prop_dtype is not None:
             if prop_dtype is MD_NONE:
-                clauses.append(PreconditionClause(prop, None, PT.CONSTANT, {None}))
+                clauses.append(
+                    PreconditionClause(prop, None, PT.CONSTANT, None, {None})
+                )
             clauses.append(
-                PreconditionClause(prop, prop_dtype, PT.CONSTANT, prop_values_seen)
+                PreconditionClause(
+                    prop, prop_dtype, PT.CONSTANT, None, prop_values_seen
+                )
             )
         elif len(prop_values_seen) == len(example) and None not in prop_values_seen:
-            clauses.append(PreconditionClause(prop, prop_dtype, PT.UNEQUAL, None))
+            clauses.append(PreconditionClause(prop, prop_dtype, PT.UNEQUAL, None, None))
 
     return clauses
 
@@ -168,12 +172,12 @@ def _merge_clauses(
             and prop_dtype is not bool
         ):
             consistent_clause = PreconditionClause(
-                target, prop_dtype, PT.CONSISTENT, seen_constant_values
+                target, prop_dtype, PT.CONSISTENT, None, seen_constant_values
             )
             merged_clauses_and_exp_ids[consistent_clause] = list(seen_constant_exp_ids)
         else:
             constant_clause = PreconditionClause(
-                target, prop_dtype, PT.CONSTANT, seen_constant_values
+                target, prop_dtype, PT.CONSTANT, None, seen_constant_values
             )
             merged_clauses_and_exp_ids[constant_clause] = list(seen_constant_exp_ids)
 
