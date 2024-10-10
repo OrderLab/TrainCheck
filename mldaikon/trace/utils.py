@@ -62,6 +62,10 @@ def bind_args_kwargs_to_signature(
         args (list[dict]): List of dictionaries. Each dictionary describes an argument as {type of provided_value: [{attr: value}]} if the value is not a primitive type.
         kwargs (dict): Dictionary of keyword arguments, {kwarg_name: {type of provided_value: [{attr: value}]}}.
         signature (inspect.Signature): Signature of the function.
+
+    Returns:
+        BindedFuncInput: Binded function input.
+        The dictionary is in the format of {arg_name: {type of the provided value: [{attr: value}] | the value itself}}.
     """
 
     # NOTE: we have to implement our own binding instead of using inspect.Signature.bind is because during the tracing we might not record everything (e.g. for tensors).

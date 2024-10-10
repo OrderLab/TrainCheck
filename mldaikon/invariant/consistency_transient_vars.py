@@ -204,7 +204,7 @@ class ConsistentTransientVarsRelation(Relation):
         failed_hypotheses = []
         for func_name, hypotheses in all_hypotheses.items():
             for hypothesis in hypotheses:
-                precondition = find_precondition(hypothesis)
+                precondition = find_precondition(hypothesis, trace)
                 print(precondition)
                 if precondition is not None:
                     hypothesis.invariant.precondition = precondition

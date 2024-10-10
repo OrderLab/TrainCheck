@@ -252,8 +252,12 @@ class BindedFuncInput:
         return list(self.binded_args_and_kwargs[arg_name].values())[0]
 
     def to_dict_for_precond_inference(self):
-        # flat this object later.
-        raise NotImplementedError()
+        # flat this object later, get rid of the type annotation
+        # return {arg_name: arg_value}
+        return {
+            arg_name: list(arg_value.values())[0]
+            for arg_name, arg_value in self.binded_args_and_kwargs.items()
+        }
 
     def __str__(self) -> str:
         return str(self.binded_args_and_kwargs)
@@ -273,7 +277,14 @@ class ContextManagerState:
 
     def to_dict(self):
         # flat this object later.
-        raise NotImplementedError()
+        return {
+            "name": self.name,
+            "process_id": self.ptid.process_id,
+            "thread_id": self.ptid.thread_id,
+            "start_time": self.liveness.start_time,
+            "end_time": self.liveness.end_time,
+            "input": self.input.to_dict_for_precond_inference(),
+        }
 
     def __str__(self):
         return f"ContextManagerState: {self.name}, {self.ptid}, {self.liveness}, {self.input}"

@@ -132,6 +132,12 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
+    def get_meta_vars(self, time, process_id, thread_id) -> dict:
+        """Get the meta variables at a specific time, process and thread."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
     def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
         raise NotImplementedError(

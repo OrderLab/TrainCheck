@@ -404,6 +404,7 @@ class PreconditionClauseType(Enum):
     CONSTANT = "constant"
     CONSISTENT = "consistent"
     UNEQUAL = "unequal"
+    EXIST = "exist"
 
 
 PT = PreconditionClauseType
@@ -417,6 +418,7 @@ class PreconditionClause:
             PT.CONSISTENT,
             PT.CONSTANT,
             PT.UNEQUAL,
+            PT.EXIST,
         ], f"Invalid Precondition type {_type}"
 
         if _type in [PT.CONSISTENT, PT.CONSTANT]:

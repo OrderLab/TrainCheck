@@ -15,6 +15,7 @@ from mldaikon.invariant.base_cls import (
     PreconditionClause,
     UnconditionalPrecondition,
 )
+from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import MD_NONE
 
 logger = logging.getLogger("Precondition")
@@ -181,6 +182,7 @@ def _merge_clauses(
 
 def find_precondition(
     hypothesis: Hypothesis,
+    trace: Trace,
     keys_to_skip: list[str] = [],
 ) -> GroupedPreconditions | None:
     """When None is returned, it means that we cannot find a precondition that is safe to use for the hypothesis."""
@@ -210,7 +212,7 @@ def find_precondition(
             negative_examples = []
 
         grouped_preconditions[group_name] = find_precondition_from_single_group(
-            positive_examples, negative_examples, keys_to_skip
+            positive_examples, negative_examples, trace, keys_to_skip
         )
 
     # if any group's precondition is of length 0, return None
@@ -226,6 +228,7 @@ def find_precondition(
 def find_precondition_from_single_group(
     positive_examples: list[list[dict]],
     negative_examples: list[list[dict]],
+    trace: Trace,
     keys_to_skip: list[str] = [],
     _pruned_clauses: set[PreconditionClause] = set(),
     _skip_pruning: bool = False,
@@ -298,6 +301,18 @@ def find_precondition_from_single_group(
             raise ValueError("Empty example found in positive examples")
 
         # HACK: in ConsistencyRelation in order to avoid the field used in the invariant, we need to skip the field in the precondition. It is up to the caller to provide the keys to skip. We should try to refactor this to have a more generic solution.
+        earliest_time = example[0]["time"]
+        process_id = example[0]["process_id"]
+        thread_id = example[0]["thread_id"]
+        meta_vars = trace.get_meta_vars(
+            earliest_time, process_id=process_id, thread_id=thread_id
+        )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
+
+        # update every trace with the meta_vars
+        for key in meta_vars:
+            for i in range(len(example)):
+                example[i][f"meta_vars.{key}"] = meta_vars[key]
+
         local_clauses = _find_local_clauses(example, key_to_skip=keys_to_skip)
 
         if len(local_clauses) == 0:
@@ -465,6 +480,7 @@ def find_precondition_from_single_group(
         sub_preconditions = find_precondition_from_single_group(
             sub_positive_examples,
             passing_neg_exps,
+            trace=trace,
             keys_to_skip=keys_to_skip,
             _pruned_clauses=_pruned_clauses,
             _skip_pruning=True,

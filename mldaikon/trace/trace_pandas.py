@@ -1,5 +1,6 @@
 import logging
 import re
+from typing import Any
 
 import pandas as pd
 from tqdm import tqdm
@@ -280,6 +281,31 @@ class TracePandas(Trace):
             if context_manager_state.liveness.is_alive(time):
                 active_context_managers.append(context_manager_state)
         return active_context_managers
+
+    def get_meta_vars(
+        self, time: float, process_id: int, thread_id: int
+    ) -> dict[str, Any]:
+        """Get the meta_vars a given time.
+
+        Return value:
+            dict[str, ]: A dictionary of meta variables. Each key in the dict indicates the type of meta variable and should start with a prefix in the following set: {"context_manager", "rank", "stage", "step"}
+
+        NOTE: CHANGING THE RETURN FORMAT WILL INTERFERE WITH THE PRECONDITION INFERENCE
+
+        """
+        meta_vars = {}
+        active_context_managers = self.query_active_context_managers(
+            time, process_id, thread_id
+        )
+
+        # hack: flatten the meta-vars data structure so it works with precondition inferece
+        prefix = "context_manager"
+        for _, context_manager in enumerate(active_context_managers):
+            meta_vars[f"{prefix}.{context_manager.name}"] = context_manager.to_dict()[
+                "input"
+            ]
+
+        return meta_vars
 
     def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""

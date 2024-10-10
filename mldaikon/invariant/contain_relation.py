@@ -726,7 +726,7 @@ class APIContainRelation(Relation):
                 logger.debug(
                     f"Starting the inference of precondition for the hypotheses: {hypo.invariant.text_description}"
                 )
-                found_precondition = find_precondition(hypo)
+                found_precondition = find_precondition(hypo, trace)
                 if (
                     found_precondition is not None
                 ):  # TODO: abstract this precondition inference part to a function
