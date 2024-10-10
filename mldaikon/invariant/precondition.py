@@ -31,11 +31,30 @@ def _find_local_clauses(
     """A list of traces to find common properties from. The property should hold locally within the example."""
 
     clauses = []
+
+    # TODO: figure out how to extend this to args, kwargs and return values
+    relevant_key_prefixes = {
+        "process_id",
+        "thread_id",
+        "meta_vars",
+        "var_name",
+        "function",
+        "exception",
+        "attributes",
+        "var_type",
+    }
     # find properties that have only one value in the example
     for prop in example[0]:
-        if prop in config.NOT_USE_AS_CLAUSE_FIELDS:
-            # skip meta_info about each event
+        for prefix in relevant_key_prefixes:
+            if prop.startswith(prefix):
+                break
+        else:
+            # we skip inference on properties that are not relevant
             continue
+
+        # if prop in config.NOT_USE_AS_CLAUSE_FIELDS:
+        #     # skip meta_info about each event
+        #     continue
 
         if isinstance(key_to_skip, list) and any(key in prop for key in key_to_skip):
             continue
@@ -89,6 +108,29 @@ def _find_local_clauses(
             )
         elif len(prop_values_seen) == len(example) and None not in prop_values_seen:
             clauses.append(PreconditionClause(prop, prop_dtype, PT.UNEQUAL, None, None))
+
+    # let's deal with meta_vars.context_managers separately
+    all_context_managers = []
+    for k in example[0]:
+        if k.startswith("meta_vars.context_managers"):
+            all_context_managers.append(k)
+
+    for context_manager_key in all_context_managers:
+        # emit the exist clause first
+        clauses.append(
+            PreconditionClause(context_manager_key, None, PT.EXIST, None, None)
+        )
+        # for each argument of the context manager, emit the CONSTANT clauses for their values
+        for arg, value in example[0][context_manager_key].items:
+            clauses.append(
+                PreconditionClause(
+                    f"{context_manager_key}",
+                    None,
+                    PT.CONSTANT,
+                    [arg],
+                    {value},
+                )
+            )
 
     return clauses
 
