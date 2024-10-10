@@ -58,6 +58,10 @@ class Liveness:
         self.start_time = start_time
         self.end_time = end_time
 
+    def is_alive(self, time: float) -> bool:
+        assert self.start_time is not None and self.end_time is not None
+        return self.start_time <= time <= self.end_time
+
     def __str__(self):
         return f"Start Time: {self.start_time}, End Time: {self.end_time}, Duration: {self.end_time - self.start_time}"
 
@@ -270,3 +274,9 @@ class ContextManagerState:
     def to_dict(self):
         # flat this object later.
         raise NotImplementedError()
+
+    def __str__(self):
+        return f"ContextManagerState: {self.name}, {self.ptid}, {self.liveness}, {self.input}"
+
+    def __repr__(self):
+        return self.__str__()

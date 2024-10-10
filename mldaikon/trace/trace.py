@@ -6,6 +6,7 @@ from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.trace.types import (
     AttrState,
+    ContextManagerState,
     FuncCallEvent,
     FuncCallExceptionEvent,
     IncompleteFuncCallEvent,
@@ -108,7 +109,7 @@ class Trace:
 
     def query_active_context_managers(
         self, time: float, process_id: int, thread_id: int
-    ) -> list[dict]:
+    ) -> list[ContextManagerState]:
         """Given a timestamp, query all active context managers at that time.
 
         Args:

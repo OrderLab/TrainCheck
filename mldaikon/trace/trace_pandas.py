@@ -50,7 +50,7 @@ class TracePandas(Trace):
         self.var_changes = None
 
         self.all_func_call_ids: dict[str, list[str]] = {}
-        self.context_manager_states: dict[PTID, dict[float,]]
+        self.context_manager_states: dict[PTID, list[ContextManagerState]]
 
         if isinstance(events, list) and all(
             [isinstance(e, pd.DataFrame) for e in events]
@@ -206,10 +206,13 @@ class TracePandas(Trace):
         if "function" not in self.events.columns:
             return
 
-        if hasattr(self, "context_manager_states"):
+        if (
+            hasattr(self, "context_manager_states")
+            and self.context_manager_states is not None
+        ):
             return self.context_manager_states
 
-        all_context_managers: dict[PTID, list[tuple[Liveness, list]]] = {}
+        all_context_managers: dict[PTID, list[ContextManagerState]] = {}
 
         context_manager_events = self.events[
             self.events["function"].str.contains("__enter__|__exit__")
@@ -252,7 +255,7 @@ class TracePandas(Trace):
                 all_context_managers[ptid] = []
             all_context_managers[ptid].append(
                 ContextManagerState(
-                    name=init_pre_record["function"].rstrip(".__init__"),
+                    name=init_pre_record["function"].removesuffix(".__init__"),
                     ptid=ptid,
                     liveness=Liveness(start_time, end_time),
                     input=binded_args_and_kwargs,
@@ -260,6 +263,23 @@ class TracePandas(Trace):
             )
 
         self.context_manager_states = all_context_managers
+
+    def query_active_context_managers(
+        self, time: float, process_id: int, thread_id: int
+    ) -> list[ContextManagerState]:
+        """Query all active context managers at a given time."""
+        if not hasattr(self, "context_manager_states"):
+            self._index_context_manager_meta_vars()
+
+        ptid = PTID(process_id, thread_id)
+        if ptid not in self.context_manager_states:
+            return []
+
+        active_context_managers = []
+        for context_manager_state in self.context_manager_states[ptid]:
+            if context_manager_state.liveness.is_alive(time):
+                active_context_managers.append(context_manager_state)
+        return active_context_managers
 
     def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""
