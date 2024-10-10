@@ -524,8 +524,8 @@ class PreconditionClause:
                 self.prop_name,
                 self.prop_dtype,
                 self.type,
-                tuple(self.values),
-                tuple(self.additional_path),
+                tuple(self.values) if self.values else None,
+                tuple(self.additional_path) if self.additional_path else None,
             )
         )
 

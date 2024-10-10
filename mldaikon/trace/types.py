@@ -279,8 +279,8 @@ class ContextManagerState:
         # flat this object later.
         return {
             "name": self.name,
-            "process_id": self.ptid.process_id,
-            "thread_id": self.ptid.thread_id,
+            "process_id": self.ptid.pid,
+            "thread_id": self.ptid.tid,
             "start_time": self.liveness.start_time,
             "end_time": self.liveness.end_time,
             "input": self.input.to_dict_for_precond_inference(),

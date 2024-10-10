@@ -5,6 +5,7 @@ import logging
 from collections.abc import MutableMapping
 
 from mldaikon.trace.types import MD_NONE, BindedFuncInput
+from mldaikon.utils import typename
 
 
 def _flatten_dict_gen(d, parent_key, sep, skip_fields=None):
@@ -96,7 +97,8 @@ def bind_args_kwargs_to_signature(
         assert (
             signature.parameters[arg_name].default != inspect.Parameter.empty
         ), f"Argument {arg_name} is not binded and has no default value."
-        bind_args_and_kwargs[arg_name] = signature.parameters[arg_name].default
+        default_val = signature.parameters[arg_name].default
+        bind_args_and_kwargs[arg_name] = {typename(default_val): default_val}
 
     assert len(bind_args_and_kwargs) == len(
         signature.parameters
