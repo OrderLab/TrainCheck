@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728639704336,
+  "lastUpdate": 1728650415740,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6086,6 +6086,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.03085752338729701",
             "extra": "mean: 10.294084454001858 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31838999+Essoz@users.noreply.github.com",
+            "name": "Yuxuan",
+            "username": "Essoz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1de769e6de9d32bbda17850c895d3873915d8189",
+          "message": "[Support LT-725] Trace Context Manager Entry/Exit Events as `meta_vars` (#97)\n\n* add: not skipping context manager entry and exit events\r\n\r\n* refactor: avoid too long tracer.py\r\n\r\n* add: dump dtype in proxy\r\n\r\n* add: module name as function name prefix in trace\r\n\r\n* add: dump input/output of APIs\r\n\r\n* add: handle primitive types correctly in API input/output dumping\r\n\r\n* fix: not instrument torch._ops classes and override.handle_torch_function to avoid infinite recursion\r\n\r\n* hack: serialize trace on the local thread first before forwarding it to async dumper to avoid weird dumping errors\r\n\r\n* fix: remove unnecessary trace fields since we now use pandas\r\n\r\n* add: skip flattening for args, kwargs and return values due to extremely diverse schema\r\n\r\n* add: args, kwargs and return_value in FuncCallEvent types, and handle torch.dtype properly in serialization\r\n\r\n* add: args, kwargs and return_value in FuncCallEvent types, and handle torch.dtype properly in serialization\r\n\r\n* add: hypothesis generation for LT-725\r\n\r\n* WIP: LT-725 precondition inference\r\n\r\n* WIP: LT-725 precondition inference\r\n\r\n* add: index context managers from trace\r\n\r\n* add: contextManagerState class\r\n\r\n* add: context manager query method\r\n\r\n* add: integrate context manager structure into precondition inference\r\n\r\n* fix: updated verify method for precondition clause with additional path\r\n\r\n* add: precondition for context managers\r\n\r\n* add: reraise exception in custom excepthook\r\n\r\n* fix: handle default values when binding inputs\r\n\r\n* fix: precondition infer",
+          "timestamp": "2024-10-10T20:12:26-04:00",
+          "tree_id": "b4f5c1cfb7024f29ad1bb52024882516c2416492",
+          "url": "https://github.com/OrderLab/ml-daikon/commit/1de769e6de9d32bbda17850c895d3873915d8189"
+        },
+        "date": 1728650415196,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.22078277260308132,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011811172810392791",
+            "extra": "mean: 4.529338898183778 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.0029355353430966,
+            "unit": "iter/sec",
+            "range": "stddev: 1.1493218051555432",
+            "extra": "mean: 340.65336748599077 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_cond_dump_jit_and_c_tracing_disabled",
+            "value": 0.0029275907451498696,
+            "unit": "iter/sec",
+            "range": "stddev: 1.9489053783829715",
+            "extra": "mean: 341.57779794074594 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0012116847537447732,
+            "unit": "iter/sec",
+            "range": "stddev: 1.6011413066418485",
+            "extra": "mean: 825.2971714874263 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.09688025989502473,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06477931213685849",
+            "extra": "mean: 10.322020203946158 sec\nrounds: 5"
           }
         ]
       }
