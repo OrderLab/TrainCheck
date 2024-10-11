@@ -106,13 +106,18 @@ def bind_args_kwargs_to_signature(
     return BindedFuncInput(bind_args_and_kwargs)
 
 
-def load_signature_from_func_name(func_name) -> inspect.Signature:
-    # the func_name should be in the format of "module_name1.module_name2.....func_name" also the module_name1.module_name2 should be importable.
-    root_module_name = func_name.split(".")[0]
-    module = importlib.import_module(root_module_name)
+def load_signature_from_class_method_name(name) -> inspect.Signature:
+    # the func_name should be in the format of "module_name1.module_name2....class_name.method_name".
+    parent_module_name = ".".join(name.split(".")[:-2])
+    parent_class = name.split(".")[-2]
+    method_name = name.split(".")[-1]
+    module = importlib.import_module(parent_module_name)
+    class_obj = getattr(module, parent_class)
 
-    for sub_module_name in func_name.split(".")[1:]:
-        module = getattr(module, sub_module_name)
+    assert hasattr(
+        class_obj, method_name
+    ), f"Method {method_name} not found in class {parent_class}."
+    method = getattr(class_obj, method_name)
 
-    assert callable(module), f"Function {func_name} is not callable."
-    return inspect.signature(module)
+    assert callable(method), f"Function {name} is not callable."
+    return inspect.signature(method)

@@ -22,7 +22,7 @@ from mldaikon.trace.types import (
 from mldaikon.trace.utils import (
     bind_args_kwargs_to_signature,
     flatten_dict,
-    load_signature_from_func_name,
+    load_signature_from_class_method_name,
     read_jsonlines_flattened_with_md_none,
 )
 
@@ -245,7 +245,9 @@ class TracePandas(Trace):
 
             args = init_pre_record["args"]
             kwargs = init_pre_record["kwargs"]
-            signature = load_signature_from_func_name(init_pre_record["function"])
+            signature = load_signature_from_class_method_name(
+                init_pre_record["function"]
+            )
 
             binded_args_and_kwargs = bind_args_kwargs_to_signature(
                 args, kwargs, signature
