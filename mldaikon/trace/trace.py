@@ -6,6 +6,7 @@ from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.trace.types import (
     AttrState,
+    ContextManagerState,
     FuncCallEvent,
     FuncCallExceptionEvent,
     IncompleteFuncCallEvent,
@@ -96,6 +97,43 @@ class Trace:
             ValueError: If an incomplete function call is not close enough to the outermost function call post event.
             AssertionError: If the incomplete function call is not on a different thread than the outermost function call.
         """
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
+    def _index_context_manager_meta_vars(self):
+        """Identify context manager entry and exit events, and add them to the meta_vars."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
+    def query_active_context_managers(
+        self, time: float, process_id: int, thread_id: int
+    ) -> list[ContextManagerState]:
+        """Given a timestamp, query all active context managers at that time.
+
+        Args:
+            time (float): The timestamp to query the active context managers.
+            process_id (int): The process id to query the active context managers.
+            thread_id (int): The thread id to query the active context managers.
+
+        Returns:
+            list[dict]: A list of active context managers at the given time.
+            Each dict will be like:
+            {
+                "context_manager_name": "context_manager_name",
+                "args": {"arg_name": "arg_value", ...},
+                "kwargs": {"kwarg_name": "kwarg_value", ...},
+                "start_time": start_time,
+                "end_time": end_time,
+            }
+        """
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
+    def get_meta_vars(self, time, process_id, thread_id) -> dict:
+        """Get the meta variables at a specific time, process and thread."""
         raise NotImplementedError(
             "This function should be implemented in the child class."
         )

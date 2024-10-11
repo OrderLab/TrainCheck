@@ -1,22 +1,30 @@
 import logging
 import re
+from typing import Any
 
 import pandas as pd
 from tqdm import tqdm
 
 from mldaikon.config import config
 from mldaikon.instrumentor.tracer import TraceLineType
+from mldaikon.instrumentor.types import PTID
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import (
     MD_NONE,
     AttrState,
+    ContextManagerState,
     FuncCallEvent,
     FuncCallExceptionEvent,
     Liveness,
     VarChangeEvent,
     VarInstId,
 )
-from mldaikon.trace.utils import flatten_dict, read_jsonlines_flattened_with_md_none
+from mldaikon.trace.utils import (
+    bind_args_kwargs_to_signature,
+    flatten_dict,
+    load_signature_from_func_name,
+    read_jsonlines_flattened_with_md_none,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +51,7 @@ class TracePandas(Trace):
         self.var_changes = None
 
         self.all_func_call_ids: dict[str, list[str]] = {}
+        self.context_manager_states: dict[PTID, list[ContextManagerState]]
 
         if isinstance(events, list) and all(
             [isinstance(e, pd.DataFrame) for e in events]
@@ -72,6 +81,8 @@ class TracePandas(Trace):
             )
 
         self.column_dtypes_cached = {}
+
+        self._index_context_manager_meta_vars()
 
     def _rm_incomplete_trailing_func_calls(self):
         """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
@@ -189,6 +200,112 @@ class TracePandas(Trace):
                 ]
 
         # test_dump(self.events)
+
+    def _index_context_manager_meta_vars(self):
+        """Identify context manager entry and exit events, and add them to the meta_vars."""
+        # 1. Find all trace records that are related to __enter__ and __exit__ functions
+        if "function" not in self.events.columns:
+            return
+
+        if (
+            hasattr(self, "context_manager_states")
+            and self.context_manager_states is not None
+        ):
+            return self.context_manager_states
+
+        all_context_managers: dict[PTID, list[ContextManagerState]] = {}
+
+        context_manager_events = self.events[
+            self.events["function"].str.contains("__enter__|__exit__")
+        ]
+
+        # 2. Group the context manager events by the object id --> each group should have exactly three events: __init__, __enter__, and __exit__
+        context_manager_groups = context_manager_events.groupby("obj_id")
+        for obj_id, group in context_manager_groups:
+            assert (
+                len(group) == 4
+            ), f"Context manager group for object {obj_id} does not have exactly four events: {group}"
+            # post_record should have type beging function call post
+            enter_post_record = group[
+                (group["type"] == TraceLineType.FUNC_CALL_POST)
+                & (group["function"].str.contains("__enter__"))
+            ].iloc[0]
+            exit_pre_record = group[
+                (group["type"] == TraceLineType.FUNC_CALL_PRE)
+                & (group["function"].str.contains("__exit__"))
+            ].iloc[0]
+
+            init_pre_record = self.events[
+                (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+                & (self.events["function"].str.contains("__init__"))
+                & (self.events["obj_id"] == obj_id)
+            ].iloc[0]
+
+            start_time, end_time = enter_post_record["time"], exit_pre_record["time"]
+
+            args = init_pre_record["args"]
+            kwargs = init_pre_record["kwargs"]
+            signature = load_signature_from_func_name(init_pre_record["function"])
+
+            binded_args_and_kwargs = bind_args_kwargs_to_signature(
+                args, kwargs, signature
+            )
+
+            ptid = PTID(init_pre_record["process_id"], init_pre_record["thread_id"])
+            if ptid not in all_context_managers:
+                all_context_managers[ptid] = []
+            all_context_managers[ptid].append(
+                ContextManagerState(
+                    name=init_pre_record["function"].removesuffix(".__init__"),
+                    ptid=ptid,
+                    liveness=Liveness(start_time, end_time),
+                    input=binded_args_and_kwargs,
+                )
+            )
+
+        self.context_manager_states = all_context_managers
+
+    def query_active_context_managers(
+        self, time: float, process_id: int, thread_id: int
+    ) -> list[ContextManagerState]:
+        """Query all active context managers at a given time."""
+        if not hasattr(self, "context_manager_states"):
+            self._index_context_manager_meta_vars()
+
+        ptid = PTID(process_id, thread_id)
+        if ptid not in self.context_manager_states:
+            return []
+
+        active_context_managers = []
+        for context_manager_state in self.context_manager_states[ptid]:
+            if context_manager_state.liveness.is_alive(time):
+                active_context_managers.append(context_manager_state)
+        return active_context_managers
+
+    def get_meta_vars(
+        self, time: float, process_id: int, thread_id: int
+    ) -> dict[str, Any]:
+        """Get the meta_vars a given time.
+
+        Return value:
+            dict[str, ]: A dictionary of meta variables. Each key in the dict indicates the type of meta variable and should start with a prefix in the following set: {"context_manager", "rank", "stage", "step"}
+
+        NOTE: CHANGING THE RETURN FORMAT WILL INTERFERE WITH THE PRECONDITION INFERENCE
+
+        """
+        meta_vars = {}
+        active_context_managers = self.query_active_context_managers(
+            time, process_id, thread_id
+        )
+
+        # hack: flatten the meta-vars data structure so it works with precondition inferece
+        prefix = "context_managers"
+        for _, context_manager in enumerate(active_context_managers):
+            meta_vars[f"{prefix}.{context_manager.name}"] = context_manager.to_dict()[
+                "input"
+            ]
+
+        return meta_vars
 
     def get_start_time(self, process_id=None, thread_id=None) -> float:
         """Get the start time of the trace. If process_id or thread_id is provided, the start time of the specific process or thread will be returned."""

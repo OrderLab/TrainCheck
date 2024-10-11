@@ -263,7 +263,7 @@ class FunctionCoverRelation(Relation):
                 logger.debug(
                     f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
                 )
-                preconditions = find_precondition(hypothesis_with_examples[hypo])
+                preconditions = find_precondition(hypothesis_with_examples[hypo], trace)
                 logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
 
                 if preconditions is not None:
@@ -349,7 +349,8 @@ class FunctionCoverRelation(Relation):
 
                 if pair not in precondition_cache:
                     precondition_cache[pair] = find_precondition(
-                        hypothesis_with_examples[(a.api_full_name, b.api_full_name)]
+                        hypothesis_with_examples[(a.api_full_name, b.api_full_name)],
+                        trace,
                     )
 
                 current_precondition = precondition_cache[pair]
@@ -372,7 +373,8 @@ class FunctionCoverRelation(Relation):
                                         next_pair[0].api_full_name,
                                         next_pair[1].api_full_name,
                                     )
-                                ]
+                                ],
+                                trace,
                             )
 
                         next_precondition = precondition_cache[next_pair]

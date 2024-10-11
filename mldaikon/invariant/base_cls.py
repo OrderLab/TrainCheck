@@ -7,6 +7,8 @@ import math
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
+import pandas as pd
+
 import mldaikon.config.config as config
 from mldaikon.invariant.symbolic_value import (
     GENERALIZED_TYPES,
@@ -109,6 +111,7 @@ class APIParam(Param):
         if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
             return False
 
+        # TODO: Handle Stop Iteration Exception!!!
         matched = event.func_name == self.api_full_name
         if self.exception != _NOT_SET:
             matched = (
@@ -161,7 +164,7 @@ class VarTypeParam(Param):
         attr_name: str,
         pre_value: Any = _NOT_SET,
         post_value: Any = _NOT_SET,
-        recur_value: Any = _NOT_SET,
+        const_value: Any = _NOT_SET,
     ):
         self.var_type = var_type
         self.attr_name = attr_name
@@ -177,12 +180,12 @@ class VarTypeParam(Param):
         self.post_value = post_value
 
         # for the VarPeriodicChangeRelation relation
-        self.recur_value = recur_value  # CHECKING OF THIS VALUE CAN ONLY BE DONE IN THE RELATION'S EVALUATE METHOD
+        self.const_value = const_value  # CHECKING OF THIS VALUE CAN ONLY BE DONE IN THE RELATION'S EVALUATE METHOD
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         """Checks whether the event is a candidate described by the param.
         Note that, only var_type and attr_name are checked here.
-        The parameterized values (e.g. pre_value and recur_value) should be checked in the relation's evaluate method.
+        The parameterized values (e.g. pre_value and const_value) should be checked in the relation's evaluate method.
 
         TODO: potential value of using higher level events is that we can capture higher level information. For example,
         `zero_grad` does assign zero to the gradients of the model everytime, but call to `zero_grad` is only correct if the previous value
@@ -194,10 +197,10 @@ class VarTypeParam(Param):
             event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
         )
 
-        if self.recur_value != _NOT_SET:
+        if self.const_value != _NOT_SET:
             logger = logging.getLogger(__name__)
             logger.warning(
-                "Recur value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
+                "Const value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
             )
 
         pre_and_post_value_matched = True
@@ -240,17 +243,17 @@ class VarTypeParam(Param):
         }
 
     def get_customizable_field_names(self) -> set[str]:
-        return {"pre_value", "post_value", "recur_value"}
+        return {"pre_value", "post_value", "const_value"}
 
     def get_customized_fields(self) -> dict[str, type]:
         fields = {}
-        for attr in ["pre_value", "post_value", "recur_value"]:
+        for attr in ["pre_value", "post_value", "const_value"]:
             if getattr(self, attr) != _NOT_SET:
                 fields[attr] = getattr(self, attr)
         return fields
 
     def __str__(self) -> str:
-        return f"{self.var_type} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
+        return f"{self.var_type} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, const_value: {self.const_value}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -264,7 +267,7 @@ class VarNameParam(Param):
         attr_name: str,
         pre_value: Any = _NOT_SET,
         post_value: Any = _NOT_SET,
-        recur_value: Any = _NOT_SET,
+        const_value: Any = _NOT_SET,
     ):
         self.var_type = var_type
         self.var_name = var_name
@@ -275,13 +278,13 @@ class VarNameParam(Param):
         self.pre_value = pre_value
         self.post_value = post_value
 
-        # for the VarPeriodicChangeRelation relation
-        self.recur_value = recur_value
+        # for the VarPeriodicChangeRelation and ConsistencyTransientVarsRelation
+        self.const_value = const_value
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         """Checks whether the event is a candidate described by the param.
         Note that, only var_type and attr_name are checked here.
-        The parameterized values (e.g. pre_value and recur_value) should be checked in the relation's evaluate method.
+        The parameterized values (e.g. pre_value and const_value) should be checked in the relation's evaluate method.
 
         TODO: potential value of using higher level events is that we can capture higher level information. For example,
         `zero_grad` does assign zero to the gradients of the model everytime, but call to `zero_grad` is only correct if the previous value
@@ -293,10 +296,10 @@ class VarNameParam(Param):
             event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
         )
 
-        if self.recur_value != _NOT_SET:
+        if self.const_value != _NOT_SET:
             logger = logging.getLogger(__name__)
             logger.warning(
-                "Recur value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
+                "Const value is set for VarNameParam, this should be checked in the relation's evaluate method instead of the check_event_match method."
             )
 
         pre_and_post_value_matched = True
@@ -340,17 +343,17 @@ class VarNameParam(Param):
         }
 
     def get_customizable_field_names(self) -> set[str]:
-        return {"pre_value", "post_value", "recur_value"}
+        return {"pre_value", "post_value", "const_value"}
 
     def get_customized_fields(self) -> dict[str, Any]:
         fields = {}
-        for attr in ["pre_value", "post_value", "recur_value"]:
+        for attr in ["pre_value", "post_value", "const_value"]:
             if getattr(self, attr) != _NOT_SET:
                 fields[attr] = getattr(self, attr)
         return fields
 
     def __str__(self) -> str:
-        return f"{self.var_type} {self.var_name} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, recur_value: {self.recur_value}"
+        return f"{self.var_type} {self.var_name} {self.attr_name}, pre_value: {self.pre_value}, post_value: {self.post_value}, const_value: {self.const_value}"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -384,7 +387,7 @@ def construct_var_param_from_var_change(
             event.attr_name,
             pre_value=pre_value,
             post_value=new_value,
-            # recur_value=None, # TODO
+            # const_value=None, # TODO
         )
     elif config.VAR_INV_TYPE == "name":
         return VarNameParam(
@@ -393,7 +396,7 @@ def construct_var_param_from_var_change(
             event.attr_name,
             pre_value=pre_value,
             post_value=new_value,
-            # recur_value=None, # TODO
+            # const_value=None, # TODO
         )
 
     raise ValueError(f"Invalid VAR_INV_TYPE: {config.VAR_INV_TYPE}")
@@ -403,6 +406,7 @@ class PreconditionClauseType(Enum):
     CONSTANT = "constant"
     CONSISTENT = "consistent"
     UNEQUAL = "unequal"
+    EXIST = "exist"
 
 
 PT = PreconditionClauseType
@@ -410,14 +414,30 @@ PT = PreconditionClauseType
 
 class PreconditionClause:
     def __init__(
-        self, prop_name: str, prop_dtype: type | None, _type: PT, values: set | None
+        self,
+        prop_name: str,
+        prop_dtype: type | None,
+        _type: PT,
+        additional_path: list[str] | None,
+        values: set | None,
     ):
+        """A class to represent a single clause in a precondition. A clause is a property that should hold for the hypothesis to be valid.
+
+        Args:
+        - prop_name: The name of the property
+        - prop_dtype: The data type of the property
+        - _type: The type of the precondition (constant, consistent, unequal, exist), see `PreconditionClauseType`
+        - additional_path: The additional path to the property in the trace. This is provided if prop_name refers to a dictionary in the trace (TODO: can we extend it to lists as well?)
+        - values: The values that the property should hold. This is a set of values that the property should hold. This is only checked for CONSTANT clauses.
+        """
         assert _type in [
             PT.CONSISTENT,
             PT.CONSTANT,
             PT.UNEQUAL,
+            PT.EXIST,
         ], f"Invalid Precondition type {_type}"
 
+        # for EXIST AND UNEQUAL, THE values and prop_dtype do not need to be set
         if _type in [PT.CONSISTENT, PT.CONSTANT]:
             if prop_dtype is None:
                 assert values == {None}, "Values should be None for prop_dtype None"
@@ -425,21 +445,26 @@ class PreconditionClause:
                 assert (
                     values is not None and len(values) > 0 and prop_dtype is not None
                 ), "Values should be provided for constant or consistent preconditions"
+
         self.prop_name = prop_name
         self.prop_dtype = prop_dtype
         self.type = _type
+        self.additional_path = additional_path
         self.values = values if isinstance(values, set) else {values}
 
     def __repr__(self) -> str:
         return self.__str__()
 
     def __str__(self) -> str:
-        return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
+        if self.type in [PT.CONSTANT]:
+            return f"Prop: {self.prop_name}, Type: {self.type}, Values: {self.values}"
+        return f"Prop: {self.prop_name}, Type: {self.type}"
 
     def to_dict(self) -> dict:
         clause_dict: dict[str, str | list] = {
             "type": self.type.value,
             "prop_name": self.prop_name,
+            "additional_path": self.additional_path if self.additional_path else "None",
             "prop_dtype": self.prop_dtype.__name__ if self.prop_dtype else "None",
         }
         if self.type in [PT.CONSTANT, PT.CONSISTENT]:
@@ -451,13 +476,18 @@ class PreconditionClause:
         prop_name = clause_dict["prop_name"]
         _type = PT(clause_dict["type"])
         prop_dtype = eval(clause_dict["prop_dtype"])
+        additional_path = (
+            clause_dict["additional_path"]
+            if clause_dict["additional_path"] != "None"
+            else None
+        )
 
         values = None
         if _type in [PT.CONSTANT, PT.CONSISTENT]:
             assert "values" in clause_dict, "Values not found in the clause"
             assert isinstance(clause_dict["values"], list), "Values should be a list"
             values = set(clause_dict["values"])
-        return PreconditionClause(prop_name, prop_dtype, _type, values)
+        return PreconditionClause(prop_name, prop_dtype, _type, additional_path, values)
 
     def __eq__(self, other):
         if not isinstance(other, PreconditionClause):
@@ -468,37 +498,69 @@ class PreconditionClause:
                 self.prop_name == other.prop_name
                 and self.prop_dtype == other.prop_dtype
                 and self.type == other.type
+                and self.additional_path == other.additional_path
             )
 
         return (
             self.prop_name == other.prop_name
             and self.prop_dtype == other.prop_dtype
             and self.type == other.type
+            and self.additional_path == other.additional_path
             and self.values == other.values
         )
 
     def __hash__(self):
         if self.type == PT.CONSISTENT:
-            return hash((self.prop_name, self.prop_dtype, self.type))
-        return hash((self.prop_name, self.prop_dtype, self.type, tuple(self.values)))
+            return hash(
+                (
+                    self.prop_name,
+                    self.prop_dtype,
+                    self.type,
+                    tuple(self.additional_path) if self.additional_path else None,
+                )
+            )
+        return hash(
+            (
+                self.prop_name,
+                self.prop_dtype,
+                self.type,
+                tuple(self.values) if self.values else None,
+                tuple(self.additional_path) if self.additional_path else None,
+            )
+        )
 
     def verify(self, example: list) -> bool:
         assert isinstance(example, list)
         assert len(example) > 0
 
-        prop_name = self.prop_name
+        def get_prop_from_record(record: dict) -> tuple[Any, bool]:
+            if self.prop_name not in record:
+                return None, False
+
+            current_value = record[self.prop_name]
+            if not self.additional_path:
+                return current_value, True
+
+            for path in self.additional_path:
+                if path not in current_value:
+                    return None, False
+                current_value = current_value[path]
+
+            return current_value, True
+
         prop_values_seen = set()
         for i in range(len(example)):
-            if prop_name not in example[i]:
+            value, found = get_prop_from_record(example[i])
+            if not found or pd.isna(value):
                 return False
 
-            if not isinstance(example[i][prop_name], Hashable):
+            if not isinstance(value, Hashable):
                 # print(
-                #     f"ERROR: Property {prop_name} is not hashable, skipping this property"
+                #     f"ERROR: Property {prop_name} is not hashable, skipping this property as we cannot deal with non-hashable properties yet."
                 # )
                 return False
 
-            prop_values_seen.add(example[i][prop_name])
+            prop_values_seen.add(value)
 
         if self.type == PT.CONSTANT:
             if len(prop_values_seen) == 1 and tuple(prop_values_seen)[0] in self.values:
@@ -514,6 +576,10 @@ class PreconditionClause:
             if len(prop_values_seen) == len(example):
                 return True
             return False
+
+        if self.type == PT.EXIST:
+            # as long as we didn't return above due to the property not being found, we can return True
+            return True
 
         raise ValueError(f"Invalid Precondition type {self.type}")
 
@@ -964,6 +1030,12 @@ class Hypothesis:
 
     def calc_likelihood(self):
         return calc_likelihood(len(self.positive_examples), len(self.negative_examples))
+
+    def __str__(self):
+        return self._print_debug()
+
+    def __repr__(self) -> str:
+        return self._print_debug()
 
 
 class FailedHypothesis:

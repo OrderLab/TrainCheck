@@ -4,7 +4,7 @@ import unittest
 
 # Import the module to test
 from mldaikon.trace.trace_pandas import TracePandas, read_trace_file_Pandas
-from mldaikon.trace.trace_polars import TracePolars, read_trace_file
+from mldaikon.trace.trace_polars import TracePolars, read_trace_file_polars
 
 # import modin.pandas as pd
 # import polars
@@ -28,7 +28,7 @@ class TestTracePandas(unittest.TestCase):
 
     def setUp(self):
         self.trace_file = "tests/test_trace_pandas/test_API_trace.log"
-        self.trace_data_polars = read_trace_file(self.trace_file)
+        self.trace_data_polars = read_trace_file_polars(self.trace_file)
         self.trace_data_pandas = read_trace_file_Pandas(self.trace_file)
         self.start_time = self.trace_data_pandas.get_start_time()
         self.end_time = self.trace_data_pandas.get_end_time()
@@ -59,7 +59,7 @@ class TestTracePandas(unittest.TestCase):
     #                     getattr(self.trace_data_pandas, attr),
     #                 )
     #     # Check the efficiency of the two implementations
-    #     time_polars = timeit.timeit(lambda: read_trace_file(self.trace_file), number=10)
+    #     time_polars = timeit.timeit(lambda: read_trace_file_polars(self.trace_file), number=10)
     #     time_pandas = timeit.timeit(
     #         lambda: read_trace_file_Pandas(self.trace_file), number=10
     #     )

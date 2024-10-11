@@ -1,23 +1,12 @@
 import json
 from typing import Dict
 
-import torch
-
-if torch.cuda.is_available():
-    from mldaikon.proxy_wrapper.hash import tensor_hash
-
+from mldaikon.instrumentor.caches import meta_vars
+from mldaikon.instrumentor.dumper import convert_var_to_dict
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
-from mldaikon.instrumentor.tracer import meta_vars
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied
-from mldaikon.proxy_wrapper.proxy_config import (
-    attribute_black_list,
-    delta_dump_config,
-    primitive_types,
-    tensor_dump_format,
-)
-from mldaikon.proxy_wrapper.utils import print_debug
-from mldaikon.utils import typename
+from mldaikon.proxy_wrapper.proxy_config import delta_dump_config, primitive_types
 
 delta_dump = delta_dump_config["delta_dump"]
 delta_dump_attributes = delta_dump_config["delta_dump_attributes"]
@@ -96,42 +85,6 @@ class json_dumper(metaclass=Singleton):
         return json_dumper(self.json_file.name)
 
 
-def tensor_stats(tensor):
-    min = float(tensor.min().item())
-    max = float(tensor.max().item())
-    mean = float(tensor.mean().item())
-    std = float(tensor.std().item())
-    shape = tuple(int(x) for x in tensor.size())
-    return {
-        "min": min,
-        "max": max,
-        "mean": mean,
-        "std": std,
-        "shape": shape,
-    }
-
-
-def dump_tensor(value):
-    param_list = None
-    if isinstance(value, torch.Tensor):
-        if tensor_dump_format["dump_tensor_stats"]:
-            param_list = tensor_stats(value)
-        elif tensor_dump_format["dump_tensor_hash"]:
-            if not torch.cuda.is_available():
-                raise Exception(
-                    "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full' or 'stats'."
-                )
-            param_list = tensor_hash(value)
-        elif tensor_dump_format["dump_tensor_full"]:
-            param_list = value.detach().flatten().tolist()
-        else:
-            raise ValueError(
-                "Invalid tensor dump format, please set '--tensor-dump-format' to 'full', 'stats' or 'hash'."
-            )
-
-    return param_list
-
-
 def dump_attributes(obj, value):
     result = {}
     if not hasattr(value, "__dict__"):
@@ -142,55 +95,7 @@ def dump_attributes(obj, value):
     if is_proxied(value):
         value = obj_dict["_obj"]
 
-    # currently only dump primitive types, tensors and nn.Module
-    attr_names = [name for name in dir(value) if not name.startswith("__")]
-    for attr_name in attr_names:
-        # don't track the attr_name starts with a _ (private variable)
-        if attr_name.startswith("_"):
-            continue
-        if attr_name in attribute_black_list:
-            continue
-        try:
-            attr = getattr(value, attr_name)
-            if attr is None:
-                result[attr_name] = None
-            if type(attr) in primitive_types:
-                result[attr_name] = attr
-
-            elif isinstance(attr, torch.Tensor):
-                result[attr_name] = dump_tensor(attr)
-
-            elif isinstance(attr, torch.nn.parameter.Parameter):
-                result[attr_name] = attr.__class__.__name__ + "(Parameter)"
-                result[attr_name] = dump_tensor(attr.data)
-
-            elif isinstance(attr, torch.nn.Module):
-                result[attr_name] = attr.__class__.__name__ + "(nn.Module)"
-                # dump out all tensors inside the nn.Module
-                for name, param in attr.named_parameters():
-                    result[attr_name] += f"\n{name}: {dump_tensor(param)}"
-            # elif callable(attr):
-            #     result[attr_name] = typename(attr)
-            # else:
-            #     # if serializable, dump the object
-            #     try:
-            #         json.dumps({"": attr})
-            #         result[attr_name] = attr
-            #     except TypeError:
-            #         if hasattr(attr, "to_dict"):
-            #             result[attr_name] = attr.to_dict()
-            #         else:
-            #             result[attr_name] = f"NOT SERIALIZABLE {type(attr)}: {str(attr)}"
-            if attr_name == "grad_fn":  # FIXME: ad-hoc
-                assert attr is None or callable(
-                    attr
-                ), f"grad_fn should be None or callable, but got {attr}"
-                result[attr_name] = typename(attr) if attr is not None else None
-
-        except Exception as e:  # noqa
-            print_debug(
-                lambda: f"Failed to get attribute {attr_name} of object type {type(value)}, skipping it. Error: {e}."  # noqa
-            )
+    result = convert_var_to_dict(value)
 
     if delta_dump and delta_dump_attributes:
         # if they have common keys, only dump when old value is different from the new value
@@ -227,27 +132,6 @@ def get_meta_vars(obj):
 
 def concat_dicts(dict1, dict2):
     return {**dict1, **dict2}
-
-
-def torch_serialize(obj, dump_module_tensors=False):
-    if isinstance(obj, (int, float, str, bool)):
-        return obj
-    if isinstance(obj, torch.Tensor):
-        new_value = str(dump_tensor(obj))
-        return new_value
-    if isinstance(obj, torch.nn.Module):
-        new_value = obj.__class__.__name__ + "(nn.Module)"
-        if dump_module_tensors:
-            # dump out all tensors inside the nn.Module
-            for name, param in obj.named_parameters():
-                new_value += f"\n{name}: {dump_tensor(param)}"
-        return new_value
-    else:
-        try:
-            json.dumps(obj)
-        except TypeError:
-            obj = str(obj)
-        return obj
 
 
 def store_old_value(obj, result):

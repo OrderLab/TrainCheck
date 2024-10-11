@@ -139,7 +139,7 @@ class VarPeriodicChangeRelation(Relation):
         valid_invariants = []
         failed_hypothesis = []
         for hypothesis in all_hypothesis.values():
-            preconditions = find_precondition(hypothesis)
+            preconditions = find_precondition(hypothesis, trace)
             if preconditions:
                 hypothesis.invariant.precondition = preconditions
                 valid_invariants.append(hypothesis.invariant)

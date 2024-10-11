@@ -75,7 +75,9 @@ def handle_excepthook(typ, message, stack):
     logger.critical("An exception occured: %s: %s.", typ, message)
     for i in stack_info:
         logger.critical(i.encode().decode("unicode-escape"))
-    return
+
+    # re-raise the exception so that vscode debugger can catch it and give useful information
+    raise typ(message) from None
 
 
 def thread_excepthook(args):
@@ -96,7 +98,9 @@ def thread_excepthook(args):
     logger.critical("An exception occured: %s: %s.", exc_type, exc_value)
     for i in stack_info:
         logger.critical(i.encode().decode("unicode-escape"))
-    return
+
+    # re-raise the exception so that vscode debugger can catch it and give useful information
+    raise exc_type(exc_value) from None
 
 
 sys.excepthook = handle_excepthook

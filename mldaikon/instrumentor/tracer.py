@@ -5,30 +5,28 @@ import inspect
 import json
 import logging
 import os
-import sys
 import threading
 import traceback
 import types
 import uuid
-from collections import defaultdict
-from queue import Empty, Queue
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
+from typing import Any, Callable, Optional
 
 import torch
 import torch.utils
 
-if TYPE_CHECKING:
-    from mldaikon.proxy_wrapper.proxy import Proxy  # noqa: F401
-
-from mldaikon.config.config import (
-    INSTR_MODULES_TO_SKIP,
-    META_VARS_FORBID_LIST,
-    WRAP_WITHOUT_DUMP,
+from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
+from mldaikon.instrumentor.caches import cache_meta_vars
+from mldaikon.instrumentor.dumper import (
+    dump_trace_API,
+    dump_trace_VAR,
+    get_instrumentation_logger_for_process,
+    var_to_serializable,
 )
 from mldaikon.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
+from mldaikon.instrumentor.types import PTID
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import (
     disable_proxy_class,
@@ -36,55 +34,13 @@ from mldaikon.proxy_wrapper.proxy_config import (
 )
 from mldaikon.utils import typename
 
-meta_vars: dict[str, object] = (
-    {}
-)  # TODO: this is actually `global_vars` and should not be dumped with every function call.
-
-
-class PTID(NamedTuple):
-    pid: int
-    tid: int
-
-
-cache_meta_vars: dict[PTID, dict[str, dict]] = defaultdict(lambda: defaultdict(dict))
-
-DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
-
-# per process & thread logging
-stop_event = threading.Event()
-monitoring_thread = None
-trace_API_dumper_queues: dict[PTID, Queue] = {}
-trace_VAR_dumper_queues: dict[PTID, Queue] = {}
-
-# per process logging
-instrumentation_loggers: dict[int, logging.Logger] = {}
-
-
-def monitor_main_thread(main_thread, stop_event):
-    main_thread.join()  # Wait for the main thread to finish
-    print("Main thread has finished or encountered an exception")
-    stop_event.set()  # Signal the logging threads to stop
-
-
-def trace_dumper(task_queue: Queue, trace_file_name: str, stop_event: threading.Event):
-    with open(trace_file_name, "w") as f:
-        while True:
-            try:
-                trace = task_queue.get(timeout=0.5)
-            except Empty:
-                if stop_event.is_set():
-                    break
-                continue
-            trace_str = json.dumps(trace)
-            f.write(f"{trace_str}\n")
-            task_queue.task_done()
-
-
 disable_proxy_class = disable_proxy_class
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
 METRIC_INSTRUMENTED_FUNC_LIST: dict[str, list[str]] = {"dump": [], "no_dump": []}
+
+IS_INSTRUMENTING = False
 
 
 class TraceLineType:
@@ -94,156 +50,12 @@ class TraceLineType:
     STATE_CHANGE = "state_change"
 
 
-def get_trace_API_dumper_queue():
-    global monitoring_thread
-    if monitoring_thread is None:
-        monitoring_thread = threading.Thread(
-            target=monitor_main_thread, args=(threading.main_thread(), stop_event)
-        )
-        monitoring_thread.start()
-
-    pid = os.getpid()
-    tid = threading.current_thread().ident
-
-    ptid = PTID(pid, tid)
-    if ptid in trace_API_dumper_queues:
-        return trace_API_dumper_queues[ptid]
-
-    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
-    assert (
-        output_dir is not None
-    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
-
-    trace_queue = Queue()
-    trace_file_name = f"trace_API_{pid}_{tid}.log"
-    trace_file_full_path = os.path.join(output_dir, trace_file_name)
-    log_thread = threading.Thread(
-        target=trace_dumper, args=(trace_queue, trace_file_full_path, stop_event)
-    )
-    log_thread.start()
-
-    trace_API_dumper_queues[ptid] = trace_queue
-    return trace_queue
-
-
-def get_trace_VAR_dumper_queue():
-    global monitoring_thread
-    if monitoring_thread is None:
-        monitoring_thread = threading.Thread(
-            target=monitor_main_thread, args=(threading.main_thread(), stop_event)
-        )
-        monitoring_thread.start()
-
-    pid = os.getpid()
-    tid = threading.current_thread().ident
-
-    ptid = PTID(pid, tid)
-    if ptid in trace_VAR_dumper_queues:
-        return trace_VAR_dumper_queues[ptid]
-
-    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
-    assert (
-        output_dir is not None
-    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
-
-    trace_queue = Queue()
-    trace_file_name = f"trace_VAR_{pid}_{tid}.log"
-    trace_file_full_path = os.path.join(output_dir, trace_file_name)
-    log_thread = threading.Thread(
-        target=trace_dumper, args=(trace_queue, trace_file_full_path, stop_event)
-    )
-    log_thread.start()
-
-    trace_VAR_dumper_queues[ptid] = trace_queue
-    return trace_queue
-
-
-def dump_trace_API(trace: dict):
-    """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    trace_queue = get_trace_API_dumper_queue()
-    trace["time"] = datetime.datetime.now().timestamp()
-    trace_queue.put(trace)
-
-
-def dump_trace_VAR(trace: dict):
-    """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    trace_queue = get_trace_VAR_dumper_queue()
-    if "time" not in trace:
-        trace["time"] = datetime.datetime.now().timestamp()
-    trace_queue.put(trace)
-
-
-def get_instrumentation_logger_for_process():
-    pid = os.getpid()
-    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
-    assert (
-        output_dir is not None
-    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
-
-    if pid in instrumentation_loggers:
-        return instrumentation_loggers[pid]
-
-    logger = logging.getLogger(f"instrumentation_{pid}")
-    if DEBUG:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-    log_file = f"instrumentation_{pid}.log"
-    file_handler = logging.FileHandler(os.path.join(output_dir, log_file))
-    file_handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(file_handler)
-    instrumentation_loggers[pid] = logger
-    return logger
-
-
 def is_c_level_function(original_function):
     return not hasattr(original_function, "__code__")
 
-def is_numerical_value_too_large(value: Any) -> bool:
-    if isinstance(value, (int, float)):
-        return sys.getsizeof(value) > 32
-    return False
 
 def get_meta_vars() -> dict:
     return {}
-    
-# def get_meta_vars() -> dict:
-#     frame = inspect.currentframe()
-
-#     all_frame_vars = {}
-#     # get the file name list inside the repo
-#     while frame is not None:
-#         if "mldaikon" in frame.f_code.co_filename:
-#             frame = frame.f_back
-#             continue
-
-#         frame_vars = frame.f_locals
-
-#         file_full_path = frame.f_code.co_filename
-#         if "/site-packages/" in file_full_path:
-#             file_full_path = file_full_path.split("/site-packages/")[1]
-#         file_full_path = file_full_path.strip("/home/")
-
-#         frame_vars = {
-#             name: value
-#             for name, value in frame_vars.items()
-#             # Ziming: only dump primitive types, block the var name on the black list
-#             if isinstance(value, (int, float, str, bool))
-#             and not is_numerical_value_too_large(value)
-#             and (
-#                 not name.startswith("__")
-#                 and "mldaikon" not in name
-#                 and name not in META_VARS_FORBID_LIST
-#             )
-#         }
-
-#         if frame_vars:
-#             if file_full_path not in all_frame_vars:
-#                 all_frame_vars[file_full_path] = frame_vars
-#             else:
-#                 all_frame_vars[file_full_path].update(frame_vars)
-#         frame = frame.f_back
-#     return all_frame_vars
 
 
 def should_dump_trace(
@@ -264,10 +76,15 @@ def should_dump_trace(
 
     If True is returned, cache_meta_vars will be updated with the current meta_vars
     """
+    global IS_INSTRUMENTING
+    if IS_INSTRUMENTING:
+        # don't dump anything during instrumentation
+        return False
 
     if not cond_dump:
         return True
 
+    # conditional dumping logic
     if ptid is None:
         tid = threading.current_thread().ident
         assert tid is not None, "threading.current_thread().ident is None"
@@ -278,7 +95,6 @@ def should_dump_trace(
 
     prev_meta_vars = cache_meta_vars[ptid][key]
     if not prev_meta_vars:
-        # print(f"prev_meta_vars is None for {key}")
         if update_cache:
             cache_meta_vars[ptid][key] = meta_vars
         return True
@@ -295,10 +111,23 @@ def should_dump_trace(
     if prev_targets != targets:
         if update_cache:
             cache_meta_vars[ptid][key] = meta_vars
-        # print(f"meta_vars have changed for {key}")
         return True
 
     return False
+
+
+def to_dict_args_kwargs(args, kwargs) -> dict:
+    result = {
+        "args": [var_to_serializable(arg) for arg in args],
+        "kwargs": {k: var_to_serializable(v) for k, v in kwargs.items()},
+    }
+    return result
+
+
+def to_dict_return_value(result) -> dict | list[dict]:
+    if isinstance(result, tuple):
+        return [var_to_serializable(r) for r in result]
+    return var_to_serializable(result)
 
 
 def global_wrapper(
@@ -325,7 +154,6 @@ def global_wrapper(
     Post-call Phase
     1. Log the post-call information
     """
-
     logger = logging.getLogger(__name__)
 
     func_call_id = uuid.uuid4().hex
@@ -358,11 +186,6 @@ def global_wrapper(
         "function": func_name,
         "is_bound_method": is_bound_method,
         "obj_id": None if not is_bound_method else id(args[0]),
-        "proxy_obj_names": [
-            ["", ""]
-        ],  # HACK: this is a hack to make polars schema inference work (it samples the first 100 rows to infer the schema)
-        "exception": "",
-        "exception_msg": "",
     }
 
     if dump_stack_trace:
@@ -394,6 +217,9 @@ def global_wrapper(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                 )
 
+    dict_args_kwargs = to_dict_args_kwargs(args, kwargs)
+    pre_record["args"] = dict_args_kwargs["args"]
+    pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
     if enable_C_level_observer and is_builtin:
         from mldaikon.proxy_wrapper.proxy_observer import (  # import here to avoid circular import
@@ -430,12 +256,14 @@ def global_wrapper(
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
-
+    pre_record.pop("args")
+    pre_record.pop("kwargs")
     post_record = (
         pre_record.copy()
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
     post_record["meta_vars"] = get_meta_vars()
+    post_record["return_values"] = to_dict_return_value(result)
     dump_trace_API(post_record)
 
     return result
@@ -672,6 +500,8 @@ class Instrumentor:
         if not self.instrumenting:
             return 0
 
+        global IS_INSTRUMENTING
+        IS_INSTRUMENTING = True
         visited_file_paths: set[str] = set()
 
         first_pass_instrumented_count = 0
@@ -755,6 +585,7 @@ class Instrumentor:
                     f"Not all functions required by the provided invariants are instrumented (e.g. due to transfering ), some invariants might not be active at all, funcs not instrumented: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
                 )  # TODO: report a number of functions not instrumented and thus the invariants that will not be active
 
+        IS_INSTRUMENTING = False
         return self.instrumented_count
 
     def _should_skip_module_or_cls(self, pymodule: object) -> str | None:
@@ -790,7 +621,7 @@ class Instrumentor:
         if (
             attr_name.startswith("__")
             and attr_name.endswith("__")
-            and attr_name not in ["__init__", "__call__"]
+            and attr_name not in ["__init__", "__call__", "__enter__", "__exit__"]
         ):
             return "Skipping magic functions"
 

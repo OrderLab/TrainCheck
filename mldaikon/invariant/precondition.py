@@ -15,6 +15,7 @@ from mldaikon.invariant.base_cls import (
     PreconditionClause,
     UnconditionalPrecondition,
 )
+from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import MD_NONE
 
 logger = logging.getLogger("Precondition")
@@ -30,11 +31,30 @@ def _find_local_clauses(
     """A list of traces to find common properties from. The property should hold locally within the example."""
 
     clauses = []
+
+    # TODO: figure out how to extend this to args, kwargs and return values
+    relevant_key_prefixes = {
+        "process_id",
+        "thread_id",
+        "meta_vars",
+        "var_name",
+        "function",
+        "exception",
+        "attributes",
+        "var_type",
+    }
     # find properties that have only one value in the example
     for prop in example[0]:
-        if prop in config.NOT_USE_AS_CLAUSE_FIELDS:
-            # skip meta_info about each event
+        for prefix in relevant_key_prefixes:
+            if prop.startswith(prefix):
+                break
+        else:
+            # we skip inference on properties that are not relevant
             continue
+
+        # if prop in config.NOT_USE_AS_CLAUSE_FIELDS:
+        #     # skip meta_info about each event
+        #     continue
 
         if isinstance(key_to_skip, list) and any(key in prop for key in key_to_skip):
             continue
@@ -78,12 +98,43 @@ def _find_local_clauses(
 
         if len(prop_values_seen) == 1 and prop_dtype is not None:
             if prop_dtype is MD_NONE:
-                clauses.append(PreconditionClause(prop, None, PT.CONSTANT, {None}))
+                clauses.append(
+                    PreconditionClause(prop, None, PT.CONSTANT, None, {None})
+                )
             clauses.append(
-                PreconditionClause(prop, prop_dtype, PT.CONSTANT, prop_values_seen)
+                PreconditionClause(
+                    prop, prop_dtype, PT.CONSTANT, None, prop_values_seen
+                )
             )
         elif len(prop_values_seen) == len(example) and None not in prop_values_seen:
-            clauses.append(PreconditionClause(prop, prop_dtype, PT.UNEQUAL, None))
+            clauses.append(PreconditionClause(prop, prop_dtype, PT.UNEQUAL, None, None))
+
+    # let's deal with meta_vars.context_managers separately
+    all_context_managers = []
+    for k in example[0]:
+        if k.startswith("meta_vars.context_managers"):
+            all_context_managers.append(k)
+
+    for context_manager_key in all_context_managers:
+        # emit the exist clause first
+        clauses.append(
+            PreconditionClause(context_manager_key, None, PT.EXIST, None, None)
+        )
+        # for each argument of the context manager, emit the CONSTANT clauses for their values
+        for arg, value in example[0][context_manager_key].items():
+            if not isinstance(value, Hashable):
+                # we cannot use non-hashable objects as preconditions, that's so bad aint it?
+                continue
+
+            clauses.append(
+                PreconditionClause(
+                    f"{context_manager_key}.{arg}",
+                    type(value),
+                    PT.CONSTANT,
+                    [arg],
+                    {value},
+                )
+            )
 
     return clauses
 
@@ -155,8 +206,11 @@ def _merge_clauses(
             if clause.type == PT.UNEQUAL:
                 # if we see a unequal clause, just add it to the merged_clauses_and_exp_ids
                 merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
+            if clause.type == PT.EXIST:
+                # if we see an exist clause, just add it to the merged_clauses_and_exp_ids for now
+                merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
 
-        assert prop_dtype is not None, "Property type should not be None"
+        # assert prop_dtype is not None, "Property type should not be None"
 
         # merge the constant clauses into consistent clauses
         if len(seen_constant_values) == 0:
@@ -167,12 +221,12 @@ def _merge_clauses(
             and prop_dtype is not bool
         ):
             consistent_clause = PreconditionClause(
-                target, prop_dtype, PT.CONSISTENT, seen_constant_values
+                target, prop_dtype, PT.CONSISTENT, None, seen_constant_values
             )
             merged_clauses_and_exp_ids[consistent_clause] = list(seen_constant_exp_ids)
         else:
             constant_clause = PreconditionClause(
-                target, prop_dtype, PT.CONSTANT, seen_constant_values
+                target, prop_dtype, PT.CONSTANT, None, seen_constant_values
             )
             merged_clauses_and_exp_ids[constant_clause] = list(seen_constant_exp_ids)
 
@@ -181,6 +235,7 @@ def _merge_clauses(
 
 def find_precondition(
     hypothesis: Hypothesis,
+    trace: Trace,
     keys_to_skip: list[str] = [],
 ) -> GroupedPreconditions | None:
     """When None is returned, it means that we cannot find a precondition that is safe to use for the hypothesis."""
@@ -210,11 +265,11 @@ def find_precondition(
             negative_examples = []
 
         grouped_preconditions[group_name] = find_precondition_from_single_group(
-            positive_examples, negative_examples, keys_to_skip
+            positive_examples, negative_examples, trace, keys_to_skip
         )
 
     # if any group's precondition is of length 0, return None
-    if any(
+    if all(
         len(grouped_preconditions[group_name]) == 0
         for group_name in grouped_preconditions
     ):
@@ -226,6 +281,7 @@ def find_precondition(
 def find_precondition_from_single_group(
     positive_examples: list[list[dict]],
     negative_examples: list[list[dict]],
+    trace: Trace,
     keys_to_skip: list[str] = [],
     _pruned_clauses: set[PreconditionClause] = set(),
     _skip_pruning: bool = False,
@@ -298,6 +354,18 @@ def find_precondition_from_single_group(
             raise ValueError("Empty example found in positive examples")
 
         # HACK: in ConsistencyRelation in order to avoid the field used in the invariant, we need to skip the field in the precondition. It is up to the caller to provide the keys to skip. We should try to refactor this to have a more generic solution.
+        earliest_time = example[0]["time"]
+        process_id = example[0]["process_id"]
+        thread_id = example[0]["thread_id"]
+        meta_vars = trace.get_meta_vars(
+            earliest_time, process_id=process_id, thread_id=thread_id
+        )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
+
+        # update every trace with the meta_vars
+        for key in meta_vars:
+            for i in range(len(example)):
+                example[i][f"meta_vars.{key}"] = meta_vars[key]
+
         local_clauses = _find_local_clauses(example, key_to_skip=keys_to_skip)
 
         if len(local_clauses) == 0:
@@ -465,6 +533,7 @@ def find_precondition_from_single_group(
         sub_preconditions = find_precondition_from_single_group(
             sub_positive_examples,
             passing_neg_exps,
+            trace=trace,
             keys_to_skip=keys_to_skip,
             _pruned_clauses=_pruned_clauses,
             _skip_pruning=True,
