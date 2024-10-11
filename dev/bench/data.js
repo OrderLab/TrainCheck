@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728596851639,
+  "lastUpdate": 1728607532603,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -5866,6 +5866,61 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08581758530158333",
             "extra": "mean: 10.359387614531443 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "OrderLab",
+            "username": "OrderLab"
+          },
+          "committer": {
+            "name": "OrderLab",
+            "username": "OrderLab"
+          },
+          "id": "14450214e6a8a634ab6cd77231e279a95cb1d556",
+          "message": "[Support LT-725] Trace Context Manager Entry/Exit Events as `meta_vars`",
+          "timestamp": "2024-10-06T00:15:22Z",
+          "url": "https://github.com/OrderLab/ml-daikon/pull/97/commits/14450214e6a8a634ab6cd77231e279a95cb1d556"
+        },
+        "date": 1728607532046,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.2189820389914463,
+            "unit": "iter/sec",
+            "range": "stddev: 0.052547383033821185",
+            "extra": "mean: 4.5665845683310184 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.0029128898310178757,
+            "unit": "iter/sec",
+            "range": "stddev: 1.2177940742185742",
+            "extra": "mean: 343.3016893915832 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_cond_dump_jit_and_c_tracing_disabled",
+            "value": 0.002932007833139412,
+            "unit": "iter/sec",
+            "range": "stddev: 0.38811428103452356",
+            "extra": "mean: 341.0632088691462 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.0012151116486732246,
+            "unit": "iter/sec",
+            "range": "stddev: 6.885786400649983",
+            "extra": "mean: 822.9696432355792 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.09770042003904068,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04068275262363752",
+            "extra": "mean: 10.23537052962929 sec\nrounds: 5"
           }
         ]
       }
