@@ -149,7 +149,7 @@ class ConsistentTransientVarsRelation(Relation):
             hypotheses_for_func: list[Hypothesis] = []
             # generate a hypothesis for each property
             for prop, prop_values in properties_occur_num.items():
-                for prop_val, prop_val_count in prop_values.items():
+                for prop_val, _ in prop_values.items():
                     # hypothesis priority can be given based on the number of times the property showed up
                     hypothesis = Hypothesis(
                         invariant=Invariant(
@@ -220,8 +220,6 @@ class ConsistentTransientVarsRelation(Relation):
         # can we let relation tell the precondition inference algorithm about what is already assumed?
         # then we solve the step issue.
 
-        return invariants, failed_hypotheses
-
         # now let's reason about the input and output properties of these function calls' args and return values
 
         # let's make the assumption that we are only interested in the functions that have tensors as args or return values
@@ -253,6 +251,8 @@ class ConsistentTransientVarsRelation(Relation):
         # the simplest case: only matmul is called multiple times and you have them both inside and outside the autocast regions
 
         # need additional properties about these functions in precondition inference
+
+        return invariants, failed_hypotheses
 
     @staticmethod
     def evaluate(value_group: list) -> bool:

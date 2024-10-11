@@ -121,11 +121,15 @@ def _find_local_clauses(
             PreconditionClause(context_manager_key, None, PT.EXIST, None, None)
         )
         # for each argument of the context manager, emit the CONSTANT clauses for their values
-        for arg, value in example[0][context_manager_key].items:
+        for arg, value in example[0][context_manager_key].items():
+            if not isinstance(value, Hashable):
+                # we cannot use non-hashable objects as preconditions, that's so bad aint it?
+                continue
+
             clauses.append(
                 PreconditionClause(
-                    f"{context_manager_key}",
-                    None,
+                    f"{context_manager_key}.{arg}",
+                    type(value),
                     PT.CONSTANT,
                     [arg],
                     {value},
@@ -202,8 +206,11 @@ def _merge_clauses(
             if clause.type == PT.UNEQUAL:
                 # if we see a unequal clause, just add it to the merged_clauses_and_exp_ids
                 merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
+            if clause.type == PT.EXIST:
+                # if we see an exist clause, just add it to the merged_clauses_and_exp_ids for now
+                merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
 
-        assert prop_dtype is not None, "Property type should not be None"
+        # assert prop_dtype is not None, "Property type should not be None"
 
         # merge the constant clauses into consistent clauses
         if len(seen_constant_values) == 0:

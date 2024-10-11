@@ -299,7 +299,7 @@ class TracePandas(Trace):
         )
 
         # hack: flatten the meta-vars data structure so it works with precondition inferece
-        prefix = "context_manager"
+        prefix = "context_managers"
         for _, context_manager in enumerate(active_context_managers):
             meta_vars[f"{prefix}.{context_manager.name}"] = context_manager.to_dict()[
                 "input"

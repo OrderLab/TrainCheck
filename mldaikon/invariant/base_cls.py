@@ -516,7 +516,7 @@ class PreconditionClause:
                     self.prop_name,
                     self.prop_dtype,
                     self.type,
-                    tuple(self.additional_path),
+                    tuple(self.additional_path) if self.additional_path else None,
                 )
             )
         return hash(
