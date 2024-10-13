@@ -1,7 +1,6 @@
 import json
 from typing import Dict
 
-from mldaikon.instrumentor.caches import meta_vars
 from mldaikon.instrumentor.dumper import convert_var_to_dict
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
@@ -63,7 +62,7 @@ class json_dumper(metaclass=Singleton):
             "var_name": var_name,
             "var_type": var_type,
             "mode": change_type,  # "new", "update"
-            "stack_trace": stack_trace,
+            # "stack_trace": stack_trace,
             "process_id": process_id,
             "thread_id": thread_id,
             "time": time,
@@ -112,9 +111,7 @@ def dump_attributes(obj, value):
 
 
 def get_meta_vars(obj):
-    current_meta_vars = tracer_get_meta_vars()
-
-    all_meta_vars = concat_dicts(current_meta_vars, meta_vars)
+    all_meta_vars = tracer_get_meta_vars()
 
     if delta_dump and delta_dump_meta_var:
         # if they have common keys, only dump when old value is different from the new value

@@ -186,15 +186,27 @@ def _merge_clauses(
     # step 2: Merging the clauses
     merged_clauses_and_exp_ids = {}
     for target, clauses_and_exp_ids in clause_targets_and_exp_ids.items():
-        seen_constant_values = set()
-        seen_constant_exp_ids = set()
+        seen_unique_constant_values = set()
+        seen_unique_constant_exp_ids = set()
+        constant_value_to_exp_ids: dict[object, set] = {}
         prop_dtype = None
         for clause in clauses_and_exp_ids:
             if prop_dtype is None:
                 prop_dtype = clause.prop_dtype
-            if clause.type == PT.CONSTANT and prop_dtype is not bool:
-                seen_constant_values.update(clause.values)
-                seen_constant_exp_ids.update(clauses_and_exp_ids[clause])
+            if (
+                clause.type == PT.CONSTANT and prop_dtype is not bool
+            ):  # tensor_model_parallel (bool) and meta_vars.stage (str) are not merged
+                assert (
+                    len(clause.values) == 1
+                ), "Constant clause should only have one value prior to merging"
+                seen_unique_constant_values.update(clause.values)
+                seen_unique_constant_exp_ids.update(clauses_and_exp_ids[clause])
+
+                for value in clause.values:
+                    if value not in constant_value_to_exp_ids:
+                        constant_value_to_exp_ids[value] = set()
+                    constant_value_to_exp_ids[value].update(clauses_and_exp_ids[clause])
+
             if clause.type == PT.CONSISTENT:
                 raise ValueError(
                     "Consistent clause found in the local clauses, this should not happen"
@@ -203,6 +215,7 @@ def _merge_clauses(
             if clause.type == PT.CONSTANT and prop_dtype is bool:
                 # if the prop_dtype is bool, we should not merge the constant clauses
                 merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
+
             if clause.type == PT.UNEQUAL:
                 # if we see a unequal clause, just add it to the merged_clauses_and_exp_ids
                 merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
@@ -213,22 +226,34 @@ def _merge_clauses(
         # assert prop_dtype is not None, "Property type should not be None"
 
         # merge the constant clauses into consistent clauses
-        if len(seen_constant_values) == 0:
+        if len(seen_unique_constant_values) == 0:
             continue
 
         if (
-            len(seen_constant_values) > config.CONST_CLAUSE_NUM_VALUES_THRESHOLD
+            prop_dtype is str
+            and len(seen_unique_constant_values)
+            > config.CONST_CLAUSE_STR_NUM_VALUES_THRESHOLD
+        ) or (
+            prop_dtype is not str
+            and len(seen_unique_constant_values)
+            > config.CONST_CLAUSE_NUM_VALUES_THRESHOLD
             and prop_dtype is not bool
         ):
             consistent_clause = PreconditionClause(
-                target, prop_dtype, PT.CONSISTENT, None, seen_constant_values
+                target, prop_dtype, PT.CONSISTENT, None, seen_unique_constant_values
             )
-            merged_clauses_and_exp_ids[consistent_clause] = list(seen_constant_exp_ids)
+            merged_clauses_and_exp_ids[consistent_clause] = list(
+                seen_unique_constant_exp_ids
+            )
         else:
-            constant_clause = PreconditionClause(
-                target, prop_dtype, PT.CONSTANT, None, seen_constant_values
-            )
-            merged_clauses_and_exp_ids[constant_clause] = list(seen_constant_exp_ids)
+            # if the number of values seen is not too large, we should just keep the constant clauses
+            for value in constant_value_to_exp_ids:
+                constant_clause = PreconditionClause(
+                    target, prop_dtype, PT.CONSTANT, None, {value}
+                )
+                merged_clauses_and_exp_ids[constant_clause] = list(
+                    constant_value_to_exp_ids[value]
+                )
 
     return merged_clauses_and_exp_ids
 
@@ -278,6 +303,74 @@ def find_precondition(
     return GroupedPreconditions(grouped_preconditions)
 
 
+def _stage_grouping_eligible(
+    examples: list[list[dict]],
+) -> bool:
+    """Check if the examples are eligible for stage grouping
+
+    elgibility:
+      1. stages should be consistent across all the examples
+      2. `meta_vars.stage` should be present in all the examples
+      3. the number of stages should be more than 1
+    """
+    STAGE_KEY = "meta_vars.stage"
+
+    if len(examples) == 0:
+        return False
+
+    stages = set()
+    for example in examples:
+        stage = None
+        for record in example:
+            if STAGE_KEY not in record:
+                # rule 2
+                return False
+
+            if stage is None:
+                stage = record["meta_vars.stage"]
+            else:
+                if record["meta_vars.stage"] != stage:
+                    # rule 1
+                    return False
+
+        stages.add(example[0]["meta_vars.stage"])
+
+    return len(stages) > 1  # rule 3
+
+
+def _group_examples_by_stage(
+    examples: list[list[dict]],
+) -> dict[str, list[list[dict]]]:
+    """Group the examples by the meta_vars.stage values
+
+    Grouping elgibility has to be checked by the caller, as the caller might want to group the examples by other values.
+        elgibility:
+          1. stages should be consistent across all the examples
+          2. `meta_vars.stage` should be present in all the examples
+          3. the number of stages should be more than 1
+    """
+    stage_to_examples: dict[str, list[list[dict]]] = {}
+    for example in examples:
+        stage = None
+        skip = False
+        for record in example:
+            if stage is None:
+                stage = record["meta_vars.stage"]
+            else:
+                if record["meta_vars.stage"] != stage:
+                    # HACK: unlike positive examples, negative examples in the relations are not naturally grouped by the stage values, so we should skip the negative examples that are not consistent with the stage values
+                    skip = True
+                    break
+        if skip:
+            continue
+
+        assert isinstance(stage, str), "Stage should be a string"
+        if stage not in stage_to_examples:
+            stage_to_examples[stage] = []
+        stage_to_examples[stage].append(example)
+    return stage_to_examples
+
+
 def find_precondition_from_single_group(
     positive_examples: list[list[dict]],
     negative_examples: list[list[dict]],
@@ -307,11 +400,66 @@ def find_precondition_from_single_group(
         f"Calling precondition inference with \n# positive examples: {len(positive_examples)}, \n# negative examples: {len(negative_examples)}, at depth {_current_depth}"
     )
 
+    preconditions: list[Precondition] = []
+
     if _current_depth > config.MAX_PRECOND_DEPTH:
         logger.debug(
             f"Max depth reached, returning empty preconditions, current depth: {_current_depth}"
         )
         return []
+
+    if _current_depth == 0 and _stage_grouping_eligible(positive_examples):
+        # TODO: move this outside to the find_precondition function
+        logger.info(
+            "Stage grouping is eligible, splitting the hypothesis according to the stage values"
+        )
+        # if the examples are eligible for stage grouping, we should group the examples by the stage values
+        grouped_positive_examples = _group_examples_by_stage(positive_examples)
+        grouped_negative_examples = _group_examples_by_stage(negative_examples)
+
+        assert set(grouped_negative_examples).issubset(
+            set(grouped_positive_examples)
+        ), "Negative examples should be a subset of the positive examples, but this is not the case, please check the data or handle this case properly (i.e. we allow for a particular stage the invariant to be false)"
+
+        logger.debug(
+            f"All stages found: pos {grouped_positive_examples.keys()}, neg {grouped_negative_examples.keys()}"
+        )
+        grouped_preconditions: dict[str, list[Precondition]] = {}
+        for stage in grouped_positive_examples:
+            logger.debug(f"Finding preconditions for stage {stage}")
+            grouped_preconditions[stage] = find_precondition_from_single_group(
+                grouped_positive_examples[stage],
+                (
+                    grouped_negative_examples[stage]
+                    if stage in grouped_negative_examples
+                    else []
+                ),
+                trace,
+                keys_to_skip,
+                _pruned_clauses,
+                _skip_pruning,
+                _current_depth + 1,
+            )
+
+            # if for a particular stage, no preconditions are found, we should return an empty list for now but drop a huge warning
+            if len(grouped_preconditions[stage]) == 0:
+                logger.warning(
+                    f"Exception purely for debugging of cases that we don't properly support now. FEEL FREE TO SUPRESS IT: No preconditions found for stage {stage}, dropping this stage for now!!!"
+                )
+
+        # for the preconditions for each stage, adding the stage clause
+        for stage in grouped_preconditions:
+            stage_clause = PreconditionClause(
+                "meta_vars.stage", str, PT.CONSTANT, None, {stage}
+            )
+            for precond in grouped_preconditions[stage]:
+                precond.add_clause(stage_clause)
+
+        # flatten the grouped preconditions to a list
+        for stage in grouped_preconditions:
+            preconditions.extend(grouped_preconditions[stage])
+
+        return preconditions
 
     if len(negative_examples) == 0:
         assert (
@@ -431,8 +579,6 @@ def find_precondition_from_single_group(
                 if not clause_ever_false_in_neg[clause]
             }
         )
-        # print("Base Precondition Clauses After Pruning")
-        # print(str(Precondition(base_precond_clauses)))
     else:
         # skip pruning is necessary when we are inferring on a reduced set of negative examples as many clauses may not be violated and thus pruned unnecessarily
         assert (
@@ -451,6 +597,13 @@ def find_precondition_from_single_group(
         for clause in merged_clauses_and_exp_ids
         if clause not in base_precond_clauses
     }
+
+    # print(f"{_current_depth}: Base Precondition Clauses After Pruning")
+    # print(str(Precondition(list(base_precond_clauses))))
+
+    # print("Partial Merged Clauses")
+    # for clause in partial_merged_clauses_and_exp_ids:
+    #     print(f"{len(partial_merged_clauses_and_exp_ids[clause])}\t", clause)
 
     if len(partial_merged_clauses_and_exp_ids) == 0:
         logger.debug("No partial preconditions found, cannot infer further")
@@ -489,28 +642,28 @@ def find_precondition_from_single_group(
             # )
             top_level_exp_ids.append(exp_ids)
 
-    # # construct the top-level preconditions
-    # logger.debug(f"Splitting into {len(top_level_exp_ids)} sub-hypotheses")
-    # logger.debug("Length of the top-level examples")
-    # for exp_ids in top_level_exp_ids:
-    #     logger.debug(f"{len(exp_ids)}, {len(exp_ids) / len(positive_examples)}")
+    # # if detected meta_vars.stage in partial_merged_clauses_and_exp_ids, we should split the hypothesis according to the meta_vars.stage values
+    # stage_related_clauses = {
+    #     clause: partial_merged_clauses_and_exp_ids[clause]
+    #     for clause in partial_merged_clauses_and_exp_ids
+    #     if "meta_vars.stage" in clause.prop_name
+    # }
 
-    # logger.debug("Partial Clauses")
-    # for clause in partial_merged_clauses_and_exp_ids:
-    #     print("==============================")
-    #     print("values", clause.values)
-    #     print("type", clause.type)
-    #     print("target", clause.prop_name)
-    #     print("Examples", len(partial_merged_clauses_and_exp_ids[clause]))
-    #     print(
-    #         "%examples",
-    #         len(partial_merged_clauses_and_exp_ids[clause]) / len(positive_examples),
-    #     )
-    # print("==============================")
+    # # if multiple stages exist and all exp ids related to the stages add up to all the positive examples, we should split the hypothesis according to the stage values
+    # if len(stage_related_clauses) > 1:
+    #     all_stage_exp_ids = set()
+    #     for clause in stage_related_clauses:
+    #         all_stage_exp_ids.update(stage_related_clauses[clause])
+    #     if len(all_stage_exp_ids) == len(positive_examples):
+    #         print(f"Detected {len(stage_related_clauses)} stage-related clauses, splitting the hypothesis according to the stage values")
+    #         logger.debug(
+    #             f"Detected stage-related clauses, splitting the hypothesis according to the stage values"
+    #         )
+    #         # override the top_level_exp_ids
+    #         top_level_exp_ids = [tuple(exp_ids) for exp_ids in stage_related_clauses.values()]
 
     # construct the sub-hypothesis with the top-level partial examples
     coverred_exp_ids: set[int] = set()
-    preconditions: list[Precondition] = []
     logger.debug(
         f"Depth:{_current_depth}, Splitting into {len(top_level_exp_ids)} sub-hypotheses, with size {[len(exp_ids) for exp_ids in top_level_exp_ids]}"
     )
@@ -540,8 +693,12 @@ def find_precondition_from_single_group(
             _current_depth=_current_depth + 1,
         )
         if len(sub_preconditions) == 0:
-            print("Warning: empty preconditions found in the sub-hypothesis")
+            logger.warning(
+                f"Warning: empty preconditions found in the sub-hypothesis at depth {_current_depth}"
+            )
         else:
+            # print(f"{i}-th Sub-preconditions at depth {_current_depth}")
+            # print(str(sub_preconditions))
             coverred_exp_ids.update(exp_ids)
 
         preconditions.extend(sub_preconditions)

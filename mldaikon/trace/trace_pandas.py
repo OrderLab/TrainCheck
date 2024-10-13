@@ -205,6 +205,7 @@ class TracePandas(Trace):
         """Identify context manager entry and exit events, and add them to the meta_vars."""
         # 1. Find all trace records that are related to __enter__ and __exit__ functions
         if "function" not in self.events.columns:
+            self.context_manager_states = None
             return
 
         if (
@@ -267,12 +268,20 @@ class TracePandas(Trace):
 
         self.context_manager_states = all_context_managers
 
+    def is_stage_annotated(self):
+        # ideally we want to have a static manifest for the trace produced by the instrumentor according to the args
+        # but for now, we will check if the trace has the stage column
+        return "stage" in self.events.columns
+
     def query_active_context_managers(
         self, time: float, process_id: int, thread_id: int
     ) -> list[ContextManagerState]:
         """Query all active context managers at a given time."""
         if not hasattr(self, "context_manager_states"):
             self._index_context_manager_meta_vars()
+
+        if self.context_manager_states is None:
+            return []
 
         ptid = PTID(process_id, thread_id)
         if ptid not in self.context_manager_states:

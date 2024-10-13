@@ -589,7 +589,7 @@ class Precondition:
     Currently the `Precondition` object is a conjunction of the `PreconditionClause` objects.
     """
 
-    def __init__(self, clauses: Iterable[PreconditionClause]):
+    def __init__(self, clauses: list[PreconditionClause]):
         self.clauses = clauses
 
     def verify(self, example: list) -> bool:
@@ -614,11 +614,18 @@ class Precondition:
         """When self is True, other should also be True."""
 
         ## all the clauses in other should be in self
+
+        # TODO: handle merging for CONSTANT and CONSISTENT clauses
+
         for clause in other.clauses:
             if clause not in self.clauses:
                 return False
 
         return True
+
+    def add_clause(self, clause: PreconditionClause):
+        if clause not in self.clauses:
+            self.clauses.append(clause)
 
     def to_dict(self) -> dict:
         return {"clauses": [clause.to_dict() for clause in self.clauses]}

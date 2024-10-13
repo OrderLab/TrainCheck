@@ -14,8 +14,12 @@ from typing import Any, Callable, Optional
 import torch
 import torch.utils
 
-from mldaikon.config.config import INSTR_MODULES_TO_SKIP, WRAP_WITHOUT_DUMP
-from mldaikon.instrumentor.caches import cache_meta_vars
+from mldaikon.config.config import (
+    INSTR_MODULES_TO_SKIP,
+    TRAIN_STEP_NAMES,
+    WRAP_WITHOUT_DUMP,
+)
+from mldaikon.instrumentor.caches import cache_meta_vars, meta_vars
 from mldaikon.instrumentor.dumper import (
     dump_trace_API,
     dump_trace_VAR,
@@ -55,7 +59,67 @@ def is_c_level_function(original_function):
 
 
 def get_meta_vars() -> dict:
-    return {}
+    """HACK: this function is a hack to get the meta_vars from the related frames
+
+    it should only get
+    """
+
+    frame = inspect.currentframe()
+
+    all_frame_vars: dict[str, object] = {}
+    # get the file name list inside the repo
+    while frame is not None:
+        if "mldaikon" in frame.f_code.co_filename:
+            frame = frame.f_back
+            continue
+
+        frame_vars = frame.f_locals
+
+        file_full_path = frame.f_code.co_filename
+        # can we also get the function we are inside?
+        func_name = frame.f_code.co_name
+
+        if "/site-packages/" in file_full_path:
+            file_full_path = file_full_path.split("/site-packages/")[1]
+        file_full_path = file_full_path.strip("/home/")
+
+        new_frame_vars = {}
+        for name, value in frame_vars.items():
+            for step_var_name in TRAIN_STEP_NAMES:
+                if step_var_name.lower() in name.lower():
+                    if isinstance(value, (int, float)):
+                        if name in all_frame_vars:
+                            name = f"{name}_2"
+                        new_frame_vars[name] = value
+                        break
+                    # elif not callable(value):
+                    #     print("YUXUAN DEBUGGING: ", name, value, type(value))
+        frame = frame.f_back
+        # frame_vars = {
+        #     name: value
+        #     for name, value in frame_vars.items()
+        #     # Ziming: only dump primitive types, block the var name on the black list
+        #     if isinstance(value, (int, float, str, bool))
+        #     and (
+        #         not name.startswith("__")
+        #         and "mldaikon" not in name
+        #         and name not in META_VARS_FORBID_LIST
+        #     )
+        # }
+
+        full_path = f"{file_full_path}:{func_name}"
+        if new_frame_vars:
+            if full_path not in all_frame_vars:
+                all_frame_vars[full_path] = new_frame_vars
+            else:
+                print("YUXUAN DEBUGGING: RECURSIVE CALL DETECTED", full_path)
+                while f"{full_path}_2" in all_frame_vars:
+                    full_path = f"{full_path}_2"
+                all_frame_vars[f"{full_path}_2"] = new_frame_vars
+
+        # update the meta_vars with the current frame_vars
+        all_frame_vars.update(meta_vars)
+    return all_frame_vars
 
 
 def should_dump_trace(
@@ -212,6 +276,8 @@ def global_wrapper(
         args = tuple(args)
 
         if proxy_in_args:
+            if "proxy_obj_names" not in pre_record:
+                pre_record["proxy_obj_names"] = []
             for proxy in proxy_in_args:
                 pre_record["proxy_obj_names"].append(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
@@ -222,8 +288,8 @@ def global_wrapper(
     pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
     if enable_C_level_observer and is_builtin:
-        from mldaikon.proxy_wrapper.proxy_observer import (  # import here to avoid circular import
-            add_observer_to_func,
+        from mldaikon.proxy_wrapper.proxy_observer import (
+            add_observer_to_func,  # import here to avoid circular import
         )
 
         original_function = add_observer_to_func(

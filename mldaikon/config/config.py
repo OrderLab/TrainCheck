@@ -54,7 +54,7 @@ PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be th
 ]
 
 # precondition inference configs
-MAX_PRECOND_DEPTH = 3  # the maximum depth of the precondition inference
+MAX_PRECOND_DEPTH = 8  # the maximum depth of the precondition inference
 ENABLE_PRECOND_SAMPLING = True  # whether to enable sampling of positive and negative examples for precondition inference, can be overridden by the command line argument
 PRECOND_SAMPLING_THRESHOLD = 10000  # the number of samples to take for precondition inference, if the number of samples is larger than this threshold, we will sample this number of samples
 NOT_USE_AS_CLAUSE_FIELDS = [
@@ -67,7 +67,9 @@ NOT_USE_AS_CLAUSE_FIELDS = [
     "stack_trace",
     "obj_id",
 ]
+CONST_CLAUSE_STR_NUM_VALUES_THRESHOLD = 4  # FIXME: ad-hoc
 CONST_CLAUSE_NUM_VALUES_THRESHOLD = 1  # FIXME: ad-hoc
+
 VAR_INV_TYPE = (
     "type"  # how to describe the variable in the invariant, can be "type" or "name"
 )
@@ -99,6 +101,14 @@ META_VARS_FORBID_LIST = [
     "observe_up_to_depth",
     "log_file",
     "log_dir",
+]
+
+# question: can we use optimizer state to get step? That sounds more robust
+TRAIN_STEP_NAMES = [
+    "iter",
+    "iteration",
+    "step",
+    "batch_id",
 ]
 
 ENABLE_COND_DUMP = False

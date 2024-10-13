@@ -203,7 +203,7 @@ class ConsistencyRelation(Relation):
 
         filtered_hypothesis = hypothesis
         logger.debug(f"Filtered Hypothesis: {filtered_hypothesis}")
-        # filtered_hypothesis = [("torch.cuda.BFloat16Tensor", "data", "torch.cuda.BFloat16Tensor", "data")]
+        # filtered_hypothesis = [("torch.nn.Parameter", "data", "torch.nn.Parameter", "data")]
 
         ## 4.  Positive Examples and Negative Examples Collection
         group_name = VAR_GROUP_NAME

@@ -183,9 +183,13 @@ class Proxy:
                     self.dump_to_trace(prev_obj, prev_trace_info)
 
             # record the trace info
-            frame = inspect.currentframe()
-            frame_array = self.get_frame_array(frame)
-            dumped_frame_array = json.dumps(frame_array)
+            if proxy_config.debug_mode:
+                frame = inspect.currentframe()
+                frame_array = self.get_frame_array(frame)
+                dumped_frame_array = json.dumps(frame_array)
+            else:
+                dumped_frame_array = None
+
             current_time = time.time()
             trace_info = {
                 "time": current_time,
@@ -324,10 +328,12 @@ class Proxy:
             self.__dict__["old_value"] = obj.__dict__["old_value"]
             self.__dict__["old_meta_vars"] = obj.__dict__["old_meta_vars"]
             return
-
-        frame = inspect.currentframe()
-        frame_array = self.get_frame_array(frame)
-        dumped_frame_array = json.dumps(frame_array)
+        if proxy_config.debug_mode:
+            frame = inspect.currentframe()
+            frame_array = self.get_frame_array(frame)
+            dumped_frame_array = json.dumps(frame_array)
+        else:
+            dumped_frame_array = None
         # inherit the var_name from the parent object
         if self.__dict__["var_name"] is not None:
             current_var_name_list = self.__dict__["var_name"]

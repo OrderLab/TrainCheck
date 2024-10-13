@@ -107,6 +107,12 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
+    def is_stage_annotated(self) -> bool:
+        """Check if the trace has meta_vars.stage annotations."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
     def query_active_context_managers(
         self, time: float, process_id: int, thread_id: int
     ) -> list[ContextManagerState]:

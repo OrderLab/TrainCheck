@@ -16,6 +16,7 @@ from mldaikon.proxy_wrapper.proxy_config import (
 
 if torch.cuda.is_available():
     from mldaikon.proxy_wrapper.hash import tensor_hash
+
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.utils import typename
 
