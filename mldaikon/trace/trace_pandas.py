@@ -217,46 +217,82 @@ class TracePandas(Trace):
         all_context_managers: dict[PTID, list[ContextManagerState]] = {}
 
         context_manager_events = self.events[
-            self.events["function"].str.contains("__enter__|__exit__")
+            (self.events["function"].str.contains("__enter__|__exit__", na=False))
+            & (
+                ~self.events["function"].str.contains(
+                    "torch.autograd.grad_mode.enable_grad", na=False
+                )
+            )  # HACK: ignore this function for now as it doesn't have an __init__ event
         ]
 
         # 2. Group the context manager events by the object id --> each group should have exactly three events: __init__, __enter__, and __exit__
         context_manager_groups = context_manager_events.groupby("obj_id")
         for obj_id, group in context_manager_groups:
-            assert (
-                len(group) == 4
-            ), f"Context manager group for object {obj_id} does not have exactly four events: {group}"
-            # post_record should have type beging function call post
-            enter_post_record = group[
-                (group["type"] == TraceLineType.FUNC_CALL_POST)
-                & (group["function"].str.contains("__enter__"))
-            ].iloc[0]
-            exit_pre_record = group[
-                (group["type"] == TraceLineType.FUNC_CALL_PRE)
-                & (group["function"].str.contains("__exit__"))
-            ].iloc[0]
+            try:
+                if not len(group) == 4:
+                    # TODO: the problem seems to only happen with 139693891633600 torch.autograd.grad_mode.enable_grad
+                    logger.warning(
+                        f"Context manager group for object {obj_id} does not have exactly four events"
+                    )
+                    continue
 
-            init_pre_record = self.events[
-                (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
-                & (self.events["function"].str.contains("__init__"))
-                & (self.events["obj_id"] == obj_id)
-            ].iloc[0]
+                # post_record should have type beging function call post
+                enter_post_record = (
+                    group[
+                        (group["type"] == TraceLineType.FUNC_CALL_POST)
+                        & (group["function"].str.contains("__enter__"))
+                    ]
+                    .iloc[0]
+                    .to_dict()
+                )
+                exit_pre_record = (
+                    group[
+                        (group["type"] == TraceLineType.FUNC_CALL_PRE)
+                        & (group["function"].str.contains("__exit__"))
+                    ]
+                    .iloc[0]
+                    .to_dict()
+                )
 
-            start_time, end_time = enter_post_record["time"], exit_pre_record["time"]
+                init_pre_record = self.events[
+                    (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+                    & (self.events["function"].str.contains("__init__", na=False))
+                    & (self.events["obj_id"] == obj_id)
+                ]
+                # assert len(init_pre_record) == 1, f"enter_post_record: {enter_post_record.to_dict()}"
+                if len(init_pre_record) != 1:
+                    # TODO: the problem seems to only happen with 139693891633600 torch.autograd.grad_mode.enable_grad
+                    logger.warning(
+                        f"Context manager group for {enter_post_record['function']} object {obj_id} does not have an __init__ event"
+                    )
+                    # TODO: we can also use default values here
+                    continue
+                init_pre_record = init_pre_record.iloc[0].to_dict()
 
-            args = init_pre_record["args"]
-            kwargs = init_pre_record["kwargs"]
-            signature = load_signature_from_class_method_name(
-                init_pre_record["function"]
-            )
+                start_time, end_time = (
+                    enter_post_record["time"],
+                    exit_pre_record["time"],
+                )
 
-            binded_args_and_kwargs = bind_args_kwargs_to_signature(
-                args, kwargs, signature
-            )
+                args = init_pre_record["args"]
+                kwargs = init_pre_record["kwargs"]
+                signature = load_signature_from_class_method_name(
+                    init_pre_record["function"]
+                )
 
-            ptid = PTID(init_pre_record["process_id"], init_pre_record["thread_id"])
-            if ptid not in all_context_managers:
-                all_context_managers[ptid] = []
+                binded_args_and_kwargs = bind_args_kwargs_to_signature(
+                    args, kwargs, signature
+                )
+
+                ptid = PTID(init_pre_record["process_id"], init_pre_record["thread_id"])
+                if ptid not in all_context_managers:
+                    all_context_managers[ptid] = []
+
+            except Exception as e:
+                logger.error(f"Error while processing context manager group: {group}")
+                logger.error(e)
+                continue
+
             all_context_managers[ptid].append(
                 ContextManagerState(
                     name=init_pre_record["function"].removesuffix(".__init__"),
