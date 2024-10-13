@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1728650415740,
+  "lastUpdate": 1728810989876,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6145,6 +6145,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.06477931213685849",
             "extra": "mean: 10.322020203946158 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lessoxx@gmail.com",
+            "name": "Yuxuan",
+            "username": "Essoz"
+          },
+          "committer": {
+            "email": "lessoxx@gmail.com",
+            "name": "Yuxuan",
+            "username": "Essoz"
+          },
+          "distinct": true,
+          "id": "46f7e739b2fed6a287a09bf9672fa855a23823a0",
+          "message": "Refactor get_meta_vars to get only potential iteration variables; add precondition inference support across program",
+          "timestamp": "2024-10-13T01:18:13-04:00",
+          "tree_id": "12e84fdcd0b1d98c2b9d090ef0eb8632d4da157b",
+          "url": "https://github.com/OrderLab/ml-daikon/commit/46f7e739b2fed6a287a09bf9672fa855a23823a0"
+        },
+        "date": 1728810989348,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.21615108769124722,
+            "unit": "iter/sec",
+            "range": "stddev: 0.015088977765510221",
+            "extra": "mean: 4.626393559621647 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.0023980656329997798,
+            "unit": "iter/sec",
+            "range": "stddev: 1.4655118471955628",
+            "extra": "mean: 417.0027651616372 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_cond_dump_jit_and_c_tracing_disabled",
+            "value": 0.0077488781215994534,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4057566210705136",
+            "extra": "mean: 129.05093928533606 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.001093480257479384,
+            "unit": "iter/sec",
+            "range": "stddev: 1.7052567096442464",
+            "extra": "mean: 914.5112526358105 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.0017552430052742618,
+            "unit": "iter/sec",
+            "range": "stddev: 1.739672565510244",
+            "extra": "mean: 569.7216835475992 sec\nrounds: 5"
           }
         ]
       }
