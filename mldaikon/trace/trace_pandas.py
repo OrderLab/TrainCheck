@@ -706,6 +706,10 @@ class TracePandas(Trace):
             attr_values = {}
             for _, state_change in state_changes.iterrows():
                 for col in state_change.index:
+                    if pd.isna(state_change[col]):
+                        # skip NaN values as NaNs indicate that the attribute is not present in the state
+                        continue
+
                     if col.startswith(config.VAR_ATTR_PREFIX):
                         attr_name = get_attr_name(col)
 
