@@ -49,10 +49,15 @@ def filter_functions_with_tensors(all_func_call_events) -> list[str]:
                     func_has_tensor = True
                     break
 
-            for return_value in func_call_event.return_values:
-                if re.match(TENSOR_PATTERN, return_value):
-                    func_has_tensor = True
-                    break
+            if isinstance(func_call_event, (FuncCallEvent)):
+                return_values = func_call_event.return_values
+                if isinstance(return_values, dict):
+                    return_values = [return_values]
+                for return_value in return_values:
+                    type_value = list(return_value.keys())[0]
+                    if re.match(TENSOR_PATTERN, type_value):
+                        func_has_tensor = True
+                        break
             if func_has_tensor:
                 break
         if func_has_tensor:
@@ -72,8 +77,13 @@ def get_returned_tensors(
     ), "Exceptions or incomplete function calls don't have return values."
 
     returned_tensors = []
-    for return_type, attributes in func_call_event.return_values.items():
-        if re.match(TENSOR_PATTERN, return_type):
+    return_values = func_call_event.return_values
+    if isinstance(return_values, dict):
+        return_values = [return_values]
+    for return_value in return_values:
+        type_value = list(return_value.keys())[0]
+        attributes = return_value[type_value]
+        if re.match(TENSOR_PATTERN, type_value):
             returned_tensors.append(attributes)
     assert (
         len(returned_tensors) > 0

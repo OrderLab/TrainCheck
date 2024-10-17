@@ -130,7 +130,9 @@ class FuncCallEvent(HighLevelEvent):
         self.kwargs: dict[str, dict[str, object]] = pre_record[
             "kwargs"
         ]  # key --> attr_name -> value
-        self.return_values: dict[str, dict[str, object]] = post_record[
+        self.return_values: (
+            dict[str, dict[str, object]] | list[dict[str, dict[str, object]]]
+        ) = post_record[
             "return_values"
         ]  # key --> attr_name -> value
 
