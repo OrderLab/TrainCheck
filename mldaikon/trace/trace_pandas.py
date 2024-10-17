@@ -583,7 +583,9 @@ class TracePandas(Trace):
             assert (
                 related_func_call_pre_event["thread_id"] == thread_id
             ), "Related function call is on a different thread."
-            if pd.isna(related_func_call_pre_event["proxy_obj_names"]):
+            if isinstance(
+                related_func_call_pre_event["proxy_obj_names"], float
+            ) and pd.isna(related_func_call_pre_event["proxy_obj_names"]):
                 continue
             for var_name, var_type in related_func_call_pre_event["proxy_obj_names"]:
                 if var_name == "" and var_type == "":
