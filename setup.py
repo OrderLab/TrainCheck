@@ -19,5 +19,6 @@ setup(
         "tqdm",
         "numba",
         "pandas",
+        "pyyaml",
     ],
 )
