@@ -369,10 +369,7 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
     pos_exp_group_names = hypotheses[0].positive_examples.get_group_names()
     neg_exp_group_names = hypotheses[0].negative_examples.get_group_names()
 
-    if pos_exp_group_names == neg_exp_group_names:
-        assert (
-            False
-        ), "NOT SURE IF MERGING FOR DYNAMIC ANALYSIS WORKS OR NOT, PROCEED (by commenting out this assertion) WITH CAUTION"
+    used_dynamic_analysis = pos_exp_group_names == neg_exp_group_names
 
     # try to merge the hypotheses if individual hypotheses have too low likelihood
     all_likelihoods = [hypo.calc_likelihood() for hypo in hypotheses]
@@ -395,9 +392,12 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
         all_negative_examples.update(hypotheses[idx].negative_examples.examples)
 
     # let's remove those negative examples that are present in the positive examples of other hypotheses
-    all_negative_examples = all_negative_examples.difference(
-        all_positive_parent_examples
-    )
+    if used_dynamic_analysis:
+        all_negative_examples = all_negative_examples.difference(all_positive_examples)
+    else:
+        all_negative_examples = all_negative_examples.difference(
+            all_positive_parent_examples
+        )
 
     # calculate the likelihood of the merged hypotheses now
     merged_likelihood = calc_likelihood(
