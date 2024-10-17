@@ -3,6 +3,8 @@ import datetime
 import logging
 import os
 
+import yaml
+
 import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
 import mldaikon.proxy_wrapper.proxy_config as proxy_config
@@ -69,16 +71,35 @@ def get_default_output_folder(args: argparse.Namespace) -> str:
 
 
 if __name__ == "__main__":
+    # First parse the deciding arguments.
+    use_config_args_parser = argparse.ArgumentParser(add_help=False)
+    use_config_args_parser.add_argument(
+        "--use-config",
+        required=False,
+        action="store_true",
+        help="Use the configuration file to set the arguments, additionally provided arguments will complement the configuration file but not override it",
+    )
+    use_config_args, _ = use_config_args_parser.parse_known_args()
+    use_config = use_config_args.use_config
+    cmd_args_required = not use_config
+
     parser = argparse.ArgumentParser(
-        description="Invariant Finder for ML Pipelines in Python"
+        description="Invariant Finder for ML Pipelines in Python",
+        parents=[use_config_args_parser],
     )
 
     ## general configs
     parser.add_argument(
+        "--config",
+        type=str,
+        required=use_config,
+        help="Path to the configuration file",
+    )
+    parser.add_argument(
         "-p",
         "--pyscript",
         type=str,
-        required=True,
+        required=cmd_args_required,
         help="Path to the main file of the pipeline to be analyzed",
     )
     parser.add_argument(
@@ -198,6 +219,18 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+    # read the configuration file
+    if not use_config and args.config:
+        raise ValueError("Configuration file provided without --use-config flag")
+    if use_config:
+        config_file = args.config
+        with open(config_file, "r") as f:
+            config_args = yaml.safe_load(f)
+        for key, value in config_args.items():
+            if not hasattr(args, key):
+                raise ValueError(f"Invalid configuration key: {key}")
+            setattr(args, key, value)
 
     # set up logging
     if args.debug_mode:
