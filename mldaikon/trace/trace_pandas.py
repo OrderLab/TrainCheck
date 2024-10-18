@@ -223,6 +223,11 @@ class TracePandas(Trace):
                     "torch.autograd.grad_mode.enable_grad", na=False
                 )
             )  # HACK: ignore this function for now as it doesn't have an __init__ event
+            & (
+                ~self.events["function"].str.contains(
+                    "torch.autograd.profiler.record_function", na=False
+                )
+            )
         ]
 
         # 2. Group the context manager events by the object id --> each group should have exactly three events: __init__, __enter__, and __exit__
@@ -293,6 +298,7 @@ class TracePandas(Trace):
                 logger.error(e)
                 continue
 
+            logger.debug(f"Adding context manager: {init_pre_record['function']}")
             all_context_managers[ptid].append(
                 ContextManagerState(
                     name=init_pre_record["function"].removesuffix(".__init__"),
