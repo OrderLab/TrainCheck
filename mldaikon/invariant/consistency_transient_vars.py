@@ -1,3 +1,4 @@
+import logging
 import re
 
 from mldaikon.invariant.base_cls import (
@@ -85,9 +86,6 @@ def get_returned_tensors(
         attributes = return_value[type_value]
         if re.match(TENSOR_PATTERN, type_value):
             returned_tensors.append(attributes)
-    assert (
-        len(returned_tensors) > 0
-    ), "No tensors found in the return values of the function calls."
     return returned_tensors
 
 
@@ -99,6 +97,8 @@ class ConsistentTransientVarsRelation(Relation):
 
     @staticmethod
     def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+
+        logger = logging.getLogger(__name__)
 
         all_func_names = trace.get_func_names()
         all_func_call_ids = {
@@ -125,11 +125,21 @@ class ConsistentTransientVarsRelation(Relation):
         all_hypotheses = {}
         for func_name in relevant_func_call_events:
             # infer per function
-            all_returned_tensors = []
+            all_returned_tensors: list[tuple[FuncCallEvent, list[dict]]] = []
+            skip_func = False
             for func_call_event in relevant_func_call_events[func_name].values():
                 # infer per function call
                 returned_tensors = get_returned_tensors(func_call_event)
+                if len(returned_tensors) == 0:
+                    logger.warning(
+                        f"No tensors found in the return values of the function call {func_call_event}, previously number of tensors found: {[len(t[1]) for t in all_returned_tensors]}"
+                    )
+                    skip_func = True
+                    break
+                assert isinstance(func_call_event, FuncCallEvent)
                 all_returned_tensors.append((func_call_event, returned_tensors))
+            if skip_func:
+                continue
 
             # generate the number of times each property showed up
             properties_occur_num: dict[str, dict[object, int]] = {}
