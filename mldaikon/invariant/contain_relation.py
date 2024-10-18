@@ -6,6 +6,7 @@ from typing import Type
 import numpy as np
 from tqdm import tqdm
 
+from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import (
     APIParam,
     CheckerResult,
@@ -121,7 +122,12 @@ def events_scanner(
     return events
 
 
-def prune_func_call(total_func_calls, list_num_events_scanned: list[int]) -> bool:
+def prune_func_call(
+    total_func_calls,
+    parent_event_type,
+    list_num_events_scanned: list[int],
+    parent_event_types_seen: list,
+) -> bool:
     """Pruning logic for determining whether a function's contained events should be processed and queried
 
     Args:
@@ -142,6 +148,13 @@ def prune_func_call(total_func_calls, list_num_events_scanned: list[int]) -> boo
     """
 
     logger = logging.getLogger(__name__)
+
+    # if the event type has not even been seen before, don't prune
+    if (
+        len(parent_event_types_seen) == 0
+        or parent_event_type != parent_event_types_seen[-1]
+    ):
+        return False
 
     MAX_FUNC_CALLS = 1000
     not_pruning_prob = min(MAX_FUNC_CALLS / total_func_calls, 1)
@@ -452,6 +465,26 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
     return [merged_hypothesis]
 
 
+def _get_parent_type(
+    trace: Trace, parent_func_call_id: str
+) -> Type[FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent]:
+    parent_post_record = trace.get_post_func_call_record(parent_func_call_id)
+    parent_event_type: Type[
+        FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent
+    ]
+    if parent_post_record:
+        if parent_post_record["type"] == TraceLineType.FUNC_CALL_POST:
+            parent_event_type = FuncCallEvent
+        elif parent_post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+            parent_event_type = FuncCallExceptionEvent
+        else:
+            assert False, f"Unknown event type: {parent_post_record['type']}"
+    else:
+        parent_event_type = IncompleteFuncCallEvent
+
+    return parent_event_type
+
+
 class APIContainRelation(Relation):
     """Relation that checks if the API contain relation holds.
     In the API contain relation, an parent API call will always contain the child API call.
@@ -506,15 +539,25 @@ class APIContainRelation(Relation):
             ] = {}
 
             nums_contained_events: list[int] = []
+            kind_of_parent_events: list[
+                Type[FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent]
+            ] = []
             for parent_func_call_id in parent_func_call_ids:
-                # if prune_func_call(len(parent_func_call_ids), nums_contained_events):
-                #     """This is not sound"""
-                #     continue
+                parent_event_type = _get_parent_type(trace, parent_func_call_id)
+                if prune_func_call(
+                    len(parent_func_call_ids),
+                    parent_event_type,
+                    nums_contained_events,
+                    kind_of_parent_events,
+                ):
+                    """This is not sound"""
+                    continue
                 contained_events = events_scanner(
                     trace=trace, func_call_id=parent_func_call_id
                 )
                 nums_contained_events.append(len(contained_events))
                 all_contained_events[parent_func_call_id] = contained_events
+                kind_of_parent_events.append(parent_event_type)
 
             # MARK: HYPOTHESIS CREATION
             """Create hypotheses for each specific event (a event is defined by its __dict__)"""
@@ -830,12 +873,21 @@ Defaulting to skip the var preconditon check for now.
 
         # the main checking loop: the online checker function will be the body of this loop, which will be called repeatedly
         nums_contained_events: list[int] = []
+        kind_of_parent_events: list[
+            Type[FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent]
+        ] = []
         for parent_func_call_id in tqdm(
             parent_func_call_ids, desc=f"Checking invariants for {inv.text_description}"
         ):
-            if prune_func_call(len(parent_func_call_ids), nums_contained_events):
+            parent_event_type = _get_parent_type(trace, parent_func_call_id)
+            if prune_func_call(
+                len(parent_func_call_ids),
+                parent_event_type,
+                nums_contained_events,
+                kind_of_parent_events,
+            ):
                 continue
-
+            kind_of_parent_events.append(parent_event_type)
             # check for parent precondition
             parent_pre_record = trace.get_pre_func_call_record(parent_func_call_id)
 
