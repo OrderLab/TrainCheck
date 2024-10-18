@@ -220,9 +220,9 @@ class TracePandas(Trace):
             (self.events["function"].str.contains("__enter__|__exit__", na=False))
             & (
                 ~self.events["function"].str.contains(
-                    "torch.autograd.grad_mode.enable_grad", na=False
+                    "torch.autograd.grad_mode", na=False
                 )
-            )  # HACK: ignore this function for now as it doesn't have an __init__ event
+            )  # HACK: ignore all autograd related context managers for now as it doesn't have an __init__ event
             & (
                 ~self.events["function"].str.contains(
                     "torch.autograd.profiler.record_function", na=False
