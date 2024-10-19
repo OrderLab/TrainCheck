@@ -1117,7 +1117,7 @@ class Relation(abc.ABC):
         pass
 
 
-def read_inv_file(file_path: str | list[str]):
+def read_inv_file(file_path: str | list[str]) -> list[Invariant]:
     if isinstance(file_path, str):
         file_path = [file_path]
     invs = []
