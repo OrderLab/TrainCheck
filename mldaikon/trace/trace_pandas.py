@@ -82,7 +82,18 @@ class TracePandas(Trace):
 
         self.column_dtypes_cached = {}
 
+        # HACK: init might not be present at the beginning of the trace due to presence of import-time logs
+        self._fill_missing_stage_init()
         self._index_context_manager_meta_vars()
+
+    def _fill_missing_stage_init(self):
+        if "meta_vars.stage" not in self.events.columns:
+            return
+
+        # fill all stage being NaN with "init"
+        self.events.loc[self.events["meta_vars.stage"].isna(), "meta_vars.stage"] = (
+            "init"
+        )
 
     def _rm_incomplete_trailing_func_calls(self):
         """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
