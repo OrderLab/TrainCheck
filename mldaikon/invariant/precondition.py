@@ -417,49 +417,50 @@ def find_precondition_from_single_group(
         grouped_positive_examples = _group_examples_by_stage(positive_examples)
         grouped_negative_examples = _group_examples_by_stage(negative_examples)
 
-        assert set(grouped_negative_examples).issubset(
-            set(grouped_positive_examples)
-        ), "Negative examples should be a subset of the positive examples, but this is not the case, please check the data or handle this case properly (i.e. we allow for a particular stage the invariant to be false)"
-
-        logger.debug(
-            f"All stages found: pos {grouped_positive_examples.keys()}, neg {grouped_negative_examples.keys()}"
-        )
-        grouped_preconditions: dict[str, list[Precondition]] = {}
-        for stage in grouped_positive_examples:
-            logger.debug(f"Finding preconditions for stage {stage}")
-            grouped_preconditions[stage] = find_precondition_from_single_group(
-                grouped_positive_examples[stage],
-                (
-                    grouped_negative_examples[stage]
-                    if stage in grouped_negative_examples
-                    else []
-                ),
-                trace,
-                keys_to_skip,
-                _pruned_clauses,
-                _skip_pruning,
-                _current_depth + 1,
+        if not set(grouped_negative_examples).issubset(set(grouped_positive_examples)):
+            logger.warning(
+                f"Negative examples {grouped_positive_examples.keys()} should be a subset of the positive examples {grouped_positive_examples.keys()}, but this is not the case, falling back to the normal precondition inference"
             )
-
-            # if for a particular stage, no preconditions are found, we should return an empty list for now but drop a huge warning
-            if len(grouped_preconditions[stage]) == 0:
-                logger.warning(
-                    f"Exception purely for debugging of cases that we don't properly support now. FEEL FREE TO SUPRESS IT: No preconditions found for stage {stage}, dropping this stage for now!!!"
+        else:
+            logger.debug(
+                f"All stages found: pos {grouped_positive_examples.keys()}, neg {grouped_negative_examples.keys()}"
+            )
+            grouped_preconditions: dict[str, list[Precondition]] = {}
+            for stage in grouped_positive_examples:
+                logger.debug(f"Finding preconditions for stage {stage}")
+                grouped_preconditions[stage] = find_precondition_from_single_group(
+                    grouped_positive_examples[stage],
+                    (
+                        grouped_negative_examples[stage]
+                        if stage in grouped_negative_examples
+                        else []
+                    ),
+                    trace,
+                    keys_to_skip,
+                    _pruned_clauses,
+                    _skip_pruning,
+                    _current_depth + 1,
                 )
 
-        # for the preconditions for each stage, adding the stage clause
-        for stage in grouped_preconditions:
-            stage_clause = PreconditionClause(
-                "meta_vars.stage", str, PT.CONSTANT, None, {stage}
-            )
-            for precond in grouped_preconditions[stage]:
-                precond.add_clause(stage_clause)
+                # if for a particular stage, no preconditions are found, we should return an empty list for now but drop a huge warning
+                if len(grouped_preconditions[stage]) == 0:
+                    logger.warning(
+                        f"Exception purely for debugging of cases that we don't properly support now. FEEL FREE TO SUPRESS IT: No preconditions found for stage {stage}, dropping this stage for now!!!"
+                    )
 
-        # flatten the grouped preconditions to a list
-        for stage in grouped_preconditions:
-            preconditions.extend(grouped_preconditions[stage])
+            # for the preconditions for each stage, adding the stage clause
+            for stage in grouped_preconditions:
+                stage_clause = PreconditionClause(
+                    "meta_vars.stage", str, PT.CONSTANT, None, {stage}
+                )
+                for precond in grouped_preconditions[stage]:
+                    precond.add_clause(stage_clause)
 
-        return preconditions
+            # flatten the grouped preconditions to a list
+            for stage in grouped_preconditions:
+                preconditions.extend(grouped_preconditions[stage])
+
+            return preconditions
 
     if len(negative_examples) == 0:
         assert (
