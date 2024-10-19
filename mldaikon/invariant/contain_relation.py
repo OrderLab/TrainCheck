@@ -518,7 +518,12 @@ class APIContainRelation(Relation):
             str, dict[str, dict[str | tuple[str, ...], bool]]
         ] = {}
         func_names = trace.get_func_names()
-
+        func_names = [f for f in func_names if "cuda.is_available" not in f]
+        func_names = [f for f in func_names if "torch.get_default_dtype" not in f]
+        func_names = [f for f in func_names if "torch._VariableFunctionsClass" not in f]
+        func_names = [f for f in func_names if "torch.nn.modules.module.Module._call_impl" not in f]
+        func_names = [f for f in func_names if "torch.cuda._is_compiled" not in f]
+        func_names = [f for f in func_names if "torch.is_grad_enabled" not in f]
         if len(func_names) == 0:
             logger.warning(
                 "No function calls found in the trace, skipping the analysis"
