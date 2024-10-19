@@ -642,6 +642,7 @@ class Precondition:
 class UnconditionalPrecondition(Precondition):
     def __init__(self):
         super().__init__([])
+        self.stage_clause = None
 
     def verify(self, example: list) -> bool:
         return True
@@ -651,6 +652,9 @@ class UnconditionalPrecondition(Precondition):
 
     def __str__(self) -> str:
         return "Unconditional Precondition"
+
+    def add_clause(self, clause: PreconditionClause):
+        raise ValueError("Cannot add clause to Unconditional Precondition")
 
     def implies(self, other) -> bool:
         # Unconditional Precondition cannot imply any other preconditions as it is always True

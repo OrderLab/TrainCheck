@@ -408,6 +408,15 @@ def find_precondition_from_single_group(
         )
         return []
 
+    if len(negative_examples) == 0:
+        assert (
+            len(positive_examples) > 0
+        ), "No negative examples found, but no positive examples found either"
+        logger.warning(
+            "No negative examples found, assigning unconditional precondition"
+        )
+        return [UnconditionalPrecondition()]
+
     if _current_depth == 0 and _stage_grouping_eligible(positive_examples):
         # TODO: move this outside to the find_precondition function
         logger.info(
@@ -453,23 +462,19 @@ def find_precondition_from_single_group(
                 stage_clause = PreconditionClause(
                     "meta_vars.stage", str, PT.CONSTANT, None, {stage}
                 )
-                for precond in grouped_preconditions[stage]:
-                    precond.add_clause(stage_clause)
+                if len(grouped_preconditions[stage]) == 1 and isinstance(
+                    grouped_preconditions[stage][0], UnconditionalPrecondition
+                ):
+                    grouped_preconditions[stage] = [Precondition([stage_clause])]
+                else:
+                    for precond in grouped_preconditions[stage]:
+                        precond.add_clause(stage_clause)
 
             # flatten the grouped preconditions to a list
             for stage in grouped_preconditions:
                 preconditions.extend(grouped_preconditions[stage])
 
             return preconditions
-
-    if len(negative_examples) == 0:
-        assert (
-            len(positive_examples) > 0
-        ), "No negative examples found, but no positive examples found either"
-        logger.warning(
-            "No negative examples found, assigning unconditional precondition"
-        )
-        return [UnconditionalPrecondition()]
 
     # if there are too many positive examples, let's sample a subset of them
     if (
