@@ -703,6 +703,8 @@ class GroupedPreconditions:
         return set(self.grouped_preconditions.keys())
 
     def verify_for_group(self, example: list, group_name: str) -> bool:
+        # TODO: remove this function as it is duplicate of self.verify
+
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
         if len(self.grouped_preconditions[group_name]) == 0:
             logger = logging.getLogger(__name__)

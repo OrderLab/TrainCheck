@@ -282,4 +282,57 @@ class ConsistentTransientVarsRelation(Relation):
     def static_check_all(
         trace: Trace, inv: Invariant, check_relation_first: bool
     ) -> CheckerResult:
-        raise NotImplementedError
+        # let's make all the invs specific to API output properties now
+
+        assert inv.precondition is not None, "The precondition should not be None."
+
+        # get all the function calls
+        assert len(inv.params) == 2
+        assert isinstance(inv.params[0], APIParam)
+        assert isinstance(inv.params[1], VarTypeParam)
+
+        func_name = inv.params[0].api_full_name
+        # get all the function calls for the function
+        func_call_ids = trace.get_func_call_ids(func_name)
+
+        triggered = False
+        # for each function call, check if the property holds
+        for func_call_id in func_call_ids:
+            func_call_event = trace.query_func_call_event(func_call_id)
+            if isinstance(
+                func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
+            ):
+                continue
+
+            # check for precondition here
+            if not inv.precondition.verify([func_call_event.pre_record], "pre_event"):
+                continue
+
+            triggered = True
+
+            returned_tensors = get_returned_tensors(func_call_event)
+            if len(returned_tensors) == 0:
+                return CheckerResult(
+                    trace=[func_call_event.pre_record],
+                    invariant=inv,
+                    check_passed=False,
+                    triggered=True,
+                )
+            for returned_tensor in returned_tensors:
+                prop = inv.params[1].attr_name
+                prop_val = inv.params[1].const_value
+                if prop not in returned_tensor or returned_tensor[prop] != prop_val:
+                    return CheckerResult(
+                        trace=[func_call_event.pre_record],
+                        invariant=inv,
+                        check_passed=False,
+                        triggered=True,
+                    )
+
+        return CheckerResult(
+            trace=None,
+            invariant=inv,
+            check_passed=True,
+            triggered=triggered,
+        )
+        # raise NotImplementedError
