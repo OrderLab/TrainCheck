@@ -69,12 +69,19 @@ class VarPeriodicChangeRelation(Relation):
         var_group_name = "var"
         for var_id in occur_count:
             for attr_name in occur_count[var_id]:
-                param: VarTypeParam | VarNameParam = (
-                    VarNameParam(var_id.var_type, var_id.var_name, attr_name)
-                    if config.VAR_INV_TYPE == "name"
-                    else VarTypeParam(var_id.var_type, attr_name)
-                )
                 for hypo_value in occur_count[var_id][attr_name]:
+                    param: VarTypeParam | VarNameParam = (
+                        VarNameParam(
+                            var_id.var_type,
+                            var_id.var_name,
+                            attr_name,
+                            const_value=hypo_value,
+                        )
+                        if config.VAR_INV_TYPE == "name"
+                        else VarTypeParam(
+                            var_id.var_type, attr_name, const_value=hypo_value
+                        )
+                    )
                     key: tuple[VarTypeParam | VarNameParam, str] = (param, hypo_value)
                     if key in all_hypothesis:
                         continue
@@ -176,5 +183,59 @@ class VarPeriodicChangeRelation(Relation):
             inv: Invariant
                 The invariant to check on the trace.
         """
+        logger = logging.getLogger(__name__)
+        var_group_name = "var"
+        var_insts = trace.get_var_insts()
 
-        return CheckerResult(None, inv, True, False)
+        assert inv.precondition is not None, "The precondition should not be None."
+
+        # a simple check to see if the variable changing to a specific value occur for the matched variables
+        assert (
+            len(inv.params) == 1
+        ), "The number of parameters should be 1 for VarPeriodicChangeRelation."
+        var_param = inv.params[0]
+        assert isinstance(
+            var_param, (VarNameParam, VarTypeParam)
+        ), "The parameter should be VarTypeParam for VarPeriodicChangeRelation."
+
+        # for every variable instance, check whether it is interesting to the invariant
+        to_check_var_ids = []
+        for var_id in var_insts:
+            if var_param.check_var_id_match(var_id):
+                to_check_var_ids.append(var_id)
+
+        # for every to check variable instance, check the precondition match
+        # HACK: we use all the traces of the variable instances to check the precondition
+        triggered = False
+
+        if not to_check_var_ids:
+            return CheckerResult(None, inv, False, False)
+
+        for var_id in to_check_var_ids:
+            if check_relation_first:
+                raise NotImplementedError(
+                    "check_relation_first is not implemented yet."
+                )
+            example_trace_records = [
+                attr_inst.traces[-1]
+                for attr_inst in var_insts[var_id][var_param.attr_name]
+            ]
+            if not inv.precondition.verify(example_trace_records, var_group_name):
+                continue
+
+            triggered = True
+            # check if the value is periodically set to the hypo value
+            hypo_value = var_param.const_value
+            occur_count = 0
+            for attr_inst in var_insts[var_id][var_param.attr_name]:
+                if calculate_hypo_value(attr_inst.value) == hypo_value:
+                    occur_count += 1
+
+            if not count_num_justification(occur_count):
+                logger.error(
+                    "The invariant %s is not satisfied for the variable %s.%s because the value %s is not periodically set.",
+                )
+                # FIXME: only one invalid variable will be reported, can we report all of them?
+                return CheckerResult(example_trace_records, inv, False, True)
+
+        return CheckerResult(None, inv, True, triggered)
