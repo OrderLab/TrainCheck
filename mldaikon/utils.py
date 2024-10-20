@@ -1,3 +1,7 @@
+import logging
+import sys
+import threading
+import traceback
 from importlib.machinery import ModuleSpec
 
 import torch
@@ -46,3 +50,53 @@ def typename(o):
         class_name, str
     ), f"module and class_name should be str, but got {module} and {class_name} for {o}"
     return f"{module}.{class_name}" if module else class_name
+
+
+def handle_excepthook(typ, message, stack):
+    """Custom exception handler
+
+    Print detailed stack information with local variables
+    """
+    logger = logging.getLogger("mldaikon")
+
+    if issubclass(typ, KeyboardInterrupt):
+        sys.__excepthook__(typ, message, stack)
+        return
+
+    stack_info = traceback.StackSummary.extract(
+        traceback.walk_tb(stack), capture_locals=True
+    ).format()
+    logger.critical("An exception occured: %s: %s.", typ, message)
+    for i in stack_info:
+        logger.critical(i.encode().decode("unicode-escape"))
+
+    # re-raise the exception so that vscode debugger can catch it and give useful information
+    raise typ(message) from None
+
+
+def thread_excepthook(args):
+    """Exception notifier for threads"""
+    logger = logging.getLogger("threading")
+
+    exc_type = args.exc_type
+    exc_value = args.exc_value
+    exc_traceback = args.exc_traceback
+    _ = args.thread
+    if issubclass(exc_type, KeyboardInterrupt):
+        threading.__excepthook__(args)
+        return
+
+    stack_info = traceback.StackSummary.extract(
+        traceback.walk_tb(exc_traceback), capture_locals=True
+    ).format()
+    logger.critical("An exception occured: %s: %s.", exc_type, exc_value)
+    for i in stack_info:
+        logger.critical(i.encode().decode("unicode-escape"))
+
+    # re-raise the exception so that vscode debugger can catch it and give useful information
+    raise exc_type(exc_value) from None
+
+
+def register_custom_excepthook():
+    sys.excepthook = handle_excepthook
+    threading.excepthook = thread_excepthook

@@ -8,6 +8,9 @@ from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import CheckerResult, Invariant, read_inv_file
 from mldaikon.trace import Trace, select_trace_implementation
+from mldaikon.utils import register_custom_excepthook
+
+register_custom_excepthook()
 
 
 def check_engine(
