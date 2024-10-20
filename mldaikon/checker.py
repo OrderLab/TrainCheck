@@ -159,5 +159,6 @@ if __name__ == "__main__":
     ) as f:
         if args.report_only_failed:
             results = [res for res in results if not res.check_passed]
-        res_dicts = [res.to_dict() for res in results]
-        json.dump(res_dicts, f, indent=4)
+        for res in results:
+            json.dump(res.to_dict(), f, indent=4)
+            f.write("\n")

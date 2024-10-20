@@ -28,13 +28,13 @@ class MD_NONE:
             for i, value in enumerate(list_or_dict):
                 if isinstance(value, MD_NONE):
                     list_or_dict[i] = None
-                elif isinstance(value, dict):
+                elif isinstance(value, (list, dict)):
                     MD_NONE.replace_with_none(value)
         elif isinstance(list_or_dict, dict):
             for key, value in list_or_dict.items():
                 if isinstance(value, MD_NONE):
                     list_or_dict[key] = None
-                elif isinstance(value, dict):
+                elif isinstance(value, (list, dict)):
                     MD_NONE.replace_with_none(value)
 
 
