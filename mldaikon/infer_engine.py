@@ -6,7 +6,7 @@ import random
 import time
 
 import mldaikon.config.config as config
-from mldaikon.invariant.base_cls import FailedHypothesis, Invariant
+from mldaikon.invariant.base_cls import FailedHypothesis, Invariant, Relation
 from mldaikon.invariant.relation_pool import relation_pool
 from mldaikon.trace import select_trace_implementation
 from mldaikon.utils import register_custom_excepthook
@@ -24,11 +24,16 @@ class InferEngine:
         self.traces = traces
         pass
 
-    def infer(self):
+    def infer(self, disabled_relations: list[Relation]):
         all_invs = []
         all_failed_hypos = []
         for trace in self.traces:
             for relation in relation_pool:
+                if disabled_relations is not None and relation in disabled_relations:
+                    logger.info(
+                        f"Skipping relation {relation.__name__} as it is disabled"
+                    )
+                    continue
                 logger.info(f"Infering invariants for relation: {relation.__name__}")
                 invs, failed_hypos = relation.infer(trace)
                 logger.info(
@@ -80,6 +85,11 @@ if __name__ == "__main__":
         help="Output file to save invariants",
     )
     parser.add_argument(
+        "--disable-relation",
+        nargs="+",
+        help="Disable specific relations",
+    )
+    parser.add_argument(
         "--disable-precond-sampling",
         action="store_true",
         help="Disable sampling of positive and negative examples for precondition inference [By default sampling is enabled]",
@@ -114,6 +124,16 @@ if __name__ == "__main__":
         format="%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)s - %(funcName)20s()] - %(message)s",
     )
 
+    disabled_relations: list[Relation] = []
+    if args.disable_relation is not None:
+        name_in_relation_pool = {
+            relation.__name__: relation for relation in relation_pool
+        }
+        for rel_name in args.disable_relation:
+            if rel_name not in name_in_relation_pool:
+                raise ValueError(f"Relation {rel_name} not found in the relation pool")
+            disabled_relations.append(name_in_relation_pool[rel_name])  # type: ignore
+
     config.ENABLE_PRECOND_SAMPLING = not args.disable_precond_sampling
     config.PRECOND_SAMPLING_THRESHOLD = args.precond_sampling_threshold
 
@@ -125,7 +145,7 @@ if __name__ == "__main__":
 
     time_start = time.time()
     engine = InferEngine(traces)
-    invs, failed_hypos = engine.infer()
+    invs, failed_hypos = engine.infer(disabled_relations=disabled_relations)
     time_end = time.time()
     logger.info(f"Inference completed in {time_end - time_start} seconds.")
 
