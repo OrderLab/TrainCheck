@@ -521,7 +521,16 @@ class APIContainRelation(Relation):
         func_names = [f for f in func_names if "cuda.is_available" not in f]
         func_names = [f for f in func_names if "torch.get_default_dtype" not in f]
         func_names = [f for f in func_names if "torch._VariableFunctionsClass" not in f]
-        func_names = [f for f in func_names if "torch.nn.modules.module.Module._call_impl" not in f]
+        func_names = [
+            f
+            for f in func_names
+            if "torch.nn.modules.module.Module._call_impl" not in f
+        ]
+        func_names = [
+            f
+            for f in func_names
+            if "torch.nn.modules.module.Module._wrapped_impl" not in f
+        ]
         func_names = [f for f in func_names if "torch.cuda._is_compiled" not in f]
         func_names = [f for f in func_names if "torch.is_grad_enabled" not in f]
         if len(func_names) == 0:
