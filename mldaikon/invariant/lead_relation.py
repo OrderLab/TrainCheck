@@ -607,7 +607,7 @@ class FunctionLeadRelation(Relation):
             trace, function_pool
         )
 
-        def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
+        def check_same_level(funcA: str, funcB: str, process_id, thread_id):
             if funcA == funcB:
                 return False
 
@@ -639,8 +639,6 @@ class FunctionLeadRelation(Relation):
             ), "Invariant parameters should be string."
 
             for (process_id, thread_id), events_list in listed_events.items():
-                assert isinstance(process_id, str) and isinstance(thread_id, str)
-
                 funcA = func_A.api_full_name
                 funcB = func_B.api_full_name
 
