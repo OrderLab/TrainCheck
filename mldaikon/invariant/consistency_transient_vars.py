@@ -209,6 +209,13 @@ class ConsistentTransientVarsRelation(Relation):
                             )
                             hypothesis.negative_examples.add_example(example)
 
+                    hypothesis.invariant.num_positive_examples = len(
+                        hypothesis.positive_examples
+                    )
+                    hypothesis.invariant.num_negative_examples = len(
+                        hypothesis.negative_examples
+                    )
+
                     hypotheses_for_func.append(hypothesis)
 
             all_hypotheses[func_name] = hypotheses_for_func
@@ -299,7 +306,9 @@ class ConsistentTransientVarsRelation(Relation):
 
         triggered = False
         # for each function call, check if the property holds
-        for func_call_id in tqdm(func_call_ids, desc=f"Checking invariant {inv.text_description}"):
+        for func_call_id in tqdm(
+            func_call_ids, desc=f"Checking invariant {inv.text_description}"
+        ):
             func_call_event = trace.query_func_call_event(func_call_id)
             if isinstance(
                 func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
