@@ -1,6 +1,8 @@
 import logging
 import re
 
+from tqdm import tqdm
+
 from mldaikon.invariant.base_cls import (
     APIParam,
     CheckerResult,
@@ -297,7 +299,7 @@ class ConsistentTransientVarsRelation(Relation):
 
         triggered = False
         # for each function call, check if the property holds
-        for func_call_id in func_call_ids:
+        for func_call_id in tqdm(func_call_ids, desc=f"Checking invariant {inv.text_description}"):
             func_call_event = trace.query_func_call_event(func_call_id)
             if isinstance(
                 func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
