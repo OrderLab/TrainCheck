@@ -603,9 +603,11 @@ class FunctionLeadRelation(Relation):
                 triggered=False,
             )
 
+        print("Start fetching data for checking...")
         function_times, function_id_map, listed_events = get_func_data_per_PT(
             trace, function_pool
         )
+        print("End fetching data for checking...")
 
         def check_same_level(funcA: str, funcB: str, process_id, thread_id):
             if funcA == funcB:
@@ -630,6 +632,7 @@ class FunctionLeadRelation(Relation):
                     return False
             return True
 
+        print("Starting checking iteration...")
         for i in range(invariant_length - 1):
             func_A = inv.params[i]
             func_B = inv.params[i + 1]
@@ -660,6 +663,13 @@ class FunctionLeadRelation(Relation):
                             continue
                         if inv.precondition.verify([events_list], EXP_GROUP_NAME):
                             inv_triggered = True
+                            print(
+                                "The relation "
+                                + funcA
+                                + " leads "
+                                + func_B
+                                + " is violated!\n"
+                            )
                             return CheckerResult(
                                 trace=[pre_recordA, event],
                                 invariant=inv,

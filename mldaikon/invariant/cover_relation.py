@@ -469,7 +469,6 @@ class FunctionCoverRelation(Relation):
             inv: Invariant
                 The invariant to check on the trace.
         """
-
         assert inv.precondition is not None, "Invariant should have a precondition."
 
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
@@ -515,9 +514,11 @@ class FunctionCoverRelation(Relation):
                 triggered=False,
             )
 
+        print("Start fetching data for checking...")
         function_times, function_id_map, listed_events = get_func_data_per_PT(
             trace, function_pool
         )
+        print("End fetching data for checking...")
 
         def check_same_level(funcA: str, funcB: str, process_id, thread_id):
             if funcA == funcB:
@@ -542,7 +543,8 @@ class FunctionCoverRelation(Relation):
                     return False
             return True
 
-        for i in range(invariant_length - 1):
+        print("Starting checking iteration...")
+        for i in tqdm(range(invariant_length - 1)):
             func_A = inv.params[i]
             func_B = inv.params[i + 1]
 
@@ -572,6 +574,13 @@ class FunctionCoverRelation(Relation):
                         if flag_B is not None:
                             if inv.precondition.verify([events_list], EXP_GROUP_NAME):
                                 inv_triggered = True
+                                print(
+                                    "The relation "
+                                    + funcA
+                                    + " covers "
+                                    + func_B
+                                    + " is violated!\n"
+                                )
                                 return CheckerResult(
                                     trace=[pre_recordB, event],
                                     invariant=inv,
