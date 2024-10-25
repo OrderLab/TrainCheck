@@ -8,7 +8,6 @@ import os
 import threading
 import traceback
 import types
-import uuid
 from typing import Any, Callable, Optional
 
 import torch
@@ -220,7 +219,6 @@ def global_wrapper(
     """
     logger = logging.getLogger(__name__)
 
-    func_call_id = uuid.uuid4().hex
     thread_id = threading.current_thread().ident
     process_id = os.getpid()
     func_name = typename(original_function)
@@ -242,14 +240,10 @@ def global_wrapper(
         return core_wrapper(original_function, is_builtin, *args, **kwargs)
 
     pre_record = {
-        "func_call_id": func_call_id,
         "thread_id": thread_id,
         "process_id": process_id,
-        "meta_vars": pre_meta_vars,
         "type": TraceLineType.FUNC_CALL_PRE,
         "function": func_name,
-        "is_bound_method": is_bound_method,
-        "obj_id": None if not is_bound_method else id(args[0]),
     }
 
     if dump_stack_trace:
@@ -306,30 +300,18 @@ def global_wrapper(
     except Exception as e:
         dump_trace_API(
             {
-                "func_call_id": func_call_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
-                "meta_vars": get_meta_vars(),
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": func_name,
-                # "args": [f"{arg}" for arg in args],
-                # "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
-                "exception": typename(e),
-                "exception_msg": str(e),
-                "is_bound_method": is_bound_method,
-                "obj_id": None if not is_bound_method else id(args[0]),
             },
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         raise e
-    pre_record.pop("args")
-    pre_record.pop("kwargs")
     post_record = (
         pre_record.copy()
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
-    post_record["meta_vars"] = get_meta_vars()
-    post_record["return_values"] = to_dict_return_value(result)
     dump_trace_API(post_record)
 
     return result
