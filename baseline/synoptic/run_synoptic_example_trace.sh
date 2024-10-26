@@ -1,0 +1,1 @@
+bash synoptic/synoptic.sh  -o output/test_trace -d /usr/bin/dot processed_trace.log --dumpInvariants

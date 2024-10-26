@@ -56,3 +56,4 @@ Deepspeed/
 /lightning-thunder
 /machine-learning-issues/examples
 *.bin
+/baseline/synoptic/synoptic
