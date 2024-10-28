@@ -1,5 +1,6 @@
 import logging
 import re
+from typing import Hashable
 
 from tqdm import tqdm
 
@@ -10,6 +11,7 @@ from mldaikon.invariant.base_cls import (
     ExampleList,
     FailedHypothesis,
     Hypothesis,
+    InputOutputParam,
     Invariant,
     Relation,
     VarTypeParam,
@@ -23,9 +25,12 @@ from mldaikon.trace.types import (
 )
 
 TENSOR_PATTERN = r"torch\..*Tensor"
+PARAMETER_KEYWORD = "Parameter"
 
 
-def filter_functions_with_tensors(all_func_call_events) -> list[str]:
+def filter_functions_with_tensors(
+    all_func_call_events, output_has_tensors: bool, input_has_tensors: bool
+) -> list[str]:
     """
     Filter out the functions that don't have tensors as args or return values.
 
@@ -38,18 +43,21 @@ def filter_functions_with_tensors(all_func_call_events) -> list[str]:
 
     funcs_with_tensors: list[str] = []
     for func_name, func_call_ids_and_events in all_func_call_events.items():
-        func_has_tensor = False
+        func_satisfy_requirement = False
         for func_call_event in func_call_ids_and_events.values():
             for arg in func_call_event.args:
                 assert len(arg) == 1
                 arg_type = list(arg.keys())[0]
-                if re.match(TENSOR_PATTERN, arg_type):
-                    func_has_tensor = True
+                if re.match(TENSOR_PATTERN, arg_type) or PARAMETER_KEYWORD in arg_type:
+                    func_has_input_tensor = True
                     break
 
             for kwarg_type in func_call_event.kwargs:
-                if re.match(TENSOR_PATTERN, kwarg_type):
-                    func_has_tensor = True
+                if (
+                    re.match(TENSOR_PATTERN, kwarg_type)
+                    or PARAMETER_KEYWORD in kwarg_type
+                ):
+                    func_has_input_tensor = True
                     break
 
             if isinstance(func_call_event, (FuncCallEvent)):
@@ -58,12 +66,27 @@ def filter_functions_with_tensors(all_func_call_events) -> list[str]:
                     return_values = [return_values]
                 for return_value in return_values:
                     type_value = list(return_value.keys())[0]
-                    if re.match(TENSOR_PATTERN, type_value):
-                        func_has_tensor = True
+                    if (
+                        re.match(TENSOR_PATTERN, type_value)
+                        or PARAMETER_KEYWORD in type_value
+                    ):
+                        func_has_output_tensor = True
                         break
-            if func_has_tensor:
+            if func_has_input_tensor and input_has_tensors and not output_has_tensors:
+                func_satisfy_requirement = True
                 break
-        if func_has_tensor:
+            if func_has_output_tensor and output_has_tensors and not input_has_tensors:
+                func_satisfy_requirement = True
+                break
+            if (
+                func_has_input_tensor
+                and func_has_output_tensor
+                and output_has_tensors
+                and input_has_tensors
+            ):
+                func_satisfy_requirement = True
+                break
+        if func_satisfy_requirement:
             funcs_with_tensors.append(func_name)
 
     return funcs_with_tensors
@@ -86,12 +109,61 @@ def get_returned_tensors(
     for return_value in return_values:
         type_value = list(return_value.keys())[0]
         attributes = return_value[type_value]
-        if re.match(TENSOR_PATTERN, type_value):
+        if re.match(TENSOR_PATTERN, type_value) or PARAMETER_KEYWORD in type_value:
             returned_tensors.append(attributes)
     return returned_tensors
 
 
-class ConsistentTransientVarsRelation(Relation):
+def get_input_tensors(
+    func_call_event: FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent,
+) -> list[dict]:
+    """
+    Get all the input tensors that are passed to the function calls.
+    """
+    input_tensors = []
+    for arg in func_call_event.args:
+        assert len(arg) == 1
+        arg_type = list(arg.keys())[0]
+        if re.match(TENSOR_PATTERN, arg_type) or PARAMETER_KEYWORD in arg_type:
+            input_tensors.append(arg[arg_type])
+
+    for kwarg in func_call_event.kwargs.values():
+        assert len(kwarg) == 1
+        kwarg_type = list(kwarg.keys())[0]
+        if re.match(TENSOR_PATTERN, kwarg_type) or PARAMETER_KEYWORD in kwarg_type:
+            input_tensors.append(kwarg[kwarg_type])
+
+    return input_tensors
+
+
+def get_events_of_funcs_with_tensors(
+    all_func_names, trace, output_has_tensors=True, input_has_tensors=True
+):
+    all_func_call_ids = {
+        func_name: trace.get_func_call_ids(func_name) for func_name in all_func_names
+    }
+    all_func_call_events = {
+        func_name: {
+            func_call_id: trace.query_func_call_event(func_call_id)
+            for func_call_id in func_call_ids
+        }
+        for func_name, func_call_ids in all_func_call_ids.items()
+    }
+
+    funcs_with_tensors = filter_functions_with_tensors(
+        all_func_call_events, output_has_tensors, input_has_tensors
+    )
+
+    relevant_func_call_events = {
+        func_name: func_call_ids_and_events
+        for func_name, func_call_ids_and_events in all_func_call_events.items()
+        if func_name in funcs_with_tensors
+    }
+
+    return relevant_func_call_events
+
+
+class ConsistentOutputRelation(Relation):
     """Infer common properties of transient variables that are consistent across function calls.
 
     For example, if you have a function that is called multiple times, and the function args and return values
@@ -103,26 +175,10 @@ class ConsistentTransientVarsRelation(Relation):
         logger = logging.getLogger(__name__)
 
         all_func_names = trace.get_func_names()
-        all_func_call_ids = {
-            func_name: trace.get_func_call_ids(func_name)
-            for func_name in all_func_names
-        }
-        all_func_call_events = {
-            func_name: {
-                func_call_id: trace.query_func_call_event(func_call_id)
-                for func_call_id in func_call_ids
-            }
-            for func_name, func_call_ids in all_func_call_ids.items()
-        }
 
-        funcs_with_tensors = filter_functions_with_tensors(all_func_call_events)
-        print(funcs_with_tensors)
-
-        relevant_func_call_events = {
-            func_name: func_call_ids_and_events
-            for func_name, func_call_ids_and_events in all_func_call_events.items()
-            if func_name in funcs_with_tensors
-        }
+        relevant_func_call_events = get_events_of_funcs_with_tensors(
+            all_func_names, trace, output_has_tensors=True, input_has_tensors=False
+        )
 
         all_hypotheses = {}
         for func_name in relevant_func_call_events:
@@ -175,7 +231,7 @@ class ConsistentTransientVarsRelation(Relation):
                     # hypothesis priority can be given based on the number of times the property showed up
                     hypothesis = Hypothesis(
                         invariant=Invariant(
-                            relation=ConsistentTransientVarsRelation,
+                            relation=ConsistentOutputRelation,
                             params=[
                                 APIParam(api_full_name=func_name),
                                 VarTypeParam(
@@ -347,3 +403,161 @@ class ConsistentTransientVarsRelation(Relation):
             triggered=triggered,
         )
         # raise NotImplementedError
+
+
+class ConsistentInputOutputRelation(Relation):
+    """Infer common properties that should be enforced across the input and output of a function call.
+
+    This relation is mainly implemented to support constraints supported/inferred by PyTea (ICSE'22) and NeuRI (FSE'23)
+    """
+
+    @staticmethod
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+        # get the function calls that have tensors or nn.Modules as both input and output
+
+        """
+        TODO: find all function calls that have tensors or nn.Modules as both input and output
+        We can extend this to other types of variables as well, but for now let's keep it simple.
+
+        We need instrumentor to dump the trace in a format that we can easily query for this information.
+
+        @Beijie: can we use static analysis for the above stuff?
+
+        For now let's dump every possible information in the trace and then query it.
+
+        # tensor
+        """
+
+        logger = logging.getLogger(__name__)
+
+        all_func_names = trace.get_func_names()
+        relevant_func_call_events = get_events_of_funcs_with_tensors(
+            all_func_names, trace, output_has_tensors=True, input_has_tensors=True
+        )
+
+        # for these func_call_events, we obtain the properties that are consistent across the input and output tensors
+        # we can then generate hypotheses for these properties
+
+        all_hypotheses: dict[str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]] = {}
+
+        for func_name in tqdm(
+            relevant_func_call_events,
+            desc="Infer hypotheses for consistent input output relation on functions",
+        ):
+            # TBD: test matmul input / output shape constraints though we did not instrument matmul
+            api_param = APIParam(api_full_name=func_name)
+            for func_event in tqdm(
+                relevant_func_call_events[func_name],
+                desc=f"Infer hypotheses for {func_name}",
+            ):
+                # try to form hypothesis for each function call
+
+                # get the input and output tensors of the function call
+                input_tensors = get_input_tensors(
+                    func_event
+                )  # potentially we need to attach the tensors to their signature in the function definition, for now let's assume that the tensors in the same order as they are defined and use index to access them
+                output_tensors = get_returned_tensors(func_event)
+
+                # for each value observed, form a dict of {value: path to access the value}
+                def _get_value_paths(tensors: list[dict]) -> dict:
+                    values: dict[Hashable, list[list[str | int]]] = {}
+                    for idx, tensor in enumerate(tensors):
+                        for prop, prop_val in tensor.items():
+                            if isinstance(prop_val, (list, tuple)):
+                                # mainly for shape and ndims related fields
+                                for val_idx, val in enumerate(prop_val):
+                                    if not isinstance(val, Hashable):
+                                        # we can't hash unhashable types
+                                        logger.warning(
+                                            f"Unhashable prop {prop}: {str(prop_val)} found in the input tensor of the function call {func_event}, skipping the value."
+                                        )
+                                        continue
+                                    if val not in values:
+                                        values[val] = []
+
+                                    values[val].append([idx, prop, val_idx])
+
+                            else:
+                                if not isinstance(prop_val, Hashable):
+                                    # we can't hash unhashable types
+                                    logger.warning(
+                                        f"Unhashable prop {prop}: {str(prop_val)} found in the input tensor of the function call {func_event}, skipping the value."
+                                    )
+                                    continue
+                                if prop_val not in values:
+                                    values[prop_val] = []
+
+                                values[prop_val].append([idx, prop])
+
+                    return values
+
+                input_values_paths = _get_value_paths(input_tensors)
+                output_values_paths = _get_value_paths(output_tensors)
+
+                # find the common values between the input and output tensors and form hypotheses for them
+                input_values = set(input_values_paths.keys())
+                output_values = set(output_values_paths.keys())
+
+                common_values = input_values.intersection(output_values)
+
+                for common_value in common_values:
+                    # add hypothesis for each common value, combine the paths to access the value in the input and output tensors
+                    for input_path in input_values_paths[common_value]:
+                        for output_path in input_values_paths[common_value]:
+                            input_param = InputOutputParam(
+                                name="input_tensors",
+                                index=input_path[0],
+                                _type="torch.Tensor",
+                                additional_path=tuple(input_path[1:]),
+                                value=common_value,
+                                api_name=func_name,
+                                is_input=True,
+                            )
+
+                            output_param = InputOutputParam(
+                                name="output_tensors",
+                                index=output_path[0],
+                                _type="torch.Tensor",
+                                additional_path=tuple(output_path[1:]),
+                                value=common_value,
+                                api_name=func_name,
+                                is_input=False,
+                            )
+
+                            if func_name not in all_hypotheses:
+                                all_hypotheses[func_name] = {}
+
+                            if (input_param, output_param) in all_hypotheses[func_name]:
+                                continue
+
+                            hypothesis = Hypothesis(
+                                invariant=Invariant(
+                                    relation=ConsistentInputOutputRelation,
+                                    params=[input_param, api_param, output_param],
+                                    precondition=None,
+                                    text_description=f"The value {common_value} is consistent across the input {input_path} and output {output_path} tensors of the function {func_name}.",
+                                ),
+                                positive_examples=ExampleList(
+                                    {"pre_event"}
+                                ),  # q: do we need input attributes as precondition here? probably not
+                                negative_examples=ExampleList(
+                                    {"pre_event"}
+                                ),  # q: do we need input attributes as precondition here? probably not
+                            )
+
+                            all_hypotheses[func_name][
+                                (input_param, output_param)
+                            ] = hypothesis
+
+            # now, scan for positive and negative examples
+            import pdb
+
+            pdb.set_trace()
+
+    @staticmethod
+    def evaluate(value_group: list) -> bool:
+        raise NotImplementedError
+
+    @staticmethod
+    def static_check_all(trace, inv, check_relation_first):
+        raise NotImplementedError

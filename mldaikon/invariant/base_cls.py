@@ -359,6 +359,29 @@ class VarNameParam(Param):
         return self.__str__()
 
 
+class InputOutputParam(Param):
+    def __init__(
+        self,
+        name: Optional[str],
+        index: Optional[int],
+        _type: str,
+        additional_path: tuple[str] | None,
+        value: Any,
+        api_name: Optional[str],
+        is_input: bool,  # not input means output
+    ):
+        self.name = name
+        self.index = index
+        self.type = _type
+        self.additional_path = additional_path
+        self.api_name = api_name
+        self.value = value
+        self.is_input = is_input
+
+    def check_event_match(self, event: HighLevelEvent) -> bool:
+        raise NotImplementedError("check_event_match method is not implemented yet.")
+
+
 def construct_api_param(
     event: FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent,
 ) -> APIParam:
@@ -834,7 +857,9 @@ class Invariant:
         logging.getLogger(__name__).info(
             f"Checking invariant: {self.text_description} of relation {self.relation}"
         )
-        print(f"Checking invariant: {self.text_description} of relation {self.relation}")
+        print(
+            f"Checking invariant: {self.text_description} of relation {self.relation}"
+        )
         return self.relation.static_check_all(trace, self, check_relation_first)
 
 
