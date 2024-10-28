@@ -679,6 +679,9 @@ class Instrumentor:
         if is_API_instrumented(attr):
             return "Skipping attribute as it is already instrumented"
 
+        if type(attr).__name__ == "_OpNamespace":
+            return "Skipping attribute as it is _OpNamespace (calling typename on it will raise an exception)"
+
         # 3. Instrumenting inspect.getfile lead to --> TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method"
         if "getfile" in attr_name:  # cannot handle getfile correctly
             return "Skipping attribute as it is getfile"
@@ -777,12 +780,12 @@ class Instrumentor:
                     )  # this attr should be loaded now
                 except Exception as e:
                     get_instrumentation_logger_for_process().debug(
-                        f"Depth: {depth}, lazy loading failed for attribute: {attr_name}, Module: {target_name}, Type: {typename(attr)}: {e}"
+                        f"Depth: {depth}, lazy loading failed for attribute: {attr_name}, Module: {target_name}: {e}"
                     )
 
             if reason := self._should_skip_instr_attr(attr_name, pymodule):
                 get_instrumentation_logger_for_process().debug(
-                    f"Depth: {depth}, Skipping attribute: {attr_name}, Reason: {reason}, Module: {target_name}, Type: {typename(attr)}"
+                    f"Depth: {depth}, Skipping attribute: {attr_name}, Reason: {reason}, Module: {target_name}"
                 )
                 continue
 
