@@ -1,5 +1,8 @@
 import logging
 import re
+# import pickle
+# import os
+
 from typing import Hashable
 
 from tqdm import tqdm
@@ -27,6 +30,7 @@ from mldaikon.trace.types import (
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"
 
+# _CACHE_PATH = "func_with_tensors.pkl"
 
 def filter_functions_with_tensors(
     all_func_call_events, output_has_tensors: bool, input_has_tensors: bool
@@ -40,10 +44,15 @@ def filter_functions_with_tensors(
     Note: It is assumed that all func call events related to a function will have same input output schema
     (i.e. if tensor showed up in one func call event, it will show up in all func call events of that function)
     """
-
+    # if os.path.exists(_CACHE_PATH):
+    #     with open(_CACHE_PATH, "rb") as f:
+    #         return pickle.load(f)
+    
     funcs_with_tensors: list[str] = []
     for func_name, func_call_ids_and_events in all_func_call_events.items():
         func_satisfy_requirement = False
+        func_has_input_tensor = False
+        func_has_output_tensor = False
         for func_call_event in func_call_ids_and_events.values():
             for arg in func_call_event.args:
                 assert len(arg) == 1
@@ -89,6 +98,8 @@ def filter_functions_with_tensors(
         if func_satisfy_requirement:
             funcs_with_tensors.append(func_name)
 
+    # with open(_CACHE_PATH, "wb") as f:
+    #     pickle.dump(funcs_with_tensors, f)
     return funcs_with_tensors
 
 
@@ -139,15 +150,27 @@ def get_input_tensors(
 def get_events_of_funcs_with_tensors(
     all_func_names, trace, output_has_tensors=True, input_has_tensors=True
 ):
+    # HACK: remove all torch.overrides 
+    all_func_names = [func_name for func_name in all_func_names if "torch.override" not in func_name]
+    # remove all functions with "._" in them
+    all_func_names = [func_name for func_name in all_func_names if "._" not in func_name]
+    # remove all functions with "._is_" in them
+    all_func_names = [func_name for func_name in all_func_names if ".is_" not in func_name]
+
+    # if os.path.exists(_CACHE_PATH):
+    #     with open(_CACHE_PATH, "rb") as f:
+    #         all_func_names = pickle.load(f)
+
     all_func_call_ids = {
         func_name: trace.get_func_call_ids(func_name) for func_name in all_func_names
     }
+
     all_func_call_events = {
         func_name: {
             func_call_id: trace.query_func_call_event(func_call_id)
-            for func_call_id in func_call_ids
+            for func_call_id in tqdm(func_call_ids, desc=f"Querying {func_name} events")
         }
-        for func_name, func_call_ids in all_func_call_ids.items()
+        for func_name, func_call_ids in all_func_call_ids.items() # PROBABLY THERE'S SOMETHING WE CAN DO VIA STATIC ANALYSIS
     }
 
     funcs_with_tensors = filter_functions_with_tensors(
@@ -181,7 +204,7 @@ class ConsistentOutputRelation(Relation):
         )
 
         all_hypotheses = {}
-        for func_name in relevant_func_call_events:
+        for func_name in tqdm(relevant_func_call_events, desc="Inferring hypotheses"):
             # infer per function
             all_returned_tensors: list[tuple[FuncCallEvent, list[dict]]] = []
             skip_func = False
@@ -447,7 +470,7 @@ class ConsistentInputOutputRelation(Relation):
             # TBD: test matmul input / output shape constraints though we did not instrument matmul
             api_param = APIParam(api_full_name=func_name)
             for func_event in tqdm(
-                relevant_func_call_events[func_name],
+                relevant_func_call_events[func_name].values(),
                 desc=f"Infer hypotheses for {func_name}",
             ):
                 # try to form hypothesis for each function call
@@ -501,58 +524,106 @@ class ConsistentInputOutputRelation(Relation):
                 common_values = input_values.intersection(output_values)
 
                 for common_value in common_values:
+                    input_paths = input_values_paths[common_value]
+                    output_paths = output_values_paths[common_value]
+                    combinations_of_paths = [
+                        (input_path, output_path)
+                        for input_path in input_paths
+                        for output_path in output_paths
+                    ]
+                    if isinstance(common_value, bool):
+                        # hack: for flags, we keep it simple: only values with the same prop name can be considered consistent
+                        # e.g. "True" consistency across input and output tensors will only be about "requires_grad" v.s. "requires_grad", not "requires_grad" v.s. "is_cuda"
+                        combinations_of_paths = [
+                            (input_path, output_path)
+                            for input_path, output_path in combinations_of_paths
+                            if input_path == output_path
+                        ]
+
                     # add hypothesis for each common value, combine the paths to access the value in the input and output tensors
-                    for input_path in input_values_paths[common_value]:
-                        for output_path in input_values_paths[common_value]:
-                            input_param = InputOutputParam(
-                                name="input_tensors",
-                                index=input_path[0],
-                                _type="torch.Tensor",
-                                additional_path=tuple(input_path[1:]),
-                                value=common_value,
-                                api_name=func_name,
-                                is_input=True,
-                            )
+                    for input_path, output_path in combinations_of_paths:
+                        input_param = InputOutputParam(
+                            name="input_tensors",
+                            index=input_path[0],
+                            _type="torch.Tensor",
+                            additional_path=tuple(input_path[1:]),
+                            api_name=func_name,
+                            is_input=True,
+                        )
 
-                            output_param = InputOutputParam(
-                                name="output_tensors",
-                                index=output_path[0],
-                                _type="torch.Tensor",
-                                additional_path=tuple(output_path[1:]),
-                                value=common_value,
-                                api_name=func_name,
-                                is_input=False,
-                            )
+                        output_param = InputOutputParam(
+                            name="output_tensors",
+                            index=output_path[0],
+                            _type="torch.Tensor",
+                            additional_path=tuple(output_path[1:]),
+                            api_name=func_name,
+                            is_input=False,
+                        )
 
-                            if func_name not in all_hypotheses:
-                                all_hypotheses[func_name] = {}
+                        if func_name not in all_hypotheses:
+                            all_hypotheses[func_name] = {}
 
-                            if (input_param, output_param) in all_hypotheses[func_name]:
-                                continue
+                        if (input_param, output_param) in all_hypotheses[func_name]:
+                            continue
 
-                            hypothesis = Hypothesis(
-                                invariant=Invariant(
-                                    relation=ConsistentInputOutputRelation,
-                                    params=[input_param, api_param, output_param],
-                                    precondition=None,
-                                    text_description=f"The value {common_value} is consistent across the input {input_path} and output {output_path} tensors of the function {func_name}.",
-                                ),
-                                positive_examples=ExampleList(
-                                    {"pre_event"}
-                                ),  # q: do we need input attributes as precondition here? probably not
-                                negative_examples=ExampleList(
-                                    {"pre_event"}
-                                ),  # q: do we need input attributes as precondition here? probably not
-                            )
+                        hypothesis = Hypothesis(
+                            invariant=Invariant(
+                                relation=ConsistentInputOutputRelation,
+                                params=[input_param, api_param, output_param],
+                                precondition=None,
+                                text_description=f"The value {common_value} is consistent across the input {input_path} and output {output_path} tensors of the function {func_name}.",
+                            ),
+                            positive_examples=ExampleList(
+                                {"pre_event"}
+                            ),  # q: do we need input attributes as precondition here? probably not
+                            negative_examples=ExampleList(
+                                {"pre_event"}
+                            ),  # q: do we need input attributes as precondition here? probably not
+                        )
 
-                            all_hypotheses[func_name][
-                                (input_param, output_param)
-                            ] = hypothesis
+                        all_hypotheses[func_name][
+                            (input_param, output_param)
+                        ] = hypothesis
 
             # now, scan for positive and negative examples
-            import pdb
+            for func_event in relevant_func_call_events[func_name].values():
+                input_tensors = get_input_tensors(func_event)
+                output_tensors = get_returned_tensors(func_event)
 
-            pdb.set_trace()
+                # for each hypothesis, check if it holds for this function call
+                for (input_param, output_param), hypothesis in all_hypotheses[func_name].items():
+                    input_value = input_param.get_value_from_list_of_tensors(input_tensors)
+                    output_value = output_param.get_value_from_list_of_tensors(output_tensors)
+
+                    if input_value == output_value:
+                        example = Example({"pre_event": [func_event.pre_record]})
+                        hypothesis.positive_examples.add_example(example)
+                    else:
+                        example = Example({"pre_event": [func_event.pre_record]})
+                        hypothesis.negative_examples.add_example(example)
+
+            # now, update the number of positive and negative examples
+            for hypothesis in all_hypotheses[func_name].values():
+                hypothesis.invariant.num_positive_examples = len(
+                    hypothesis.positive_examples
+                )
+                hypothesis.invariant.num_negative_examples = len(
+                    hypothesis.negative_examples
+                )
+            
+        # now that we have the hypotheses for each function, we can start precondition inference
+        invariants = []
+        failed_hypotheses = []
+        for func_name, hypotheses in all_hypotheses.items():
+            for hypothesis in hypotheses.values():
+                precondition = find_precondition(hypothesis, trace)
+                if precondition is not None:
+                    hypothesis.invariant.precondition = precondition
+                    invariants.append(hypothesis.invariant)
+                else:
+                    failed_hypotheses.append(FailedHypothesis(hypothesis))
+
+        return invariants, failed_hypotheses
 
     @staticmethod
     def evaluate(value_group: list) -> bool:

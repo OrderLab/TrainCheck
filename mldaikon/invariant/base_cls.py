@@ -366,7 +366,6 @@ class InputOutputParam(Param):
         index: Optional[int],
         _type: str,
         additional_path: tuple[str] | None,
-        value: Any,
         api_name: Optional[str],
         is_input: bool,  # not input means output
     ):
@@ -375,11 +374,20 @@ class InputOutputParam(Param):
         self.type = _type
         self.additional_path = additional_path
         self.api_name = api_name
-        self.value = value
         self.is_input = is_input
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         raise NotImplementedError("check_event_match method is not implemented yet.")
+    
+    def get_value_from_list_of_tensors(self, list_of_tensors: list) -> Any:
+        assert self.index is not None, "Index should be when calling get_value_from_list_of_tensors"
+        assert self.additional_path is not None, "Additional path should be None when calling get_value_from_list_of_tensors"
+        
+        tensor = list_of_tensors[self.index]
+        value = tensor
+        for additional_path in self.additional_path:
+            value = value[additional_path]
+        return value            
 
 
 def construct_api_param(
