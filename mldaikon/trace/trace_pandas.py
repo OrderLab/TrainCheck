@@ -133,7 +133,7 @@ class TracePandas(Trace):
             self.events["func_call_id"].isin(incomplete_func_call_ids)
         ]
         # test_dump(incomplete_func_call_records)
-        for _, row in incomplete_func_call_records.iterrows():
+        for _, row in tqdm(incomplete_func_call_records.iterrows(), desc="Removing Incomplete Function Calls"):
             assert (
                 row["type"] == TraceLineType.FUNC_CALL_PRE
             ), "Incomplete function call is not a pre-call event."
@@ -243,7 +243,7 @@ class TracePandas(Trace):
 
         # 2. Group the context manager events by the object id --> each group should have exactly three events: __init__, __enter__, and __exit__
         context_manager_groups = context_manager_events.groupby("obj_id")
-        for obj_id, group in context_manager_groups:
+        for obj_id, group in tqdm(context_manager_groups, desc="Indexing Context Managers"):
             try:
                 if not len(group) == 4:
                     # TODO: the problem seems to only happen with 139693891633600 torch.autograd.grad_mode.enable_grad
