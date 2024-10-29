@@ -359,6 +359,41 @@ class VarNameParam(Param):
         return self.__str__()
 
 
+class InputOutputParam(Param):
+    def __init__(
+        self,
+        name: Optional[str],
+        index: Optional[int],
+        _type: str,
+        additional_path: tuple[str] | None,
+        api_name: Optional[str],
+        is_input: bool,  # not input means output
+    ):
+        self.name = name
+        self.index = index
+        self.type = _type
+        self.additional_path = additional_path
+        self.api_name = api_name
+        self.is_input = is_input
+
+    def check_event_match(self, event: HighLevelEvent) -> bool:
+        raise NotImplementedError("check_event_match method is not implemented yet.")
+
+    def get_value_from_list_of_tensors(self, list_of_tensors: list) -> Any:
+        assert (
+            self.index is not None
+        ), "Index should be when calling get_value_from_list_of_tensors"
+        assert (
+            self.additional_path is not None
+        ), "Additional path should be None when calling get_value_from_list_of_tensors"
+
+        tensor = list_of_tensors[self.index]
+        value = tensor
+        for additional_path in self.additional_path:
+            value = value[additional_path]
+        return value
+
+
 def construct_api_param(
     event: FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent,
 ) -> APIParam:
@@ -524,7 +559,7 @@ class PreconditionClause:
                 self.prop_name,
                 self.prop_dtype,
                 self.type,
-                tuple(self.values) if self.values else None,
+                frozenset(self.values) if self.values else None,
                 tuple(self.additional_path) if self.additional_path else None,
             )
         )
@@ -590,6 +625,7 @@ class Precondition:
     """
 
     def __init__(self, clauses: list[PreconditionClause]):
+        """A precondition is a conjunction of clauses."""
         self.clauses = clauses
 
     def verify(self, example: list) -> bool:
@@ -633,10 +669,10 @@ class Precondition:
     def __eq__(self, other) -> bool:
         if not isinstance(other, Precondition):
             return False
-        return self.clauses == other.clauses
+        return frozenset(self.clauses) == frozenset(other.clauses)
 
     def __hash__(self) -> int:
-        return hash(tuple(self.clauses))
+        return hash(frozenset(self.clauses))
 
 
 class UnconditionalPrecondition(Precondition):
@@ -663,17 +699,104 @@ class UnconditionalPrecondition(Precondition):
     def to_dict(self) -> dict:
         return {"clauses": "Unconditional"}
 
+    def __eq__(self, other) -> bool:
+        return isinstance(other, UnconditionalPrecondition)
+
+    def __hash__(self) -> int:
+        return hash("Unconditional")
+
+
+class Preconditions:
+    def __init__(self, preconditions: list[Precondition], inverted: bool = False):
+        """Preconditions is a disjunction of preconditions. If inverted is True, then a NOT operation is applied to the entire disjunction of preconditions."""
+        self.preconditions = preconditions
+        self.inverted = inverted
+
+    def verify(self, example: list) -> bool:
+        or_result = False
+        for precondition in self.preconditions:
+            or_result = or_result or precondition.verify(example)
+            if or_result:
+                break
+
+        if self.inverted:
+            return not or_result
+        return or_result
+
+    def to_dict(self) -> dict:
+        return {
+            "inverted": self.inverted,
+            "preconditions": [
+                precondition.to_dict() for precondition in self.preconditions
+            ],
+        }
+
+    def __str__(self):
+        output = ""
+        if self.inverted:
+            output += "NOT (\n"
+        for i, precondition in enumerate(self.preconditions):
+            output += str(precondition) + "\n"
+            if i != len(self.preconditions) - 1:
+                output += " OR "
+        if self.inverted:
+            output += ")"
+        return output
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __eq__(self, value):
+        if not isinstance(value, Preconditions):
+            return False
+        return (
+            frozenset(self.preconditions) == frozenset(value.preconditions)
+            and self.inverted == value.inverted
+        )
+
+    def __hash__(self):
+        return hash((frozenset(self.preconditions), self.inverted))
+
+    @staticmethod
+    def from_dict(preconditions_dict: dict) -> Preconditions:
+        preconditions: list[Precondition | UnconditionalPrecondition] = []
+        for precondition_dict in preconditions_dict["preconditions"]:
+            if precondition_dict["clauses"] == "Unconditional":
+                assert (
+                    len(preconditions_dict["preconditions"]) == 1
+                ), "Unconditional precondition should be the only precondition"
+                preconditions.append(UnconditionalPrecondition())
+            else:
+                clauses = []
+                for clause_dict in preconditions_dict["clauses"]:
+                    clauses.append(
+                        PreconditionClause.from_dict(clause_dict=clause_dict)
+                    )
+                preconditions.append(Precondition(clauses=clauses))
+        return Preconditions(preconditions, preconditions_dict["inverted"])
+
+    def is_unconditional(self) -> bool:
+        return all(
+            [
+                isinstance(precondition, UnconditionalPrecondition)
+                for precondition in self.preconditions
+            ]
+        )
+
+    def __iter__(self):
+        return iter(self.preconditions)
+
+    def __len__(self):
+        return len(self.preconditions)
+
 
 class GroupedPreconditions:
-    def __init__(self, grouped_preconditions: dict[str, list[Precondition]]):
+    def __init__(self, grouped_preconditions: dict[str, Preconditions]):
         self.grouped_preconditions = grouped_preconditions
 
     def verify(self, example: list, group_name: str) -> bool:
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
-        for precondition in self.grouped_preconditions[group_name]:
-            if precondition.verify(example):
-                return True
-        return False
+        return self.grouped_preconditions[group_name].verify(example)
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -682,8 +805,7 @@ class GroupedPreconditions:
         output = "====================== Start of Grouped Precondition ======================\n"
         for group_name, preconditions in self.grouped_preconditions.items():
             output += f"Group: {group_name}\n"
-            for precondition in preconditions:
-                output += str(precondition) + "\n"
+            output += str(preconditions) + "\n"
         output += (
             "====================== End of Grouped Precondition ======================"
         )
@@ -691,11 +813,11 @@ class GroupedPreconditions:
 
     def to_dict(self) -> dict:
         return {
-            group_name: [precond.to_dict() for precond in preconditions]
+            group_name: preconditions.to_dict()
             for group_name, preconditions in self.grouped_preconditions.items()
         }
 
-    def get_group(self, group_name: str) -> list[Precondition]:
+    def get_group(self, group_name: str) -> Preconditions:
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
         return self.grouped_preconditions[group_name]
 
@@ -706,19 +828,14 @@ class GroupedPreconditions:
         # TODO: remove this function as it is duplicate of self.verify
 
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
-        if len(self.grouped_preconditions[group_name]) == 0:
-            logger = logging.getLogger(__name__)
-            logger.debug("No preconditions found for group %s", group_name)
-            return True
-        for precondition in self.grouped_preconditions[group_name]:
-            if precondition.verify(example):
-                return True
-        return False
+        return self.grouped_preconditions[group_name].verify(example)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, GroupedPreconditions):
             return False
-        return self.grouped_preconditions == other.grouped_preconditions
+        return sorted(self.grouped_preconditions.items()) == sorted(
+            other.grouped_preconditions.items()
+        )
 
     def __hash__(self) -> int:
         items = tuple(
@@ -728,41 +845,14 @@ class GroupedPreconditions:
 
     @staticmethod
     def from_dict(precondition_dict: dict) -> GroupedPreconditions:
-        grouped_preconditions: dict[str, list[Precondition]] = {}
+        grouped_preconditions: dict[str, Preconditions] = {}
         for group_name, preconditions in precondition_dict.items():
-            grouped_preconditions[group_name] = []
-            if (
-                len(preconditions) > 0
-                and preconditions[0]["clauses"] == "Unconditional"
-            ):
-                assert (
-                    len(preconditions) == 1
-                ), "Unconditional precondition should be the only precondition"
-                grouped_preconditions[group_name].append(UnconditionalPrecondition())
-                continue
-
-            for precondition in preconditions:
-                clauses = []
-                for clause_dict in precondition["clauses"]:
-                    clauses.append(
-                        PreconditionClause.from_dict(clause_dict=clause_dict)
-                    )
-                grouped_preconditions[group_name].append(Precondition(clauses))
+            grouped_preconditions[group_name] = Preconditions.from_dict(preconditions)
         return GroupedPreconditions(grouped_preconditions)
 
     def is_group_unconditional(self, group_name: str) -> bool:
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
-        is_all_unconditional = all(
-            [
-                isinstance(precond, UnconditionalPrecondition)
-                for precond in self.grouped_preconditions[group_name]
-            ]
-        )
-        if is_all_unconditional:
-            assert (
-                len(self.grouped_preconditions[group_name]) == 1
-            ), "Multiple unconditional preconditions found"
-        return is_all_unconditional
+        return self.grouped_preconditions[group_name].is_unconditional()
 
 
 class Invariant:
@@ -834,7 +924,9 @@ class Invariant:
         logging.getLogger(__name__).info(
             f"Checking invariant: {self.text_description} of relation {self.relation}"
         )
-        print(f"Checking invariant: {self.text_description} of relation {self.relation}")
+        print(
+            f"Checking invariant: {self.text_description} of relation {self.relation}"
+        )
         return self.relation.static_check_all(trace, self, check_relation_first)
 
 

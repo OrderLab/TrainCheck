@@ -13,6 +13,7 @@ from mldaikon.invariant.base_cls import (
     Hypothesis,
     Precondition,
     PreconditionClause,
+    Preconditions,
     UnconditionalPrecondition,
 )
 from mldaikon.trace.trace import Trace
@@ -289,9 +290,30 @@ def find_precondition(
             # the negative examples are not found, assign an unconditional precondition (to be handled in find_precondition_from_single_group)
             negative_examples = []
 
-        grouped_preconditions[group_name] = find_precondition_from_single_group(
-            positive_examples, negative_examples, trace, keys_to_skip
+        grouped_preconditions[group_name] = Preconditions(
+            find_precondition_from_single_group(
+                positive_examples, negative_examples, trace, keys_to_skip
+            )
         )
+
+        if len(grouped_preconditions[group_name]) == 0:
+            # try doing inverted precondition inference
+            logger.warning(
+                f"Empty preconditions found for group {group_name}, trying to infer the preconditions by inverting the negative examples."
+            )
+            # i.e. use negative examples to infer the preconditions, and then invert the final precondition
+            # introducing this for inferring invariants related to context managers (e.g. input/output dtype should be the same when no autocast context is used)
+            grouped_preconditions[group_name] = Preconditions(
+                find_precondition_from_single_group(
+                    negative_examples, positive_examples, trace, keys_to_skip
+                ),
+                inverted=True,
+            )
+
+            # TODO: add wrapper indicating that the precondition is inverted!!!
+
+        if len(grouped_preconditions[group_name]) == 0:
+            logger.warning(f"No preconditions found for group {group_name}")
 
     # if any group's precondition is of length 0, return None
     if all(
@@ -511,14 +533,16 @@ def find_precondition_from_single_group(
         earliest_time = example[0]["time"]
         process_id = example[0]["process_id"]
         thread_id = example[0]["thread_id"]
-        meta_vars = trace.get_meta_vars(
-            earliest_time, process_id=process_id, thread_id=thread_id
-        )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
 
-        # update every trace with the meta_vars
-        for key in meta_vars:
-            for i in range(len(example)):
-                example[i][f"meta_vars.{key}"] = meta_vars[key]
+        if _current_depth == 0:
+            meta_vars = trace.get_meta_vars(
+                earliest_time, process_id=process_id, thread_id=thread_id
+            )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
+
+            # update every trace with the meta_vars
+            for key in meta_vars:
+                for i in range(len(example)):
+                    example[i][f"meta_vars.{key}"] = meta_vars[key]
 
         local_clauses = _find_local_clauses(example, key_to_skip=keys_to_skip)
 
@@ -555,6 +579,20 @@ def find_precondition_from_single_group(
         negative_examples,
         desc="Scanning Base Precondition on All Negative Examples",
     ):
+        # 1. add meta_vars to the negative examples as well (TODO: we only need do this if there are meta_vars related clauses in the base_precond_clauses)
+        if _current_depth == 0:
+            earliest_time = neg_example[0]["time"]
+            process_id = neg_example[0]["process_id"]
+            thread_id = neg_example[0]["thread_id"]
+            meta_vars = trace.get_meta_vars(
+                earliest_time, process_id=process_id, thread_id=thread_id
+            )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
+
+            # update every trace with the meta_vars
+            for key in meta_vars:
+                for i in range(len(example)):
+                    neg_example[i][f"meta_vars.{key}"] = meta_vars[key]
+
         whether_precondition_holds = True
         for clause in merged_clauses_and_exp_ids:
             res = clause.verify(neg_example)
