@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1730148592741,
+  "lastUpdate": 1730417186057,
   "repoUrl": "https://github.com/OrderLab/ml-daikon",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -6263,6 +6263,65 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 114.4494112625909",
             "extra": "mean: 212.74278485719114 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lessoxx@gmail.com",
+            "name": "Yuxuan",
+            "username": "Essoz"
+          },
+          "committer": {
+            "email": "lessoxx@gmail.com",
+            "name": "Yuxuan",
+            "username": "Essoz"
+          },
+          "distinct": true,
+          "id": "987355771ab03f75448c0b7203fa26221ecb57e1",
+          "message": "avoid trace dumping during serializing args/kwargs/return value to avoid infinite recursion",
+          "timestamp": "2024-10-31T15:36:59-04:00",
+          "tree_id": "f7f85d53cd90cd5dae48ffa661c850234478bdd6",
+          "url": "https://github.com/OrderLab/ml-daikon/commit/987355771ab03f75448c0b7203fa26221ecb57e1"
+        },
+        "date": 1730417185447,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented",
+            "value": 0.22957214903775386,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011061215543918467",
+            "extra": "mean: 4.355929080210626 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_jit_and_c_tracing_disabled",
+            "value": 0.0025270699331745327,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8714962505179835",
+            "extra": "mean: 395.7152063234709 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_instrumented_with_cond_dump_jit_and_c_tracing_disabled",
+            "value": 0.00794583599699795,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2405212875055383",
+            "extra": "mean: 125.85208156546578 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_sampler_instrumented",
+            "value": 0.001125614173076912,
+            "unit": "iter/sec",
+            "range": "stddev: 1.0027217031689009",
+            "extra": "mean: 888.4038811153732 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/bench_instrumentor/bench.py::test_proxy_instrumented",
+            "value": 0.0018192055512105054,
+            "unit": "iter/sec",
+            "range": "stddev: 1.9176396916279914",
+            "extra": "mean: 549.6904950265773 sec\nrounds: 5"
           }
         ]
       }
