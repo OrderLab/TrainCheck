@@ -46,6 +46,8 @@ METRIC_INSTRUMENTED_FUNC_LIST: dict[str, list[str]] = {"dump": [], "no_dump": []
 
 IS_INSTRUMENTING = False
 
+DISABLE_WRAPPER = False
+
 
 class TraceLineType:
     FUNC_CALL_PRE = "function_call (pre)"
@@ -181,17 +183,27 @@ def should_dump_trace(
 
 
 def to_dict_args_kwargs(args, kwargs) -> dict:
+    global DISABLE_WRAPPER
+    DISABLE_WRAPPER = True
     result = {
         "args": [var_to_serializable(arg) for arg in args],
         "kwargs": {k: var_to_serializable(v) for k, v in kwargs.items()},
     }
+    DISABLE_WRAPPER = False
     return result
 
 
 def to_dict_return_value(result) -> dict | list[dict]:
+    global DISABLE_WRAPPER
+    DISABLE_WRAPPER = True
+    result_dict: dict | list[dict]
     if isinstance(result, tuple):
-        return [var_to_serializable(r) for r in result]
-    return var_to_serializable(result)
+        result_dict = [var_to_serializable(r) for r in result]
+    else:
+        result_dict = var_to_serializable(result)
+
+    DISABLE_WRAPPER = False
+    return result_dict
 
 
 def global_wrapper(
@@ -218,6 +230,11 @@ def global_wrapper(
     Post-call Phase
     1. Log the post-call information
     """
+
+    global DISABLE_WRAPPER
+    if DISABLE_WRAPPER:
+        return original_function(*args, **kwargs)
+
     logger = logging.getLogger(__name__)
 
     func_call_id = uuid.uuid4().hex
@@ -339,6 +356,10 @@ def core_wrapper(original_function, is_builtin, *args, **kwargs):
     """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
     We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
     """
+    global DISABLE_WRAPPER
+    if DISABLE_WRAPPER:
+        return original_function(*args, **kwargs)
+
     if is_builtin:
         original_function = unproxy_func(original_function)
     return original_function(*args, **kwargs)
