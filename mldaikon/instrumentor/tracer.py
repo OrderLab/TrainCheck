@@ -21,6 +21,7 @@ from mldaikon.config.config import (
 )
 from mldaikon.instrumentor.caches import cache_meta_vars, meta_vars
 from mldaikon.instrumentor.dumper import (
+    convert_var_to_dict,
     dump_trace_API,
     dump_trace_VAR,
     get_instrumentation_logger_for_process,
@@ -32,13 +33,8 @@ from mldaikon.instrumentor.replace_functions import (
 )
 from mldaikon.instrumentor.types import PTID
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
-from mldaikon.proxy_wrapper.proxy_config import (
-    disable_proxy_class,
-    enable_C_level_observer,
-)
+from mldaikon.proxy_wrapper.proxy_config import enable_C_level_observer
 from mldaikon.utils import typename
-
-disable_proxy_class = disable_proxy_class
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
@@ -898,7 +894,7 @@ class Instrumentor:
         return count_wrapped
 
 
-class StatelessVarObserver:
+class VarSampler:
     """
     Tracker for the state of a variable. This variable itself cannot be reassigned, i.e. var.attr = new_value is allowed but not var = new_var.
 
@@ -941,77 +937,31 @@ class StatelessVarObserver:
 
             dump_trace_VAR(
                 {
+                    "var_name": param["name"],
+                    "var_type": param["type"],
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
                     "meta_vars": get_meta_vars(),
                     "type": TraceLineType.STATE_CHANGE,
-                    "var_type": param["type"],
-                    "var_name": param["name"],
                     "attributes": attributes,
                     "time": timestamp,
                 }
             )
 
     def _get_state_copy(self):
-        def is_safe_getattr(obj, attr):
-            try:
-                getattr(obj, attr)
-                return True
-            except Exception as e:
-                get_instrumentation_logger_for_process().warn(
-                    f"Failed to get attribute {attr} of parameter {name}, skipping it. Error: {e}"
-                )
-                return False
-
         state_copy = []
         for name, param in self.var.named_parameters():
-            # if name in self.param_versions:
-            #     if param._version == self.param_versions[name]:
-            #         # the parameter has not changed, so skip it
-            #         print(f"Skipping {name} as it has not changed in step {self.step}")
-            #         continue
-            # TODO: use a flag to enable/disable this optimization
             self.param_versions[name] = param._version
             state_copy.append(
                 {
                     "name": name,
                     "type": typename(param),
-                    "attributes": {},
+                    "attributes": convert_var_to_dict(param),
                 }
             )
-            # only get the attributes that are actual values
-            for attr_name in dir(param):
-                if attr_name.startswith("__") or not is_safe_getattr(param, attr_name):
-                    continue
-                attr = getattr(param, attr_name)
-
-                if callable(attr):
-                    continue
-
-                if isinstance(attr, torch.Tensor) or attr is None:
-                    if attr_name in ["data", "grad"]:
-                        if attr is not None:
-                            attr = attr.view(-1).tolist()
-                        else:
-                            attr = (
-                                []
-                            )  # for polars binding, having too many nones would cause error
-                    else:
-                        continue
-                # try to serialize the attribute, if it fails, then skip it
-                try:
-                    json.dumps(attr)
-                except Exception as e:
-                    get_instrumentation_logger_for_process().warn(
-                        f"Failed to serialize attribute {attr_name} of parameter {name}, skipping it. Error: {e}"
-                    )
-                    continue
-
-                state_copy[-1]["attributes"][attr_name] = attr
-
         return state_copy
 
-    def observe(self):
+    def dump_sample(self):
         """The function is called to observe the state of the model. Each call to this function will
         1. Get the current state of the model
         2. Log the state
@@ -1033,3 +983,10 @@ class StatelessVarObserver:
                     "time": timestamp,
                 }
             )
+
+        def register_hook(optimizer: torch.optim.Optimizer):
+            # register a post step hook to observe the state of the model after each step
+            def hook(optimizer, *args, **kwargs):
+                self.dump_sample()
+
+            optimizer.register_step_post_hook(hook)

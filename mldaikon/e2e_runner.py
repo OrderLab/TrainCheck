@@ -159,7 +159,6 @@ if __name__ == "__main__":
         "input_bash_script": input_bash_script,
         "modules_to_instrument": " ".join(modules_to_instrument),
         "proxy_module": args.proxy_module,
-        # "disable_proxy_class": False,
         # "scan_proxy_in_args": False,
         # "allow_disable_dump": False,
         # "funcs_of_inv_interest": None,

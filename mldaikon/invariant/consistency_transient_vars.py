@@ -1,8 +1,5 @@
 import logging
 import re
-# import pickle
-# import os
-
 from typing import Hashable
 
 from tqdm import tqdm
@@ -27,10 +24,15 @@ from mldaikon.trace.types import (
     IncompleteFuncCallEvent,
 )
 
+# import pickle
+# import os
+
+
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"
 
 # _CACHE_PATH = "func_with_tensors.pkl"
+
 
 def filter_functions_with_tensors(
     all_func_call_events, output_has_tensors: bool, input_has_tensors: bool
@@ -47,7 +49,7 @@ def filter_functions_with_tensors(
     # if os.path.exists(_CACHE_PATH):
     #     with open(_CACHE_PATH, "rb") as f:
     #         return pickle.load(f)
-    
+
     funcs_with_tensors: list[str] = []
     for func_name, func_call_ids_and_events in all_func_call_events.items():
         func_satisfy_requirement = False
@@ -150,12 +152,18 @@ def get_input_tensors(
 def get_events_of_funcs_with_tensors(
     all_func_names, trace, output_has_tensors=True, input_has_tensors=True
 ):
-    # HACK: remove all torch.overrides 
-    all_func_names = [func_name for func_name in all_func_names if "torch.override" not in func_name]
+    # HACK: remove all torch.overrides
+    all_func_names = [
+        func_name for func_name in all_func_names if "torch.override" not in func_name
+    ]
     # remove all functions with "._" in them
-    all_func_names = [func_name for func_name in all_func_names if "._" not in func_name]
+    all_func_names = [
+        func_name for func_name in all_func_names if "._" not in func_name
+    ]
     # remove all functions with "._is_" in them
-    all_func_names = [func_name for func_name in all_func_names if ".is_" not in func_name]
+    all_func_names = [
+        func_name for func_name in all_func_names if ".is_" not in func_name
+    ]
 
     # if os.path.exists(_CACHE_PATH):
     #     with open(_CACHE_PATH, "rb") as f:
@@ -170,7 +178,7 @@ def get_events_of_funcs_with_tensors(
             func_call_id: trace.query_func_call_event(func_call_id)
             for func_call_id in tqdm(func_call_ids, desc=f"Querying {func_name} events")
         }
-        for func_name, func_call_ids in all_func_call_ids.items() # PROBABLY THERE'S SOMETHING WE CAN DO VIA STATIC ANALYSIS
+        for func_name, func_call_ids in all_func_call_ids.items()  # PROBABLY THERE'S SOMETHING WE CAN DO VIA STATIC ANALYSIS
     }
 
     funcs_with_tensors = filter_functions_with_tensors(
@@ -461,7 +469,9 @@ class ConsistentInputOutputRelation(Relation):
         # for these func_call_events, we obtain the properties that are consistent across the input and output tensors
         # we can then generate hypotheses for these properties
 
-        all_hypotheses: dict[str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]] = {}
+        all_hypotheses: dict[
+            str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
+        ] = {}
 
         for func_name in tqdm(
             relevant_func_call_events,
@@ -591,9 +601,15 @@ class ConsistentInputOutputRelation(Relation):
                 output_tensors = get_returned_tensors(func_event)
 
                 # for each hypothesis, check if it holds for this function call
-                for (input_param, output_param), hypothesis in all_hypotheses[func_name].items():
-                    input_value = input_param.get_value_from_list_of_tensors(input_tensors)
-                    output_value = output_param.get_value_from_list_of_tensors(output_tensors)
+                for (input_param, output_param), hypothesis in all_hypotheses[
+                    func_name
+                ].items():
+                    input_value = input_param.get_value_from_list_of_tensors(
+                        input_tensors
+                    )
+                    output_value = output_param.get_value_from_list_of_tensors(
+                        output_tensors
+                    )
 
                     if input_value == output_value:
                         example = Example({"pre_event": [func_event.pre_record]})
@@ -610,7 +626,7 @@ class ConsistentInputOutputRelation(Relation):
                 hypothesis.invariant.num_negative_examples = len(
                     hypothesis.negative_examples
                 )
-            
+
         # now that we have the hypotheses for each function, we can start precondition inference
         invariants = []
         failed_hypotheses = []

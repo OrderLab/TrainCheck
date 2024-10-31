@@ -248,6 +248,12 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
 
 
 def var_to_serializable(obj) -> dict[type, object]:
+    """Convert any object to a serializable dictionary.
+
+    Note that this function does not dump the `data` attribute of a tensor.
+    If you want to dump the `data` attribute of a tensor, use `convert_var_to_dict` and set `include_tensor_data=True`.
+    """
+
     try:
         json.dumps({"foo": obj})
         return {typename(obj): obj}

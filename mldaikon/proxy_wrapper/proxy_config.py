@@ -1,5 +1,4 @@
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
-disable_proxy_class = False  # Ziming: This feature is deprecated, proxy trace would work only when you manually add Proxy()
 proxy_update_limit = 0
 debug_mode = False
 

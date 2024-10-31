@@ -174,11 +174,23 @@ if __name__ == "__main__":
     )
 
     ## variable tracker configs
+    # parser.add_argument(
+    #     "--proxy-module",
+    #     type=str,
+    #     default="",
+    #     help="The module to be traced by the proxy wrapper",
+    # )
+
     parser.add_argument(
-        "--proxy-module",
+        "--models-to-track",
+        nargs="*",
+        help="Models to be tracked through instrumentation",
+    )
+    parser.add_argument(
+        "--model-tracker-style",
         type=str,
-        default="",
-        help="The module to be traced by the proxy wrapper",
+        choices=["sampler", "proxy"],
+        default="proxy",
     )
     parser.add_argument(
         "--proxy-update-limit",
@@ -249,7 +261,6 @@ if __name__ == "__main__":
     output_dir = os.path.abspath(output_dir)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-
     dump_env(output_dir)
 
     # selective instrumentation if invariants are provided, only funcs_of_inv_interest will be instrumented with trace collection
@@ -258,16 +269,8 @@ if __name__ == "__main__":
         invariants = read_inv_file(args.invariants)
         funcs_of_inv_interest = get_list_of_funcs_from_invariants(invariants)
 
-    # set up proxy class configuration
-    if args.proxy_module:
-        disable_proxy_class = False
-    else:
-        disable_proxy_class = True
-
     # set up adjusted proxy_config
     proxy_basic_config: dict[str, int | bool | str] = {}
-    if proxy_config.disable_proxy_class != disable_proxy_class:
-        proxy_basic_config["disable_proxy_class"] = disable_proxy_class
     for configs in [
         "proxy_update_limit",
         "profiling",
@@ -279,13 +282,11 @@ if __name__ == "__main__":
             print(f"Setting {configs} to {getattr(args, configs)}")
     proxy_log_output_dir = os.path.join(output_dir, "proxy_log.json")
     proxy_basic_config["proxy_log_dir"] = proxy_log_output_dir
-    print(f"Setting proxy_log_dir to {proxy_log_output_dir}")
 
     # set up tensor_dump_format
     tensor_dump_format: dict[str, int | bool] = {}
     if args.tensor_dump_format != "hash":
         tensor_dump_format = proxy_config.tensor_dump_format  # type: ignore
-        print(f"Setting tensor_dump_format to {args.tensor_dump_format}")
         # set all to False
         for key in tensor_dump_format:
             tensor_dump_format[key] = False
@@ -309,17 +310,17 @@ if __name__ == "__main__":
     ]
 
     source_code = instrumentor.instrument_file(
-        args.pyscript,
-        args.modules_to_instr,
-        disable_proxy_class,
-        not args.disable_scan_proxy_in_args,
-        args.use_full_instr,
-        funcs_of_inv_interest,
-        args.proxy_module,
-        adjusted_proxy_config,  # type: ignore
-        args.API_dump_stack_trace,
-        args.cond_dump,
-        output_dir,
+        path=args.pyscript,
+        modules_to_instr=args.modules_to_instr,
+        scan_proxy_in_args=not args.disable_scan_proxy_in_args,
+        use_full_instr=args.use_full_instr,
+        funcs_of_inv_interest=funcs_of_inv_interest,
+        models_to_track=args.models_to_track,
+        model_tracker_style=args.model_tracker_style,
+        adjusted_proxy_config=adjusted_proxy_config,  # type: ignore
+        API_dump_stack_trace=args.API_dump_stack_trace,
+        cond_dump=args.cond_dump,
+        output_dir=output_dir,
     )
 
     # call into the program runner

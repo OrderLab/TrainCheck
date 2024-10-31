@@ -41,14 +41,10 @@ class ProgramRunner(object):
         self._tmp_py_script_path = os.path.join(
             os.path.dirname(py_script_path), _tmp_py_script_name
         )
-        # write the source code to the temp file
-        with open(self._tmp_py_script_path, "w") as file:
-            file.write(source_code)
 
-        if output_dir:
-            # write the source code also to the output directory (for debugging)
-            with open(os.path.join(self.output_dir, _tmp_py_script_name), "w") as file:
-                file.write(source_code)
+        # write the source code also to the output directory (for debugging)
+        with open(os.path.join(self.output_dir, _tmp_py_script_name), "w") as file:
+            file.write(source_code)
 
         if sh_script_path is None:
             self._tmp_sh_script_path = None
@@ -67,15 +63,10 @@ class ProgramRunner(object):
                 py_script_name in sh_script
             ), f"{py_script_name} not found in {sh_script} at {sh_script_path}"
             sh_script = sh_script.replace(py_script_name, _tmp_py_script_name)
-            with open(self._tmp_sh_script_path, "w") as file:
-                file.write(sh_script)
 
-            if output_dir:
-                # write the sh script also to the output directory (for debugging)
-                with open(
-                    os.path.join(self.output_dir, _tmp_sh_script_name), "w"
-                ) as file:
-                    file.write(sh_script)
+            # write the sh script also to the output directory (for debugging)
+            with open(os.path.join(self.output_dir, _tmp_sh_script_name), "w") as file:
+                file.write(sh_script)
 
     def run(self) -> tuple[str, int]:
         """
