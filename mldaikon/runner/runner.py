@@ -38,12 +38,10 @@ class ProgramRunner(object):
         py_script_path = os.path.abspath(py_script_path)
         py_script_name = os.path.basename(py_script_path)
         _tmp_py_script_name = f"{TMP_FILE_PREFIX}{py_script_name}"
-        self._tmp_py_script_path = os.path.join(
-            os.path.dirname(py_script_path), _tmp_py_script_name
-        )
+        self._tmp_py_script_path = os.path.join(self.output_dir, _tmp_py_script_name)
 
         # write the source code also to the output directory (for debugging)
-        with open(os.path.join(self.output_dir, _tmp_py_script_name), "w") as file:
+        with open(self._tmp_py_script_path, "w") as file:
             file.write(source_code)
 
         if sh_script_path is None:
@@ -53,7 +51,7 @@ class ProgramRunner(object):
             sh_script_name = os.path.basename(sh_script_path)
             _tmp_sh_script_name = f"{TMP_FILE_PREFIX}{sh_script_name}"
             self._tmp_sh_script_path = os.path.join(
-                os.path.dirname(sh_script_path), _tmp_sh_script_name
+                self.output_dir, _tmp_sh_script_name
             )
 
             # modify the sh script to run the temp python script
@@ -65,7 +63,7 @@ class ProgramRunner(object):
             sh_script = sh_script.replace(py_script_name, _tmp_py_script_name)
 
             # write the sh script also to the output directory (for debugging)
-            with open(os.path.join(self.output_dir, _tmp_sh_script_name), "w") as file:
+            with open(self._tmp_sh_script_path, "w") as file:
                 file.write(sh_script)
 
     def run(self) -> tuple[str, int]:

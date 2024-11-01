@@ -972,21 +972,20 @@ class VarSampler:
         for param in self._get_state_copy():
             dump_trace_VAR(
                 {
+                    "var_name": param["name"],
+                    "var_type": param["type"],  # FIXME: hardcoding the type for now
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
                     "meta_vars": get_meta_vars(),
                     "type": TraceLineType.STATE_CHANGE,
-                    # "var": self.var.__class__.__name__,
-                    "var_type": param["type"],  # FIXME: hardcoding the type for now
-                    "var_name": param["name"],
                     "attributes": param["attributes"],
                     "time": timestamp,
                 }
             )
 
-        def register_hook(optimizer: torch.optim.Optimizer):
-            # register a post step hook to observe the state of the model after each step
-            def hook(optimizer, *args, **kwargs):
-                self.dump_sample()
+    def register_hook(self, optimizer: torch.optim.Optimizer):
+        # register a post step hook to observe the state of the model after each step
+        def hook(optimizer, *args, **kwargs):
+            self.dump_sample()
 
-            optimizer.register_step_post_hook(hook)
+        optimizer.register_step_post_hook(hook)

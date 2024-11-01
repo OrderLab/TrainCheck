@@ -159,10 +159,10 @@ import importlib
 from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
 spec = importlib.util.find_spec('mldaikon')
 if spec and spec.origin:
-mldaikon_folder = os.path.dirname(spec.origin)
-print("mldaikon folder: ", mldaikon_folder)
+    mldaikon_folder = os.path.dirname(spec.origin)
+    print("mldaikon folder: ", mldaikon_folder)
 else:
-raise Exception("mldaikon is not installed properly")
+    raise Exception("mldaikon is not installed properly")
 print("auto observer enabled with observing depth: ", auto_observer_config["enable_auto_observer_depth"])
 enable_auto_observer_depth = auto_observer_config["enable_auto_observer_depth"]
 neglect_hidden_func = auto_observer_config["neglect_hidden_func"]
@@ -170,25 +170,25 @@ neglect_hidden_module = auto_observer_config["neglect_hidden_module"]
 observe_then_unproxy = auto_observer_config["observe_then_unproxy"]
 observe_up_to_depth = auto_observer_config["observe_up_to_depth"]
 if observe_up_to_depth:
-print("observe up to the depth of the function call")
+    print("observe up to the depth of the function call")
 else:
-print("observe only the function call at the depth")
+    print("observe only the function call at the depth")
 from mldaikon.static_analyzer.graph_generator.call_graph_parser import add_observer_given_call_graph
 
 log_files = glob.glob(
-os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
+    os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
 )
 print("log_files: ", log_files)
 for log_file in log_files:
-add_observer_given_call_graph(
-    log_file,
-    depth=enable_auto_observer_depth,
-    observe_up_to_depth=observe_up_to_depth,
-    neglect_hidden_func=neglect_hidden_func,
-    neglect_hidden_module=neglect_hidden_module,
-    observe_then_unproxy=observe_then_unproxy,
-    cond_dump={cond_dump}
-)
+    add_observer_given_call_graph(
+        log_file,
+        depth=enable_auto_observer_depth,
+        observe_up_to_depth=observe_up_to_depth,
+        neglect_hidden_func=neglect_hidden_func,
+        neglect_hidden_module=neglect_hidden_module,
+        observe_then_unproxy=observe_then_unproxy,
+        cond_dump={cond_dump}
+    )
 """
     # find the main() function
     main_func = None
@@ -243,7 +243,7 @@ add_observer_given_call_graph(
         + "\n".join(instrumented_source.split("\n")[1:])
     )
 
-    return source
+    return instrumented_source
 
 
 def instrument_model_tracker_sampler(
@@ -257,7 +257,7 @@ def instrument_model_tracker_sampler(
         pattern_re = re.compile(pattern)
 
         for line_idx, line in enumerate(source.split("\n")):
-            match = pattern_re.search(source)
+            match = pattern_re.search(line)
             if match:
                 break
         else:
@@ -269,7 +269,8 @@ def instrument_model_tracker_sampler(
         sampler_name = f"{model}_sampler"
         samplers.append(sampler_name)
 
-        sampler_code = line[: match.start()] + f"{sampler_name} = VarSampler({model})"
+        identation = len(line) - len(line.lstrip())
+        sampler_code = line[:identation] + f"{sampler_name} = VarSampler({model})"
         source = "\n".join(
             source.split("\n")[: line_idx + 1]
             + [sampler_code]
@@ -307,6 +308,7 @@ def instrument_model_tracker_sampler(
     sampler_import_code = "from mldaikon.instrumentor import VarSampler"
     source = (
         source.split("\n")[0]
+        + "\n"
         + sampler_import_code
         + "\n"
         + "\n".join(source.split("\n")[1:])
