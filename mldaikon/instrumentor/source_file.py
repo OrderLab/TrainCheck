@@ -258,7 +258,7 @@ def instrument_model_tracker_sampler(
 
         for line_idx, line in enumerate(source.split("\n")):
             match = pattern_re.search(line)
-            if match:
+            if match and match.start() == 0:
                 break
         else:
             raise ValueError(
