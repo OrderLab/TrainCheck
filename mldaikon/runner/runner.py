@@ -36,6 +36,8 @@ class ProgramRunner(object):
 
         # create temp files to write the source code to
         py_script_path = os.path.abspath(py_script_path)
+        self.original_py_script_path = py_script_path
+
         py_script_name = os.path.basename(py_script_path)
         _tmp_py_script_name = f"{TMP_FILE_PREFIX}{py_script_name}"
         self._tmp_py_script_path = os.path.join(self.output_dir, _tmp_py_script_name)
@@ -74,6 +76,9 @@ class ProgramRunner(object):
         if self.dry_run:
             return "Dry run. Program not executed.", 0
 
+        # prepare env: set the PYTHONPATH to the directory of the original python script
+        os.environ["PYTHONPATH"] = os.path.dirname(self.original_py_script_path)
+
         if self._tmp_sh_script_path is not None:
             if self.profiling == "True":
                 raise ValueError("Profiling is not supported with shell scripts.")
@@ -84,6 +89,7 @@ class ProgramRunner(object):
                 ["bash", self._tmp_sh_script_path],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                env=os.environ,
             )
             # change back to the original directory
             os.chdir(current_dir)
@@ -119,6 +125,7 @@ class ProgramRunner(object):
                 process = subprocess.Popen(
                     cmdline,
                     shell=True,
+                    env=os.environ,
                 )
                 # save the profiling result
                 process.wait()
@@ -130,6 +137,7 @@ class ProgramRunner(object):
                     [self.python, "-u", self._tmp_py_script_path],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
+                    env=os.environ,
                 )
 
         out_lines = []  # STDERR is redirected to STDOUT
