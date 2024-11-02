@@ -4,7 +4,7 @@ repos:
     hooks:
       - id: ruff
         types: [python]
-        args: [check, ., --exclude, tests]
+        args: [--exclude, tests]
 
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.9.0
@@ -19,7 +19,7 @@ repos:
     hooks:
       - id: black
         types: [python]
-        args: [--check, ., --exclude, tests]
+        args: [--exclude, tests]
         # args: [--check]
 
   - repo: local
@@ -29,4 +29,4 @@ repos:
         entry: isort
         language: system
         types: [python]
-        args: [--check,--profile=black, ., --skip, tests]
+        args: [--profile=black, --skip, tests]
