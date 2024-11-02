@@ -181,7 +181,14 @@ def dump_tensor(value):
                 raise Exception(
                     "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full' or 'stats'."
                 )
-            param_list = tensor_hash(value)
+            try:
+                # perform tensor hash a deep copy of the tensor
+                param_list = tensor_hash(value, with_parallel=True, with_cuda=True)
+            except Exception as e:
+                print_debug(
+                    f"Failed to dump tensor hash, error: {e}, fullback to cpu hashing."
+                )
+                param_list = tensor_hash(value, with_parallel=True, with_cuda=False)
         elif tensor_dump_format["dump_tensor_full"]:
             param_list = value.detach().flatten().tolist()
         else:
