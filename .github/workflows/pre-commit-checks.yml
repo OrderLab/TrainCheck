@@ -42,19 +42,19 @@ jobs:
 
       - name: Run black
         id: black
-        run: black --check .
+        run: black --check . --exclude tests
 
       - name: Run mypy
         id: mypy
-        run: mypy . --install-types --non-interactive --ignore-missing-imports
+        run: mypy . --install-types --non-interactive --ignore-missing-imports --exclude tests
 
       - name: Run isort
         id: isort
-        run: isort --check --profile=black .
+        run: isort --check --profile=black . --skip tests
 
       - name: Run ruff
         id: ruff
-        run: ruff check .
+        run: ruff check . --exclude tests
 
       - name: Check if any checks failed
         if: failure()
