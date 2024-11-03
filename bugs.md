@@ -12,6 +12,7 @@
 | \*\*[PT-51800](https://github.com/OrderLab/machine-learning-issues/tree/main/PyTorch-51800)                    | User      | before `eval`, forward should be called under `train` | Lead/Cover.1 | Any pipelines that do eval (mnist.ly)                            | `forward` called prior to `eval`                   | |
 | [PT-84803](https://github.com/OrderLab/machine-learning-issues/tree/main/PyTorch-84803) | Framework | `nn.Module.to` causes data loss | ConsistencyInputOutput.1 | Any pipelines that call `nn.Module.to` | all fields in input/output tensors are preserved except for `dtype` or `device` | |
 | [DDP Out of Sync on HF Trainer](https://github.com/OrderLab/machine-learning-issues/tree/main/DDP-Unwrapped-Forwarding) | Framework | `forward` not called on the DDP wrapper leading to gradient out of sync | Consistency.1 | Any DDP pipeline | params with the same name are consistent | |
+| [PT-104336](https://github.com/OrderLab/machine-learning-issues/tree/main/PyTorch-104336) | Framework | `nn.Module.to` does not preserve DDP gradient sync hooks, leading to grad and data out of sync | | Consistency.1 | Any DDP pipeline | params with the same name are consistent | |
 
 \* indicates the bug that we have an invariant (oracle) for, but cannot check due to lack of instrumentation support for jit transformed programs.
 \*\* indicates the bug that we have an invariant that's not super accurate but enough to detect the bug.
