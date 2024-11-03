@@ -45,6 +45,34 @@ def hash_tensor_cuda(x):
     return int(x[0])
 
 
+def hash_tensor_cpu(x):
+    # if x is more than 2D, flatten it to 2D
+    if x.ndim > 2:
+        x = x.reshape(-1, x.shape[-1])
+    elif x.ndim == 1:
+        # if x is 1D, add a dimension to make it 2D (n x 1)
+        x = x.reshape(1, -1)
+
+    (rows, cols) = x.shape
+    hash_values = np.zeros(rows, dtype=np.int64)
+
+    for idx in range(rows):
+        hash_value = 0
+        for i in range(cols):
+            hash_value = hash_value * MULTIPLIER + x[idx, i] + INCREMENT
+        hash_values[idx] = hash_value
+    return int(hash_values[0])
+
+
+def efficient_hash_tensor_cpu(x):
+    # return int(hash_values[0])
+    # Reduce the tensor to a single hash value (It would produce different hash value than the above implementation)
+    while x.ndim > 0:
+        x = _reduce_last_axis(x)
+    # convert tensor to value
+    return int(x.item())
+
+
 @torch.no_grad()
 def _reduce_last_axis(x: Tensor) -> Tensor:
     assert x.dtype == torch.int64
@@ -58,50 +86,25 @@ def _reduce_last_axis(x: Tensor) -> Tensor:
 
 def tensor_hash(x: Tensor, with_parallel: bool = True, with_cuda: bool = True) -> int:
     if with_parallel:
+        assert x.dtype in [
+            torch.float32,
+            torch.float64,
+            torch.bfloat16,
+            torch.float16,
+            torch.float,
+        ]
+
+        # Convert the floating-point tensor to an integer representation
+        x = (x * 1e8).to(torch.int64)
+
+        # Ensure the tensor is of integer type
+        assert x.dtype == torch.int64
+
         if with_cuda and x.is_cuda:
             # Ensure the input is a floating-point tensor
-            assert x.dtype in [
-                torch.float32,
-                torch.float64,
-                torch.bfloat16,
-                torch.float16,
-                torch.float,
-            ]
-
-            # Convert the floating-point tensor to an integer representation
-            x = (x * 1e8).to(torch.int64)
-
-            # Ensure the tensor is of integer type
-            assert x.dtype == torch.int64
-
             return hash_tensor_cuda(x)
         else:
-            # Ensure the input is a floating-point tensor
-            assert x.dtype in [
-                torch.float32,
-                torch.float64,
-                torch.bfloat16,
-                torch.float16,
-                torch.float,
-            ]
-
-            # Convert the floating-point tensor to an integer representation
-            x = (x * 1e8).to(torch.int64)  # Scale and convert to int64
-
-            # # Expand the fixed constant tensor to match the shape of x
-            # constant_tensor = FIXED_CONSTANT.expand_as(x).to
-
-            # # Multiply the tensor with the constant tensor
-            # x = x * constant_tensor
-
-            # Ensure the tensor is of integer type
-            assert x.dtype == torch.int64
-
-            # Reduce the tensor to a single hash value
-            while x.ndim > 0:
-                x = _reduce_last_axis(x)
-            # convert tensor to value
-            return int(x.item())
+            return hash_tensor_cpu(x)
     else:  # conventional approach using hashlib, use as the baseline to test the accuracy of the parallel approach
         # if on cuda, move to cpu. using hashlib to hash the tensor
         if x.is_cuda:
