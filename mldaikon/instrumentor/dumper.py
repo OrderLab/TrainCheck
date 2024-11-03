@@ -243,7 +243,10 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
                 lambda: f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it. Error: {e}."  # noqa
             )
             continue
-
+    if include_tensor_data and "data" not in result and isinstance(var, torch.Tensor):
+        raise ValueError(
+            f"Failed to dump tensor data of tensor {var}, please turn on debugging mode and see the debugging log."
+        )
     return result
 
 
