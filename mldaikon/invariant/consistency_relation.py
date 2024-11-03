@@ -394,7 +394,7 @@ class ConsistencyRelation(Relation):
         start_time_collecting_pairs = time.time()
         num_collected_pairs = 0
         value_pairs_to_check: dict[float, list[tuple]] = {}
-        for i, var1_id in enumerate(type1_attr1):
+        for i, var1_id in enumerate(tqdm(type1_attr1, desc="Collecting Value Pairs")):
             for j, var2_id in enumerate(type2_attr2):
                 if var_type1 == var_type2 and attr1 == attr2 and i >= j:
                     continue
@@ -435,7 +435,7 @@ class ConsistencyRelation(Relation):
         start_time_checking_pairs = time.time()
         num_checked_pairs = 0
         value_pairs_to_check = dict(sorted(value_pairs_to_check.items()))
-        for time_pair in value_pairs_to_check:
+        for time_pair in tqdm(value_pairs_to_check, desc="Checking Value Pairs"):
             for attr1_val, attr2_val in value_pairs_to_check[time_pair]:
                 traces = [attr1_val.traces[-1], attr2_val.traces[-1]]
                 num_checked_pairs += 1

@@ -768,7 +768,7 @@ class Preconditions:
                 preconditions.append(UnconditionalPrecondition())
             else:
                 clauses = []
-                for clause_dict in preconditions_dict["clauses"]:
+                for clause_dict in precondition_dict["clauses"]:
                     clauses.append(
                         PreconditionClause.from_dict(clause_dict=clause_dict)
                     )
