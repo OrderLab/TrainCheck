@@ -305,7 +305,12 @@ class ConsistencyRelation(Relation):
             preconditions = find_precondition(
                 hypothesis_with_examples[hypo],
                 trace=trace,
-                keys_to_skip=[f"attributes.{hypo[1]}", f"attributes.{hypo[3]}"],
+                keys_to_skip=[
+                    f"attributes.{hypo[1]}",
+                    f"attributes.{hypo[3]}",
+                    "attributes.data",
+                    "attributes.grad",
+                ],
             )
             logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
 

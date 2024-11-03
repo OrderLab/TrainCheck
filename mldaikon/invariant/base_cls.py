@@ -473,7 +473,7 @@ class PreconditionClause:
         ], f"Invalid Precondition type {_type}"
 
         # for EXIST AND UNEQUAL, THE values and prop_dtype do not need to be set
-        if _type in [PT.CONSISTENT, PT.CONSTANT]:
+        if _type in [PT.CONSTANT]:
             if prop_dtype is None:
                 assert values == {None}, "Values should be None for prop_dtype None"
             else:
@@ -502,7 +502,7 @@ class PreconditionClause:
             "additional_path": self.additional_path if self.additional_path else "None",
             "prop_dtype": self.prop_dtype.__name__ if self.prop_dtype else "None",
         }
-        if self.type in [PT.CONSTANT, PT.CONSISTENT]:
+        if self.type in [PT.CONSTANT]:
             clause_dict["values"] = list(self.values)
         return clause_dict
 
@@ -518,7 +518,7 @@ class PreconditionClause:
         )
 
         values = None
-        if _type in [PT.CONSTANT, PT.CONSISTENT]:
+        if _type in [PT.CONSTANT]:
             assert "values" in clause_dict, "Values not found in the clause"
             assert isinstance(clause_dict["values"], list), "Values should be a list"
             values = set(clause_dict["values"])
