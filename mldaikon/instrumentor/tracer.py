@@ -44,6 +44,9 @@ IS_INSTRUMENTING = False
 
 DISABLE_WRAPPER = False
 
+# for prompt generation tasks using the transformers library (see mldaikon/developer/instr_stage_annotation.py:annotate_answer_start_token_ids)
+GENERATE_START_TOKEN_IDS = None
+GENERATE_START_TOKEN_IDS_INCLUDE_START_TOKENS = False 
 
 class TraceLineType:
     FUNC_CALL_PRE = "function_call (pre)"
@@ -342,7 +345,52 @@ def global_wrapper(
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
     post_record["meta_vars"] = get_meta_vars()
-    post_record["return_values"] = to_dict_return_value(result)
+
+    result_to_dump = result
+    
+    # if the current function name is transformers.generate, then we will dump the response tokens only, let's see.
+    # a concrete name: "transformers.models.whisper.modeling_whisper.WhisperForConditionalGeneration.generate"
+    # we want a pattern that abstracts the specific model name
+    pattern = "transformers.models.*.generate"
+    # find matches in the pattern
+    import re
+    if GENERATE_START_TOKEN_IDS and re.match(pattern, func_name) and isinstance(result, torch.Tensor):
+        # compute: response_length, response_start_index and add to the returned tensor
+        
+        # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
+        response_starting_indices = []
+        for i in range(result.size(0)):
+            # try to find the match of the start token ids in the response
+            response = result[i]
+            start_token_ids = GENERATE_START_TOKEN_IDS
+            start_token_ids_len = len(start_token_ids)
+            for j in range(response.size(0) - start_token_ids_len + 1):
+                if response[j:j+start_token_ids_len].tolist() == start_token_ids:
+                    if GENERATE_START_TOKEN_IDS_INCLUDE_START_TOKENS:
+                        response_starting_indices.append(j)
+                    else:
+                        response_starting_indices.append(j + start_token_ids_len)
+                    break
+            else:
+                logger.warning(f"Cannot find the start token ids in the response for batch {i}")
+                response_starting_indices.append(-1)
+
+        # compute the length of each response
+        response_lengths = []
+        for i in range(result.size(0)):
+            response = result[i]
+            start_index = response_starting_indices[i]
+            if start_index == -1:
+                response_lengths.append(0)
+            else:
+                response_lengths.append(response.size(0) - start_index)
+
+        result_to_dump = result.detach()
+        result_to_dump._ML_DAIKON_RESPONSE_STARTING_INDICES = response_starting_indices
+        result_to_dump._ML_DAIKON_RESPONSE_LENGTHS = response_lengths
+    
+
+    post_record["return_values"] = to_dict_return_value(result_to_dump)
     dump_trace_API(post_record)
 
     return result
