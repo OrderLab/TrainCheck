@@ -305,6 +305,7 @@ class APIContainRelation(Relation):
         - [ ] Try to generalize the event when seeing the same type event with different attributes 
     - [ ] Make the Dynamic Analysis part less ad-hoc as of its current form in the code
     """
+
     @staticmethod
     def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants without Preconditions"""
@@ -325,7 +326,11 @@ class APIContainRelation(Relation):
         ] = {}
         func_names = trace.get_func_names()
 
-        func_names = [func_name for func_name in func_names if not any(skip in func_name for skip in ANALYSIS_SKIP_FUNC_NAMES)]
+        func_names = [
+            func_name
+            for func_name in func_names
+            if not any(skip in func_name for skip in ANALYSIS_SKIP_FUNC_NAMES)
+        ]
 
         if len(func_names) == 0:
             logger.warning(

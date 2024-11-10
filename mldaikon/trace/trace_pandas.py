@@ -86,7 +86,7 @@ class TracePandas(Trace):
         self._fill_missing_stage_init()
         self._index_context_manager_meta_vars()
 
-    def get_traces_for_stage(self) -> dict[Trace]:
+    def get_traces_for_stage(self) -> dict[str, "TracePandas"]:
         """Get the traces split by stages."""
 
         if not self.is_stage_annotated():
@@ -95,16 +95,16 @@ class TracePandas(Trace):
         traces = {}
         for stage in self.events["stage"].unique():
             traces[stage] = TracePandas(
-                self.events[self.events["stage"] == stage], truncate_incomplete_func_calls=False
+                self.events[self.events["stage"] == stage],
+                truncate_incomplete_func_calls=False,
             )
 
         traces["UNKNOWN"] = TracePandas(
-            self.events[self.events["stage"].isna()], truncate_incomplete_func_calls=False
+            self.events[self.events["stage"].isna()],
+            truncate_incomplete_func_calls=False,
         )
 
         return traces
-
-
 
     def _fill_missing_stage_init(self):
         if "meta_vars.stage" not in self.events.columns:
