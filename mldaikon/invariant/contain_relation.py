@@ -309,7 +309,54 @@ class APIContainRelation(Relation):
     @staticmethod
     def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants without Preconditions"""
-        return APIContainRelation._infer(trace)
+        # enable stage-based inference for API Contain Relation
+        logger = logging.getLogger(__name__)
+
+        if not trace.is_stage_annotated():
+            return APIContainRelation._infer(trace)
+
+        invariants_by_stage: dict[Invariant, list[str]] = {}
+        failed_hypothesis_by_stage: dict[FailedHypothesis, list[str]] = {}
+        for stage, stage_trace in trace.get_traces_for_stage().items():
+            logger.info(
+                "Stage annotation detected in trace, enabling stage-based inference"
+            )
+            invariants, failed_hypotheses = APIContainRelation._infer(stage_trace)
+            for invariant in invariants:
+                if invariant not in invariants_by_stage:
+                    invariants_by_stage[invariant] = []
+                invariants_by_stage[invariant].append(stage)
+            for failed_hypothesis in failed_hypotheses:
+                if failed_hypothesis not in failed_hypothesis_by_stage:
+                    failed_hypothesis_by_stage[failed_hypothesis] = []
+                failed_hypothesis_by_stage[failed_hypothesis].append(stage)
+
+        # merge the inferred invariants, for the unmerged invariants, add the stage information to the precondition
+        merged_invariants = []
+        all_stages = trace.get_all_stages()
+        for invariant in invariants_by_stage:
+            supported_stages = invariants_by_stage[invariant]
+            if set(supported_stages) == set(all_stages):
+                merged_invariants.append(invariant)
+            else:
+                assert (
+                    invariant.precondition is not None
+                ), "Expected the precondition to be set for the invariant"
+                invariant.precondition = invariant.precondition.add_stage_info(
+                    set(supported_stages)
+                )
+                merged_invariants.append(invariant)
+
+        # HACK: add the stage info to the failed hypotheses through the text description as well NEED TO CHANGE IF WE SUPPORT INVARIANT REFINEMENT
+        for failed_hypothesis in failed_hypothesis_by_stage:
+            not_supported_stages = failed_hypothesis_by_stage[failed_hypothesis]
+            if failed_hypothesis.hypothesis.invariant.text_description is None:
+                failed_hypothesis.hypothesis.invariant.text_description = ""
+            failed_hypothesis.hypothesis.invariant.text_description += (
+                f" (FAILED IN in stages: {not_supported_stages})"
+            )
+
+        return merged_invariants, list(failed_hypothesis_by_stage.keys())
 
     @staticmethod
     def _infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:

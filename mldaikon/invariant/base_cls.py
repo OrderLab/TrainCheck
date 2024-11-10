@@ -830,6 +830,29 @@ class GroupedPreconditions:
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
         return self.grouped_preconditions[group_name].verify(example)
 
+    def add_stage_info(self, valid_stages: set[str]):
+        # construct a CONSTANT clause for the stage
+        stage_clause = PreconditionClause(
+            prop_name="meta_vars.stage",
+            prop_dtype=str,
+            _type=PT.CONSTANT,
+            additional_path=None,
+            values=valid_stages,
+        )
+
+        # add the stage clause to all the preconditions, if UNCONDITIONAL, then swap it with the stage clause
+        for group_name, preconditions in self.grouped_preconditions.items():
+            if preconditions.is_unconditional():
+                self.grouped_preconditions[group_name] = Preconditions(
+                    [Precondition([stage_clause])], inverted=False
+                )
+            else:
+                assert (
+                    not preconditions.inverted
+                ), "Adding clause to inverted preconditions is not supported yet"
+                for precondition in preconditions:
+                    precondition.add_clause(stage_clause)
+
     def __eq__(self, other) -> bool:
         if not isinstance(other, GroupedPreconditions):
             return False
@@ -876,6 +899,19 @@ class Invariant:
 
     def __str__(self) -> str:
         return f"""Relation: {self.relation}\nParam Selectors: {self.params}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
+
+    def __hash__(self) -> int:
+        self_dict = self.to_dict()
+        # remove num_positive_examples, num_negative_examples, and text description as they are optional
+        self_dict.pop("num_positive_examples", None)
+        self_dict.pop("num_negative_examples", None)
+        self_dict.pop("text_description", None)
+        return hash(frozenset(self_dict.items()))
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Invariant):
+            return False
+        return hash(self) == hash(other)
 
     def to_dict(self, _dumping_for_failed_cases=False) -> dict:
 

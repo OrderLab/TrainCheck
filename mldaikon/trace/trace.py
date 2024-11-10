@@ -101,6 +101,24 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
+    def get_all_stages(self) -> list[str]:
+        """Get all stages in the trace."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
+    def get_traces_for_stage(self) -> dict[str, "Trace"]:
+        """Get all stages and their corresponding trace object in the trace."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
+    def is_func_called(self, func_name: str, stage: None | str) -> bool:
+        """Check if a function is called in the trace."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
     def _index_context_manager_meta_vars(self):
         """Identify context manager entry and exit events, and add them to the meta_vars."""
         raise NotImplementedError(

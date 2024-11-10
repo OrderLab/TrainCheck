@@ -86,7 +86,7 @@ class TracePandas(Trace):
         self._fill_missing_stage_init()
         self._index_context_manager_meta_vars()
 
-    def get_traces_for_stage(self) -> dict[str, "TracePandas"]:
+    def get_traces_for_stage(self) -> dict[str, "TracePandas"]:  # type: ignore
         """Get the traces split by stages."""
 
         if not self.is_stage_annotated():
@@ -99,12 +99,26 @@ class TracePandas(Trace):
                 truncate_incomplete_func_calls=False,
             )
 
-        traces["UNKNOWN"] = TracePandas(
-            self.events[self.events["stage"].isna()],
-            truncate_incomplete_func_calls=False,
-        )
-
         return traces
+
+    def get_all_stages(self) -> list[str]:
+        """Get all stages in the trace."""
+        if not self.is_stage_annotated():
+            raise ValueError("Trace is not annotated with stages.")
+
+        return self.events["stage"].unique().tolist()
+
+    def is_func_called(self, func_name: str, stage: None | str):
+        """Check if a function is called in the trace."""
+        if stage is not None:
+            return (
+                func_name
+                in self.events[
+                    (self.events["stage"] == stage)
+                    & (self.events["function"] == func_name)
+                ]["function"].unique()
+            )
+        return func_name in self.events["function"].unique()
 
     def _fill_missing_stage_init(self):
         if "meta_vars.stage" not in self.events.columns:
