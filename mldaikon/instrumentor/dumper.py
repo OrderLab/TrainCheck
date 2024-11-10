@@ -257,7 +257,7 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
     return result
 
 
-def var_to_serializable(obj) -> dict[type, object]:
+def var_to_serializable(obj) -> dict[str, object]:
     """Convert any object to a serializable dictionary.
 
     Note that this function does not dump the `data` attribute of a tensor.
@@ -270,6 +270,13 @@ def var_to_serializable(obj) -> dict[type, object]:
     except TypeError:
         if isinstance(obj, torch.dtype):
             return {typename(obj): str(obj)}
-        var_dict = convert_var_to_dict(obj, include_tensor_data=False)
+        try:
+            var_dict = convert_var_to_dict(obj, include_tensor_data=False)
+            return {typename(obj): var_dict}
+        except RecursionError:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Recursion detected when converting object to dict. Probably due to a issue in the __getattr__ method of the object. Object type: {type(obj)}."
+            )
+            return {str(type(obj)): None}
         # assert var_dict, f"Failed to convert object {obj} to dict."
-        return {typename(obj): var_dict}
