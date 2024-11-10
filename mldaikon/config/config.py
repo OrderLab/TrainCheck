@@ -28,6 +28,17 @@ WRAP_WITHOUT_DUMP = [
     # "torch.get_default_dtype",
 ]
 
+ANALYSIS_SKIP_FUNC_NAMES = [
+    "cuda.is_available",
+    "torch.get_default_dtype",
+    "torch._VariableFunctionsClass",
+    "torch.nn.modules.module.Module._call_impl",
+    "torch.nn.modules.module.Module._wrapped_impl",
+    "torch.cuda._is_compiled",
+    "torch.is_grad_enabled",
+]
+
+
 # consistency relation configs
 SKIP_INIT_VALUE_TYPES_KEY_WORDS = (
     [  ## Types whose initialization values should not be considered
