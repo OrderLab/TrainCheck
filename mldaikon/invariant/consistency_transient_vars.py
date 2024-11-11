@@ -850,7 +850,7 @@ class ThresholdRelation(Relation):
                                 if "min" in argname:
                                     continue
 
-                                if (input_threshold - output_value)/input_threshold < 0.2:
+                                if (input_threshold - output_value)/input_threshold > 0.2:
                                     continue
 
                                 if func_name not in lt_hypotheses:
@@ -883,7 +883,7 @@ class ThresholdRelation(Relation):
                                 if "max" in argname:
                                     continue
 
-                                if (output_value - input_threshold)/output_value < 0.2:
+                                if (output_value - input_threshold)/output_value > 0.2:
                                     continue
 
                                 if func_name not in gt_hypotheses:
