@@ -132,6 +132,15 @@ class Arguments:
     def is_empty(self) -> bool:
         return len(self.arguments) == 0
 
+    def check_for_violation(self, other: Arguments) -> bool:
+        # every key in self should be in other, and should have the same value
+        for k, v in self.arguments.items():
+            if k not in other.arguments:
+                return True
+            if v != other.arguments[k]:
+                return True
+        return False
+
     def __eq__(self, other) -> bool:
         if not isinstance(other, Arguments):
             return False
@@ -235,7 +244,9 @@ class APIParam(Param):
         self.arguments = arguments
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
-        if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
+        if not isinstance(
+            event, (FuncCallEvent, FuncCallExceptionEvent, IncompleteFuncCallEvent)
+        ):
             return False
 
         # TODO: Handle Stop Iteration Exception!!!
@@ -248,6 +259,13 @@ class APIParam(Param):
             )
         else:
             matched = matched and not isinstance(event, FuncCallExceptionEvent)
+
+        # check the arguments if they are provided
+        if self.arguments is not None:
+            # current_args should not violate the provided arguments (i.e., self.arguments should be a subset of current_args)
+            current_args = Arguments(event.args, event.kwargs, event.func_name)
+            matched = matched and not self.arguments.check_for_violation(current_args)
+
         return matched
 
     def with_no_customization(self) -> APIParam:
