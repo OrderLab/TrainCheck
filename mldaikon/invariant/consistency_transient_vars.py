@@ -1,9 +1,9 @@
 import logging
 import re
 from typing import Hashable
-
+import inspect
 from tqdm import tqdm
-
+import importlib
 from mldaikon.invariant.base_cls import (
     APIParam,
     CheckerResult,
@@ -23,7 +23,7 @@ from mldaikon.trace.types import (
     FuncCallExceptionEvent,
     IncompleteFuncCallEvent,
 )
-
+from collections import defaultdict
 # import pickle
 # import os
 
@@ -114,7 +114,7 @@ def get_returned_tensors(
     assert not isinstance(
         func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
     ), "Exceptions or incomplete function calls don't have return values."
-
+    # dict[str, dict[str, object]] | list[dict[str, dict[str, object]]]
     returned_tensors = []
     return_values = func_call_event.return_values
     if isinstance(return_values, dict):
@@ -139,14 +139,48 @@ def get_input_tensors(
         arg_type = list(arg.keys())[0]
         if re.match(TENSOR_PATTERN, arg_type) or PARAMETER_KEYWORD in arg_type:
             input_tensors.append(arg[arg_type])
-
+# ["type":value]
     for kwarg in func_call_event.kwargs.values():
         assert len(kwarg) == 1
         kwarg_type = list(kwarg.keys())[0]
         if re.match(TENSOR_PATTERN, kwarg_type) or PARAMETER_KEYWORD in kwarg_type:
             input_tensors.append(kwarg[kwarg_type])
-
+# {name:type:value}
     return input_tensors
+
+
+def get_function_object(func_name: str):
+    # Split the function name to get module and function parts
+    module_name, func_basename = func_name.rsplit('.', 1)
+    module = importlib.import_module(module_name)
+    return getattr(module, func_basename)
+
+
+def get_input_thresholds(func_call_event: FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent): 
+    input_thresholds = []
+    for kwarg in func_call_event.kwargs.values():
+        assert len(kwarg) == 1
+        kwarg_type = list(kwarg.keys())[0]
+        if "min" in kwarg_type or "max" in kwarg_type:
+            input_thresholds.append({kwarg_type: kwarg[kwarg_type]})
+            # (type:value)
+    # signature = trace.get_func_signature(func_call_event.func_name)
+    func_obj = get_function_object(func_call_event.func_name)
+    signature = inspect.signature(func_obj)
+    arg_names = [param.name for param in signature.parameters.values()]
+# [{type:value}]
+    for arg_idx, arg_name in enumerate(arg_names):
+        if "min" in arg_name or "max" in arg_name:
+            input_thresholds.append(
+                {arg_name: func_call_event.args[arg_idx]}
+            )
+
+    # for arg_idx, arg in enumerate(func_call_event.args):
+    #     func_name = func_call_event.func_name
+    #     # load the function signature
+    #     # func_signature = trace.get_func_signature(func_name) # inspect
+
+
 
 
 def get_events_of_funcs_with_tensors(
@@ -473,6 +507,12 @@ class ConsistentInputOutputRelation(Relation):
             str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
         ] = {}
 
+        # func_name: [
+        #     - func_call_id (str): func_call_event
+        #     - func_call_id (str): func_call_event
+        #     - ...
+        # ]
+
         for func_name in tqdm(
             relevant_func_call_events,
             desc="Infer hypotheses for consistent input output relation on functions",
@@ -488,7 +528,8 @@ class ConsistentInputOutputRelation(Relation):
                 # get the input and output tensors of the function call
                 input_tensors = get_input_tensors(
                     func_event
-                )  # potentially we need to attach the tensors to their signature in the function definition, for now let's assume that the tensors in the same order as they are defined and use index to access them
+                )  
+                # potentially we need to attach the tensors to their signature in the function definition, for now let's assume that the tensors in the same order as they are defined and use index to access them
                 output_tensors = get_returned_tensors(func_event)
 
                 # for each value observed, form a dict of {value: path to access the value}
@@ -631,6 +672,318 @@ class ConsistentInputOutputRelation(Relation):
         invariants = []
         failed_hypotheses = []
         for func_name, hypotheses in all_hypotheses.items():
+            for hypothesis in hypotheses.values():
+                precondition = find_precondition(hypothesis, trace)
+                if precondition is not None:
+                    hypothesis.invariant.precondition = precondition
+                    invariants.append(hypothesis.invariant)
+                else:
+                    failed_hypotheses.append(FailedHypothesis(hypothesis))
+
+        return invariants, failed_hypotheses
+
+    @staticmethod
+    def evaluate(value_group: list) -> bool:
+        raise NotImplementedError
+
+    @staticmethod
+    def static_check_all(trace, inv, check_relation_first):
+        raise NotImplementedError
+
+
+class ThresholdRelation(Relation):
+    """Infer common properties that should be enforced across the input and output of a function call.
+
+    This relation is mainly implemented to support constraints supported/inferred by PyTea (ICSE'22) and NeuRI (FSE'23)
+    """
+
+    @staticmethod
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+        # get the function calls that have tensors or nn.Modules as both input and output
+
+        """
+        TODO: find all function calls that have tensors or nn.Modules as both input and output
+        We can extend this to other types of variables as well, but for now let's keep it simple.
+
+        We need instrumentor to dump the trace in a format that we can easily query for this information.
+
+        @Beijie: can we use static analysis for the above stuff?
+
+        For now let's dump every possible information in the trace and then query it.
+
+        # tensor
+        """
+
+        logger = logging.getLogger(__name__)
+
+        all_func_names = trace.get_func_names()
+        relevant_func_call_events = get_events_of_funcs_with_tensors(
+            all_func_names, trace, output_has_tensors=True, input_has_tensors=True
+        )
+
+        # for these func_call_events, we obtain the properties that are consistent across the input and output tensors
+        # we can then generate hypotheses for these properties
+
+        gt_hypotheses: dict[
+            str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
+        ] = {}
+        lt_hypotheses: dict[
+            str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
+        ] = {}
+        # func_name: [
+        #     - func_call_id (str): func_call_event
+        #     - func_call_id (str): func_call_event
+        #     - ...
+        # ]
+
+        for func_name in tqdm(
+            relevant_func_call_events,
+            desc="Infer hypotheses for consistent input output relation on functions",
+        ):
+            # TBD: test matmul input / output shape constraints though we did not instrument matmul
+            api_param = APIParam(api_full_name=func_name)
+            for func_event in tqdm(
+                relevant_func_call_events[func_name].values(),
+                desc=f"Infer hypotheses for {func_name}",
+            ):
+                # try to form hypothesis for each function call
+
+                # get the input and output tensors of the function call
+                input_thresholds_values = get_input_thresholds(
+                    func_event
+                ) 
+                # {argname:{type:value}}
+                 # potentially we need to attach the tensors to their signature in the function definition, for now let's assume that the tensors in the same order as they are defined and use index to access them
+                output_tensors = get_returned_tensors(func_event)
+
+                # for each value observed, form a dict of {value: path to access the value}
+                def _get_value_paths(tensors: list[dict]) -> dict:
+                    values: dict[Hashable, list[list[str | int]]] = {}
+                    for idx, tensor in enumerate(tensors):
+                        for prop, prop_val in tensor.items():
+                            if isinstance(prop_val, (list, tuple)):
+                                # mainly for shape and ndims related fields
+                                for val_idx, val in enumerate(prop_val):
+                                    if not isinstance(val, Hashable):
+                                        # we can't hash unhashable types
+                                        logger.warning(
+                                            f"Unhashable prop {prop}: {str(prop_val)} found in the input tensor of the function call {func_event}, skipping the value."
+                                        )
+                                        continue
+                                    if val not in values:
+                                        values[val] = []
+
+                                    values[val].append([idx, prop, val_idx])
+
+                            else:
+                                if not isinstance(prop_val, Hashable):
+                                    # we can't hash unhashable types
+                                    logger.warning(
+                                        f"Unhashable prop {prop}: {str(prop_val)} found in the input tensor of the function call {func_event}, skipping the value."
+                                    )
+                                    continue
+                                if prop_val not in values:
+                                    values[prop_val] = []
+
+                                values[prop_val].append([idx, prop])
+
+                    return values
+
+
+                def _get_threshold_paths(thresholds: list[dict]) -> dict:
+                    values = defaultdict(lambda: defaultdict(list))
+                    # values Dict[Hashable, Dict[str, List[List[Union[str, int]]]]]
+
+                    # Iterate over each tensor in tensors
+                    for idx, threshold in enumerate(thresholds):
+                        # Each tensor is a dictionary with {argname: {type: value}}
+                        for argname, typed_val in threshold.items():
+                            for prop, prop_val in typed_val.items():
+                                # If prop_val is a list or tuple, handle each element
+                                if isinstance(prop_val, (list, tuple)):
+                                    for val_idx, val in enumerate(prop_val):
+                                        if not isinstance(val, Hashable):
+                                            continue  # Skip unhashable values
+
+                                        # Append path [idx, argname, prop, val_idx] for each value
+                                        values[val][argname].append([idx, argname, prop, val_idx])
+
+                                else:
+                                    # If prop_val is a single hashable value
+                                    if not isinstance(prop_val, Hashable):
+                                        continue  # Skip unhashable values
+
+                                    # Append path [idx, argname, prop] for each value
+                                    values[prop_val][argname].append([idx, argname, prop])
+
+                    return values
+                
+                input_values_paths = _get_threshold_paths(input_thresholds_values)      # {value: {argname: [path]}}
+                output_values_paths = _get_value_paths(output_tensors)      #{value:path}
+
+                # find the common values between the input and output tensors and form hypotheses for them
+
+                # {value: {argname: [path]}}
+                for input_threshold, args_path in input_values_paths.items():
+                    for argname, input_path in args_path.items():
+                        for output_value, output_path in output_values_paths.items(): #{value:path}
+
+                            input_param = InputOutputParam(
+                                name="input_thresholds",
+                                index=input_path[0],
+                                additional_path=tuple(input_path[1:]),
+                                api_name=func_name,
+                                is_input=True,
+                            )
+
+                            output_param = InputOutputParam(
+                                name="output_tensors",
+                                index=output_path[0],
+                                _type="torch.Tensor",
+                                additional_path=tuple(output_path[1:]),
+                                api_name=func_name,
+                                is_input=False,
+                            )
+
+                            if output_value <= input_threshold: # if output value is less than input threshold (max threshold)
+
+                                if "min" in argname:
+                                    continue
+
+                                if (input_threshold - output_value)/input_threshold < 0.2:
+                                    continue
+
+                                if func_name not in lt_hypotheses:
+                                    lt_hypotheses[func_name] = {}
+
+                                if (input_param, output_param) in lt_hypotheses[func_name]:
+                                    continue
+
+                                hypothesis = Hypothesis(
+                                    invariant=Invariant(
+                                        relation=ThresholdRelation,
+                                        params=[input_param, api_param, output_param],
+                                        precondition=None,
+                                        text_description=f"The output value {output_value} is consistently less than or equal to the input threshold {input_threshold} for the function {func_name}.",
+                                    ),
+                                    positive_examples=ExampleList(
+                                        {"pre_event"}
+                                    ),  # q: do we need input attributes as precondition here? probably not
+                                    negative_examples=ExampleList(
+                                        {"pre_event"}
+                                    ),  # q: do we need input attributes as precondition here? probably not
+                                )
+
+                                lt_hypotheses[func_name][
+                                    (input_param, output_param)
+                                ] = hypothesis
+                                
+                            if output_value >= input_threshold: # if output value is greater than input threshold (min threshold)
+
+                                if "max" in argname:
+                                    continue
+
+                                if (output_value - input_threshold)/output_value < 0.2:
+                                    continue
+
+                                if func_name not in gt_hypotheses:
+                                    gt_hypotheses[func_name] = {}
+
+                                if (input_param, output_param) in gt_hypotheses[func_name]:
+                                    continue
+
+                                hypothesis = Hypothesis(
+                                    invariant=Invariant(
+                                        relation=ThresholdRelation,
+                                        params=[input_param, api_param, output_param],
+                                        precondition=None,
+                                        text_description=f"The output in {output_path} is consistently greater than or eqaul to the input threshold {input_threshold} in {input_path} threholds of the function {func_name}.",
+                                    ),
+                                    positive_examples=ExampleList(
+                                        {"pre_event"}
+                                    ),  # q: do we need input attributes as precondition here? probably not
+                                    negative_examples=ExampleList(
+                                        {"pre_event"}
+                                    ),  # q: do we need input attributes as precondition here? probably not
+                                )
+
+                                gt_hypotheses[func_name][
+                                    (input_param, output_param)
+                                ] = hypothesis
+
+            # now, scan for positive and negative examples
+            for func_event in relevant_func_call_events[func_name].values():
+                input_thresholds_values = get_input_thresholds(
+                    func_event
+                ) 
+                output_tensors = get_returned_tensors(func_event)
+
+                # for each hypothesis, check if it holds for this function call
+                for (input_param, output_param), hypothesis in lt_hypotheses[
+                    func_name
+                ].items():
+                    input_value = input_param.get_value_from_list_of_tensors(
+                        input_thresholds_values
+                    )
+                    output_value = output_param.get_value_from_list_of_tensors(
+                        output_tensors
+                    )
+
+                    if input_value >= output_value:
+                        example = Example({"pre_event": [func_event.pre_record]})
+                        hypothesis.positive_examples.add_example(example)
+                    else:
+                        example = Example({"pre_event": [func_event.pre_record]})
+                        hypothesis.negative_examples.add_example(example)
+
+                for (input_param, output_param), hypothesis in gt_hypotheses[
+                    func_name
+                ].items():
+                    input_value = input_param.get_value_from_list_of_tensors(
+                        input_thresholds_values
+                    )
+                    output_value = output_param.get_value_from_list_of_tensors(
+                        output_tensors
+                    )
+
+                    if input_value <= output_value:
+                        example = Example({"pre_event": [func_event.pre_record]})
+                        hypothesis.positive_examples.add_example(example)
+                    else:
+                        example = Example({"pre_event": [func_event.pre_record]})
+                        hypothesis.negative_examples.add_example(example)
+
+
+            # now, update the number of positive and negative examples
+            for hypothesis in lt_hypotheses[func_name].values():
+                hypothesis.invariant.num_positive_examples = len(
+                    hypothesis.positive_examples
+                )
+                hypothesis.invariant.num_negative_examples = len(
+                    hypothesis.negative_examples
+                )
+
+            for hypothesis in gt_hypotheses[func_name].values():
+                hypothesis.invariant.num_positive_examples = len(
+                    hypothesis.positive_examples
+                )
+                hypothesis.invariant.num_negative_examples = len(
+                    hypothesis.negative_examples
+                )
+
+        # now that we have the hypotheses for each function, we can start precondition inference
+        invariants = []
+        failed_hypotheses = []
+        for func_name, hypotheses in lt_hypotheses.items():
+            for hypothesis in hypotheses.values():
+                precondition = find_precondition(hypothesis, trace)
+                if precondition is not None:
+                    hypothesis.invariant.precondition = precondition
+                    invariants.append(hypothesis.invariant)
+                else:
+                    failed_hypotheses.append(FailedHypothesis(hypothesis))
+
+        for func_name, hypotheses in gt_hypotheses.items():
             for hypothesis in hypotheses.values():
                 precondition = find_precondition(hypothesis, trace)
                 if precondition is not None:
