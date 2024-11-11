@@ -48,7 +48,7 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
                 break
             module_name += "." + func_paths[i]
 
-        left_over_paths = func_paths[i:]
+        left_over_paths = func_paths[i + 1 :]
 
         module = importlib.import_module(module_name)
         for path in left_over_paths:
