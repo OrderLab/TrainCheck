@@ -558,8 +558,7 @@ class APIContainRelation(Relation):
                         )
 
                     merged_child_param = _merge_child_API_events(events)
-                    del hypotheses[parent_param][child_param]
-                    hypotheses[parent_param][merged_child_param] = Hypothesis(
+                    hypotheses[parent_param][child_param] = Hypothesis(
                         Invariant(
                             relation=APIContainRelation,
                             params=[parent_param, merged_child_param],
