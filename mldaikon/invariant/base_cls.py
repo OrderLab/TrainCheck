@@ -40,25 +40,25 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
 
     # need to load the function's parent module
     # find the module name up to the last dot that's prior to a lowercase letterq
-    func_paths = func_name.split(".")
-    module_name = func_paths[0]
-    for i in range(1, len(func_paths) - 1):
-        if func_paths[i][0].isupper():  # indicates the start of the class name
-            break
-        module_name += "." + func_paths[i]
-
-    left_over_paths = func_paths[i:]
-
-    module = importlib.import_module(module_name)
-    for path in left_over_paths:
-        module = getattr(module, path)
-
-    func_obj = module
-    assert callable(
-        func_obj
-    ), f"Function {func_name} is not callable, check loading logic."
-
     try:
+        func_paths = func_name.split(".")
+        module_name = func_paths[0]
+        for i in range(1, len(func_paths) - 1):
+            if func_paths[i][0].isupper():  # indicates the start of the class name
+                break
+            module_name += "." + func_paths[i]
+
+        left_over_paths = func_paths[i:]
+
+        module = importlib.import_module(module_name)
+        for path in left_over_paths:
+            module = getattr(module, path)
+
+        func_obj = module
+        assert callable(
+            func_obj
+        ), f"Function {func_name} is not callable, check loading logic."
+
         FUNC_SIGNATURE_OBJS[func_name] = inspect.signature(func_obj)
         return FUNC_SIGNATURE_OBJS[func_name]
     except Exception as e:
