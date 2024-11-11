@@ -171,6 +171,9 @@ class Param:
                     f"Exception: {type(value)}, msg: {value}"  # TODO: hack, this is not seralizable back to python Exceptions
                 )
                 continue
+            if isinstance(value, Arguments):
+                ret[field] = value.to_dict()
+                continue
             # try if the value is seralizable
             try:
                 json.dumps({field: value})
@@ -192,6 +195,8 @@ class Param:
                 for k, v in args.items():
                     if v is None:
                         args[k] = MD_NONE()
+                    if k == "arguments":
+                        args[k] = Arguments.from_dict(v)
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
 
@@ -227,6 +232,7 @@ class APIParam(Param):
     ):
         self.api_full_name = api_full_name
         self.exception = exception
+        self.arguments = arguments
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
         if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
@@ -276,6 +282,15 @@ class APIParam(Param):
 
     def __repr__(self):
         return self.__str__()
+
+    @staticmethod
+    def from_dict(param_dict: dict) -> APIParam:
+        args = {k: v for k, v in param_dict.items() if k != "param_type"}
+        # if any of the v is null, convert to MD_NONE
+        for k, v in args.items():
+            if v is None:
+                args[k] = MD_NONE()
+        return APIParam(**args)
 
 
 class VarTypeParam(Param):
