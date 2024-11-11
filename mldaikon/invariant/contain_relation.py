@@ -10,6 +10,7 @@ from mldaikon.config.config import ANALYSIS_SKIP_FUNC_NAMES
 from mldaikon.instrumentor.tracer import TraceLineType
 from mldaikon.invariant.base_cls import (
     APIParam,
+    Arguments,
     CheckerResult,
     Example,
     ExampleList,
@@ -423,12 +424,24 @@ class APIContainRelation(Relation):
             """Create hypotheses for each specific event (a event is defined by its __dict__)"""
             parent_param = APIParam(parent)
             hypos_for_dynamic_analysis: list[tuple[Param, Param]] = []
+            passing_events_for_API_contain_API: dict[
+                APIParam,
+                dict[
+                    APIParam,
+                    list[
+                        FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent
+                    ],
+                ],
+            ] = {}
+
             for (
                 parent_func_call_id,
                 local_contained_events,
             ) in all_contained_events.items():
                 parent_event = trace.query_func_call_event(parent_func_call_id)
-                parent_param = construct_api_param(parent_event)
+                parent_param = construct_api_param(
+                    parent_event
+                ).with_no_customization()  # don't use args/kwargs/exceptions for distinguishing the parent functions
                 if parent_param not in hypotheses:
                     hypotheses[parent_param] = {}
                     hypothesis_should_use_causal_vars_for_negative_examples[parent] = {}
@@ -440,6 +453,7 @@ class APIContainRelation(Relation):
                     child_param: APIParam | VarTypeParam | VarNameParam = (
                         construct_var_param_from_var_change(event)
                     )
+
                     if child_param in hypotheses[parent_param]:
                         continue
                     # if dynamic analysis is available for this child_param, we can use it to find negative examples
@@ -478,7 +492,21 @@ class APIContainRelation(Relation):
                 events_grouped_by_type.pop(VarChangeEvent)
                 for event_type in events_grouped_by_type:
                     for event in events_grouped_by_type[event_type]:
-                        child_param = construct_api_param(event)
+                        child_param = construct_api_param(event).with_no_customization()
+                        # append the event to the passing_events_for_API_contain_API
+                        if parent_param not in passing_events_for_API_contain_API:
+                            passing_events_for_API_contain_API[parent_param] = {}
+                        if (
+                            child_param
+                            not in passing_events_for_API_contain_API[parent_param]
+                        ):
+                            passing_events_for_API_contain_API[parent_param][
+                                child_param
+                            ] = []
+                        passing_events_for_API_contain_API[parent_param][
+                            child_param
+                        ].append(event)
+
                         if child_param not in hypotheses[parent_param]:
                             hypotheses[parent_param][child_param] = Hypothesis(
                                 Invariant(
@@ -490,6 +518,57 @@ class APIContainRelation(Relation):
                                 positive_examples=ExampleList({PARENT_GROUP_NAME}),
                                 negative_examples=ExampleList({PARENT_GROUP_NAME}),
                             )
+                        # else:
+
+            # MARK: EVENT MERGING TO CREATE FINE-GRAINED CHILD PARAMS
+            for parent_param in passing_events_for_API_contain_API:
+                for child_param in passing_events_for_API_contain_API[parent_param]:
+                    events = passing_events_for_API_contain_API[parent_param][
+                        child_param
+                    ]
+
+                    def _merge_child_API_events(
+                        events: list[
+                            FuncCallEvent
+                            | FuncCallExceptionEvent
+                            | IncompleteFuncCallEvent
+                        ],
+                    ) -> APIParam:
+                        """Given a list of API events belonging to the same parent function, merge them to create a fine-grained child_param
+                        i.e. consistency of arguments, etc.
+                        """
+                        arguments: Arguments | None = None
+                        func_name = events[0].func_name
+                        for event in events:
+                            if arguments is None:
+                                args, kwargs = event.args, event.kwargs
+                                arguments = Arguments(args, kwargs, func_name)
+                                continue
+
+                            args, kwargs = event.args, event.kwargs
+                            event_arguments = Arguments(args, kwargs, func_name)
+                            arguments = arguments.merge_with(event_arguments)
+
+                            if arguments.is_empty():
+                                return APIParam(func_name)
+
+                        return APIParam(
+                            func_name,
+                            arguments=arguments,
+                        )
+
+                    merged_child_param = _merge_child_API_events(events)
+                    del hypotheses[parent_param][child_param]
+                    hypotheses[parent_param][merged_child_param] = Hypothesis(
+                        Invariant(
+                            relation=APIContainRelation,
+                            params=[parent_param, merged_child_param],
+                            precondition=None,
+                            text_description=f"{parent} contains {merged_child_param}",
+                        ),
+                        positive_examples=ExampleList({PARENT_GROUP_NAME}),
+                        negative_examples=ExampleList({PARENT_GROUP_NAME}),
+                    )
 
             # MARK: PRECONDITION INFERENCE PREPARATION
             # scan the child_func_names for positive and negative examples
@@ -498,7 +577,7 @@ class APIContainRelation(Relation):
                 local_contained_events,
             ) in all_contained_events.items():
                 parent_event = trace.query_func_call_event(parent_func_call_id)
-                parent_param = construct_api_param(parent_event)
+                parent_param = construct_api_param(parent_event).with_no_customization()
                 parent_hypos = hypotheses[
                     parent_param
                 ].copy()  # keep record of all hypotheses related to the parent function
@@ -524,7 +603,7 @@ class APIContainRelation(Relation):
                 events_grouped_by_type.pop(VarChangeEvent)
                 for event_type in events_grouped_by_type:
                     for event in events_grouped_by_type[event_type]:
-                        child_param = construct_api_param(event)
+                        child_param = construct_api_param(event).with_no_customization()
                         assert (
                             child_param in hypotheses[parent_param]
                         ), f"Internal error: child_param {child_param} not found in the hypotheses during the example collection phase"

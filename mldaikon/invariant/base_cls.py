@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import abc
+import importlib
+import inspect
 import json
 import logging
 import math
@@ -27,6 +29,122 @@ from mldaikon.trace.types import (
 
 class _NOT_SET:
     pass
+
+
+FUNC_SIGNATURE_OBJS: dict[str, inspect.Signature | None] = {}
+
+
+def load_function_signature(func_name: str) -> inspect.Signature | None:
+    if func_name in FUNC_SIGNATURE_OBJS:
+        return FUNC_SIGNATURE_OBJS[func_name]
+
+    # need to load the function's parent module
+    # find the module name up to the last dot that's prior to a lowercase letterq
+    func_paths = func_name.split(".")
+    module_name = func_paths[0]
+    for i in range(1, len(func_paths) - 1):
+        if func_paths[i][0].isupper():  # indicates the start of the class name
+            break
+        module_name += "." + func_paths[i]
+
+    left_over_paths = func_paths[i:]
+
+    module = importlib.import_module(module_name)
+    for path in left_over_paths:
+        module = getattr(module, path)
+
+    func_obj = module
+    assert callable(
+        func_obj
+    ), f"Function {func_name} is not callable, check loading logic."
+
+    try:
+        FUNC_SIGNATURE_OBJS[func_name] = inspect.signature(func_obj)
+        return FUNC_SIGNATURE_OBJS[func_name]
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Failed to load the signature for the function: {func_name}, error: {e}"
+        )
+        FUNC_SIGNATURE_OBJS[func_name] = (
+            None  # failed to load the signature, mark it here to avoid repeated attempts
+        )
+        return None
+
+
+class Arguments:
+    def __init__(self, args: Iterable[Any], kwargs: dict[str, Any], func_name: str):
+        """Difference with BindedFuncInput is that this class does not handle
+        default values and only works with the provided args and kwargs.
+
+        Ideally these two classes should be merged into one, but for now we are keeping them separate due to
+        engineering time constraints.
+        """
+
+        self.args = args
+        self.kwargs = kwargs
+        self.func_name = func_name
+
+        self.signature = load_function_signature(func_name)
+        if self.signature is None:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Failed to load the signature for the function: {func_name}, can only work on kwargs."
+            )
+            self.arguments = kwargs
+        else:
+            self.arguments = kwargs
+            for i, arg in enumerate(args):
+                self.arguments[list(self.signature.parameters.keys())[i]] = arg
+
+    def to_dict(self) -> dict:
+        return {
+            "args": self.arguments,
+            "func_name": self.func_name,
+        }
+
+    @staticmethod
+    def from_dict(arguments_dict: dict) -> Arguments:
+        return Arguments(
+            kwargs=arguments_dict["args"],
+            func_name=arguments_dict["func_name"],
+            args=[],
+        )
+
+    def merge_with(self, other: Arguments) -> Arguments:
+        # do a intersection of the provided arguments
+        merged_args = {k: v for k, v in self.arguments.items() if k in other.arguments}
+
+        # for each specific arg, merge the divergent value
+        for k, v in self.arguments.items():
+            if k not in merged_args:
+                continue
+
+            # merging rule #1: consistency ==
+            if v != other.arguments[k]:
+                del merged_args[k]
+            # merging rule #2: if the value is a generalized type, then we can merge it
+            # >, <, >=, <= for numerical types
+            # TODO
+
+        return Arguments(args=[], kwargs=merged_args, func_name=self.func_name)
+
+    def is_empty(self) -> bool:
+        return len(self.arguments) == 0
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Arguments):
+            return False
+        return self.arguments == other.arguments
+
+    def __hash__(self) -> int:
+        return hash(frozenset(self.arguments.items()))
+
+    def __str__(self):
+        return str(self.arguments)
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class Param:
@@ -102,7 +220,10 @@ class Param:
 
 class APIParam(Param):
     def __init__(
-        self, api_full_name: str, exception: Exception | Type[_NOT_SET] = _NOT_SET
+        self,
+        api_full_name: str,
+        exception: Exception | Type[_NOT_SET] = _NOT_SET,
+        arguments: None | Arguments = None,
     ):
         self.api_full_name = api_full_name
         self.exception = exception
