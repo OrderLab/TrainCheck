@@ -1,3 +1,4 @@
+import json
 from abc import abstractmethod
 from typing import NamedTuple
 
@@ -36,6 +37,25 @@ class MD_NONE:
                     list_or_dict[key] = None
                 elif isinstance(value, (list, dict)):
                     MD_NONE.replace_with_none(value)
+
+
+# Custom JSON Encoder
+class MDNONEJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        # Convert MD_NONE to None
+        if isinstance(obj, MD_NONE):
+            return None
+        return super().default(obj)
+
+
+class MDNONEJSONDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, obj):
+        if obj is None:
+            return MD_NONE()
+        return obj
 
 
 class MD_NULL:

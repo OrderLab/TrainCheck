@@ -544,16 +544,16 @@ class APIContainRelation(Relation):
                                 args = event.args
                                 kwargs = event.kwargs
                                 arguments = Arguments(args, kwargs, func_name)
-                                continue
-
-                            args = event.args
-                            kwargs = event.kwargs
-                            event_arguments = Arguments(args, kwargs, func_name)
-                            arguments = arguments.merge_with(event_arguments)
+                            else:
+                                args = event.args
+                                kwargs = event.kwargs
+                                event_arguments = Arguments(args, kwargs, func_name)
+                                arguments = arguments.merge_with(event_arguments)
 
                             if arguments.is_empty():
                                 return APIParam(func_name)
 
+                        assert isinstance(arguments, Arguments) and not arguments.is_empty()
                         return APIParam(
                             func_name,
                             arguments=arguments,

@@ -7,7 +7,7 @@ import re
 from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import CheckerResult, Invariant, read_inv_file
-from mldaikon.trace import Trace, select_trace_implementation
+from mldaikon.trace import MDNONEJSONEncoder, Trace, select_trace_implementation
 from mldaikon.utils import register_custom_excepthook
 
 register_custom_excepthook()
@@ -160,5 +160,5 @@ if __name__ == "__main__":
         if args.report_only_failed:
             results = [res for res in results if not res.check_passed]
         for res in results:
-            json.dump(res.to_dict(), f, indent=4)
+            json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
             f.write("\n")

@@ -23,6 +23,7 @@ from mldaikon.trace.types import (
     FuncCallExceptionEvent,
     HighLevelEvent,
     IncompleteFuncCallEvent,
+    MDNONEJSONDecoder,
     VarChangeEvent,
 )
 
@@ -1427,7 +1428,7 @@ def read_inv_file(file_path: str | list[str]) -> list[Invariant]:
     for file in file_path:
         with open(file, "r") as f:
             for line in f:
-                inv_dict = json.loads(line)
+                inv_dict = json.loads(line, cls=MDNONEJSONDecoder)
                 inv = Invariant.from_dict(inv_dict)
                 invs.append(inv)
     return invs
