@@ -541,11 +541,13 @@ class APIContainRelation(Relation):
                         func_name = events[0].func_name
                         for event in events:
                             if arguments is None:
-                                args, kwargs = event.args, event.kwargs
+                                args = event.args
+                                kwargs = event.kwargs
                                 arguments = Arguments(args, kwargs, func_name)
                                 continue
 
-                            args, kwargs = event.args, event.kwargs
+                            args = event.args
+                            kwargs = event.kwargs
                             event_arguments = Arguments(args, kwargs, func_name)
                             arguments = arguments.merge_with(event_arguments)
 

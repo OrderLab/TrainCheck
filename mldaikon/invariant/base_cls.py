@@ -91,9 +91,19 @@ class Arguments:
             logger.warning(
                 f"Failed to load the signature for the function: {func_name}, can only work on kwargs."
             )
-            self.arguments = kwargs
+            self.arguments = kwargs.copy()
+        elif all(
+            param.kind
+            in [inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD]
+            for param in self.signature.parameters.values()
+        ):
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Function {func_name} has overly-general signature (only *args or **kwargs), can only work on kwargs."
+            )
+            self.arguments = kwargs.copy()
         else:
-            self.arguments = kwargs
+            self.arguments = kwargs.copy()
             for i, arg in enumerate(args):
                 self.arguments[list(self.signature.parameters.keys())[i]] = arg
 
