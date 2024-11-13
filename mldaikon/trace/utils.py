@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import MutableMapping
 
+from mldaikon.instrumentor.dumper import var_to_serializable
 from mldaikon.trace.types import MD_NONE, BindedFuncInput
 from mldaikon.utils import typename
 
@@ -98,7 +99,9 @@ def bind_args_kwargs_to_signature(
             signature.parameters[arg_name].default != inspect.Parameter.empty
         ), f"Argument {arg_name} is not binded and has no default value."
         default_val = signature.parameters[arg_name].default
-        bind_args_and_kwargs[arg_name] = {typename(default_val): default_val}
+        bind_args_and_kwargs[arg_name] = {
+            typename(default_val): var_to_serializable(default_val)
+        }
 
     assert len(bind_args_and_kwargs) == len(
         signature.parameters

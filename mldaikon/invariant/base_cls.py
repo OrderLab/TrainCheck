@@ -33,6 +33,7 @@ class _NOT_SET:
 
 
 FUNC_SIGNATURE_OBJS: dict[str, inspect.Signature | None] = {}
+STAGE_KEY = "meta_vars.stage"
 
 
 def load_function_signature(func_name: str) -> inspect.Signature | None:
@@ -158,7 +159,7 @@ class Arguments:
         return self.arguments == other.arguments
 
     def __hash__(self) -> int:
-        return hash(frozenset(self.arguments.items()))
+        return hash(make_hashable(self.arguments))
 
     def __str__(self):
         return str(self.arguments)
@@ -171,7 +172,7 @@ class Param:
     # param_type: str  # ["func", "var_type", "var_name"]
 
     def __hash__(self) -> int:
-        return hash(frozenset(self.to_dict().items()))
+        return hash(make_hashable(self.to_dict()))
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Param):
@@ -724,8 +725,8 @@ class PreconditionClause:
                 self.prop_name,
                 self.prop_dtype,
                 self.type,
-                frozenset(self.values) if self.values else None,
-                tuple(self.additional_path) if self.additional_path else None,
+                make_hashable(self.values) if self.values else None,
+                make_hashable(self.additional_path) if self.additional_path else None,
             )
         )
 
@@ -834,10 +835,10 @@ class Precondition:
     def __eq__(self, other) -> bool:
         if not isinstance(other, Precondition):
             return False
-        return frozenset(self.clauses) == frozenset(other.clauses)
+        return make_hashable(self.clauses) == make_hashable(other.clauses)
 
     def __hash__(self) -> int:
-        return hash(frozenset(self.clauses))
+        return hash(make_hashable(self.clauses))
 
 
 class UnconditionalPrecondition(Precondition):
@@ -915,12 +916,12 @@ class Preconditions:
         if not isinstance(value, Preconditions):
             return False
         return (
-            frozenset(self.preconditions) == frozenset(value.preconditions)
+            make_hashable(self.preconditions) == make_hashable(value.preconditions)
             and self.inverted == value.inverted
         )
 
     def __hash__(self):
-        return hash((frozenset(self.preconditions), self.inverted))
+        return hash((make_hashable(self.preconditions), self.inverted))
 
     @staticmethod
     def from_dict(preconditions_dict: dict) -> Preconditions:
@@ -998,7 +999,7 @@ class GroupedPreconditions:
     def add_stage_info(self, valid_stages: set[str]):
         # construct a CONSTANT clause for the stage
         stage_clause = PreconditionClause(
-            prop_name="meta_vars.stage",
+            prop_name=STAGE_KEY,
             prop_dtype=str,
             _type=PT.CONSTANT,
             additional_path=None,
@@ -1071,7 +1072,7 @@ class Invariant:
         self_dict.pop("num_positive_examples", None)
         self_dict.pop("num_negative_examples", None)
         self_dict.pop("text_description", None)
-        return hash(frozenset(self_dict.items()))
+        return hash(make_hashable(self_dict))
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Invariant):

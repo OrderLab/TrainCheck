@@ -28,6 +28,8 @@ from mldaikon.trace.utils import (
 
 logger = logging.getLogger(__name__)
 
+STAGE_KEY = "meta_vars.stage"
+
 
 # TODO: formalize the trace schema for efficient polars processing
 def test_dump(df):
@@ -93,9 +95,9 @@ class TracePandas(Trace):
             raise ValueError("Trace is not annotated with stages.")
 
         traces = {}
-        for stage in self.events["stage"].unique():
+        for stage in self.events[STAGE_KEY].unique():
             traces[stage] = TracePandas(
-                self.events[self.events["stage"] == stage],
+                self.events[self.events[STAGE_KEY] == stage],
                 truncate_incomplete_func_calls=False,
             )
 
@@ -106,7 +108,7 @@ class TracePandas(Trace):
         if not self.is_stage_annotated():
             raise ValueError("Trace is not annotated with stages.")
 
-        return self.events["stage"].unique().tolist()
+        return self.events[STAGE_KEY].unique().tolist()
 
     def is_func_called(self, func_name: str, stage: None | str):
         """Check if a function is called in the trace."""
@@ -114,20 +116,18 @@ class TracePandas(Trace):
             return (
                 func_name
                 in self.events[
-                    (self.events["stage"] == stage)
+                    (self.events[STAGE_KEY] == stage)
                     & (self.events["function"] == func_name)
                 ]["function"].unique()
             )
         return func_name in self.events["function"].unique()
 
     def _fill_missing_stage_init(self):
-        if "meta_vars.stage" not in self.events.columns:
+        if STAGE_KEY not in self.events.columns:
             return
 
         # fill all stage being NaN with "init"
-        self.events.loc[self.events["meta_vars.stage"].isna(), "meta_vars.stage"] = (
-            "init"
-        )
+        self.events.loc[self.events[STAGE_KEY].isna(), STAGE_KEY] = "init"
 
     def _rm_incomplete_trailing_func_calls(self):
         """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
@@ -364,7 +364,7 @@ class TracePandas(Trace):
     def is_stage_annotated(self):
         # ideally we want to have a static manifest for the trace produced by the instrumentor according to the args
         # but for now, we will check if the trace has the stage column
-        return "stage" in self.events.columns
+        return STAGE_KEY in self.events.columns
 
     def query_active_context_managers(
         self, time: float, process_id: int, thread_id: int

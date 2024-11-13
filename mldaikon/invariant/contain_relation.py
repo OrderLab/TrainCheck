@@ -343,9 +343,7 @@ class APIContainRelation(Relation):
                 assert (
                     invariant.precondition is not None
                 ), "Expected the precondition to be set for the invariant"
-                invariant.precondition = invariant.precondition.add_stage_info(
-                    set(supported_stages)
-                )
+                invariant.precondition.add_stage_info(set(supported_stages))
                 merged_invariants.append(invariant)
 
         # HACK: add the stage info to the failed hypotheses through the text description as well NEED TO CHANGE IF WE SUPPORT INVARIANT REFINEMENT
@@ -553,7 +551,10 @@ class APIContainRelation(Relation):
                             if arguments.is_empty():
                                 return APIParam(func_name)
 
-                        assert isinstance(arguments, Arguments) and not arguments.is_empty()
+                        assert (
+                            isinstance(arguments, Arguments)
+                            and not arguments.is_empty()
+                        )
                         return APIParam(
                             func_name,
                             arguments=arguments,
