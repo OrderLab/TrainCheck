@@ -745,6 +745,16 @@ class Instrumentor:
         # 1. skip attrs with no objects (e.g. __abstractmethods__ and C extension functions)
         attr = pymodule.__dict__.get(attr_name, None)
         if attr is None:
+            # try getting it in case it is a descriptor (almost certainly will be)
+            try:
+                attr = getattr(pymodule, attr_name)
+                if "method_descriptor" not in str(type(attr)):
+                    print("TRIGGERED", attr_name)
+                    attr = None
+            except Exception:
+                pass
+
+        if attr is None:
             return "Skipping attribute as it is None"
 
         # 2. Skip if the attribute is already instrumented
@@ -766,17 +776,20 @@ class Instrumentor:
         ):
             return "Skipping magic functions"
 
+        attr_full_name = typename(attr)
         # 4. Skip if the attribute is in INSTR_MODULES_TO_SKIP | MANUAL CONFIG
-        if typename(attr) in INSTR_MODULES_TO_SKIP:
+        if attr_full_name in INSTR_MODULES_TO_SKIP:
             return "Skipping attribute as it is one of INSTR_MODULES_TO_SKIP"
 
         # 5. Skip if the attribute is in modules_to_skip_prefix | MANUAL CONFIG
         for modules_to_skip_prefix in INSTR_MODULES_TO_SKIP:
-            if typename(attr).startswith(modules_to_skip_prefix):
+            if attr_full_name.startswith(modules_to_skip_prefix):
                 return "Skipping attribute as it is in INSTR_MODULES_TO_SKIP"
 
         # 6. Skip if the attribute does not belong to the target root module
-        if not typename(attr).startswith(self.root_module):
+        if not attr_full_name.startswith(self.root_module) and (
+            "Tensor" not in attr_full_name and "method_descriptor" not in attr_full_name
+        ):  # builtin methods in torch.Tensor's qualname does not start with torch for some reason
             return "Skipping attribute as it does not belong to the root module"
 
         return None
@@ -846,10 +859,7 @@ class Instrumentor:
             if attr is None:
                 # try access this attribute to handle lazy loading
                 try:
-                    _ = getattr(pymodule, attr_name)
-                    attr = pymodule.__dict__.get(
-                        attr_name
-                    )  # this attr should be loaded now
+                    attr = getattr(pymodule, attr_name)
                 except Exception as e:
                     get_instrumentation_logger_for_process().debug(
                         f"Depth: {depth}, lazy loading failed for attribute: {attr_name}, Module: {target_name}: {e}"
@@ -870,7 +880,10 @@ class Instrumentor:
 
             if isinstance(
                 attr, (types.FunctionType, types.BuiltinFunctionType, _instancemethod_t)
-            ):
+            ) or "method_descriptor" in str(
+                type(attr)
+            ):  # instrumented with potential accuracy issues as descriptor-controlled method access might change what to return based on given information, but is needed to get tensor method invocations
+                assert callable(attr), f"{attr} is not callable"
                 assert not (
                     recurse_into_sub_module and is_API_instrumented(attr)
                 ), f"{attr} is already instrumented"
