@@ -216,7 +216,7 @@ class Param:
                 for k, v in args.items():
                     if v is None:
                         args[k] = MD_NONE()
-                    if k == "arguments":
+                    elif k == "arguments":
                         args[k] = Arguments.from_dict(v)
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
@@ -248,8 +248,8 @@ class APIParam(Param):
     def __init__(
         self,
         api_full_name: str,
-        exception: Exception | Type[_NOT_SET] = _NOT_SET,
-        arguments: None | Arguments = None,
+        exception: Exception | MD_NONE = MD_NONE(),
+        arguments: Arguments | MD_NONE = MD_NONE(),
     ):
         self.api_full_name = api_full_name
         self.exception = exception
@@ -273,7 +273,7 @@ class APIParam(Param):
             matched = matched and not isinstance(event, FuncCallExceptionEvent)
 
         # check the arguments if they are provided
-        if self.arguments is not None:
+        if not isinstance(self.arguments, MD_NONE):
             # current_args should not violate the provided arguments (i.e., self.arguments should be a subset of current_args)
             current_args = Arguments(event.args, event.kwargs, event.func_name)
             matched = matched and not self.arguments.check_for_violation(current_args)
@@ -530,14 +530,14 @@ class InputOutputParam(Param):
         self,
         name: Optional[str],
         index: Optional[int],
-        _type: str,
+        type: str,
         additional_path: tuple[str] | None,
         api_name: Optional[str],
         is_input: bool,  # not input means output
     ):
         self.name = name
         self.index = index
-        self.type = _type
+        self.type = type
         self.additional_path = additional_path
         self.api_name = api_name
         self.is_input = is_input

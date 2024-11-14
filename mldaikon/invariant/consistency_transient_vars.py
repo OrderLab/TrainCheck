@@ -555,7 +555,7 @@ class ConsistentInputOutputRelation(Relation):
                         input_param = InputOutputParam(
                             name="input_tensors",
                             index=input_path[0],
-                            _type="torch.Tensor",
+                            type="torch.Tensor",
                             additional_path=tuple(input_path[1:]),
                             api_name=func_name,
                             is_input=True,
@@ -564,7 +564,7 @@ class ConsistentInputOutputRelation(Relation):
                         output_param = InputOutputParam(
                             name="output_tensors",
                             index=output_path[0],
-                            _type="torch.Tensor",
+                            type="torch.Tensor",
                             additional_path=tuple(output_path[1:]),
                             api_name=func_name,
                             is_input=False,
