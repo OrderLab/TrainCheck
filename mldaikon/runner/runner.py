@@ -62,7 +62,7 @@ class ProgramRunner(object):
             assert (
                 py_script_name in sh_script
             ), f"{py_script_name} not found in {sh_script} at {sh_script_path}"
-            sh_script = sh_script.replace(py_script_name, _tmp_py_script_name)
+            sh_script = sh_script.replace(py_script_name, self._tmp_py_script_path)
 
             # write the sh script also to the output directory (for debugging)
             with open(self._tmp_sh_script_path, "w") as file:
