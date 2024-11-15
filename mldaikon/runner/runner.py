@@ -45,10 +45,12 @@ class ProgramRunner(object):
         # write the source code also to the output directory (for debugging)
         with open(self._tmp_py_script_path, "w") as file:
             file.write(source_code)
-        
+
         # write the modified py script to the original location as well
         original_py_parent_dir = os.path.dirname(py_script_path)
-        with open(os.path.join(original_py_parent_dir, _tmp_py_script_name), "w") as file:
+        with open(
+            os.path.join(original_py_parent_dir, _tmp_py_script_name), "w"
+        ) as file:
             file.write(source_code)
 
         if sh_script_path is None:
