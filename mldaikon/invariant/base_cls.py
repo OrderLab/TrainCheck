@@ -12,6 +12,7 @@ from typing import Any, Hashable, Iterable, Optional, Type
 import pandas as pd
 
 import mldaikon.config.config as config
+from mldaikon.instrumentor.dumper import var_to_serializable
 from mldaikon.invariant.symbolic_value import (
     GENERALIZED_TYPES,
     check_generalized_value_match,
@@ -75,7 +76,13 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
 
 
 class Arguments:
-    def __init__(self, args: Iterable[Any], kwargs: dict[str, Any], func_name: str):
+    def __init__(
+        self,
+        args: Iterable[Any],
+        kwargs: dict[str, Any],
+        func_name: str,
+        consider_default_values: bool = False,
+    ):
         """Difference with BindedFuncInput is that this class does not handle
         default values and only works with the provided args and kwargs.
 
@@ -108,6 +115,14 @@ class Arguments:
             self.arguments = kwargs.copy()
             for i, arg in enumerate(args):
                 self.arguments[list(self.signature.parameters.keys())[i]] = arg
+
+            if consider_default_values:
+                for param_name, param in self.signature.parameters.items():
+                    if (
+                        param_name not in self.arguments
+                        and param.default != inspect.Parameter.empty
+                    ):
+                        self.arguments[param_name] = var_to_serializable(param.default)
 
     def to_dict(self) -> dict:
         return {
@@ -271,6 +286,9 @@ class APIParam(Param):
             )
         else:
             matched = matched and not isinstance(event, FuncCallExceptionEvent)
+
+        if not matched:
+            return False
 
         # check the arguments if they are provided
         if isinstance(self.arguments, Arguments):
