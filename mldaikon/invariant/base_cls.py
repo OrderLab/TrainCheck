@@ -112,9 +112,26 @@ class Arguments:
             )
             self.arguments = kwargs.copy()
         else:
+            # check if *args exists in the signature
+            allow_unmatched_args = False
+            if any(
+                param.kind == inspect.Parameter.VAR_POSITIONAL
+                for param in self.signature.parameters.values()
+            ):
+                allow_unmatched_args = True
+                self.unknown_args = []
+
             self.arguments = kwargs.copy()
+            signature_params = list(self.signature.parameters.keys())
             for i, arg in enumerate(args):
-                self.arguments[list(self.signature.parameters.keys())[i]] = arg
+                if i < len(signature_params):
+                    self.arguments[signature_params[i]] = arg
+                elif allow_unmatched_args:
+                    self.unknown_args.append(arg)
+                else:
+                    raise ValueError(
+                        f"Too many positional arguments for function {func_name}, expecting {len(signature_params)} ({signature_params}) but got {len(args)}"  # type: ignore
+                    )
 
             if consider_default_values:
                 for param_name, param in self.signature.parameters.items():
