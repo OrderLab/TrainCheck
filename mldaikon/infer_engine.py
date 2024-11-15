@@ -8,7 +8,7 @@ import time
 import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import FailedHypothesis, Invariant, Relation
 from mldaikon.invariant.relation_pool import relation_pool
-from mldaikon.trace import select_trace_implementation
+from mldaikon.trace import MDNONEJSONEncoder, select_trace_implementation
 from mldaikon.utils import register_custom_excepthook
 
 register_custom_excepthook()
@@ -50,14 +50,14 @@ class InferEngine:
 def save_invs(invs: list[Invariant], output_file: str):
     with open(output_file, "w") as f:
         for inv in invs:
-            f.write(json.dumps(inv.to_dict()))
+            f.write(json.dumps(inv.to_dict(), cls=MDNONEJSONEncoder))
             f.write("\n")
 
 
 def save_failed_hypos(failed_hypos: list[FailedHypothesis], output_file: str):
     with open(output_file, "w") as f:
         for failed_hypo in failed_hypos:
-            f.write(json.dumps(failed_hypo.to_dict()))
+            f.write(json.dumps(failed_hypo.to_dict(), cls=MDNONEJSONEncoder))
             f.write("\n")
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import abc
+import importlib
+import inspect
 import json
 import logging
 import math
@@ -21,6 +23,7 @@ from mldaikon.trace.types import (
     FuncCallExceptionEvent,
     HighLevelEvent,
     IncompleteFuncCallEvent,
+    MDNONEJSONDecoder,
     VarChangeEvent,
 )
 
@@ -29,11 +32,147 @@ class _NOT_SET:
     pass
 
 
+FUNC_SIGNATURE_OBJS: dict[str, inspect.Signature | None] = {}
+STAGE_KEY = "meta_vars.stage"
+
+
+def load_function_signature(func_name: str) -> inspect.Signature | None:
+    if func_name in FUNC_SIGNATURE_OBJS:
+        return FUNC_SIGNATURE_OBJS[func_name]
+
+    # need to load the function's parent module
+    # find the module name up to the last dot that's prior to a lowercase letterq
+    try:
+        func_paths = func_name.split(".")
+        module_name = func_paths[0]
+        for i in range(1, len(func_paths) - 1):
+            if func_paths[i][0].isupper():  # indicates the start of the class name
+                break
+            module_name += "." + func_paths[i]
+
+        left_over_paths = func_paths[i + 1 :]
+
+        module = importlib.import_module(module_name)
+        for path in left_over_paths:
+            module = getattr(module, path)
+
+        func_obj = module
+        assert callable(
+            func_obj
+        ), f"Function {func_name} is not callable, check loading logic."
+
+        FUNC_SIGNATURE_OBJS[func_name] = inspect.signature(func_obj)
+        return FUNC_SIGNATURE_OBJS[func_name]
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Failed to load the signature for the function: {func_name}, error: {e}"
+        )
+        FUNC_SIGNATURE_OBJS[func_name] = (
+            None  # failed to load the signature, mark it here to avoid repeated attempts
+        )
+        return None
+
+
+class Arguments:
+    def __init__(self, args: Iterable[Any], kwargs: dict[str, Any], func_name: str):
+        """Difference with BindedFuncInput is that this class does not handle
+        default values and only works with the provided args and kwargs.
+
+        Ideally these two classes should be merged into one, but for now we are keeping them separate due to
+        engineering time constraints.
+        """
+
+        self.args = args
+        self.kwargs = kwargs
+        self.func_name = func_name
+
+        self.signature = load_function_signature(func_name)
+        if self.signature is None:
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Failed to load the signature for the function: {func_name}, can only work on kwargs."
+            )
+            self.arguments = kwargs.copy()
+        elif all(
+            param.kind
+            in [inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD]
+            for param in self.signature.parameters.values()
+        ):
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                f"Function {func_name} has overly-general signature (only *args or **kwargs), can only work on kwargs."
+            )
+            self.arguments = kwargs.copy()
+        else:
+            self.arguments = kwargs.copy()
+            for i, arg in enumerate(args):
+                self.arguments[list(self.signature.parameters.keys())[i]] = arg
+
+    def to_dict(self) -> dict:
+        return {
+            "args": self.arguments,
+            "func_name": self.func_name,
+        }
+
+    @staticmethod
+    def from_dict(arguments_dict: dict) -> Arguments:
+        return Arguments(
+            kwargs=arguments_dict["args"],
+            func_name=arguments_dict["func_name"],
+            args=[],
+        )
+
+    def merge_with(self, other: Arguments) -> Arguments:
+        # do a intersection of the provided arguments
+        merged_args = {k: v for k, v in self.arguments.items() if k in other.arguments}
+
+        # for each specific arg, merge the divergent value
+        for k, v in self.arguments.items():
+            if k not in merged_args:
+                continue
+
+            # merging rule #1: consistency ==
+            if v != other.arguments[k]:
+                del merged_args[k]
+            # merging rule #2: if the value is a generalized type, then we can merge it
+            # >, <, >=, <= for numerical types
+            # TODO
+
+        return Arguments(args=[], kwargs=merged_args, func_name=self.func_name)
+
+    def is_empty(self) -> bool:
+        return len(self.arguments) == 0
+
+    def check_for_violation(self, other: Arguments) -> bool:
+        # every key in self should be in other, and should have the same value
+        for k, v in self.arguments.items():
+            if k not in other.arguments:
+                return True
+            if v != other.arguments[k]:
+                return True
+        return False
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Arguments):
+            return False
+        return self.arguments == other.arguments
+
+    def __hash__(self) -> int:
+        return hash(make_hashable(self.arguments))
+
+    def __str__(self):
+        return str(self.arguments)
+
+    def __repr__(self):
+        return self.__str__()
+
+
 class Param:
     # param_type: str  # ["func", "var_type", "var_name"]
 
     def __hash__(self) -> int:
-        return hash(frozenset(self.to_dict().items()))
+        return hash(make_hashable(self.to_dict()))
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, Param):
@@ -52,6 +191,9 @@ class Param:
                 ret[field] = (
                     f"Exception: {type(value)}, msg: {value}"  # TODO: hack, this is not seralizable back to python Exceptions
                 )
+                continue
+            if isinstance(value, Arguments):
+                ret[field] = value.to_dict()
                 continue
             # try if the value is seralizable
             try:
@@ -74,6 +216,8 @@ class Param:
                 for k, v in args.items():
                     if v is None:
                         args[k] = MD_NONE()
+                    elif k == "arguments":
+                        args[k] = Arguments.from_dict(v)
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
 
@@ -102,13 +246,19 @@ class Param:
 
 class APIParam(Param):
     def __init__(
-        self, api_full_name: str, exception: Exception | Type[_NOT_SET] = _NOT_SET
+        self,
+        api_full_name: str,
+        exception: Exception | _NOT_SET = _NOT_SET,
+        arguments: Arguments | _NOT_SET = _NOT_SET,
     ):
         self.api_full_name = api_full_name
         self.exception = exception
+        self.arguments = arguments
 
     def check_event_match(self, event: HighLevelEvent) -> bool:
-        if not isinstance(event, (FuncCallEvent, FuncCallExceptionEvent)):
+        if not isinstance(
+            event, (FuncCallEvent, FuncCallExceptionEvent, IncompleteFuncCallEvent)
+        ):
             return False
 
         # TODO: Handle Stop Iteration Exception!!!
@@ -121,6 +271,13 @@ class APIParam(Param):
             )
         else:
             matched = matched and not isinstance(event, FuncCallExceptionEvent)
+
+        # check the arguments if they are provided
+        if self.arguments != _NOT_SET and not isinstance(self.arguments, MD_NONE):
+            # current_args should not violate the provided arguments (i.e., self.arguments should be a subset of current_args)
+            current_args = Arguments(event.args, event.kwargs, event.func_name)
+            matched = matched and not self.arguments.check_for_violation(current_args)
+
         return matched
 
     def with_no_customization(self) -> APIParam:
@@ -155,6 +312,15 @@ class APIParam(Param):
 
     def __repr__(self):
         return self.__str__()
+
+    @staticmethod
+    def from_dict(param_dict: dict) -> APIParam:
+        args = {k: v for k, v in param_dict.items() if k != "param_type"}
+        # if any of the v is null, convert to MD_NONE
+        for k, v in args.items():
+            if v is None:
+                args[k] = MD_NONE()
+        return APIParam(**args)
 
 
 class VarTypeParam(Param):
@@ -364,14 +530,14 @@ class InputOutputParam(Param):
         self,
         name: Optional[str],
         index: Optional[int],
-        _type: str,
+        type: str,
         additional_path: tuple[str] | None,
         api_name: Optional[str],
         is_input: bool,  # not input means output
     ):
         self.name = name
         self.index = index
-        self.type = _type
+        self.type = type
         self.additional_path = additional_path
         self.api_name = api_name
         self.is_input = is_input
@@ -559,8 +725,8 @@ class PreconditionClause:
                 self.prop_name,
                 self.prop_dtype,
                 self.type,
-                frozenset(self.values) if self.values else None,
-                tuple(self.additional_path) if self.additional_path else None,
+                make_hashable(self.values) if self.values else None,
+                make_hashable(self.additional_path) if self.additional_path else None,
             )
         )
 
@@ -669,10 +835,10 @@ class Precondition:
     def __eq__(self, other) -> bool:
         if not isinstance(other, Precondition):
             return False
-        return frozenset(self.clauses) == frozenset(other.clauses)
+        return make_hashable(self.clauses) == make_hashable(other.clauses)
 
     def __hash__(self) -> int:
-        return hash(frozenset(self.clauses))
+        return hash(make_hashable(self.clauses))
 
 
 class UnconditionalPrecondition(Precondition):
@@ -750,12 +916,12 @@ class Preconditions:
         if not isinstance(value, Preconditions):
             return False
         return (
-            frozenset(self.preconditions) == frozenset(value.preconditions)
+            make_hashable(self.preconditions) == make_hashable(value.preconditions)
             and self.inverted == value.inverted
         )
 
     def __hash__(self):
-        return hash((frozenset(self.preconditions), self.inverted))
+        return hash((make_hashable(self.preconditions), self.inverted))
 
     @staticmethod
     def from_dict(preconditions_dict: dict) -> Preconditions:
@@ -830,6 +996,29 @@ class GroupedPreconditions:
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
         return self.grouped_preconditions[group_name].verify(example)
 
+    def add_stage_info(self, valid_stages: set[str]):
+        # construct a CONSTANT clause for the stage
+        stage_clause = PreconditionClause(
+            prop_name=STAGE_KEY,
+            prop_dtype=str,
+            _type=PT.CONSTANT,
+            additional_path=None,
+            values=valid_stages,
+        )
+
+        # add the stage clause to all the preconditions, if UNCONDITIONAL, then swap it with the stage clause
+        for group_name, preconditions in self.grouped_preconditions.items():
+            if preconditions.is_unconditional():
+                self.grouped_preconditions[group_name] = Preconditions(
+                    [Precondition([stage_clause])], inverted=False
+                )
+            else:
+                assert (
+                    not preconditions.inverted
+                ), "Adding clause to inverted preconditions is not supported yet"
+                for precondition in preconditions:
+                    precondition.add_clause(stage_clause)
+
     def __eq__(self, other) -> bool:
         if not isinstance(other, GroupedPreconditions):
             return False
@@ -876,6 +1065,19 @@ class Invariant:
 
     def __str__(self) -> str:
         return f"""Relation: {self.relation}\nParam Selectors: {self.params}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
+
+    def __hash__(self) -> int:
+        self_dict = self.to_dict()
+        # remove num_positive_examples, num_negative_examples, and text description as they are optional
+        self_dict.pop("num_positive_examples", None)
+        self_dict.pop("num_negative_examples", None)
+        self_dict.pop("text_description", None)
+        return hash(make_hashable(self_dict))
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, Invariant):
+            return False
+        return hash(self) == hash(other)
 
     def to_dict(self, _dumping_for_failed_cases=False) -> dict:
 
@@ -1227,7 +1429,7 @@ def read_inv_file(file_path: str | list[str]) -> list[Invariant]:
     for file in file_path:
         with open(file, "r") as f:
             for line in f:
-                inv_dict = json.loads(line)
+                inv_dict = json.loads(line, cls=MDNONEJSONDecoder)
                 inv = Invariant.from_dict(inv_dict)
                 invs.append(inv)
     return invs

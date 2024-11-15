@@ -21,6 +21,8 @@ from mldaikon.trace.types import MD_NONE
 
 logger = logging.getLogger("Precondition")
 
+STAGE_KEY = "meta_vars.stage"
+
 
 def is_statistical_significant(positive_examples: list) -> bool:
     return len(positive_examples) > 100
@@ -335,7 +337,6 @@ def _stage_grouping_eligible(
       2. `meta_vars.stage` should be present in all the examples
       3. the number of stages should be more than 1
     """
-    STAGE_KEY = "meta_vars.stage"
 
     if len(examples) == 0:
         return False
@@ -349,13 +350,13 @@ def _stage_grouping_eligible(
                 return False
 
             if stage is None:
-                stage = record["meta_vars.stage"]
+                stage = record[STAGE_KEY]
             else:
-                if record["meta_vars.stage"] != stage:
+                if record[STAGE_KEY] != stage:
                     # rule 1
                     return False
 
-        stages.add(example[0]["meta_vars.stage"])
+        stages.add(example[0][STAGE_KEY])
 
     return len(stages) > 1  # rule 3
 
@@ -377,9 +378,9 @@ def _group_examples_by_stage(
         skip = False
         for record in example:
             if stage is None:
-                stage = record["meta_vars.stage"]
+                stage = record[STAGE_KEY]
             else:
-                if record["meta_vars.stage"] != stage:
+                if record[STAGE_KEY] != stage:
                     # HACK: unlike positive examples, negative examples in the relations are not naturally grouped by the stage values, so we should skip the negative examples that are not consistent with the stage values
                     skip = True
                     break
@@ -482,7 +483,7 @@ def find_precondition_from_single_group(
             # for the preconditions for each stage, adding the stage clause
             for stage in grouped_preconditions:
                 stage_clause = PreconditionClause(
-                    "meta_vars.stage", str, PT.CONSTANT, None, {stage}
+                    STAGE_KEY, str, PT.CONSTANT, None, {stage}
                 )
                 if len(grouped_preconditions[stage]) == 1 and isinstance(
                     grouped_preconditions[stage][0], UnconditionalPrecondition

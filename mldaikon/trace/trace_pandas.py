@@ -28,6 +28,8 @@ from mldaikon.trace.utils import (
 
 logger = logging.getLogger(__name__)
 
+STAGE_KEY = "meta_vars.stage"
+
 
 # TODO: formalize the trace schema for efficient polars processing
 def test_dump(df):
@@ -86,14 +88,46 @@ class TracePandas(Trace):
         self._fill_missing_stage_init()
         self._index_context_manager_meta_vars()
 
+    def get_traces_for_stage(self) -> dict[str, "TracePandas"]:  # type: ignore
+        """Get the traces split by stages."""
+
+        if not self.is_stage_annotated():
+            raise ValueError("Trace is not annotated with stages.")
+
+        traces = {}
+        for stage in self.events[STAGE_KEY].unique():
+            traces[stage] = TracePandas(
+                self.events[self.events[STAGE_KEY] == stage],
+                truncate_incomplete_func_calls=False,
+            )
+
+        return traces
+
+    def get_all_stages(self) -> list[str]:
+        """Get all stages in the trace."""
+        if not self.is_stage_annotated():
+            raise ValueError("Trace is not annotated with stages.")
+
+        return self.events[STAGE_KEY].unique().tolist()
+
+    def is_func_called(self, func_name: str, stage: None | str):
+        """Check if a function is called in the trace."""
+        if stage is not None:
+            return (
+                func_name
+                in self.events[
+                    (self.events[STAGE_KEY] == stage)
+                    & (self.events["function"] == func_name)
+                ]["function"].unique()
+            )
+        return func_name in self.events["function"].unique()
+
     def _fill_missing_stage_init(self):
-        if "meta_vars.stage" not in self.events.columns:
+        if STAGE_KEY not in self.events.columns:
             return
 
         # fill all stage being NaN with "init"
-        self.events.loc[self.events["meta_vars.stage"].isna(), "meta_vars.stage"] = (
-            "init"
-        )
+        self.events.loc[self.events[STAGE_KEY].isna(), STAGE_KEY] = "init"
 
     def _rm_incomplete_trailing_func_calls(self):
         """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
@@ -263,32 +297,44 @@ class TracePandas(Trace):
 
             # find nearest enter and exit events with the same obj_id
             obj_id = init_pre_record["obj_id"]
+            try:
+                enter_post_record = (
+                    self.events[
+                        (self.events["type"] == TraceLineType.FUNC_CALL_POST)
+                        & (
+                            self.events["function"]
+                            == f"{context_manager_name}.__enter__"
+                        )
+                        & (self.events["obj_id"] == obj_id)
+                        & (self.events["time"] > init_pre_record["time"])
+                        & (self.events["process_id"] == process_id)
+                        & (self.events["thread_id"] == thread_id)
+                    ]
+                    .iloc[0]
+                    .to_dict()
+                )
 
-            enter_post_record = (
-                self.events[
-                    (self.events["type"] == TraceLineType.FUNC_CALL_POST)
-                    & (self.events["function"] == f"{context_manager_name}.__enter__")
-                    & (self.events["obj_id"] == obj_id)
-                    & (self.events["time"] > init_pre_record["time"])
-                    & (self.events["process_id"] == process_id)
-                    & (self.events["thread_id"] == thread_id)
-                ]
-                .iloc[0]
-                .to_dict()
-            )
-
-            exit_pre_record = (
-                self.events[
-                    (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
-                    & (self.events["function"] == f"{context_manager_name}.__exit__")
-                    & (self.events["obj_id"] == obj_id)
-                    & (self.events["time"] > enter_post_record["time"])
-                    & (self.events["process_id"] == process_id)
-                    & (self.events["thread_id"] == thread_id)
-                ]
-                .iloc[0]
-                .to_dict()
-            )
+                exit_pre_record = (
+                    self.events[
+                        (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+                        & (
+                            self.events["function"]
+                            == f"{context_manager_name}.__exit__"
+                        )
+                        & (self.events["obj_id"] == obj_id)
+                        & (self.events["time"] > enter_post_record["time"])
+                        & (self.events["process_id"] == process_id)
+                        & (self.events["thread_id"] == thread_id)
+                    ]
+                    .iloc[0]
+                    .to_dict()
+                )
+            except IndexError:
+                # sometimes this happens. an enter might not have a corresponding exit, vice versa. e.g. torch.serialization._opener.__enter__ and torch.serialization._open_zipfile_writer_file.__exit__
+                logger.warning(
+                    f"Context manager {context_manager_name} not used properly. Skipping."
+                )
+                continue
 
             assert (
                 enter_post_record["time"] < exit_pre_record["time"]
@@ -330,7 +376,7 @@ class TracePandas(Trace):
     def is_stage_annotated(self):
         # ideally we want to have a static manifest for the trace produced by the instrumentor according to the args
         # but for now, we will check if the trace has the stage column
-        return "stage" in self.events.columns
+        return STAGE_KEY in self.events.columns
 
     def query_active_context_managers(
         self, time: float, process_id: int, thread_id: int
