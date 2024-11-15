@@ -241,9 +241,11 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
             #     ), f"grad_fn should be None or callable, but got {attr}"
             # result[attr_name] = typename(attr) if attr is not None else None
 
-            if attr_name == "dtype":
+            elif isinstance(attr, torch.dtype):
                 # result[attr_name] = typename(attr)
                 result[attr_name] = str(attr)
+            elif isinstance(attr, torch.Size):
+                result[attr_name] = tuple(attr)
 
         except Exception as e:  # noqa
             print_debug(
@@ -270,6 +272,8 @@ def var_to_serializable(obj) -> dict[str, object]:
     except TypeError:
         if isinstance(obj, torch.dtype):
             return {typename(obj): str(obj)}
+        elif isinstance(obj, torch.Size):
+            return {typename(obj): tuple(obj)}
         try:
             var_dict = convert_var_to_dict(obj, include_tensor_data=False)
             return {typename(obj): var_dict}
