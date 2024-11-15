@@ -248,8 +248,8 @@ class APIParam(Param):
     def __init__(
         self,
         api_full_name: str,
-        exception: Exception | MD_NONE = MD_NONE(),
-        arguments: Arguments | MD_NONE = MD_NONE(),
+        exception: Exception | _NOT_SET = _NOT_SET,
+        arguments: Arguments | _NOT_SET = _NOT_SET,
     ):
         self.api_full_name = api_full_name
         self.exception = exception
@@ -273,7 +273,7 @@ class APIParam(Param):
             matched = matched and not isinstance(event, FuncCallExceptionEvent)
 
         # check the arguments if they are provided
-        if not isinstance(self.arguments, MD_NONE):
+        if self.arguments != _NOT_SET and not isinstance(self.arguments, MD_NONE):
             # current_args should not violate the provided arguments (i.e., self.arguments should be a subset of current_args)
             current_args = Arguments(event.args, event.kwargs, event.func_name)
             matched = matched and not self.arguments.check_for_violation(current_args)
