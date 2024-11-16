@@ -749,7 +749,7 @@ class Instrumentor:
             try:
                 attr = getattr(pymodule, attr_name)
                 if "method_descriptor" not in str(type(attr)):
-                    print("TRIGGERED", attr_name)
+                    # print("TRIGGERED", attr_name)
                     attr = None
             except Exception:
                 pass
