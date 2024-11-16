@@ -30,7 +30,7 @@ def annotate_stage(stage_name: str):
 
 
 def annotate_answer_start_token_ids(
-    answer_start_token_ids: list[int], include_start_tokens: bool = False
+    answer_start_token_id: int, include_start_token: bool = False
 ):
     """Annotate the answer start token ids specifically for prompt generation tasks. If this is provided, ML-DAIKON will look for transformer.generate method calls
     and use this information to only dump the response tokens.
@@ -44,5 +44,5 @@ def annotate_answer_start_token_ids(
     If the answer_start_token_ids corresponds to the end of the input prompt, set include_start_tokens to False,
     Otherwise the token_ids should correspond to the start of the answer in the input prompt, and include_start_tokens should be set to True.
     """
-    tracer.GENERATE_START_TOKEN_IDS = answer_start_token_ids
-    tracer.GENERATE_START_TOKEN_IDS_INCLUDE_START_TOKENS = include_start_tokens
+    tracer.GENERATE_START_TOKEN_ID = answer_start_token_id
+    tracer.GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = include_start_token

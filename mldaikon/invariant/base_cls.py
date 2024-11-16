@@ -570,7 +570,7 @@ class InputOutputParam(Param):
         assert (
             self.additional_path is not None
         ), "Additional path should be None when calling get_value_from_list_of_tensors"
-
+        print("index", self.index)
         tensor = list_of_tensors[self.index]
         value = tensor
         for additional_path in self.additional_path:
@@ -592,7 +592,7 @@ class InputOutputParam(Param):
                     if path not in arg:
                         raise ValueError("Arg cannot be found.")
                     arg = arg[path]
-            return arg
+            return list(arg.values())[0]
         else:
             raise ValueError(f"Name {self.name} not found in the arguments.")
 

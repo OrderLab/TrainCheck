@@ -698,7 +698,7 @@ class ThresholdRelation(Relation):
         logger = logging.getLogger(__name__)
         all_func_names = trace.get_func_names()
         relevant_func_call_events = get_events_of_funcs_with_tensors(
-            all_func_names, trace, output_has_tensors=True, input_has_tensors=True
+            all_func_names, trace, output_has_tensors=True, input_has_tensors=False
         )
         max_hypotheses: dict[
             str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
@@ -725,51 +725,58 @@ class ThresholdRelation(Relation):
                 )  # {value:path}
                 for (
                     output_value,
-                    output_path,
+                    output_paths,
                 ) in output_values_paths.items():  # {value:path}
                     if not isinstance(output_value, (int, float)):
                         continue
-
-                    output_param = InputOutputParam(
-                        name="output_tensors",
-                        index=output_path[0],
-                        type="torch.Tensor",
-                        additional_path=tuple(output_path[1:]),
-                        api_name=func_name,
-                        is_input=False,
-                    )
-
-                    # try form min threshold hypotheses
-                    for min_threshold in min_thresholds:
-                        threshold_name, threshold_value = list(min_threshold.items())[0]
-                        input_param = InputOutputParam(
-                            name=threshold_name,
-                            index=None,
-                            type=str(type(threshold_value)),
-                            additional_path=None,
+                    for output_path in output_paths:
+                        assert not isinstance(
+                            output_path[0], (list, tuple)
+                        ), f"Index should be a single value, got {output_path}"
+                        output_param = InputOutputParam(
+                            name="output_tensors",
+                            index=output_path[0],
+                            type="torch.Tensor",
+                            additional_path=tuple(output_path[1:]),
                             api_name=func_name,
-                            is_input=True,
+                            is_input=False,
                         )
-                        if (
-                            func_name in min_hypotheses
-                            and (input_param, output_param) in min_hypotheses[func_name]
-                        ):
-                            continue
 
-                        if (
-                            output_value >= threshold_value
-                            and (output_value - threshold_value) / threshold_value
-                            <= 0.2
-                        ):
-
-                            if func_name not in min_hypotheses:
-                                min_hypotheses[func_name] = {}
-
-                            logger.info(
-                                f"Forming hypothesis for {func_name}: output param {output_param} is bounded below by min threshold {input_param}"
+                        # try form min threshold hypotheses
+                        for min_threshold in min_thresholds:
+                            threshold_name, threshold_value = list(
+                                min_threshold.items()
+                            )[0]
+                            input_param = InputOutputParam(
+                                name=threshold_name,
+                                index=None,
+                                type=str(type(threshold_value)),
+                                additional_path=None,
+                                api_name=func_name,
+                                is_input=True,
                             )
-                            min_hypotheses[func_name][(input_param, output_param)] = (
-                                Hypothesis(
+                            if (
+                                func_name in min_hypotheses
+                                and (input_param, output_param)
+                                in min_hypotheses[func_name]
+                            ):
+                                continue
+
+                            if (
+                                output_value >= threshold_value
+                                and (output_value - threshold_value) / threshold_value
+                                <= 0.2
+                            ):
+
+                                if func_name not in min_hypotheses:
+                                    min_hypotheses[func_name] = {}
+
+                                logger.info(
+                                    f"Forming hypothesis for {func_name}: output param {output_param} is bounded below by min threshold {input_param}"
+                                )
+                                min_hypotheses[func_name][
+                                    (input_param, output_param)
+                                ] = Hypothesis(
                                     invariant=Invariant(
                                         relation=ThresholdRelation,
                                         params=[
@@ -787,39 +794,42 @@ class ThresholdRelation(Relation):
                                         {"pre_event"}
                                     ),  # q: do we need input attributes as precondition here? probably not
                                 )
+
+                        # try form max threshold hypotheses
+                        for max_threshold in max_thresholds:
+                            threshold_name, threshold_value = list(
+                                max_threshold.items()
+                            )[0]
+                            input_param = InputOutputParam(
+                                name=threshold_name,
+                                index=None,
+                                type=str(type(threshold_value)),
+                                additional_path=None,
+                                api_name=func_name,
+                                is_input=True,
                             )
+                            if (
+                                func_name in max_hypotheses
+                                and (input_param, output_param)
+                                in max_hypotheses[func_name]
+                            ):
+                                continue
 
-                    # try form max threshold hypotheses
-                    for max_threshold in max_thresholds:
-                        threshold_name, threshold_value = list(max_threshold.items())[0]
-                        input_param = InputOutputParam(
-                            name=threshold_name,
-                            index=None,
-                            type=str(type(threshold_value)),
-                            additional_path=None,
-                            api_name=func_name,
-                            is_input=True,
-                        )
-                        if (
-                            func_name in max_hypotheses
-                            and (input_param, output_param) in max_hypotheses[func_name]
-                        ):
-                            continue
+                            if (
+                                output_value <= threshold_value
+                                and (threshold_value - output_value) / threshold_value
+                                <= 0.2
+                            ):
 
-                        if (
-                            output_value <= threshold_value
-                            and (threshold_value - output_value) / threshold_value
-                            <= 0.2
-                        ):
+                                if func_name not in max_hypotheses:
+                                    max_hypotheses[func_name] = {}
 
-                            if func_name not in max_hypotheses:
-                                max_hypotheses[func_name] = {}
-
-                            logger.info(
-                                f"Forming hypothesis for {func_name}: output param {output_param} is bounded above by max threshold {input_param}"
-                            )
-                            max_hypotheses[func_name][(input_param, output_param)] = (
-                                Hypothesis(
+                                logger.info(
+                                    f"Forming hypothesis for {func_name}: output param {output_param} is bounded above by max threshold {input_param}"
+                                )
+                                max_hypotheses[func_name][
+                                    (input_param, output_param)
+                                ] = Hypothesis(
                                     invariant=Invariant(
                                         relation=ThresholdRelation,
                                         params=[
@@ -837,7 +847,6 @@ class ThresholdRelation(Relation):
                                         {"pre_event"}
                                     ),  # q: do we need input attributes as precondition here? probably not
                                 )
-                            )
 
             # now, scan for positive and negative examples
             for func_event in relevant_func_call_events[func_name].values():
@@ -869,6 +878,7 @@ class ThresholdRelation(Relation):
                     for (input_param, output_param), hypothesis in max_hypotheses[
                         func_name
                     ].items():
+                        print(argument.arguments)
                         max_threshold = input_param.get_value_from_arguments(argument)
                         output_value = output_param.get_value_from_list_of_tensors(
                             output_tensors
