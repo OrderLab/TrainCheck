@@ -224,10 +224,12 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
 
             elif include_tensor_data and isinstance(attr, torch.Tensor):
                 result[attr_name] = dump_tensor(attr)
+                result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
 
             elif include_tensor_data and isinstance(attr, torch.nn.parameter.Parameter):
                 result[attr_name] = attr.__class__.__name__ + "(Parameter)"
                 result[attr_name] = dump_tensor(attr.data)
+                result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
 
             elif include_tensor_data and isinstance(attr, torch.nn.Module):
                 result[attr_name] = attr.__class__.__name__ + "(nn.Module)"
