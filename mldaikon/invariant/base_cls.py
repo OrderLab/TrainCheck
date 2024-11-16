@@ -47,9 +47,9 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
         func_paths = func_name.split(".")
         module_name = func_paths[0]
         for i in range(1, len(func_paths) - 1):
-            if func_paths[i][0].isupper():  # indicates the start of the class name
-                break
             module_name += "." + func_paths[i]
+            if func_paths[i + 1][0].isupper():  # indicates the start of the class name
+                break
 
         left_over_paths = func_paths[i + 1 :]
 

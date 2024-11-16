@@ -765,6 +765,9 @@ class ThresholdRelation(Relation):
                             if func_name not in min_hypotheses:
                                 min_hypotheses[func_name] = {}
 
+                            logger.info(
+                                f"Forming hypothesis for {func_name}: output param {output_param} is bounded below by min threshold {input_param}"
+                            )
                             min_hypotheses[func_name][(input_param, output_param)] = (
                                 Hypothesis(
                                     invariant=Invariant(
@@ -812,6 +815,9 @@ class ThresholdRelation(Relation):
                             if func_name not in max_hypotheses:
                                 max_hypotheses[func_name] = {}
 
+                            logger.info(
+                                f"Forming hypothesis for {func_name}: output param {output_param} is bounded above by max threshold {input_param}"
+                            )
                             max_hypotheses[func_name][(input_param, output_param)] = (
                                 Hypothesis(
                                     invariant=Invariant(
