@@ -47,9 +47,9 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
         func_paths = func_name.split(".")
         module_name = func_paths[0]
         for i in range(1, len(func_paths) - 1):
-            if func_paths[i][0].isupper():  # indicates the start of the class name
-                break
             module_name += "." + func_paths[i]
+            if func_paths[i + 1][0].isupper():  # indicates the start of the class name
+                break
 
         left_over_paths = func_paths[i + 1 :]
 
@@ -132,6 +132,14 @@ class Arguments:
                     raise ValueError(
                         f"Too many positional arguments for function {func_name}, expecting {len(signature_params)} ({signature_params}) but got {len(args)}"  # type: ignore
                     )
+
+            if consider_default_values:
+                for param_name, param in self.signature.parameters.items():
+                    if (
+                        param_name not in self.arguments
+                        and param.default != inspect.Parameter.empty
+                    ):
+                        self.arguments[param_name] = var_to_serializable(param.default)
 
             if consider_default_values:
                 for param_name, param in self.signature.parameters.items():
@@ -587,12 +595,31 @@ class InputOutputParam(Param):
         assert (
             self.additional_path is not None
         ), "Additional path should be None when calling get_value_from_list_of_tensors"
-
+        print("index", self.index)
         tensor = list_of_tensors[self.index]
         value = tensor
         for additional_path in self.additional_path:
             value = value[additional_path]
         return value
+
+    def get_value_from_arguments(self, arguments: Arguments) -> Any:
+        assert (
+            self.name is not None
+        ), "Name should be when calling get_value_from_arguments"
+        assert (
+            self.additional_path is None
+        ), "Additional path should be None when calling get_value_from_arguments"
+
+        if self.name in arguments.arguments:
+            arg = arguments.arguments[self.name]
+            if self.additional_path:
+                for path in self.additional_path:
+                    if path not in arg:
+                        raise ValueError("Arg cannot be found.")
+                    arg = arg[path]
+            return list(arg.values())[0]
+        else:
+            raise ValueError(f"Name {self.name} not found in the arguments.")
 
 
 def construct_api_param(

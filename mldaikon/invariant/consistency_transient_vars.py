@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 from mldaikon.invariant.base_cls import (
     APIParam,
+    Arguments,
     CheckerResult,
     Example,
     ExampleList,
@@ -24,14 +25,45 @@ from mldaikon.trace.types import (
     IncompleteFuncCallEvent,
 )
 
-# import pickle
-# import os
-
-
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"
 
 # _CACHE_PATH = "func_with_tensors.pkl"
+
+
+# for each value observed, form a dict of {value: path to access the value}
+def _get_tensor_value_paths(tensors: list[dict]) -> dict:
+    logger = logging.getLogger(__name__)
+
+    values: dict[Hashable, list[list[str | int]]] = {}
+    for idx, tensor in enumerate(tensors):
+        for prop, prop_val in tensor.items():
+            if isinstance(prop_val, (list, tuple)):
+                # mainly for shape and ndims related fields
+                for val_idx, val in enumerate(prop_val):
+                    if not isinstance(val, Hashable):
+                        # we can't hash unhashable types
+                        logger.warning(
+                            f"Unhashable prop {prop}: {str(prop_val)} found in the input tensor, skipping the value."
+                        )
+                        continue
+                    if val not in values:
+                        values[val] = []
+
+                    values[val].append([idx, prop, val_idx])
+
+            else:
+                if not isinstance(prop_val, Hashable):
+                    # we can't hash unhashable types
+                    logger.warning(
+                        f"Unhashable prop {prop}: {str(prop_val)} found in the input tensor, skipping the value."
+                    )
+                    continue
+                if prop_val not in values:
+                    values[prop_val] = []
+
+                values[prop_val].append([idx, prop])
+    return values
 
 
 def filter_functions_with_tensors(
@@ -114,7 +146,7 @@ def get_returned_tensors(
     assert not isinstance(
         func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
     ), "Exceptions or incomplete function calls don't have return values."
-
+    # dict[str, dict[str, object]] | list[dict[str, dict[str, object]]]
     returned_tensors = []
     return_values = func_call_event.return_values
     if isinstance(return_values, dict):
@@ -139,14 +171,45 @@ def get_input_tensors(
         arg_type = list(arg.keys())[0]
         if re.match(TENSOR_PATTERN, arg_type) or PARAMETER_KEYWORD in arg_type:
             input_tensors.append(arg[arg_type])
-
+    # ["type":value]
     for kwarg in func_call_event.kwargs.values():
         assert len(kwarg) == 1
         kwarg_type = list(kwarg.keys())[0]
         if re.match(TENSOR_PATTERN, kwarg_type) or PARAMETER_KEYWORD in kwarg_type:
             input_tensors.append(kwarg[kwarg_type])
-
+    # {name:type:value}
     return input_tensors
+
+
+def get_input_thresholds(
+    func_call_event: FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent,
+) -> tuple[list[dict], list[dict]]:
+    """
+    Get all the input thresholds that are passed to the function calls.
+
+    Output: [{arg_name: threshold_value}]  TODO: theoretically, we should be able to parse arbitrary threshold values in nested structures, here we assume
+    that the threshold values are primitive types passed as direct arguments to the function calls, but this might not be true for GenerationConfig
+    """
+    min_thresholds = []
+    max_thresholds = []
+
+    arguments = Arguments(
+        func_call_event.args,
+        func_call_event.kwargs,
+        func_call_event.func_name,
+        consider_default_values=True,
+    )
+
+    for arg_name, arg_type_and_value in arguments.arguments.items():
+        arg_value = list(arg_type_and_value.values())[0]
+        if not isinstance(arg_value, (int, float)):
+            continue
+        if "min" in arg_name:
+            min_thresholds.append({arg_name: arg_value})
+        if "max" in arg_name:
+            max_thresholds.append({arg_name: arg_value})
+
+    return min_thresholds, max_thresholds
 
 
 def get_events_of_funcs_with_tensors(
@@ -473,10 +536,17 @@ class ConsistentInputOutputRelation(Relation):
             str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
         ] = {}
 
+        # func_name: [
+        #     - func_call_id (str): func_call_event
+        #     - func_call_id (str): func_call_event
+        #     - ...
+        # ]
+
         for func_name in tqdm(
             relevant_func_call_events,
             desc="Infer hypotheses for consistent input output relation on functions",
         ):
+            logger.info(f"Infer hypotheses for {func_name}")
             # TBD: test matmul input / output shape constraints though we did not instrument matmul
             api_param = APIParam(api_full_name=func_name)
             for func_event in tqdm(
@@ -486,46 +556,12 @@ class ConsistentInputOutputRelation(Relation):
                 # try to form hypothesis for each function call
 
                 # get the input and output tensors of the function call
-                input_tensors = get_input_tensors(
-                    func_event
-                )  # potentially we need to attach the tensors to their signature in the function definition, for now let's assume that the tensors in the same order as they are defined and use index to access them
+                input_tensors = get_input_tensors(func_event)
+                # potentially we need to attach the tensors to their signature in the function definition, for now let's assume that the tensors in the same order as they are defined and use index to access them
                 output_tensors = get_returned_tensors(func_event)
 
-                # for each value observed, form a dict of {value: path to access the value}
-                def _get_value_paths(tensors: list[dict]) -> dict:
-                    values: dict[Hashable, list[list[str | int]]] = {}
-                    for idx, tensor in enumerate(tensors):
-                        for prop, prop_val in tensor.items():
-                            if isinstance(prop_val, (list, tuple)):
-                                # mainly for shape and ndims related fields
-                                for val_idx, val in enumerate(prop_val):
-                                    if not isinstance(val, Hashable):
-                                        # we can't hash unhashable types
-                                        logger.warning(
-                                            f"Unhashable prop {prop}: {str(prop_val)} found in the input tensor of the function call {func_event}, skipping the value."
-                                        )
-                                        continue
-                                    if val not in values:
-                                        values[val] = []
-
-                                    values[val].append([idx, prop, val_idx])
-
-                            else:
-                                if not isinstance(prop_val, Hashable):
-                                    # we can't hash unhashable types
-                                    logger.warning(
-                                        f"Unhashable prop {prop}: {str(prop_val)} found in the input tensor of the function call {func_event}, skipping the value."
-                                    )
-                                    continue
-                                if prop_val not in values:
-                                    values[prop_val] = []
-
-                                values[prop_val].append([idx, prop])
-
-                    return values
-
-                input_values_paths = _get_value_paths(input_tensors)
-                output_values_paths = _get_value_paths(output_tensors)
+                input_values_paths = _get_tensor_value_paths(input_tensors)
+                output_values_paths = _get_tensor_value_paths(output_tensors)
 
                 # find the common values between the input and output tensors and form hypotheses for them
                 input_values = set(input_values_paths.keys())
@@ -639,6 +675,241 @@ class ConsistentInputOutputRelation(Relation):
                 else:
                     failed_hypotheses.append(FailedHypothesis(hypothesis))
 
+        return invariants, failed_hypotheses
+
+    @staticmethod
+    def evaluate(value_group: list) -> bool:
+        raise NotImplementedError
+
+    @staticmethod
+    def static_check_all(trace, inv, check_relation_first):
+        raise NotImplementedError
+
+
+class ThresholdRelation(Relation):
+    """Infer common properties that should be enforced across the input and output of a function call.
+
+    This relation is mainly implemented to support constraints supported/inferred by PyTea (ICSE'22) and NeuRI (FSE'23)
+    """
+
+    @staticmethod
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+        # get the function calls that have tensors or nn.Modules as both input and output
+        logger = logging.getLogger(__name__)
+        all_func_names = trace.get_func_names()
+        relevant_func_call_events = get_events_of_funcs_with_tensors(
+            all_func_names, trace, output_has_tensors=True, input_has_tensors=False
+        )
+        max_hypotheses: dict[
+            str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
+        ] = {}
+        min_hypotheses: dict[
+            str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
+        ] = {}
+
+        for func_name in tqdm(
+            relevant_func_call_events,
+            desc="Infer hypotheses for threshold relation on functions",
+        ):
+            logger.info(f"Infer hypotheses for {func_name}")
+            api_param = APIParam(api_full_name=func_name)
+            for func_event in tqdm(
+                relevant_func_call_events[func_name].values(),
+                desc=f"Infer hypotheses for {func_name}",
+            ):
+                min_thresholds, max_thresholds = get_input_thresholds(func_event)
+                output_tensors = get_returned_tensors(func_event)
+
+                output_values_paths = _get_tensor_value_paths(
+                    output_tensors
+                )  # {value:path}
+                for (
+                    output_value,
+                    output_paths,
+                ) in output_values_paths.items():  # {value:path}
+                    if not isinstance(output_value, (int, float)):
+                        continue
+                    for output_path in output_paths:
+                        assert not isinstance(
+                            output_path[0], (list, tuple)
+                        ), f"Index should be a single value, got {output_path}"
+                        output_param = InputOutputParam(
+                            name="output_tensors",
+                            index=output_path[0],
+                            type="torch.Tensor",
+                            additional_path=tuple(output_path[1:]),
+                            api_name=func_name,
+                            is_input=False,
+                        )
+
+                        # try form min threshold hypotheses
+                        for min_threshold in min_thresholds:
+                            threshold_name, threshold_value = list(
+                                min_threshold.items()
+                            )[0]
+                            input_param = InputOutputParam(
+                                name=threshold_name,
+                                index=None,
+                                type=str(type(threshold_value)),
+                                additional_path=None,
+                                api_name=func_name,
+                                is_input=True,
+                            )
+                            if (
+                                func_name in min_hypotheses
+                                and (input_param, output_param)
+                                in min_hypotheses[func_name]
+                            ):
+                                continue
+
+                            if (
+                                output_value >= threshold_value
+                                and (output_value - threshold_value) / threshold_value
+                                <= 0.2
+                            ):
+
+                                if func_name not in min_hypotheses:
+                                    min_hypotheses[func_name] = {}
+
+                                logger.info(
+                                    f"Forming hypothesis for {func_name}: output param {output_param} is bounded below by min threshold {input_param}"
+                                )
+                                min_hypotheses[func_name][
+                                    (input_param, output_param)
+                                ] = Hypothesis(
+                                    invariant=Invariant(
+                                        relation=ThresholdRelation,
+                                        params=[
+                                            output_param,
+                                            api_param,
+                                            input_param,
+                                        ],  # the first param should be larger or equal to the second param
+                                        precondition=None,
+                                        text_description=f"Output tensor's value at {output_param.additional_path} is consistently larger than or equal to the min input threshold {input_param.name} for the function {func_name}.",
+                                    ),
+                                    positive_examples=ExampleList(
+                                        {"pre_event"}
+                                    ),  # q: do we need input attributes as precondition here? probably not
+                                    negative_examples=ExampleList(
+                                        {"pre_event"}
+                                    ),  # q: do we need input attributes as precondition here? probably not
+                                )
+
+                        # try form max threshold hypotheses
+                        for max_threshold in max_thresholds:
+                            threshold_name, threshold_value = list(
+                                max_threshold.items()
+                            )[0]
+                            input_param = InputOutputParam(
+                                name=threshold_name,
+                                index=None,
+                                type=str(type(threshold_value)),
+                                additional_path=None,
+                                api_name=func_name,
+                                is_input=True,
+                            )
+                            if (
+                                func_name in max_hypotheses
+                                and (input_param, output_param)
+                                in max_hypotheses[func_name]
+                            ):
+                                continue
+
+                            if (
+                                output_value <= threshold_value
+                                and (threshold_value - output_value) / threshold_value
+                                <= 0.2
+                            ):
+
+                                if func_name not in max_hypotheses:
+                                    max_hypotheses[func_name] = {}
+
+                                logger.info(
+                                    f"Forming hypothesis for {func_name}: output param {output_param} is bounded above by max threshold {input_param}"
+                                )
+                                max_hypotheses[func_name][
+                                    (input_param, output_param)
+                                ] = Hypothesis(
+                                    invariant=Invariant(
+                                        relation=ThresholdRelation,
+                                        params=[
+                                            input_param,
+                                            api_param,
+                                            output_param,
+                                        ],  # the first param should be larger or equal to the second param
+                                        precondition=None,
+                                        text_description=f"Output tensor's value at {output_param.additional_path} is consistently less than or equal to the max input threshold {input_param.name} for the function {func_name}.",
+                                    ),
+                                    positive_examples=ExampleList(
+                                        {"pre_event"}
+                                    ),  # q: do we need input attributes as precondition here? probably not
+                                    negative_examples=ExampleList(
+                                        {"pre_event"}
+                                    ),  # q: do we need input attributes as precondition here? probably not
+                                )
+
+            # now, scan for positive and negative examples
+            for func_event in relevant_func_call_events[func_name].values():
+                min_thresholds, max_thresholds = get_input_thresholds(func_event)
+                output_tensors = get_returned_tensors(func_event)
+                argument = Arguments(
+                    func_event.args,
+                    func_event.kwargs,
+                    func_event.func_name,
+                    consider_default_values=True,
+                )
+                output_tensors = get_returned_tensors(func_event)
+                if func_name in min_hypotheses:
+                    for (input_param, output_param), hypothesis in min_hypotheses[
+                        func_name
+                    ].items():
+                        min_threshold = input_param.get_value_from_arguments(argument)
+                        output_value = output_param.get_value_from_list_of_tensors(
+                            output_tensors
+                        )
+
+                        example = Example({"pre_event": [func_event.pre_record]})
+                        if output_value >= min_threshold:
+                            hypothesis.positive_examples.add_example(example)
+                        else:
+                            hypothesis.negative_examples.add_example(example)
+
+                if func_name in max_hypotheses:
+                    for (input_param, output_param), hypothesis in max_hypotheses[
+                        func_name
+                    ].items():
+                        print(argument.arguments)
+                        max_threshold = input_param.get_value_from_arguments(argument)
+                        output_value = output_param.get_value_from_list_of_tensors(
+                            output_tensors
+                        )
+
+                        example = Example({"pre_event": [func_event.pre_record]})
+                        if output_value <= max_threshold:
+                            hypothesis.positive_examples.add_example(example)
+                        else:
+                            hypothesis.negative_examples.add_example(example)
+
+        # now that we have the hypotheses for each function, we can start precondition inference
+        invariants = []
+        failed_hypotheses = []
+        for func_name, hypotheses in min_hypotheses.items():
+            for hypothesis in hypotheses.values():
+                precondition = find_precondition(hypothesis, trace)
+                if precondition is not None:
+                    hypothesis.invariant.precondition = precondition
+                    invariants.append(hypothesis.invariant)
+                else:
+                    failed_hypotheses.append(FailedHypothesis(hypothesis))
+
+        for func_name, hypotheses in max_hypotheses.items():
+            for hypothesis in hypotheses.values():
+                precondition = find_precondition(hypothesis, trace)
+                if precondition is not None:
+                    hypothesis.invariant.precondition = precondition
+                    invariants.append(hypothesis.invariant)
+                else:
+                    failed_hypotheses.append(FailedHypothesis(hypothesis))
         return invariants, failed_hypotheses
 
     @staticmethod
