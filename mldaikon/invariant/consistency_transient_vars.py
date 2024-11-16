@@ -200,7 +200,10 @@ def get_input_thresholds(
         consider_default_values=True,
     )
 
-    for arg_name, arg_value in arguments.arguments.items():
+    for arg_name, arg_type_and_value in arguments.arguments.items():
+        arg_value = list(arg_type_and_value.values())[0]
+        if not isinstance(arg_value, (int, float)):
+            continue
         if "min" in arg_name:
             min_thresholds.append({arg_name: arg_value})
         if "max" in arg_name:
@@ -724,6 +727,8 @@ class ThresholdRelation(Relation):
                     output_value,
                     output_path,
                 ) in output_values_paths.items():  # {value:path}
+                    if not isinstance(output_value, (int, float)):
+                        continue
 
                     output_param = InputOutputParam(
                         name="output_tensors",
