@@ -16,6 +16,7 @@ from mldaikon.invariant.base_cls import (
     Invariant,
     Relation,
     VarTypeParam,
+    make_hashable,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
@@ -307,6 +308,9 @@ class ConsistentOutputRelation(Relation):
             for func_call_event, returned_tensors in all_returned_tensors:
                 for returned_tensor in returned_tensors:
                     for prop, prop_val in returned_tensor.items():
+                        if not isinstance(prop_val, Hashable):
+                            # make it hashable
+                            prop_val = make_hashable(prop_val)
                         if prop not in properties_occur_num:
                             properties_occur_num[prop] = {}
                             properties_corresponding_func_call[prop] = {}
@@ -322,6 +326,9 @@ class ConsistentOutputRelation(Relation):
             # generate a hypothesis for each property
             for prop, prop_values in properties_occur_num.items():
                 for prop_val, _ in prop_values.items():
+                    if not isinstance(prop_val, Hashable):
+                        # make it hashable
+                        prop_val = make_hashable(prop_val)
                     # hypothesis priority can be given based on the number of times the property showed up
                     hypothesis = Hypothesis(
                         invariant=Invariant(
@@ -479,6 +486,8 @@ class ConsistentOutputRelation(Relation):
                     check_passed=False,
                     triggered=True,
                 )
+
+            # TODO: this might be wrong due to make hashable used in infer, proceed with caution
             for returned_tensor in returned_tensors:
                 prop = inv.params[1].attr_name
                 prop_val = inv.params[1].const_value
@@ -640,13 +649,19 @@ class ConsistentInputOutputRelation(Relation):
                 for (input_param, output_param), hypothesis in all_hypotheses[
                     func_name
                 ].items():
-                    input_value = input_param.get_value_from_list_of_tensors(
-                        input_tensors
-                    )
-                    output_value = output_param.get_value_from_list_of_tensors(
-                        output_tensors
-                    )
-
+                    # FIXME: sometimes there's no matching value in the input and output tensors, we need to handle this case, for now we skip it
+                    try:
+                        input_value = input_param.get_value_from_list_of_tensors(
+                            input_tensors
+                        )
+                        output_value = output_param.get_value_from_list_of_tensors(
+                            output_tensors
+                        )
+                    except (IndexError, KeyError):
+                        logger.warning(
+                            f"Could not find the matching value in the input and output tensors for the hypothesis {hypothesis}, skipping this function call."
+                        )
+                        continue
                     if input_value == output_value:
                         example = Example({"pre_event": [func_event.pre_record]})
                         hypothesis.positive_examples.add_example(example)

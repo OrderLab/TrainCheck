@@ -595,7 +595,7 @@ class InputOutputParam(Param):
         assert (
             self.additional_path is not None
         ), "Additional path should be None when calling get_value_from_list_of_tensors"
-        print("index", self.index)
+        # print("index", self.index)
         tensor = list_of_tensors[self.index]
         value = tensor
         for additional_path in self.additional_path:
