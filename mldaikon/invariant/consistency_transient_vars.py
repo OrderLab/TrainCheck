@@ -717,7 +717,8 @@ class ConsistentInputOutputRelation(Relation):
         # get all the function calls
         func_name = api_param.api_full_name
         func_call_ids = trace.get_func_call_ids(func_name)
-
+        triggered = False
+        
         for func_call_id in tqdm(
             func_call_ids, desc=f"Checking invariant {inv.text_description}"
         ):
