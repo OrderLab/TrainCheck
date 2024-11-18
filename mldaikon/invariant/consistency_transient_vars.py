@@ -639,6 +639,10 @@ class ConsistentInputOutputRelation(Relation):
                         all_hypotheses[func_name][
                             (input_param, output_param)
                         ] = hypothesis
+            
+            # if no hypothesis is formed for the function, we skip it
+            if func_name not in all_hypotheses:
+                continue
 
             # now, scan for positive and negative examples
             for func_event in relevant_func_call_events[func_name].values():
