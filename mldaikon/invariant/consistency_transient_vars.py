@@ -639,7 +639,7 @@ class ConsistentInputOutputRelation(Relation):
                         all_hypotheses[func_name][
                             (input_param, output_param)
                         ] = hypothesis
-            
+
             # if no hypothesis is formed for the function, we skip it
             if func_name not in all_hypotheses:
                 continue
@@ -712,13 +712,15 @@ class ConsistentInputOutputRelation(Relation):
         assert isinstance(api_param, APIParam)
         assert isinstance(output_param, InputOutputParam)
         assert inv.params[0].is_input
-        assert inv.params[2].is_input
+        assert not inv.params[2].is_input
+
+        logger = logging.getLogger(__name__)
 
         # get all the function calls
         func_name = api_param.api_full_name
         func_call_ids = trace.get_func_call_ids(func_name)
         triggered = False
-        
+
         for func_call_id in tqdm(
             func_call_ids, desc=f"Checking invariant {inv.text_description}"
         ):
@@ -734,14 +736,20 @@ class ConsistentInputOutputRelation(Relation):
             ):  # FIXME: need to query context
                 continue
 
-            triggered = True
-
             input_tensors = get_input_tensors(func_call_event)
             output_tensors = get_returned_tensors(func_call_event)
+            try:
+                input_value = input_param.get_value_from_list_of_tensors(input_tensors)
+                output_value = output_param.get_value_from_list_of_tensors(
+                    output_tensors
+                )
+            except (IndexError, KeyError):
+                logger.warning(
+                    f"Could not find the value to be checked in input or output tensors for the hypothesis {inv}, skipping this function call."
+                )
+                continue
 
-            input_value = input_param.get_value_from_list_of_tensors(input_tensors)
-            output_value = output_param.get_value_from_list_of_tensors(output_tensors)
-
+            triggered = True
             if input_value != output_value:
                 return CheckerResult(
                     trace=[func_call_event.pre_record],
