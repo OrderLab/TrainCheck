@@ -698,7 +698,59 @@ class ConsistentInputOutputRelation(Relation):
 
     @staticmethod
     def static_check_all(trace, inv, check_relation_first):
-        raise NotImplementedError
+
+        assert inv.precondition is not None, "The precondition should not be None."
+        assert len(inv.params) == 3
+
+        input_param, api_param, output_param = inv.params
+
+        assert isinstance(input_param, InputOutputParam)
+        assert isinstance(api_param, APIParam)
+        assert isinstance(output_param, InputOutputParam)
+        assert inv.params[0].is_input
+        assert inv.params[2].is_input
+
+        # get all the function calls
+        func_name = api_param.api_full_name
+        func_call_ids = trace.get_func_call_ids(func_name)
+
+        for func_call_id in tqdm(
+            func_call_ids, desc=f"Checking invariant {inv.text_description}"
+        ):
+            func_call_event = trace.query_func_call_event(func_call_id)
+            if isinstance(
+                func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
+            ):
+                continue
+
+            # check for precondition here
+            if not inv.precondition.verify(
+                [func_call_event.pre_record], "pre_event"
+            ):  # FIXME: need to query context
+                continue
+
+            triggered = True
+
+            input_tensors = get_input_tensors(func_call_event)
+            output_tensors = get_returned_tensors(func_call_event)
+
+            input_value = input_param.get_value_from_list_of_tensors(input_tensors)
+            output_value = output_param.get_value_from_list_of_tensors(output_tensors)
+
+            if input_value != output_value:
+                return CheckerResult(
+                    trace=[func_call_event.pre_record],
+                    invariant=inv,
+                    check_passed=False,
+                    triggered=True,
+                )
+
+        return CheckerResult(
+            trace=None,
+            invariant=inv,
+            check_passed=True,
+            triggered=triggered,
+        )
 
 
 class ThresholdRelation(Relation):
