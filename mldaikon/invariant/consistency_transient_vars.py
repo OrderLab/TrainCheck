@@ -933,4 +933,79 @@ class ThresholdRelation(Relation):
 
     @staticmethod
     def static_check_all(trace, inv, check_relation_first):
-        raise NotImplementedError
+        # get the first param and the second param, the first param should be larger or equal to the second param
+        # the first param should be larger or equal to the second param
+        assert inv.precondition is not None, "The precondition should not be None."
+        assert len(inv.params) == 3
+        max_param, api_param, min_param = inv.params
+        assert isinstance(max_param, InputOutputParam)
+        assert isinstance(api_param, APIParam)
+        assert isinstance(min_param, InputOutputParam)
+
+        if max_param.is_input:
+            assert not min_param.is_input
+            is_threshold_min = False
+            input_param = max_param
+            output_param = min_param
+        else:
+            assert min_param.is_input
+            is_threshold_min = True
+            input_param = min_param
+            output_param = max_param
+
+        func_name = api_param.api_full_name
+        # get all function calls for the function
+        func_call_ids = trace.get_func_call_ids(func_name)
+        if len(func_call_ids) == 0:
+            return CheckerResult(
+                trace=None, invariant=inv, check_passed=True, triggered=False
+            )
+
+        triggered = False
+        for func_call_id in tqdm(
+            func_call_ids, desc=f"Checking invariant {inv.text_description}"
+        ):
+            func_call_event = trace.query_func_call_event(func_call_id)
+            if isinstance(
+                func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
+            ):
+                continue
+
+            # check for precondition here
+            if not inv.precondition.verify([func_call_event.pre_record], "pre_event"):
+                continue
+
+            triggered = True
+
+            threshold_value = input_param.get_value_from_arguments(
+                Arguments(
+                    func_call_event.args,
+                    func_call_event.kwargs,
+                    func_call_event.func_name,
+                    consider_default_values=True,
+                )
+            )
+            output_value = output_param.get_value_from_list_of_tensors(
+                get_returned_tensors(func_call_event)
+            )
+
+            if is_threshold_min:
+                if output_value >= threshold_value:
+                    continue
+            else:
+                if output_value <= threshold_value:
+                    continue
+
+            return CheckerResult(
+                trace=[func_call_event.pre_record],
+                invariant=inv,
+                check_passed=False,
+                triggered=True,
+            )
+
+        return CheckerResult(
+            trace=None,
+            invariant=inv,
+            check_passed=True,
+            triggered=triggered,
+        )
