@@ -578,7 +578,7 @@ class FunctionCoverRelation(Relation):
                                     "The relation "
                                     + funcA
                                     + " covers "
-                                    + func_B
+                                    + funcB
                                     + " is violated!\n"
                                 )
                                 return CheckerResult(
