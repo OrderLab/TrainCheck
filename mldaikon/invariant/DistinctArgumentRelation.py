@@ -89,6 +89,26 @@ def get_event_data_per_function_per_step(trace: Trace, function_pool: Set[Any]):
     return function_pool, listed_arguments
 
 
+def get_event_list(trace: Trace, function_pool: Iterable[str]):
+    listed_events: List[dict[str, Any]]= []
+    # for all func_ids, get their corresponding events
+    for func_name in function_pool:
+        func_call_ids = trace.get_func_call_ids(func_name)
+        for func_call_id in func_call_ids:
+            event = trace.query_func_call_event(func_call_id)
+            listed_events.extend(
+                # [event.pre_record, event.post_record]
+                [event.pre_record]
+            )
+
+    # sort the listed_events
+    # for (process_id, thread_id), events_list in listed_events.items():
+    #     listed_events[(process_id, thread_id)] = sorted(
+    #         events_list, key=lambda x: x["time"]
+    #     )
+
+    return listed_events
+
 def compare_argument(value1, value2, IOU_criteria = True):
     if type(value1) != type(value2):
         return False
@@ -114,7 +134,7 @@ def compare_argument(value1, value2, IOU_criteria = True):
         return abs(value1 - value2) < 1e-8
     return value1 == value2
 
-def is_arguments_list_distinct(args1: list, args2: list):
+def is_arguments_list_same(args1: list, args2: list):
     if len(args1) != len(args2):
         return False
     for index in range(len(args1)):
@@ -206,7 +226,7 @@ class DistinctArgumentRelation(Relation):
                 for PT_pair1, PT_pair2 in combinations(records.keys(), 2):
                     for event1 in records[PT_pair1]:
                         for event2 in records[PT_pair2]:
-                            if(not is_arguments_list_distinct(event1["args"], event2["args"])):
+                            if(not is_arguments_list_same(event1["args"], event2["args"])):
                                 flag = True
                                 pos = Example()
                                 pos.add_group(EXP_GROUP_NAME, [event1, event2])
@@ -218,7 +238,7 @@ class DistinctArgumentRelation(Relation):
                     
                 for PT_pair in records.keys():
                     for event1, event2 in combinations(records[PT_pair], 2):
-                        if(not is_arguments_list_distinct(event1["args"], event2["args"])):
+                        if(not is_arguments_list_same(event1["args"], event2["args"])):
                             flag = True
                             pos = Example()
                             pos.add_group(EXP_GROUP_NAME, [event1, event2])
@@ -295,6 +315,34 @@ class DistinctArgumentRelation(Relation):
         """
         assert inv.precondition is not None, "Invariant should have a precondition."
 
+        # 1. Pre-process all the events
+        print("Start preprocessing....")
+        listed_arguments: Dict[str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]] = {}
+        function_pool: Set[Any] = set()
+        func= inv.params[0]
+
+        assert isinstance(
+            func, APIParam
+        ), "Invariant parameters should be APIParam."
+
+        func_name = func.api_full_name
+        function_pool.add(func_name)
+
+        function_pool, listed_arguments = get_event_data_per_function_per_step(
+            trace, function_pool
+        )
+
+        if not function_pool:
+            return CheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+                triggered=False,
+            )
+
+        events_list = get_event_list(trace, function_pool)
+        print("End preprocessing")
+
         if not inv.precondition.verify([events_list], EXP_GROUP_NAME):
             return CheckerResult(
                 trace=None,
@@ -303,7 +351,27 @@ class DistinctArgumentRelation(Relation):
                 triggered=False,
             )
 
-        # TODO: checking process
+        for step, records in listed_arguments[func_name].items():
+                for PT_pair1, PT_pair2 in combinations(records.keys(), 2):
+                    for event1 in records[PT_pair1]:
+                        for event2 in records[PT_pair2]:
+                            if(is_arguments_list_same(event1["args"], event2["args"])):
+                                return CheckerResult(
+                                    trace=[event1, event2],
+                                    invariant=inv,
+                                    check_passed=True,
+                                    triggered=True,
+                                )
+         
+                for PT_pair in records.keys():
+                    for event1, event2 in combinations(records[PT_pair], 2):
+                        if(is_arguments_list_same(event1["args"], event2["args"])):
+                            return CheckerResult(
+                                trace=[event1, event2],
+                                invariant=inv,
+                                check_passed=True,
+                                triggered=True,
+                            )
 
         return CheckerResult(
             trace=None,
