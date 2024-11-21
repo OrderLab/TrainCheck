@@ -14,6 +14,7 @@ from typing import Any, Callable, Optional
 import torch
 import torch.utils
 
+import mldaikon.config.config as config  # needed to allow for change of values after import
 from mldaikon.config.config import (
     INSTR_MODULES_TO_SKIP,
     TRAIN_STEP_NAMES,
@@ -748,7 +749,9 @@ class Instrumentor:
             # try getting it in case it is a descriptor (almost certainly will be)
             try:
                 attr = getattr(pymodule, attr_name)
-                if "method_descriptor" not in str(type(attr)):
+                if not (
+                    config.INSTR_DESCRIPTORS and "method_descriptor" in str(type(attr))
+                ):
                     # print("TRIGGERED", attr_name)
                     attr = None
             except Exception:
@@ -787,9 +790,11 @@ class Instrumentor:
                 return "Skipping attribute as it is in INSTR_MODULES_TO_SKIP"
 
         # 6. Skip if the attribute does not belong to the target root module
-        if not attr_full_name.startswith(self.root_module) and (
-            "Tensor" not in attr_full_name and "method_descriptor" not in attr_full_name
-        ):  # builtin methods in torch.Tensor's qualname does not start with torch for some reason
+        if not attr_full_name.startswith(self.root_module) and not (
+            config.INSTR_DESCRIPTORS
+            and ("method_descriptor" in attr_full_name or "Tensor" in attr_full_name)
+        ):
+            # builtin methods in torch.Tensor's qualname does not start with torch for some reason
             return "Skipping attribute as it does not belong to the root module"
 
         return None
@@ -880,8 +885,8 @@ class Instrumentor:
 
             if isinstance(
                 attr, (types.FunctionType, types.BuiltinFunctionType, _instancemethod_t)
-            ) or "method_descriptor" in str(
-                type(attr)
+            ) or (
+                config.INSTR_DESCRIPTORS and "method_descriptor" in str(type(attr))
             ):  # instrumented with potential accuracy issues as descriptor-controlled method access might change what to return based on given information, but is needed to get tensor method invocations
                 assert callable(attr), f"{attr} is not callable"
                 assert not (
