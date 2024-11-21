@@ -329,6 +329,7 @@ def instrument_file(
     API_dump_stack_trace: bool,
     cond_dump: bool,
     output_dir: str,
+    instr_descriptors: bool,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -358,6 +359,7 @@ os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
     general_config_update = f"""
 import mldaikon.config.config as general_config
 general_config.ENABLE_COND_DUMP = {cond_dump}
+general_config.INSTR_DESCRIPTORS = {instr_descriptors}
 """
 
     if models_to_track:

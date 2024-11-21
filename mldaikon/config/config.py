@@ -27,7 +27,6 @@ WRAP_WITHOUT_DUMP = [
     # "torch._VariableFunctionsClass",
     # "torch.get_default_dtype",
 ]
-
 ANALYSIS_SKIP_FUNC_NAMES = [
     "cuda.is_available",
     "torch.get_default_dtype",
@@ -123,3 +122,4 @@ TRAIN_STEP_NAMES = [
 ]
 
 ENABLE_COND_DUMP = False
+INSTR_DESCRIPTORS = False

@@ -123,6 +123,13 @@ if __name__ == "__main__":
         help="Only instrument and dump the modified file",
     )
     parser.add_argument(
+        "--instr-descriptors",
+        action="store_true",
+        help="""Instrument functions that can only be accessed through descriptors, 
+        Set this to true if you want to instrument built-in types like torch.Tensor, 
+        at the cost of larger (5x) instrumentation overhead and more interference with the program""",
+    )
+    parser.add_argument(
         "--profiling",
         type=str,  # @ziming-zh: why is this a string?
         default=proxy_config.profiling,
@@ -321,6 +328,7 @@ if __name__ == "__main__":
         API_dump_stack_trace=args.API_dump_stack_trace,
         cond_dump=args.cond_dump,
         output_dir=output_dir,
+        instr_descriptors=args.instr_descriptors,
     )
 
     # call into the program runner

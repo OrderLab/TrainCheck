@@ -223,15 +223,17 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
             if type(attr) in primitive_types:
                 result[attr_name] = attr
 
-            elif include_tensor_data and isinstance(attr, torch.Tensor):
-                result[attr_name] = dump_tensor(attr)
+            elif isinstance(attr, torch.Tensor):
+                result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
+                if include_tensor_data:
+                    result[attr_name] = dump_tensor(attr)
 
-            elif include_tensor_data and isinstance(attr, torch.nn.parameter.Parameter):
-                result[attr_name] = attr.__class__.__name__ + "(Parameter)"
-                result[attr_name] = dump_tensor(attr.data)
+            elif isinstance(attr, torch.nn.parameter.Parameter):
+                result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
+                if include_tensor_data:
+                    result[attr_name] = dump_tensor(attr.data)
 
             elif include_tensor_data and isinstance(attr, torch.nn.Module):
-                result[attr_name] = attr.__class__.__name__ + "(nn.Module)"
                 # dump out all tensors inside the nn.Module
                 for name, param in attr.named_parameters():
                     result[attr_name] += f"\n{name}: {dump_tensor(param)}"  # type: ignore
