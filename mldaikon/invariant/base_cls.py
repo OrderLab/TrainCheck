@@ -12,6 +12,7 @@ from typing import Any, Hashable, Iterable, Optional, Type
 import pandas as pd
 
 import mldaikon.config.config as config
+from mldaikon.instrumentor.dumper import var_to_serializable
 from mldaikon.invariant.symbolic_value import (
     GENERALIZED_TYPES,
     check_generalized_value_match,
@@ -46,9 +47,9 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
         func_paths = func_name.split(".")
         module_name = func_paths[0]
         for i in range(1, len(func_paths) - 1):
-            if func_paths[i][0].isupper():  # indicates the start of the class name
-                break
             module_name += "." + func_paths[i]
+            if func_paths[i + 1][0].isupper():  # indicates the start of the class name
+                break
 
         left_over_paths = func_paths[i + 1 :]
 
@@ -75,7 +76,13 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
 
 
 class Arguments:
-    def __init__(self, args: Iterable[Any], kwargs: dict[str, Any], func_name: str):
+    def __init__(
+        self,
+        args: Iterable[Any],
+        kwargs: dict[str, Any],
+        func_name: str,
+        consider_default_values: bool = False,
+    ):
         """Difference with BindedFuncInput is that this class does not handle
         default values and only works with the provided args and kwargs.
 
@@ -105,9 +112,42 @@ class Arguments:
             )
             self.arguments = kwargs.copy()
         else:
+            # check if *args exists in the signature
+            allow_unmatched_args = False
+            if any(
+                param.kind == inspect.Parameter.VAR_POSITIONAL
+                for param in self.signature.parameters.values()
+            ):
+                allow_unmatched_args = True
+                self.unknown_args = []
+
             self.arguments = kwargs.copy()
+            signature_params = list(self.signature.parameters.keys())
             for i, arg in enumerate(args):
-                self.arguments[list(self.signature.parameters.keys())[i]] = arg
+                if i < len(signature_params):
+                    self.arguments[signature_params[i]] = arg
+                elif allow_unmatched_args:
+                    self.unknown_args.append(arg)
+                else:
+                    raise ValueError(
+                        f"Too many positional arguments for function {func_name}, expecting {len(signature_params)} ({signature_params}) but got {len(args)}"  # type: ignore
+                    )
+
+            if consider_default_values:
+                for param_name, param in self.signature.parameters.items():
+                    if (
+                        param_name not in self.arguments
+                        and param.default != inspect.Parameter.empty
+                    ):
+                        self.arguments[param_name] = var_to_serializable(param.default)
+
+            if consider_default_values:
+                for param_name, param in self.signature.parameters.items():
+                    if (
+                        param_name not in self.arguments
+                        and param.default != inspect.Parameter.empty
+                    ):
+                        self.arguments[param_name] = var_to_serializable(param.default)
 
     def to_dict(self) -> dict:
         return {
@@ -216,7 +256,7 @@ class Param:
                 for k, v in args.items():
                     if v is None:
                         args[k] = MD_NONE()
-                    if k == "arguments":
+                    elif k == "arguments":
                         args[k] = Arguments.from_dict(v)
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
@@ -249,7 +289,7 @@ class APIParam(Param):
         self,
         api_full_name: str,
         exception: Exception | Type[_NOT_SET] = _NOT_SET,
-        arguments: None | Arguments = None,
+        arguments: Arguments | Type[_NOT_SET] = _NOT_SET,
     ):
         self.api_full_name = api_full_name
         self.exception = exception
@@ -272,8 +312,11 @@ class APIParam(Param):
         else:
             matched = matched and not isinstance(event, FuncCallExceptionEvent)
 
+        if not matched:
+            return False
+
         # check the arguments if they are provided
-        if self.arguments is not None:
+        if isinstance(self.arguments, Arguments):
             # current_args should not violate the provided arguments (i.e., self.arguments should be a subset of current_args)
             current_args = Arguments(event.args, event.kwargs, event.func_name)
             matched = matched and not self.arguments.check_for_violation(current_args)
@@ -530,14 +573,14 @@ class InputOutputParam(Param):
         self,
         name: Optional[str],
         index: Optional[int],
-        _type: str,
+        type: str,
         additional_path: tuple[str] | None,
         api_name: Optional[str],
         is_input: bool,  # not input means output
     ):
         self.name = name
         self.index = index
-        self.type = _type
+        self.type = type
         self.additional_path = additional_path
         self.api_name = api_name
         self.is_input = is_input
@@ -552,12 +595,31 @@ class InputOutputParam(Param):
         assert (
             self.additional_path is not None
         ), "Additional path should be None when calling get_value_from_list_of_tensors"
-
+        # print("index", self.index)
         tensor = list_of_tensors[self.index]
         value = tensor
         for additional_path in self.additional_path:
             value = value[additional_path]
         return value
+
+    def get_value_from_arguments(self, arguments: Arguments) -> Any:
+        assert (
+            self.name is not None
+        ), "Name should be when calling get_value_from_arguments"
+        assert (
+            self.additional_path is None
+        ), "Additional path should be None when calling get_value_from_arguments"
+
+        if self.name in arguments.arguments:
+            arg = arguments.arguments[self.name]
+            if self.additional_path:
+                for path in self.additional_path:
+                    if path not in arg:
+                        raise ValueError("Arg cannot be found.")
+                    arg = arg[path]
+            return list(arg.values())[0]
+        else:
+            raise ValueError(f"Name {self.name} not found in the arguments.")
 
 
 def construct_api_param(

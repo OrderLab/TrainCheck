@@ -46,8 +46,8 @@ IS_INSTRUMENTING = False
 DISABLE_WRAPPER = False
 
 # for prompt generation tasks using the transformers library (see mldaikon/developer/instr_stage_annotation.py:annotate_answer_start_token_ids)
-GENERATE_START_TOKEN_IDS: None | list[int] | int = None
-GENERATE_START_TOKEN_IDS_INCLUDE_START_TOKENS = False
+GENERATE_START_TOKEN_ID: None | int = None
+GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
 
 
 class TraceLineType:
@@ -358,31 +358,36 @@ def global_wrapper(
     import re
 
     if (
-        GENERATE_START_TOKEN_IDS
+        GENERATE_START_TOKEN_ID is not None
         and re.match(pattern, func_name)
         and isinstance(result, torch.Tensor)
     ):
-        # compute: response_length, response_start_index and add to the returned tensor
-
+        print(f"Found match for {func_name}")
         # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
         response_starting_indices = []
         for i in range(result.size(0)):
             # try to find the match of the start token ids in the response
             response = result[i]
-            start_token_ids = GENERATE_START_TOKEN_IDS
-            start_token_ids_len = len(start_token_ids)
-            for j in range(response.size(0) - start_token_ids_len + 1):
-                if response[j : j + start_token_ids_len].tolist() == start_token_ids:
-                    if GENERATE_START_TOKEN_IDS_INCLUDE_START_TOKENS:
-                        response_starting_indices.append(j)
-                    else:
-                        response_starting_indices.append(j + start_token_ids_len)
-                    break
-            else:
-                logger.warning(
-                    f"Cannot find the start token ids in the response for batch {i}"
+            # Find all indices where the start_token_id matches
+            matches = (response == GENERATE_START_TOKEN_ID).nonzero(as_tuple=True)[0]
+            if len(matches) == 0:
+                # No occurrences found
+                print(
+                    f"start_token_id ({GENERATE_START_TOKEN_ID}) not found in response {i}"
                 )
-                response_starting_indices.append(-1)
+                start_index = -1  # Handle case where token is not found
+            elif len(matches) > 1:
+                # Multiple occurrences found, raise an error
+                raise ValueError(
+                    f"Multiple occurrences of start_token_id ({GENERATE_START_TOKEN_ID}) found in response {i}: {matches.tolist()}"
+                )
+            else:
+                # Single occurrence found, get the index
+                start_index = matches.item()
+                if not GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN:
+                    start_index += 1
+
+            response_starting_indices.append(start_index)
 
         # compute the length of each response
         response_lengths = []
@@ -395,8 +400,15 @@ def global_wrapper(
                 response_lengths.append(response.size(0) - start_index)
 
         result_to_dump = result.detach()
-        result_to_dump._ML_DAIKON_RESPONSE_STARTING_INDICES = response_starting_indices
-        result_to_dump._ML_DAIKON_RESPONSE_LENGTHS = response_lengths
+        setattr(
+            result_to_dump,
+            "_ML_DAIKON_RESPONSE_STARTING_INDICES",
+            response_starting_indices,
+        )
+        setattr(result_to_dump, "_ML_DAIKON_RESPONSE_LENGTHS", response_lengths)
+
+        print(response_starting_indices)
+        print(response_lengths)
 
     post_record["return_values"] = to_dict_return_value(result_to_dump)
     dump_trace_API(post_record)

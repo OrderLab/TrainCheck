@@ -297,32 +297,44 @@ class TracePandas(Trace):
 
             # find nearest enter and exit events with the same obj_id
             obj_id = init_pre_record["obj_id"]
+            try:
+                enter_post_record = (
+                    self.events[
+                        (self.events["type"] == TraceLineType.FUNC_CALL_POST)
+                        & (
+                            self.events["function"]
+                            == f"{context_manager_name}.__enter__"
+                        )
+                        & (self.events["obj_id"] == obj_id)
+                        & (self.events["time"] > init_pre_record["time"])
+                        & (self.events["process_id"] == process_id)
+                        & (self.events["thread_id"] == thread_id)
+                    ]
+                    .iloc[0]
+                    .to_dict()
+                )
 
-            enter_post_record = (
-                self.events[
-                    (self.events["type"] == TraceLineType.FUNC_CALL_POST)
-                    & (self.events["function"] == f"{context_manager_name}.__enter__")
-                    & (self.events["obj_id"] == obj_id)
-                    & (self.events["time"] > init_pre_record["time"])
-                    & (self.events["process_id"] == process_id)
-                    & (self.events["thread_id"] == thread_id)
-                ]
-                .iloc[0]
-                .to_dict()
-            )
-
-            exit_pre_record = (
-                self.events[
-                    (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
-                    & (self.events["function"] == f"{context_manager_name}.__exit__")
-                    & (self.events["obj_id"] == obj_id)
-                    & (self.events["time"] > enter_post_record["time"])
-                    & (self.events["process_id"] == process_id)
-                    & (self.events["thread_id"] == thread_id)
-                ]
-                .iloc[0]
-                .to_dict()
-            )
+                exit_pre_record = (
+                    self.events[
+                        (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+                        & (
+                            self.events["function"]
+                            == f"{context_manager_name}.__exit__"
+                        )
+                        & (self.events["obj_id"] == obj_id)
+                        & (self.events["time"] > enter_post_record["time"])
+                        & (self.events["process_id"] == process_id)
+                        & (self.events["thread_id"] == thread_id)
+                    ]
+                    .iloc[0]
+                    .to_dict()
+                )
+            except IndexError:
+                # sometimes this happens. an enter might not have a corresponding exit, vice versa. e.g. torch.serialization._opener.__enter__ and torch.serialization._open_zipfile_writer_file.__exit__
+                logger.warning(
+                    f"Context manager {context_manager_name} not used properly. Skipping."
+                )
+                continue
 
             assert (
                 enter_post_record["time"] < exit_pre_record["time"]

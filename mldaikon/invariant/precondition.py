@@ -591,7 +591,7 @@ def find_precondition_from_single_group(
 
             # update every trace with the meta_vars
             for key in meta_vars:
-                for i in range(len(example)):
+                for i in range(len(neg_example)):
                     neg_example[i][f"meta_vars.{key}"] = meta_vars[key]
 
         whether_precondition_holds = True

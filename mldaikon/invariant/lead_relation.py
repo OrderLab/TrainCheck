@@ -667,7 +667,7 @@ class FunctionLeadRelation(Relation):
                                 "The relation "
                                 + funcA
                                 + " leads "
-                                + func_B
+                                + funcB
                                 + " is violated!\n"
                             )
                             return CheckerResult(
