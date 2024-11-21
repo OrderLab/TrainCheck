@@ -2,6 +2,7 @@ import argparse
 import datetime
 import json
 import logging
+import os
 import random
 import time
 
@@ -69,8 +70,14 @@ if __name__ == "__main__":
         "-t",
         "--traces",
         nargs="+",
-        required=True,
+        required=False,
         help="Traces files to infer invariants on",
+    )
+    parser.add_argument(
+        "-f",
+        "--trace-folders",
+        nargs="+",
+        help='Folders containing traces files to infer invariants on. Trace files should start with "trace_" or "proxy_log.json"',
     )
     parser.add_argument(
         "-d",
@@ -110,6 +117,14 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    # check if either traces or trace folders are provided
+    if args.traces is None and args.trace_folders is None:
+        # print help message if neither traces nor trace folders are provided
+        parser.print_help()
+        parser.error(
+            "Please provide either traces or trace folders to infer invariants"
+        )
+
     Trace, read_trace_file = select_trace_implementation(args.backend)
 
     if args.debug:
@@ -138,8 +153,22 @@ if __name__ == "__main__":
     config.PRECOND_SAMPLING_THRESHOLD = args.precond_sampling_threshold
 
     time_start = time.time()
-    logger.info("Reading traces from %s", "\n".join(args.traces))
-    traces = [read_trace_file(args.traces)]
+
+    traces = []
+    if args.traces is not None:
+        logger.info("Reading traces from %s", "\n".join(args.traces))
+        traces.append(read_trace_file(args.traces))
+    if args.trace_folders is not None:
+        for trace_folder in args.trace_folders:
+            # file discovery
+            trace_files = [
+                f"{trace_folder}/{file}"
+                for file in os.listdir(trace_folder)
+                if file.startswith("trace_") or file.startswith("proxy_log.json")
+            ]
+            logger.info("Reading traces from %s", "\n".join(trace_files))
+            traces.append(read_trace_file(trace_files))
+
     time_end = time.time()
     logger.info(f"Traces read successfully in {time_end - time_start} seconds.")
 
