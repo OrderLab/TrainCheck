@@ -711,7 +711,7 @@ class APIContainRelation(Relation):
                 logger.debug(
                     f"Starting the inference of precondition for the hypotheses: {hypo.invariant.text_description}"
                 )
-                found_precondition = find_precondition(hypo, trace)
+                found_precondition = find_precondition(hypo, [trace])
                 if (
                     found_precondition is not None
                 ):  # TODO: abstract this precondition inference part to a function
@@ -932,3 +932,7 @@ Defaulting to skip the var preconditon check for now.
             check_passed=True,
             triggered=inv_triggered,
         )
+
+    @staticmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        return []

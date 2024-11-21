@@ -1429,6 +1429,26 @@ class FailedHypothesis:
 class Relation(abc.ABC):
 
     @staticmethod
+    def generate_hypothesis(trace: Trace) -> list[Hypothesis]:
+        """Given a trace, should return a list of hypothesis with positive/negative examples collected on the current trace
+        args:
+            trace: Trace
+                A trace to generate the hypothesis on.
+        """
+        raise NotImplementedError("generate_hypothesis method is not implemented yet.")
+
+    @staticmethod
+    def collect_examples(trace: Trace, hypothesis: Hypothesis):
+        """Given a trace and a hypothesis, should collect positive and negative examples for the hypothesis.
+        args:
+            trace: Trace
+                A trace to collect the examples on.
+            hypothesis: Hypothesis
+                The hypothesis to collect the examples for.
+        """
+        raise NotImplementedError("collect_examples method is not implemented yet.")
+
+    @staticmethod
     @abc.abstractmethod
     def infer(trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Given a trace, should return a boolean value indicating
@@ -1450,6 +1470,17 @@ class Relation(abc.ABC):
             value_group: list
                 A list of values to evaluate the relation on. The length of the list
                 should be equal to the number of variables in the relation.
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        """Given a hypothesis, should return a list of keys to skip in the infer process.
+
+        args:
+            hypothesis: Hypothesis
+                The hypothesis to get the keys to skip for.
         """
         pass
 

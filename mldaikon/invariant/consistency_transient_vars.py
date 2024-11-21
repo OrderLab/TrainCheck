@@ -390,7 +390,7 @@ class ConsistentOutputRelation(Relation):
         failed_hypotheses = []
         for func_name, hypotheses in all_hypotheses.items():
             for hypothesis in hypotheses:
-                precondition = find_precondition(hypothesis, trace)
+                precondition = find_precondition(hypothesis, [trace])
                 print(precondition)
                 if precondition is not None:
                     hypothesis.invariant.precondition = precondition
@@ -506,6 +506,10 @@ class ConsistentOutputRelation(Relation):
             triggered=triggered,
         )
         # raise NotImplementedError
+
+    @staticmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        return []
 
 
 class ConsistentInputOutputRelation(Relation):
@@ -687,7 +691,7 @@ class ConsistentInputOutputRelation(Relation):
         failed_hypotheses = []
         for func_name, hypotheses in all_hypotheses.items():
             for hypothesis in hypotheses.values():
-                precondition = find_precondition(hypothesis, trace)
+                precondition = find_precondition(hypothesis, [trace])
                 if precondition is not None:
                     hypothesis.invariant.precondition = precondition
                     invariants.append(hypothesis.invariant)
@@ -764,6 +768,10 @@ class ConsistentInputOutputRelation(Relation):
             check_passed=True,
             triggered=triggered,
         )
+
+    @staticmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        return []
 
 
 class ThresholdRelation(Relation):
@@ -975,7 +983,7 @@ class ThresholdRelation(Relation):
         failed_hypotheses = []
         for func_name, hypotheses in min_hypotheses.items():
             for hypothesis in hypotheses.values():
-                precondition = find_precondition(hypothesis, trace)
+                precondition = find_precondition(hypothesis, [trace])
                 if precondition is not None:
                     hypothesis.invariant.precondition = precondition
                     invariants.append(hypothesis.invariant)
@@ -984,7 +992,7 @@ class ThresholdRelation(Relation):
 
         for func_name, hypotheses in max_hypotheses.items():
             for hypothesis in hypotheses.values():
-                precondition = find_precondition(hypothesis, trace)
+                precondition = find_precondition(hypothesis, [trace])
                 if precondition is not None:
                     hypothesis.invariant.precondition = precondition
                     invariants.append(hypothesis.invariant)
@@ -1074,3 +1082,7 @@ class ThresholdRelation(Relation):
             check_passed=True,
             triggered=triggered,
         )
+
+    @staticmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        return []

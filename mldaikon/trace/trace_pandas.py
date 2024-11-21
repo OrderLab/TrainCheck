@@ -400,7 +400,7 @@ class TracePandas(Trace):
 
     def get_meta_vars(
         self, time: float, process_id: int, thread_id: int
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
         """Get the meta_vars a given time.
 
         Return value:
@@ -409,6 +409,14 @@ class TracePandas(Trace):
         NOTE: CHANGING THE RETURN FORMAT WILL INTERFERE WITH THE PRECONDITION INFERENCE
 
         """
+
+        # if the process or thread id does not exist in the trace, return None
+        if (
+            process_id not in self.get_process_ids()
+            or thread_id not in self.get_thread_ids()
+        ):
+            return None
+
         meta_vars = {}
         active_context_managers = self.query_active_context_managers(
             time, process_id, thread_id

@@ -263,7 +263,9 @@ class FunctionCoverRelation(Relation):
                 logger.debug(
                     f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
                 )
-                preconditions = find_precondition(hypothesis_with_examples[hypo], trace)
+                preconditions = find_precondition(
+                    hypothesis_with_examples[hypo], [trace]
+                )
                 logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
 
                 if preconditions is not None:
@@ -350,7 +352,7 @@ class FunctionCoverRelation(Relation):
                 if pair not in precondition_cache:
                     precondition_cache[pair] = find_precondition(
                         hypothesis_with_examples[(a.api_full_name, b.api_full_name)],
-                        trace,
+                        [trace],
                     )
 
                 current_precondition = precondition_cache[pair]
@@ -374,7 +376,7 @@ class FunctionCoverRelation(Relation):
                                         next_pair[1].api_full_name,
                                     )
                                 ],
-                                trace,
+                                [trace],
                             )
 
                         next_precondition = precondition_cache[next_pair]
@@ -597,3 +599,7 @@ class FunctionCoverRelation(Relation):
             check_passed=True,
             triggered=inv_triggered,
         )
+
+    @staticmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        return []

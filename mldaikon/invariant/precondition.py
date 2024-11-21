@@ -263,11 +263,13 @@ def _merge_clauses(
 
 def find_precondition(
     hypothesis: Hypothesis,
-    trace: Trace,
-    keys_to_skip: list[str] = [],
+    traces: list[Trace],
 ) -> GroupedPreconditions | None:
     """When None is returned, it means that we cannot find a precondition that is safe to use for the hypothesis."""
 
+    keys_to_skip = hypothesis.invariant.relation.get_precondition_infer_keys_to_skip(
+        hypothesis
+    )
     # postive examples and negative examples should have the same group names
     group_names = hypothesis.positive_examples.group_names
     # assert group_names == hypothesis.negative_examples.group_names
@@ -294,7 +296,7 @@ def find_precondition(
 
         grouped_preconditions[group_name] = Preconditions(
             find_precondition_from_single_group(
-                positive_examples, negative_examples, trace, keys_to_skip
+                positive_examples, negative_examples, traces, keys_to_skip
             )
         )
 
@@ -307,7 +309,7 @@ def find_precondition(
             # introducing this for inferring invariants related to context managers (e.g. input/output dtype should be the same when no autocast context is used)
             grouped_preconditions[group_name] = Preconditions(
                 find_precondition_from_single_group(
-                    negative_examples, positive_examples, trace, keys_to_skip
+                    negative_examples, positive_examples, traces, keys_to_skip
                 ),
                 inverted=True,
             )
@@ -397,7 +399,7 @@ def _group_examples_by_stage(
 def find_precondition_from_single_group(
     positive_examples: list[list[dict]],
     negative_examples: list[list[dict]],
-    trace: Trace,
+    traces: list[Trace],
     keys_to_skip: list[str] = [],
     _pruned_clauses: set[PreconditionClause] = set(),
     _skip_pruning: bool = False,
@@ -467,7 +469,7 @@ def find_precondition_from_single_group(
                         if stage in grouped_negative_examples
                         else []
                     ),
-                    trace,
+                    traces,
                     keys_to_skip,
                     _pruned_clauses,
                     _skip_pruning,
@@ -536,9 +538,17 @@ def find_precondition_from_single_group(
         thread_id = example[0]["thread_id"]
 
         if _current_depth == 0:
-            meta_vars = trace.get_meta_vars(
-                earliest_time, process_id=process_id, thread_id=thread_id
-            )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
+            for trace in traces:
+                meta_vars = trace.get_meta_vars(  # FIXME: add meta_vars to the examples prior find precondition
+                    earliest_time, process_id=process_id, thread_id=thread_id
+                )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
+                if meta_vars is not None:
+                    break
+            if meta_vars is None:
+                logger.critical(
+                    "Meta_vars not found for the positive examples, this should never happen but for the inference to continue we just skip the meta_vars update for this positive example"
+                )
+                meta_vars = {}
 
             # update every trace with the meta_vars
             for key in meta_vars:
@@ -585,9 +595,17 @@ def find_precondition_from_single_group(
             earliest_time = neg_example[0]["time"]
             process_id = neg_example[0]["process_id"]
             thread_id = neg_example[0]["thread_id"]
-            meta_vars = trace.get_meta_vars(
-                earliest_time, process_id=process_id, thread_id=thread_id
-            )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
+            for trace in traces:
+                meta_vars = trace.get_meta_vars(
+                    earliest_time, process_id=process_id, thread_id=thread_id
+                )  # HACK: get the context at the earliest time, ideally we should find the context that coverred the entire example duration
+                if meta_vars is not None:
+                    break
+            if meta_vars is None:
+                logger.critical(
+                    "Meta_vars not found for the negative examples, this should never happen but for the inference to continue we just skip the meta_vars update for this negative example"
+                )
+                meta_vars = {}
 
             # update every trace with the meta_vars
             for key in meta_vars:
@@ -731,7 +749,7 @@ def find_precondition_from_single_group(
         sub_preconditions = find_precondition_from_single_group(
             sub_positive_examples,
             passing_neg_exps,
-            trace=trace,
+            traces=traces,
             keys_to_skip=keys_to_skip,
             _pruned_clauses=_pruned_clauses,
             _skip_pruning=True,

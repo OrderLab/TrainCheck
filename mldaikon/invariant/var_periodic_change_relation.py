@@ -146,7 +146,7 @@ class VarPeriodicChangeRelation(Relation):
         valid_invariants = []
         failed_hypothesis = []
         for hypothesis in all_hypothesis.values():
-            preconditions = find_precondition(hypothesis, trace)
+            preconditions = find_precondition(hypothesis, [trace])
             if preconditions:
                 hypothesis.invariant.precondition = preconditions
                 valid_invariants.append(hypothesis.invariant)
@@ -239,3 +239,7 @@ class VarPeriodicChangeRelation(Relation):
                 return CheckerResult(example_trace_records, inv, False, True)
 
         return CheckerResult(None, inv, True, triggered)
+
+    @staticmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        return []

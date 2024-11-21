@@ -7,7 +7,13 @@ import random
 import time
 
 import mldaikon.config.config as config
-from mldaikon.invariant.base_cls import FailedHypothesis, Invariant, Relation
+from mldaikon.invariant.base_cls import (
+    FailedHypothesis,
+    Hypothesis,
+    Invariant,
+    Relation,
+)
+from mldaikon.invariant.precondition import find_precondition
 from mldaikon.invariant.relation_pool import relation_pool
 from mldaikon.trace import MDNONEJSONEncoder, select_trace_implementation
 from mldaikon.utils import register_custom_excepthook
@@ -46,6 +52,61 @@ class InferEngine:
             f"Found {len(all_invs)} invariants, {len(all_failed_hypos)} failed hypotheses due to precondition inference"
         )
         return all_invs, all_failed_hypos
+
+    def infer_multi_trace(self, disabled_relations: list[Relation]):
+        hypotheses = self.generate_hypothesis(disabled_relations)
+        self.collect_examples(hypotheses)
+        invariants, failed_hypos = self.infer_precondition(hypotheses)
+        return invariants, failed_hypos
+
+    def generate_hypothesis(
+        self, disabled_relations: list[Relation]
+    ) -> list[list[Hypothesis]]:
+        all_invs = []
+        all_failed_hypos = []
+        hypotheses = []
+        for trace in self.traces:
+            for relation in relation_pool:
+                if disabled_relations is not None and relation in disabled_relations:
+                    logger.info(
+                        f"Skipping relation {relation.__name__} as it is disabled"
+                    )
+                    continue
+                logger.info(f"Infering invariants for relation: {relation.__name__}")
+                hypotheses.append(relation.generate_hypothesis(trace))
+
+                logger.info(
+                    f"Found {len(invs)} invariants for relation: {relation.__name__}"
+                )
+                all_invs.extend(invs)
+                all_failed_hypos.extend(failed_hypos)
+        return hypotheses
+
+    def collect_examples(self, hypotheses: list[list[Hypothesis]]):
+        for i, trace in enumerate(self.traces):
+            for j, hypothesis in enumerate(hypotheses[i]):
+                if j == i:
+                    # already collected examples for this hypothesis on the same trace that generated it
+                    continue
+                hypothesis.invariant.relation.collect_examples(trace, hypothesis)
+
+    def infer_precondition(self, hypotheses: list[list[Hypothesis]]):
+        all_hypotheses = []
+        for trace_hypotheses in hypotheses:
+            for hypothesis in trace_hypotheses:
+                all_hypotheses.append(hypothesis)
+
+        invariants = []
+        failed_hypos = []
+        for hypothesis in all_hypotheses:
+            precondition = find_precondition(hypothesis, self.traces)
+            if precondition is None:
+                failed_hypos.append(FailedHypothesis(hypothesis))
+            else:
+                hypothesis.invariant.precondition = precondition
+                invariants.append(hypothesis.invariant)
+
+        return invariants, failed_hypos
 
 
 def save_invs(invs: list[Invariant], output_file: str):

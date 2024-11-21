@@ -156,7 +156,7 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
-    def get_meta_vars(self, time, process_id, thread_id) -> dict:
+    def get_meta_vars(self, time, process_id, thread_id) -> dict | None:
         """Get the meta variables at a specific time, process and thread."""
         raise NotImplementedError(
             "This function should be implemented in the child class."

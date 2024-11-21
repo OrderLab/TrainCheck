@@ -1,36 +1,34 @@
 import logging
 from itertools import combinations
-from typing import Any, Dict, List, Set, Tuple, Iterable
+from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from tqdm import tqdm
 
-from mldaikon.invariant.base_cls import (
-    Param,
+from mldaikon.invariant.base_cls import (  # GroupedPreconditions,
     APIParam,
     CheckerResult,
     Example,
     ExampleList,
     FailedHypothesis,
-    # GroupedPreconditions,
     Hypothesis,
     Invariant,
     Relation,
 )
-
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
 
 EXP_GROUP_NAME = "distinct_arg"
-MAX_FUNC_NUM_CONSECUTIVE_CALL = 6 
-IOU_THRESHHOLD = 0.1 # pre-defined threshhold for IOU
+MAX_FUNC_NUM_CONSECUTIVE_CALL = 6
+IOU_THRESHHOLD = 0.1  # pre-defined threshhold for IOU
+
 
 def calculate_IOU(list1, list2):
-            set1 = set(list1)
-            set2 = set(list2)
-            intersection = set1.intersection(set2)
-            union = set1.union(set2)
-            iou = len(intersection) / len(union) if len(union) != 0 else 0
-            return iou
+    set1 = set(list1)
+    set2 = set(list2)
+    intersection = set1.intersection(set2)
+    union = set1.union(set2)
+    iou = len(intersection) / len(union) if len(union) != 0 else 0
+    return iou
 
 
 def get_func_names_to_deal_with(trace: Trace) -> List[str]:
@@ -54,16 +52,20 @@ def get_func_names_to_deal_with(trace: Trace) -> List[str]:
 
     return list(function_pool)
 
+
 def get_event_data_per_function_per_step(trace: Trace, function_pool: Set[Any]):
-    listed_arguments: Dict[str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]] = (
-        {}
-    )
+    listed_arguments: Dict[
+        str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]
+    ] = {}
     for func_name in function_pool.copy():
         func_call_ids = trace.get_func_call_ids(func_name)
         keep_this_func = False
         for func_call_id in func_call_ids:
             event = trace.query_func_call_event(func_call_id)
-            if (event.pre_record["meta_vars.step"] is None or "args" not in event.pre_record):
+            if (
+                event.pre_record["meta_vars.step"] is None
+                or "args" not in event.pre_record
+            ):
                 continue
             keep_this_func = True
             process_id = event.pre_record["process_id"]
@@ -73,16 +75,18 @@ def get_event_data_per_function_per_step(trace: Trace, function_pool: Set[Any]):
                 listed_arguments[func_name] = {}
                 listed_arguments[func_name][step] = {}
                 listed_arguments[func_name][step][(process_id, thread_id)] = []
-            
+
             if step not in listed_arguments[func_name]:
                 listed_arguments[func_name][step] = {}
                 listed_arguments[func_name][step][(process_id, thread_id)] = []
-            
+
             if (process_id, thread_id) not in listed_arguments[func_name][step]:
                 listed_arguments[func_name][step][(process_id, thread_id)] = []
-            
-            listed_arguments[func_name][step][(process_id, thread_id)].append(event.pre_record)
-        
+
+            listed_arguments[func_name][step][(process_id, thread_id)].append(
+                event.pre_record
+            )
+
         if not keep_this_func:
             function_pool.remove(func_name)
 
@@ -90,7 +94,7 @@ def get_event_data_per_function_per_step(trace: Trace, function_pool: Set[Any]):
 
 
 def get_event_list(trace: Trace, function_pool: Iterable[str]):
-    listed_events: List[dict[str, Any]]= []
+    listed_events: List[dict[str, Any]] = []
     # for all func_ids, get their corresponding events
     for func_name in function_pool:
         func_call_ids = trace.get_func_call_ids(func_name)
@@ -109,11 +113,16 @@ def get_event_list(trace: Trace, function_pool: Iterable[str]):
 
     return listed_events
 
-def compare_argument(value1, value2, IOU_criteria = True):
+
+def compare_argument(value1, value2, IOU_criteria=True):
     if type(value1) != type(value2):
         return False
     if isinstance(value1, list):
-        if IOU_criteria and all(isinstance(item, int) for item in value1) and all(isinstance(item, int) for item in value2):
+        if (
+            IOU_criteria
+            and all(isinstance(item, int) for item in value1)
+            and all(isinstance(item, int) for item in value2)
+        ):
             return calculate_IOU(value1, value2) >= IOU_THRESHHOLD
         if len(value1) != len(value2):
             return False
@@ -134,6 +143,7 @@ def compare_argument(value1, value2, IOU_criteria = True):
         return abs(value1 - value2) < 1e-8
     return value1 == value2
 
+
 def is_arguments_list_same(args1: list, args2: list):
     if len(args1) != len(args2):
         return False
@@ -143,6 +153,7 @@ def is_arguments_list_same(args1: list, args2: list):
         if not compare_argument(arg1, arg2):
             return False
     return True
+
 
 # class APIArgsParam(Param):
 #     def __init__(
@@ -181,7 +192,9 @@ class DistinctArgumentRelation(Relation):
 
         # 1. Pre-process all the events
         print("Start preprocessing....")
-        listed_arguments: Dict[str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]] = {}
+        listed_arguments: Dict[
+            str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]
+        ] = {}
         function_pool: Set[Any] = set()
 
         function_pool = set(get_func_names_to_deal_with(trace))
@@ -205,9 +218,7 @@ class DistinctArgumentRelation(Relation):
             func_name: Hypothesis(
                 invariant=Invariant(
                     relation=DistinctArgumentRelation,
-                    params=[
-                        APIParam(func_name)
-                    ],
+                    params=[APIParam(func_name)],
                     precondition=None,
                     text_description=f"{func_name} has distinct input arguments on difference PT for each step",
                 ),
@@ -226,29 +237,39 @@ class DistinctArgumentRelation(Relation):
                 for PT_pair1, PT_pair2 in combinations(records.keys(), 2):
                     for event1 in records[PT_pair1]:
                         for event2 in records[PT_pair2]:
-                            if(not is_arguments_list_same(event1["args"], event2["args"])):
+                            if not is_arguments_list_same(
+                                event1["args"], event2["args"]
+                            ):
                                 flag = True
                                 pos = Example()
                                 pos.add_group(EXP_GROUP_NAME, [event1, event2])
-                                hypothesis_with_examples[func_name].positive_examples.add_example(pos)
+                                hypothesis_with_examples[
+                                    func_name
+                                ].positive_examples.add_example(pos)
                             else:
                                 neg = Example()
                                 neg.add_group(EXP_GROUP_NAME, [event1, event2])
-                                hypothesis_with_examples[func_name].negative_examples.add_example(neg)
-                    
+                                hypothesis_with_examples[
+                                    func_name
+                                ].negative_examples.add_example(neg)
+
                 for PT_pair in records.keys():
                     for event1, event2 in combinations(records[PT_pair], 2):
-                        if(not is_arguments_list_same(event1["args"], event2["args"])):
+                        if not is_arguments_list_same(event1["args"], event2["args"]):
                             flag = True
                             pos = Example()
                             pos.add_group(EXP_GROUP_NAME, [event1, event2])
-                            hypothesis_with_examples[func_name].positive_examples.add_example(pos)
+                            hypothesis_with_examples[
+                                func_name
+                            ].positive_examples.add_example(pos)
                         else:
                             neg = Example()
                             neg.add_group(EXP_GROUP_NAME, [event1, event2])
-                            hypothesis_with_examples[func_name].negative_examples.add_example(neg)
-            
-            if(not flag):
+                            hypothesis_with_examples[
+                                func_name
+                            ].negative_examples.add_example(neg)
+
+            if not flag:
                 hypothesis_with_examples.pop(func_name)
 
         print("End adding examples")
@@ -261,13 +282,11 @@ class DistinctArgumentRelation(Relation):
             logger.debug(
                 f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
             )
-            preconditions = find_precondition(hypothesis_with_examples[hypo], trace)
+            preconditions = find_precondition(hypothesis_with_examples[hypo], [trace])
             logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
 
             if preconditions is not None:
-                hypothesis_with_examples[hypo].invariant.precondition = (
-                    preconditions
-                )
+                hypothesis_with_examples[hypo].invariant.precondition = preconditions
             else:
                 logger.debug(f"Precondition not found for {hypo}")
                 failed_hypothesis.append(
@@ -281,12 +300,9 @@ class DistinctArgumentRelation(Relation):
         print("End precondition inference")
 
         return (
-            list(
-                [hypo.invariant for hypo in hypothesis_with_examples.values()]
-            ),
+            list([hypo.invariant for hypo in hypothesis_with_examples.values()]),
             failed_hypothesis,
         )
-
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
@@ -317,13 +333,13 @@ class DistinctArgumentRelation(Relation):
 
         # 1. Pre-process all the events
         print("Start preprocessing....")
-        listed_arguments: Dict[str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]] = {}
+        listed_arguments: Dict[
+            str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]
+        ] = {}
         function_pool: Set[Any] = set()
-        func= inv.params[0]
+        func = inv.params[0]
 
-        assert isinstance(
-            func, APIParam
-        ), "Invariant parameters should be APIParam."
+        assert isinstance(func, APIParam), "Invariant parameters should be APIParam."
 
         func_name = func.api_full_name
         function_pool.add(func_name)
@@ -352,20 +368,10 @@ class DistinctArgumentRelation(Relation):
             )
 
         for step, records in listed_arguments[func_name].items():
-                for PT_pair1, PT_pair2 in combinations(records.keys(), 2):
-                    for event1 in records[PT_pair1]:
-                        for event2 in records[PT_pair2]:
-                            if(is_arguments_list_same(event1["args"], event2["args"])):
-                                return CheckerResult(
-                                    trace=[event1, event2],
-                                    invariant=inv,
-                                    check_passed=True,
-                                    triggered=True,
-                                )
-         
-                for PT_pair in records.keys():
-                    for event1, event2 in combinations(records[PT_pair], 2):
-                        if(is_arguments_list_same(event1["args"], event2["args"])):
+            for PT_pair1, PT_pair2 in combinations(records.keys(), 2):
+                for event1 in records[PT_pair1]:
+                    for event2 in records[PT_pair2]:
+                        if is_arguments_list_same(event1["args"], event2["args"]):
                             return CheckerResult(
                                 trace=[event1, event2],
                                 invariant=inv,
@@ -373,9 +379,23 @@ class DistinctArgumentRelation(Relation):
                                 triggered=True,
                             )
 
+            for PT_pair in records.keys():
+                for event1, event2 in combinations(records[PT_pair], 2):
+                    if is_arguments_list_same(event1["args"], event2["args"]):
+                        return CheckerResult(
+                            trace=[event1, event2],
+                            invariant=inv,
+                            check_passed=True,
+                            triggered=True,
+                        )
+
         return CheckerResult(
             trace=None,
             invariant=inv,
             check_passed=True,
             triggered=True,
         )
+
+    @staticmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        return []
