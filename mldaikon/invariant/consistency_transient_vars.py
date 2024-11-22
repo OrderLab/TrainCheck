@@ -265,8 +265,7 @@ class ConsistentOutputRelation(Relation):
     """
 
     @staticmethod
-    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
-
+    def generate_hypothesis(trace) -> list[Hypothesis]:
         logger = logging.getLogger(__name__)
 
         all_func_names = trace.get_func_names()
@@ -376,67 +375,71 @@ class ConsistentOutputRelation(Relation):
                     hypotheses_for_func.append(hypothesis)
 
             all_hypotheses[func_name] = hypotheses_for_func
-        # positive example is the function calls corresponding to the hypothesis
-        # negative example is the function calls that do not correspond to the hypothesis (i.e. func calls that returned different values)
+        # return all_hypotheses
+        return sum(all_hypotheses.values(), [])
 
-        # now that we have the hypotheses for each function, we can return them
-        # we can also return the failed hypotheses if any
-        # we can also return the properties that are consistent across the function calls
+    @staticmethod
+    def collect_examples(trace, hypothesis):
+        inv = hypothesis.invariant
+        # get all the function calls
+        assert len(inv.params) == 2
+        assert isinstance(inv.params[0], APIParam)
+        assert isinstance(inv.params[1], VarTypeParam)
 
-        # infer precondition for these hypotheses
-        print(all_hypotheses)
+        func_name = inv.params[0].api_full_name
+        # get all the function calls for the function
+        func_call_ids = trace.get_func_call_ids(func_name)
+
+        for func_call_id in tqdm(
+            func_call_ids, desc=f"Adding examples for {inv.text_description}"
+        ):
+            func_call_event = trace.query_func_call_event(func_call_id)
+            if isinstance(
+                func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
+            ):
+                continue
+
+            returned_tensors = get_returned_tensors(func_call_event)
+            if len(returned_tensors) == 0:
+                # add negative example
+                example = Example({"pre_event": [func_call_event.pre_record]})
+                hypothesis.negative_examples.add_example(example)
+                continue
+
+            # TODO: this might be wrong due to make hashable used in infer, proceed with caution
+            for returned_tensor in returned_tensors:
+                prop = inv.params[1].attr_name
+                prop_val = inv.params[1].const_value
+                if prop not in returned_tensor or returned_tensor[prop] != prop_val:
+                    # add negative example
+                    example = Example({"pre_event": [func_call_event.pre_record]})
+                    hypothesis.negative_examples.add_example(example)
+                else:
+                    # add positive example
+                    example = Example({"pre_event": [func_call_event.pre_record]})
+                    hypothesis.positive_examples.add_example(example)
+
+        hypothesis.invariant.num_positive_examples = len(hypothesis.positive_examples)
+        hypothesis.invariant.num_negative_examples = len(hypothesis.negative_examples)
+
+    @staticmethod
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+
+        all_hypotheses = ConsistentOutputRelation.generate_hypothesis(trace)
 
         invariants = []
         failed_hypotheses = []
-        for func_name, hypotheses in all_hypotheses.items():
-            for hypothesis in hypotheses:
-                precondition = find_precondition(hypothesis, [trace])
-                print(precondition)
-                if precondition is not None:
-                    hypothesis.invariant.precondition = precondition
-                    invariants.append(hypothesis.invariant)
-                else:
-                    print(f"Could not find precondition for {hypothesis}")
-                    failed_hypotheses.append(FailedHypothesis(hypothesis))
+        for hypothesis in all_hypotheses:
+            precondition = find_precondition(hypothesis, [trace])
+            print(precondition)
+            if precondition is not None:
+                hypothesis.invariant.precondition = precondition
+                invariants.append(hypothesis.invariant)
+            else:
+                print(f"Could not find precondition for {hypothesis}")
+                failed_hypotheses.append(FailedHypothesis(hypothesis))
 
         print("done")
-
-        # precondition inference: function name can be a precondition
-
-        # can we let relation tell the precondition inference algorithm about what is already assumed?
-        # then we solve the step issue.
-
-        # now let's reason about the input and output properties of these function calls' args and return values
-
-        # let's make the assumption that we are only interested in the functions that have tensors as args or return values
-
-        # functions that do not have tensors as input but have them as output --> factory functions
-        # functions that have tensors as both input and output --> mathematical operations
-
-        # we need an abstraction over the trace to get a specific function call's args and return values
-        # for now let's get them from the raw json trace
-
-        # get all the function calls.
-
-        # find properties inside.
-
-        # instead of doing this, will it just make more sense to differentiate between stages and only infer in one single step if
-        # we are in training or testing stage?
-
-        # Get all the function args and return values, and try to find the properties that
-        # are consistent across the function calls.
-
-        # 1. group by properties if some of them show great statistical consistency
-
-        # Question: are u only targeting function args and return values? What about consistency relationships between transient
-        # variables and the long-term variables (e.g. model, optimizers?)
-
-        # Insight: internal, transient variables are kinda separate from long-term variables like the model and optimizer.
-        # I think it will be fine to treat them separately.
-
-        # the simplest case: only matmul is called multiple times and you have them both inside and outside the autocast regions
-
-        # need additional properties about these functions in precondition inference
 
         return invariants, failed_hypotheses
 
@@ -519,22 +522,7 @@ class ConsistentInputOutputRelation(Relation):
     """
 
     @staticmethod
-    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
-        # get the function calls that have tensors or nn.Modules as both input and output
-
-        """
-        TODO: find all function calls that have tensors or nn.Modules as both input and output
-        We can extend this to other types of variables as well, but for now let's keep it simple.
-
-        We need instrumentor to dump the trace in a format that we can easily query for this information.
-
-        @Beijie: can we use static analysis for the above stuff?
-
-        For now let's dump every possible information in the trace and then query it.
-
-        # tensor
-        """
-
+    def generate_hypothesis(trace: Trace) -> list[Hypothesis]:
         logger = logging.getLogger(__name__)
 
         all_func_names = trace.get_func_names()
@@ -548,12 +536,6 @@ class ConsistentInputOutputRelation(Relation):
         all_hypotheses: dict[
             str, dict[tuple[InputOutputParam, InputOutputParam], Hypothesis]
         ] = {}
-
-        # func_name: [
-        #     - func_call_id (str): func_call_event
-        #     - func_call_id (str): func_call_event
-        #     - ...
-        # ]
 
         for func_name in tqdm(
             relevant_func_call_events,
@@ -686,17 +668,77 @@ class ConsistentInputOutputRelation(Relation):
                     hypothesis.negative_examples
                 )
 
+        hypos_to_return: list[Hypothesis] = []
+        for hypotheses in all_hypotheses.values():
+            hypos_to_return.extend(hypotheses.values())
+
+        return hypos_to_return
+
+    @staticmethod
+    def collect_examples(trace, hypothesis):
+        inv = hypothesis.invariant
+
+        assert len(inv.params) == 3
+
+        input_param, api_param, output_param = inv.params
+
+        assert isinstance(input_param, InputOutputParam)
+        assert isinstance(api_param, APIParam)
+        assert isinstance(output_param, InputOutputParam)
+        assert inv.params[0].is_input
+        assert not inv.params[2].is_input
+
+        logger = logging.getLogger(__name__)
+
+        # get all the function calls
+        func_name = api_param.api_full_name
+        func_call_ids = trace.get_func_call_ids(func_name)
+
+        for func_call_id in tqdm(
+            func_call_ids, desc=f"Checking invariant {inv.text_description}"
+        ):
+            func_call_event = trace.query_func_call_event(func_call_id)
+            if isinstance(
+                func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
+            ):
+                continue
+
+            input_tensors = get_input_tensors(func_call_event)
+            output_tensors = get_returned_tensors(func_call_event)
+            try:
+                input_value = input_param.get_value_from_list_of_tensors(input_tensors)
+                output_value = output_param.get_value_from_list_of_tensors(
+                    output_tensors
+                )
+            except (IndexError, KeyError):
+                logger.warning(
+                    f"Could not find the value to be used in input or output tensors for the hypothesis {inv}, skipping this function call."
+                )
+                continue
+
+            if input_value != output_value:
+                # add negative example
+                example = Example({"pre_event": [func_call_event.pre_record]})
+                hypothesis.negative_examples.add_example(example)
+            else:
+                # add positive example
+                example = Example({"pre_event": [func_call_event.pre_record]})
+                hypothesis.positive_examples.add_example(example)
+
+    @staticmethod
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+        all_hypotheses = ConsistentInputOutputRelation.generate_hypothesis(trace)
+
         # now that we have the hypotheses for each function, we can start precondition inference
         invariants = []
         failed_hypotheses = []
-        for func_name, hypotheses in all_hypotheses.items():
-            for hypothesis in hypotheses.values():
-                precondition = find_precondition(hypothesis, [trace])
-                if precondition is not None:
-                    hypothesis.invariant.precondition = precondition
-                    invariants.append(hypothesis.invariant)
-                else:
-                    failed_hypotheses.append(FailedHypothesis(hypothesis))
+        for hypothesis in all_hypotheses:
+            precondition = find_precondition(hypothesis, [trace])
+            if precondition is not None:
+                hypothesis.invariant.precondition = precondition
+                invariants.append(hypothesis.invariant)
+            else:
+                failed_hypotheses.append(FailedHypothesis(hypothesis))
 
         return invariants, failed_hypotheses
 
@@ -781,7 +823,7 @@ class ThresholdRelation(Relation):
     """
 
     @staticmethod
-    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+    def generate_hypothesis(trace: Trace) -> list[Hypothesis]:
         # get the function calls that have tensors or nn.Modules as both input and output
         logger = logging.getLogger(__name__)
         all_func_names = trace.get_func_names()
@@ -978,26 +1020,90 @@ class ThresholdRelation(Relation):
                         else:
                             hypothesis.negative_examples.add_example(example)
 
+        hypos_to_return: list[Hypothesis] = []
+        for hypotheses in min_hypotheses.values():
+            hypos_to_return.extend(hypotheses.values())
+        for hypotheses in max_hypotheses.values():
+            hypos_to_return.extend(hypotheses.values())
+        return hypos_to_return
+
+    @staticmethod
+    def collect_examples(trace, hypothesis):
+        inv = hypothesis.invariant
+
+        assert len(inv.params) == 3
+        max_param, api_param, min_param = inv.params
+        assert isinstance(max_param, InputOutputParam)
+        assert isinstance(api_param, APIParam)
+        assert isinstance(min_param, InputOutputParam)
+
+        if max_param.is_input:
+            assert not min_param.is_input
+            is_threshold_min = False
+            input_param = max_param
+            output_param = min_param
+        else:
+            assert min_param.is_input
+            is_threshold_min = True
+            input_param = min_param
+            output_param = max_param
+
+        func_name = api_param.api_full_name
+        # get all function calls for the function
+        func_call_ids = trace.get_func_call_ids(func_name)
+        for func_call_id in tqdm(
+            func_call_ids, desc=f"Checking invariant {inv.text_description}"
+        ):
+            func_call_event = trace.query_func_call_event(func_call_id)
+            if isinstance(
+                func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
+            ):
+                continue
+
+            threshold_value = input_param.get_value_from_arguments(
+                Arguments(
+                    func_call_event.args,
+                    func_call_event.kwargs,
+                    func_call_event.func_name,
+                    consider_default_values=True,
+                )
+            )
+            output_value = output_param.get_value_from_list_of_tensors(
+                get_returned_tensors(func_call_event)
+            )
+
+            example = Example({"pre_event": [func_call_event.pre_record]})
+            if is_threshold_min:
+                if output_value >= threshold_value:
+                    # add positive example
+                    hypothesis.positive_examples.add_example(example)
+                else:
+                    # add negative example
+                    hypothesis.negative_examples.add_example(example)
+
+            else:
+                if output_value <= threshold_value:
+                    # add positive example
+                    hypothesis.positive_examples.add_example(example)
+                else:
+                    # add negative example
+                    hypothesis.negative_examples.add_example(example)
+
+    @staticmethod
+    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         # now that we have the hypotheses for each function, we can start precondition inference
+        all_hypotheses = ThresholdRelation.generate_hypothesis(trace)
+
         invariants = []
         failed_hypotheses = []
-        for func_name, hypotheses in min_hypotheses.items():
-            for hypothesis in hypotheses.values():
-                precondition = find_precondition(hypothesis, [trace])
-                if precondition is not None:
-                    hypothesis.invariant.precondition = precondition
-                    invariants.append(hypothesis.invariant)
-                else:
-                    failed_hypotheses.append(FailedHypothesis(hypothesis))
+        for hypothesis in all_hypotheses:
+            precondition = find_precondition(hypothesis, [trace])
+            if precondition is not None:
+                hypothesis.invariant.precondition = precondition
+                invariants.append(hypothesis.invariant)
+            else:
+                failed_hypotheses.append(FailedHypothesis(hypothesis))
 
-        for func_name, hypotheses in max_hypotheses.items():
-            for hypothesis in hypotheses.values():
-                precondition = find_precondition(hypothesis, [trace])
-                if precondition is not None:
-                    hypothesis.invariant.precondition = precondition
-                    invariants.append(hypothesis.invariant)
-                else:
-                    failed_hypotheses.append(FailedHypothesis(hypothesis))
         return invariants, failed_hypotheses
 
     @staticmethod
