@@ -62,8 +62,6 @@ class InferEngine:
     def generate_hypothesis(
         self, disabled_relations: list[Relation]
     ) -> list[list[Hypothesis]]:
-        all_invs = []
-        all_failed_hypos = []
         hypotheses = []
         for trace in self.traces:
             for relation in relation_pool:
@@ -72,14 +70,12 @@ class InferEngine:
                         f"Skipping relation {relation.__name__} as it is disabled"
                     )
                     continue
-                logger.info(f"Infering invariants for relation: {relation.__name__}")
+                logger.info(f"Generating hypotheses for relation: {relation.__name__}")
                 hypotheses.append(relation.generate_hypothesis(trace))
 
                 logger.info(
-                    f"Found {len(invs)} invariants for relation: {relation.__name__}"
+                    f"Found {len(hypotheses[-1])} invariants for relation: {relation.__name__}"
                 )
-                all_invs.extend(invs)
-                all_failed_hypos.extend(failed_hypos)
         return hypotheses
 
     def collect_examples(self, hypotheses: list[list[Hypothesis]]):
@@ -91,7 +87,7 @@ class InferEngine:
                 hypothesis.invariant.relation.collect_examples(trace, hypothesis)
 
     def infer_precondition(self, hypotheses: list[list[Hypothesis]]):
-        all_hypotheses = []
+        all_hypotheses: list[Hypothesis] = []
         for trace_hypotheses in hypotheses:
             for hypothesis in trace_hypotheses:
                 all_hypotheses.append(hypothesis)
@@ -99,6 +95,12 @@ class InferEngine:
         invariants = []
         failed_hypos = []
         for hypothesis in all_hypotheses:
+            hypothesis.invariant.num_positive_examples = len(
+                hypothesis.positive_examples
+            )
+            hypothesis.invariant.num_negative_examples = len(
+                hypothesis.negative_examples
+            )
             precondition = find_precondition(hypothesis, self.traces)
             if precondition is None:
                 failed_hypos.append(FailedHypothesis(hypothesis))
@@ -235,7 +237,7 @@ if __name__ == "__main__":
 
     time_start = time.time()
     engine = InferEngine(traces)
-    invs, failed_hypos = engine.infer(disabled_relations=disabled_relations)
+    invs, failed_hypos = engine.infer_multi_trace(disabled_relations=disabled_relations)
     time_end = time.time()
     logger.info(f"Inference completed in {time_end - time_start} seconds.")
 

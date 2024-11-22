@@ -360,7 +360,6 @@ class APIContainRelation(Relation):
                         )
                         example = Example()
                         example.add_group(PARENT_GROUP_NAME, [parent_pre_record])
-                        example.add_group(VAR_GROUP_NAME, event.get_traces())
                         hypothesis.positive_examples.add_example(example)
                         break
                 else:
@@ -509,6 +508,7 @@ class APIContainRelation(Relation):
             str, dict[str, dict[str | tuple[str, ...], bool]]
         ] = {}
         func_names = trace.get_func_names()
+        func_names = ["torch.nn.modules.sparse.Embedding.reset_parameters"]
 
         func_names = [
             func_name
