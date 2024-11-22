@@ -308,25 +308,147 @@ class APIContainRelation(Relation):
     """
 
     @staticmethod
-    def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+    def generate_hypothesis(trace) -> list[Hypothesis]:
+        # let's play it dumb here,
+        _, _, hypotheses = APIContainRelation.infer(
+            trace, return_successful_hypotheses=True
+        )  # type: ignore
+
+        return hypotheses
+
+    @staticmethod
+    def collect_examples(trace, hypothesis):
+        inv = hypothesis.invariant
+        assert (
+            len(inv.params) == 2
+        ), "Expected 2 parameters for APIContainRelation, one for the parent function name, and one for the child event name"
+        parent_param, child_param = inv.params[0], inv.params[1]
+        assert isinstance(
+            parent_param, APIParam
+        ), "Expected the first parameter to be an APIParam"
+        assert isinstance(
+            child_param, (APIParam, VarTypeParam, VarNameParam)
+        ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
+
+        parent_func_name = parent_param.api_full_name
+
+        parent_func_call_ids = trace.get_func_call_ids(
+            parent_func_name
+        )  # should be sorted by time to reflect timeliness
+
+        check_for_unchanged_vars = False
+        if not isinstance(child_param, APIParam):
+            if VAR_GROUP_NAME in hypothesis.negative_examples.get_group_names():
+                check_for_unchanged_vars = True
+
+        for parent_func_call_id in tqdm(
+            parent_func_call_ids, desc=f"Collecting examples for {inv.text_description}"
+        ):
+            contained_events = events_scanner(trace, parent_func_call_id)
+            grouped_events = _group_events_by_type(contained_events)
+            if isinstance(child_param, APIParam):
+                contained_events = (
+                    grouped_events.get(FuncCallEvent, [])
+                    + grouped_events.get(FuncCallExceptionEvent, [])
+                    + grouped_events.get(IncompleteFuncCallEvent, [])
+                )
+                for event in contained_events:
+                    if child_param.check_event_match(event):
+                        # add a positive example
+                        parent_pre_record = trace.get_pre_func_call_record(
+                            parent_func_call_id
+                        )
+                        example = Example()
+                        example.add_group(PARENT_GROUP_NAME, [parent_pre_record])
+                        example.add_group(VAR_GROUP_NAME, event.get_traces())
+                        hypothesis.positive_examples.add_example(example)
+                        break
+                else:
+                    # add a negative example
+                    parent_pre_record = trace.get_pre_func_call_record(
+                        parent_func_call_id
+                    )
+                    example = Example()
+                    example.add_group(PARENT_GROUP_NAME, [parent_pre_record])
+                    hypothesis.negative_examples.add_example(example)
+            else:
+                contained_events = grouped_events.get(VarChangeEvent, [])
+                for event in contained_events:
+                    found = False
+                    if child_param.check_event_match(event):
+                        # add a positive example
+                        parent_pre_record = trace.get_pre_func_call_record(
+                            parent_func_call_id
+                        )
+                        example = Example()
+                        example.add_group(PARENT_GROUP_NAME, [parent_pre_record])
+                        example.add_group(VAR_GROUP_NAME, event.get_traces())
+                        hypothesis.positive_examples.add_example(example)
+                        found = True
+                if check_for_unchanged_vars:
+                    assert (
+                        found
+                    ), "Expected the positive example to be found in the case of dynamic analysis"
+                    unchanged_var_ids = (
+                        trace.get_var_ids_unchanged_but_causally_related(
+                            parent_func_call_id,
+                            child_param.var_type,
+                            child_param.attr_name,
+                        )
+                    )
+                    # add these unchanged vars as negative examples
+                    for var_id in unchanged_var_ids:
+                        example = Example()
+                        example.add_group(PARENT_GROUP_NAME, [parent_pre_record])
+                        example.add_group(
+                            VAR_GROUP_NAME,
+                            trace.get_var_raw_event_before_time(
+                                var_id, parent_pre_record["time"]
+                            ),
+                        )
+                        hypothesis.negative_examples.add_example(example)
+
+                if not found:
+                    # add a negative example
+                    parent_pre_record = trace.get_pre_func_call_record(
+                        parent_func_call_id
+                    )
+                    example = Example()
+                    example.add_group(PARENT_GROUP_NAME, [parent_pre_record])
+                    hypothesis.negative_examples.add_example(example)
+
+    @staticmethod
+    def infer(
+        trace: Trace, return_successful_hypotheses: bool = False
+    ) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants without Preconditions"""
         # enable stage-based inference for API Contain Relation
         logger = logging.getLogger(__name__)
 
         if not trace.is_stage_annotated():
-            return APIContainRelation._infer(trace)
+            invs, failed_hypos, succ_hypos = APIContainRelation._infer(trace)
+            if return_successful_hypotheses:
+                return invs, failed_hypos, succ_hypos  # type: ignore
+            return invs, failed_hypos
 
         invariants_by_stage: dict[Invariant, list[str]] = {}
+        invariants_to_hypos: dict[Invariant, list[Hypothesis]] = {}
         failed_hypothesis_by_stage: dict[FailedHypothesis, list[str]] = {}
         for stage, stage_trace in trace.get_traces_for_stage().items():
             logger.info(
                 "Stage annotation detected in trace, enabling stage-based inference"
             )
-            invariants, failed_hypotheses = APIContainRelation._infer(stage_trace)
-            for invariant in invariants:
+            invariants, failed_hypotheses, successful_hypotheses = (
+                APIContainRelation._infer(stage_trace)
+            )
+            for invariant, hypo in zip(invariants, successful_hypotheses):
                 if invariant not in invariants_by_stage:
                     invariants_by_stage[invariant] = []
+                if invariant not in invariants_to_hypos:
+                    invariants_to_hypos[invariant] = []
                 invariants_by_stage[invariant].append(stage)
+                invariants_to_hypos[invariant].append(hypo)
+
             for failed_hypothesis in failed_hypotheses:
                 if failed_hypothesis not in failed_hypothesis_by_stage:
                     failed_hypothesis_by_stage[failed_hypothesis] = []
@@ -346,6 +468,18 @@ class APIContainRelation(Relation):
                 invariant.precondition.add_stage_info(set(supported_stages))
                 merged_invariants.append(invariant)
 
+        # for all the invariants' hypotheses, merge into one hypothesis by adding the examples
+        merged_successful_hypotheses: list[Hypothesis] = []
+        for hypotheses in invariants_to_hypos.values():
+            hypothesis = hypotheses[0]
+            for other_hypothesis in hypotheses[1:]:
+                hypothesis.positive_examples.examples.extend(
+                    other_hypothesis.positive_examples.examples
+                )
+                hypothesis.negative_examples.examples.extend(
+                    other_hypothesis.negative_examples.examples
+                )
+
         # HACK: add the stage info to the failed hypotheses through the text description as well NEED TO CHANGE IF WE SUPPORT INVARIANT REFINEMENT
         for failed_hypothesis in failed_hypothesis_by_stage:
             not_supported_stages = failed_hypothesis_by_stage[failed_hypothesis]
@@ -355,10 +489,14 @@ class APIContainRelation(Relation):
                 f" (FAILED IN in stages: {not_supported_stages})"
             )
 
+        if return_successful_hypotheses:
+            return merged_invariants, list(failed_hypothesis_by_stage.keys()), merged_successful_hypotheses  # type: ignore
         return merged_invariants, list(failed_hypothesis_by_stage.keys())
 
     @staticmethod
-    def _infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
+    def _infer(
+        trace: Trace,
+    ) -> tuple[list[Invariant], list[FailedHypothesis], list[Hypothesis]]:
         """Infer Invariants with Preconditions"""
 
         logger = logging.getLogger(__name__)
@@ -382,7 +520,7 @@ class APIContainRelation(Relation):
             logger.warning(
                 "No function calls found in the trace, skipping the analysis"
             )
-            return [], []
+            return [], [], []
 
         for parent in tqdm(
             func_names, desc="Scanning through function calls to generate hypotheses"
@@ -516,7 +654,6 @@ class APIContainRelation(Relation):
                                 positive_examples=ExampleList({PARENT_GROUP_NAME}),
                                 negative_examples=ExampleList({PARENT_GROUP_NAME}),
                             )
-                        # else:
 
             # MARK: EVENT MERGING TO CREATE FINE-GRAINED CHILD PARAMS
             for parent_param in passing_events_for_API_contain_API:
@@ -683,9 +820,11 @@ class APIContainRelation(Relation):
 
             # for each key in all_mergeable_hypotheses, invoke the hypotheses merging process.
             for hypotheses_to_be_merged in all_mergeable_hypotheses.values():
-                merged_hypotheses = _merge_hypotheses(hypotheses_to_be_merged)
+                merged_successful_hypotheses = _merge_hypotheses(
+                    hypotheses_to_be_merged
+                )
                 # delete original hypotheses in the original `hypotheses` structure
-                for hypo in merged_hypotheses:
+                for hypo in merged_successful_hypotheses:
                     new_child_param = hypo.invariant.params[1]
                     assert isinstance(new_child_param, (VarNameParam | VarTypeParam))
                     hypotheses[parent_param][
@@ -704,6 +843,7 @@ class APIContainRelation(Relation):
         )
         all_invariants: list[Invariant] = []
         failed_hypotheses = []
+        successful_hypotheses = []
         for parent_param in hypotheses:
             for child_param in hypotheses[parent_param]:
                 hypo = hypotheses[parent_param][child_param]
@@ -719,11 +859,12 @@ class APIContainRelation(Relation):
                     hypo.invariant.num_positive_examples = len(hypo.positive_examples)
                     hypo.invariant.num_negative_examples = len(hypo.negative_examples)
                     all_invariants.append(hypo.invariant)
+                    successful_hypotheses.append(hypo)
                 else:
                     logger.debug(f"Precondition not found for the hypotheses: {hypo}")
                     failed_hypotheses.append(FailedHypothesis(hypo))
 
-        return all_invariants, failed_hypotheses
+        return all_invariants, failed_hypotheses, successful_hypotheses
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
