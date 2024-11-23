@@ -50,7 +50,7 @@ class VarPeriodicChangeRelation(Relation):
         var_insts = trace.get_var_insts()
         if len(var_insts) == 0:
             logger.warning("No variables found in the trace.")
-            return [], []
+            return []
         ## 2.Counting: count the number of each value of every variable attribute
         # TODO: record the intervals between occurrencess
         # TODO: improve time and memory efficiency

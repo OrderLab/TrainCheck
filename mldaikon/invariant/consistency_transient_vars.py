@@ -28,6 +28,7 @@ from mldaikon.trace.types import (
 
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"
+ATTR_SKIP = "_ML_DAIKON_data_ID"
 
 # _CACHE_PATH = "func_with_tensors.pkl"
 
@@ -156,6 +157,9 @@ def get_returned_tensors(
         type_value = list(return_value.keys())[0]
         attributes = return_value[type_value]
         if re.match(TENSOR_PATTERN, type_value) or PARAMETER_KEYWORD in type_value:
+            # let's pop the ATTR_SKIP attribute
+            if ATTR_SKIP in attributes:
+                attributes.pop(ATTR_SKIP)
             returned_tensors.append(attributes)
     return returned_tensors
 
@@ -269,7 +273,6 @@ class ConsistentOutputRelation(Relation):
         logger = logging.getLogger(__name__)
 
         all_func_names = trace.get_func_names()
-
         relevant_func_call_events = get_events_of_funcs_with_tensors(
             all_func_names, trace, output_has_tensors=True, input_has_tensors=False
         )

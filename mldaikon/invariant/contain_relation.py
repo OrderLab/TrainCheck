@@ -508,7 +508,6 @@ class APIContainRelation(Relation):
             str, dict[str, dict[str | tuple[str, ...], bool]]
         ] = {}
         func_names = trace.get_func_names()
-        func_names = ["torch.nn.modules.sparse.Embedding.reset_parameters"]
 
         func_names = [
             func_name

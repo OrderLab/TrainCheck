@@ -72,9 +72,8 @@ class InferEngine:
                     continue
                 logger.info(f"Generating hypotheses for relation: {relation.__name__}")
                 hypotheses.append(relation.generate_hypothesis(trace))
-
                 logger.info(
-                    f"Found {len(hypotheses[-1])} invariants for relation: {relation.__name__}"
+                    f"Found {len(hypotheses[-1])} hypotheses for relation: {relation.__name__}"
                 )
         return hypotheses
 
