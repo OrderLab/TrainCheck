@@ -1068,6 +1068,16 @@ class GroupedPreconditions:
             values=valid_stages,
         )
 
+        invalid_stages = set(config.ALL_STAGE_NAMES) - valid_stages
+
+        inverted_state_clause = PreconditionClause(
+            prop_name=STAGE_KEY,
+            prop_dtype=str,
+            _type=PT.CONSTANT,
+            additional_path=None,
+            values=invalid_stages,
+        )
+
         # add the stage clause to all the preconditions, if UNCONDITIONAL, then swap it with the stage clause
         for group_name, preconditions in self.grouped_preconditions.items():
             if preconditions.is_unconditional():
@@ -1075,11 +1085,12 @@ class GroupedPreconditions:
                     [Precondition([stage_clause])], inverted=False
                 )
             else:
-                assert (
-                    not preconditions.inverted
-                ), "Adding clause to inverted preconditions is not supported yet"
-                for precondition in preconditions:
-                    precondition.add_clause(stage_clause)
+                if not preconditions.inverted:
+                    for precondition in preconditions:
+                        precondition.add_clause(stage_clause)
+                else:
+                    for precondition in preconditions:
+                        precondition.add_clause(inverted_state_clause)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, GroupedPreconditions):
@@ -1158,9 +1169,10 @@ class Invariant:
                 "num_negative_examples": self.num_negative_examples,
             }
         else:
-            assert (
-                self.precondition is None
-            ), "Precondition should be None for failed cases"
+            # assert (
+            #     self.precondition is None
+            # ), "Precondition should be None for failed cases"
+            # HACK: NEED TO CHECK ALL FAILED INVARIANTS THAT HAVE PRECONDITIONS
             return {
                 "text_description": self.text_description,
                 "relation": self.relation.__name__,

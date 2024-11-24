@@ -1,4 +1,5 @@
 import mldaikon.instrumentor.tracer as tracer
+from mldaikon.config.config import ALL_STAGE_NAMES
 from mldaikon.instrumentor import meta_vars
 
 
@@ -11,20 +12,9 @@ def annotate_stage(stage_name: str):
     Note that it is your responsibility to make sure this function is called on all threads that potentially can generate invariant candidates.
     """
 
-    valid_stage_names = [
-        "init",
-        "training",
-        "evaluation",
-        "inference",
-        "testing",
-        "checkpointing",
-        "preprocessing",
-        "postprocessing",
-    ]
-
     assert (
-        stage_name in valid_stage_names
-    ), f"Invalid stage name: {stage_name}, valid ones are {valid_stage_names}"
+        stage_name in ALL_STAGE_NAMES
+    ), f"Invalid stage name: {stage_name}, valid ones are {ALL_STAGE_NAMES}"
 
     meta_vars["stage"] = stage_name
 
