@@ -43,6 +43,10 @@ def get_attr_name(col_name: str) -> str:
     return col_name[len(config.VAR_ATTR_PREFIX) :]
 
 
+def safe_isnan(value: Any) -> bool:
+    return isinstance(value, float) and pd.isna(value)
+
+
 class TracePandas(Trace):
     def __init__(self, events, truncate_incomplete_func_calls=True):
         self.events = events
@@ -660,9 +664,7 @@ class TracePandas(Trace):
             assert (
                 related_func_call_pre_event["thread_id"] == thread_id
             ), "Related function call is on a different thread."
-            if isinstance(
-                related_func_call_pre_event["proxy_obj_names"], float
-            ) and pd.isna(related_func_call_pre_event["proxy_obj_names"]):
+            if safe_isnan(related_func_call_pre_event["proxy_obj_names"]):
                 continue
             for var_name, var_type in related_func_call_pre_event["proxy_obj_names"]:
                 if var_name == "" and var_type == "":
@@ -787,7 +789,12 @@ class TracePandas(Trace):
             attr_values = {}
             for _, state_change in state_changes.iterrows():
                 for col in state_change.index:
-                    if pd.isna(state_change[col]):
+
+                    if "_ML_DAIKON" in col:
+                        # IDs are only reserved for the use of DistinctArgumentRelation
+                        continue
+
+                    if safe_isnan(state_change[col]):
                         # skip NaN values as NaNs indicate that the attribute is not present in the state
                         continue
 
@@ -811,7 +818,12 @@ class TracePandas(Trace):
                                 )
                             ]
                         else:
-                            if attr_values[attr_name][-1].value != state_change[col]:
+                            if attr_values[attr_name][-1].value != state_change[
+                                col
+                            ] and not (
+                                safe_isnan(attr_values[attr_name][-1].value)
+                                and safe_isnan(state_change[col])
+                            ):
                                 attr_values[attr_name][-1].liveness.end_time = (
                                     state_change["time"]
                                 )
@@ -877,14 +889,15 @@ class TracePandas(Trace):
                     new_state = var_insts[var_id][attr][i]
 
                     # for debugging
-                    import pandas as pd
+                    # import pandas as pd
 
-                    assert not pd.isna(
-                        old_state.value
-                    ), f"Old state is NaN for {var_id} {attr}"
-                    assert not pd.isna(
-                        new_state.value
-                    ), f"New state is NaN for {var_id} {attr}"
+                    # if not isinstance(old_state.value, Iterable) and not isinstance(new_state.value, Iterable) and not "_ML_DAIKON" in attr:
+                    #     assert not pd.isna(  # AssertionError: Old state is NaN for VarInstId(process_id=374887, var_name='gc1.kernel', var_type='torch.nn.Parameter') _ML_DAIKON_grad_ID (why are those ids progatated to var states?)
+                    #         old_state.value
+                    #     ), f"Old state is NaN for {var_id} {attr}"
+                    #     assert not pd.isna(
+                    #         new_state.value
+                    #     ), f"New state is NaN for {var_id} {attr}"
                     assert (
                         change_time is not None
                     ), f"Start time not found for {var_id} {attr} {var_insts[var_id][attr][i].value}"

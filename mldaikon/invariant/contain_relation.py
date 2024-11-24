@@ -314,6 +314,10 @@ class APIContainRelation(Relation):
             trace, return_successful_hypotheses=True
         )  # type: ignore
 
+        # set all precond to None
+        for hypo in hypotheses:
+            hypo.invariant.precondition = None
+
         return hypotheses
 
     @staticmethod
