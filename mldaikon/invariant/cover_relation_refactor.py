@@ -38,7 +38,6 @@ def is_complete_subgraph(
 def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIParam]]:
     graph: Dict[APIParam, List[APIParam]] = {}
     indegree: Dict[APIParam, int] = {}
-
     for a, b in pairs:
         if a not in graph:
             graph[a] = []
@@ -55,7 +54,6 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
             indegree[a] = 0
 
     start_nodes: List[APIParam] = [node for node in indegree if indegree[node] == 0]
-
     paths: List[List[APIParam]] = []
 
     def is_subset(path1: List[APIParam], path2: List[APIParam]) -> bool:
@@ -63,11 +61,11 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
 
     def add_path(new_path: List[APIParam]) -> None:
         nonlocal paths
-        for existing_path in paths[:]:
-            if is_subset(existing_path, new_path):
-                paths.remove(existing_path)
-            if is_subset(new_path, existing_path):
-                return
+        # for existing_path in paths[:]:
+        #     if is_subset(existing_path, new_path):
+        #         paths.remove(existing_path)
+        #     if is_subset(new_path, existing_path):
+        #         return
         paths.append(new_path)
 
     def dfs(node: APIParam, path: List[APIParam], visited: Set[APIParam]) -> None:
@@ -249,7 +247,7 @@ class FunctionCoverRelation(Relation):
                         pre_record_B = [event]
         print("End adding examples")
 
-        return list[hypothesis_with_examples.values()]
+        return list(hypothesis_with_examples.values())
 
     @staticmethod
     def collect_examples(trace, hypothesis):
@@ -384,7 +382,7 @@ class FunctionCoverRelation(Relation):
         failed_hypothesis = []
         for hypothesis in all_hypotheses.copy():
             preconditions = find_precondition(
-                hypothesis, [trace]
+                hypothesis, trace
             )
             if preconditions is not None:
                 hypothesis.invariant.precondition = (

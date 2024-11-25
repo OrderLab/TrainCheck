@@ -1,4 +1,5 @@
 import logging
+import copy
 from itertools import combinations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
@@ -271,7 +272,7 @@ class DistinctArgumentRelation(Relation):
 
         print("End adding examples")
 
-        return list[hypothesis_with_examples.values()]
+        return list(hypothesis_with_examples.values())
     
     @staticmethod
     def collect_examples(trace, hypothesis):
@@ -340,7 +341,7 @@ class DistinctArgumentRelation(Relation):
         failed_hypothesis = []
         for hypothesis in all_hypotheses.copy():
             preconditions = find_precondition(
-                hypothesis, [trace]
+                hypothesis, trace
             )
             if preconditions is not None:
                 hypothesis.invariant.precondition = (

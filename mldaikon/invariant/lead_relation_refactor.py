@@ -146,11 +146,11 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
 
     def add_path(new_path: List[APIParam]) -> None:
         nonlocal paths
-        for existing_path in paths[:]:
-            if is_subset(existing_path, new_path):
-                paths.remove(existing_path)
-            if is_subset(new_path, existing_path):
-                return
+        # for existing_path in paths[:]:
+        #     if is_subset(existing_path, new_path):
+        #         paths.remove(existing_path)
+        #     if is_subset(new_path, existing_path):
+        #         return
         paths.append(new_path)
 
     def dfs(node: APIParam, path: List[APIParam], visited: Set[APIParam]) -> None:
@@ -320,10 +320,19 @@ class FunctionLeadRelation(Relation):
 
                         flag_A = None
                         pre_record_A = []
+                
+                if flag_A is not None:
+                    flag_A = None
+                    neg = Example()
+                    neg.add_group(EXP_GROUP_NAME, pre_record_A)
+                    hypothesis_with_examples[
+                        (func_A, func_B)
+                    ].negative_examples.add_example(neg)
+                    pre_record_A = []
 
         print("End adding examples")
 
-        return list[hypothesis_with_examples.values()]
+        return list(hypothesis_with_examples.values())
     
     @staticmethod
     def collect_examples(trace, hypothesis):
@@ -434,6 +443,15 @@ class FunctionLeadRelation(Relation):
                         hypothesis.positive_examples.add_example(pos)
                         flag_A = None
                         pre_record_A = []
+                
+                if flag_A is not None:
+                    flag_A = None
+                    neg = Example()
+                    neg.add_group(EXP_GROUP_NAME, pre_record_A)
+                    hypothesis_with_examples[
+                        (func_A, func_B)
+                    ].negative_examples.add_example(neg)
+                    pre_record_A = []
 
 
     @staticmethod
@@ -449,7 +467,7 @@ class FunctionLeadRelation(Relation):
         failed_hypothesis = []
         for hypothesis in all_hypotheses.copy():
             preconditions = find_precondition(
-                hypothesis, [trace]
+                hypothesis, trace
             )
             if preconditions is not None:
                 hypothesis.invariant.precondition = (

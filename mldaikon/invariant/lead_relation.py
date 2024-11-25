@@ -146,11 +146,11 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
 
     def add_path(new_path: List[APIParam]) -> None:
         nonlocal paths
-        for existing_path in paths[:]:
-            if is_subset(existing_path, new_path):
-                paths.remove(existing_path)
-            if is_subset(new_path, existing_path):
-                return
+        # for existing_path in paths[:]:
+        #     if is_subset(existing_path, new_path):
+        #         paths.remove(existing_path)
+        #     if is_subset(new_path, existing_path):
+        #         return
         paths.append(new_path)
 
     def dfs(node: APIParam, path: List[APIParam], visited: Set[APIParam]) -> None:
