@@ -2,7 +2,7 @@ import argparse
 import datetime
 import json
 import logging
-import re
+import os
 
 from tqdm import tqdm
 
@@ -47,8 +47,14 @@ if __name__ == "__main__":
         "-t",
         "--traces",
         nargs="+",
-        required=True,
-        help="Traces files to check invariants on",
+        required=False,
+        help="Traces files to infer invariants on",
+    )
+    parser.add_argument(
+        "-f",
+        "--trace-folders",
+        nargs="+",
+        help='Folders containing traces files to infer invariants on. Trace files should start with "trace_" or "proxy_log.json"',
     )
     parser.add_argument(
         "-i",
@@ -90,6 +96,14 @@ if __name__ == "__main__":
     _, read_trace_file = select_trace_implementation(args.backend)
     # read the invariants
 
+    # check if either traces or trace folders are provided
+    if args.traces is None and args.trace_folders is None:
+        # print help message if neither traces nor trace folders are provided
+        parser.print_help()
+        parser.error(
+            "Please provide either traces or trace folders to infer invariants"
+        )
+
     if args.debug:
         log_level = logging.DEBUG
     else:
@@ -115,18 +129,20 @@ if __name__ == "__main__":
     logger.info("Reading invaraints from %s", "\n".join(args.invariants))
     invs = read_inv_file(args.invariants)
 
-    logger.info("Reading traces from %s", "\n".join(args.traces))
-
-    traces_string = args.traces[0]
-
-    trace_groups = re.findall(r"\[(.*?)\]", traces_string)
-
-    if len(trace_groups) == 0:
-        traces = [read_trace_file(args.traces)]
-    else:
-        trace_file_groups = [group.split(", ") for group in trace_groups]
-
-        traces = [read_trace_file(group) for group in trace_file_groups]
+    traces = []
+    if args.traces is not None:
+        logger.info("Reading traces from %s", "\n".join(args.traces))
+        traces.append(read_trace_file(args.traces))
+    if args.trace_folders is not None:
+        for trace_folder in args.trace_folders:
+            # file discovery
+            trace_files = [
+                f"{trace_folder}/{file}"
+                for file in os.listdir(trace_folder)
+                if file.startswith("trace_") or file.startswith("proxy_log.json")
+            ]
+            logger.info("Reading traces from %s", "\n".join(trace_files))
+            traces.append(read_trace_file(trace_files))
 
     results = check_engine(traces, invs, args.check_relation_first)
     results_failed = [res for res in results if not res.check_passed]
