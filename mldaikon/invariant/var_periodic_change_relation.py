@@ -21,7 +21,7 @@ from mldaikon.trace.trace import Trace, VarInstId
 
 def count_num_justification(count: int):
     # TODO: discuss to find a better way to distinguish between changed values
-    return count > 1
+    return count > 5
 
 
 def calculate_hypo_value(value) -> str:
@@ -261,7 +261,7 @@ class VarPeriodicChangeRelation(Relation):
         triggered = False
 
         if not to_check_var_ids:
-            return CheckerResult(None, inv, False, False)
+            return CheckerResult(None, inv, True, False)
 
         for var_id in to_check_var_ids:
             if check_relation_first:
