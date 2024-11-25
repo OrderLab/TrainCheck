@@ -482,6 +482,7 @@ class APIContainRelation(Relation):
                 hypothesis.negative_examples.examples.extend(
                     other_hypothesis.negative_examples.examples
                 )
+            merged_successful_hypotheses.append(hypothesis)
 
         # HACK: add the stage info to the failed hypotheses through the text description as well NEED TO CHANGE IF WE SUPPORT INVARIANT REFINEMENT
         for failed_hypothesis in failed_hypothesis_by_stage:
