@@ -2,11 +2,18 @@ import argparse
 import datetime
 import json
 import logging
+import os
 import random
 import time
 
 import mldaikon.config.config as config
-from mldaikon.invariant.base_cls import FailedHypothesis, Invariant, Relation
+from mldaikon.invariant.base_cls import (
+    FailedHypothesis,
+    Hypothesis,
+    Invariant,
+    Relation,
+)
+from mldaikon.invariant.precondition import find_precondition
 from mldaikon.invariant.relation_pool import relation_pool
 from mldaikon.trace import MDNONEJSONEncoder, select_trace_implementation
 from mldaikon.utils import register_custom_excepthook
@@ -46,6 +53,62 @@ class InferEngine:
         )
         return all_invs, all_failed_hypos
 
+    def infer_multi_trace(self, disabled_relations: list[Relation]):
+        hypotheses = self.generate_hypothesis(disabled_relations)
+        self.collect_examples(hypotheses)
+        invariants, failed_hypos = self.infer_precondition(hypotheses)
+        return invariants, failed_hypos
+
+    def generate_hypothesis(
+        self, disabled_relations: list[Relation]
+    ) -> list[list[Hypothesis]]:
+        hypotheses = []
+        for trace in self.traces:
+            for relation in relation_pool:
+                if disabled_relations is not None and relation in disabled_relations:
+                    logger.info(
+                        f"Skipping relation {relation.__name__} as it is disabled"
+                    )
+                    continue
+                logger.info(f"Generating hypotheses for relation: {relation.__name__}")
+                hypotheses.append(relation.generate_hypothesis(trace))
+                logger.info(
+                    f"Found {len(hypotheses[-1])} hypotheses for relation: {relation.__name__}"
+                )
+        return hypotheses
+
+    def collect_examples(self, hypotheses: list[list[Hypothesis]]):
+        for i, trace in enumerate(self.traces):
+            for j, hypothesis in enumerate(hypotheses[i]):
+                if j == i:
+                    # already collected examples for this hypothesis on the same trace that generated it
+                    continue
+                hypothesis.invariant.relation.collect_examples(trace, hypothesis)
+
+    def infer_precondition(self, hypotheses: list[list[Hypothesis]]):
+        all_hypotheses: list[Hypothesis] = []
+        for trace_hypotheses in hypotheses:
+            for hypothesis in trace_hypotheses:
+                all_hypotheses.append(hypothesis)
+
+        invariants = []
+        failed_hypos = []
+        for hypothesis in all_hypotheses:
+            hypothesis.invariant.num_positive_examples = len(
+                hypothesis.positive_examples
+            )
+            hypothesis.invariant.num_negative_examples = len(
+                hypothesis.negative_examples
+            )
+            precondition = find_precondition(hypothesis, self.traces)
+            if precondition is None:
+                failed_hypos.append(FailedHypothesis(hypothesis))
+            else:
+                hypothesis.invariant.precondition = precondition
+                invariants.append(hypothesis.invariant)
+
+        return invariants, failed_hypos
+
 
 def save_invs(invs: list[Invariant], output_file: str):
     with open(output_file, "w") as f:
@@ -69,8 +132,14 @@ if __name__ == "__main__":
         "-t",
         "--traces",
         nargs="+",
-        required=True,
+        required=False,
         help="Traces files to infer invariants on",
+    )
+    parser.add_argument(
+        "-f",
+        "--trace-folders",
+        nargs="+",
+        help='Folders containing traces files to infer invariants on. Trace files should start with "trace_" or "proxy_log.json"',
     )
     parser.add_argument(
         "-d",
@@ -110,6 +179,14 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    # check if either traces or trace folders are provided
+    if args.traces is None and args.trace_folders is None:
+        # print help message if neither traces nor trace folders are provided
+        parser.print_help()
+        parser.error(
+            "Please provide either traces or trace folders to infer invariants"
+        )
+
     Trace, read_trace_file = select_trace_implementation(args.backend)
 
     if args.debug:
@@ -138,14 +215,28 @@ if __name__ == "__main__":
     config.PRECOND_SAMPLING_THRESHOLD = args.precond_sampling_threshold
 
     time_start = time.time()
-    logger.info("Reading traces from %s", "\n".join(args.traces))
-    traces = [read_trace_file(args.traces)]
+
+    traces = []
+    if args.traces is not None:
+        logger.info("Reading traces from %s", "\n".join(args.traces))
+        traces.append(read_trace_file(args.traces))
+    if args.trace_folders is not None:
+        for trace_folder in args.trace_folders:
+            # file discovery
+            trace_files = [
+                f"{trace_folder}/{file}"
+                for file in os.listdir(trace_folder)
+                if file.startswith("trace_") or file.startswith("proxy_log.json")
+            ]
+            logger.info("Reading traces from %s", "\n".join(trace_files))
+            traces.append(read_trace_file(trace_files))
+
     time_end = time.time()
     logger.info(f"Traces read successfully in {time_end - time_start} seconds.")
 
     time_start = time.time()
     engine = InferEngine(traces)
-    invs, failed_hypos = engine.infer(disabled_relations=disabled_relations)
+    invs, failed_hypos = engine.infer_multi_trace(disabled_relations=disabled_relations)
     time_end = time.time()
     logger.info(f"Inference completed in {time_end - time_start} seconds.")
 

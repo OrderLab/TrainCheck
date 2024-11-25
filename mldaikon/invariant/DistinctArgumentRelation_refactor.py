@@ -1,4 +1,5 @@
 import logging
+import copy
 from itertools import combinations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
@@ -185,11 +186,8 @@ class DistinctArgumentRelation(Relation):
     """
 
     @staticmethod
-    def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
-        """Infer Invariants for the FunctionCoverRelation."""
-
-        logger = logging.getLogger(__name__)
-
+    def generate_hypothesis(trace) -> list[Hypothesis]:
+        """Generate hypothesis for the DistinctArgumentRelation on trace."""
         # 1. Pre-process all the events
         print("Start preprocessing....")
         listed_arguments: Dict[
@@ -274,33 +272,90 @@ class DistinctArgumentRelation(Relation):
 
         print("End adding examples")
 
+        return list(hypothesis_with_examples.values())
+    
+    @staticmethod
+    def collect_examples(trace, hypothesis):
+        """Generate examples for a hypothesis on trace."""
+        inv = hypothesis.invariant
+
+        # 1. Pre-process all the events
+        print("Start preprocessing....")
+        listed_arguments: Dict[
+            str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]
+        ] = {}
+        function_pool: Set[Any] = set()
+        func = inv.params[0]
+
+        assert isinstance(func, APIParam), "Invariant parameters should be APIParam."
+
+        func_name = func.api_full_name
+        function_pool.add(func_name)
+
+        function_pool, listed_arguments = get_event_data_per_function_per_step(
+            trace, function_pool
+        )
+
+        print("End preprocessing")
+
+        if not function_pool:
+            return
+
+        for step, records in listed_arguments[func_name].items():
+            for PT_pair1, PT_pair2 in combinations(records.keys(), 2):
+                for event1 in records[PT_pair1]:
+                    for event2 in records[PT_pair2]:
+                        if not is_arguments_list_same(
+                            event1["args"], event2["args"]
+                        ):
+                            pos = Example()
+                            pos.add_group(EXP_GROUP_NAME, [event1, event2])
+                            hypothesis.positive_examples.add_example(pos)
+                        else:
+                            neg = Example()
+                            neg.add_group(EXP_GROUP_NAME, [event1, event2])
+                            hypothesis.negative_examples.add_example(neg)
+
+            for PT_pair in records.keys():
+                for event1, event2 in combinations(records[PT_pair], 2):
+                    if not is_arguments_list_same(event1["args"], event2["args"]):
+                        pos = Example()
+                        pos.add_group(EXP_GROUP_NAME, [event1, event2])
+                        hypothesis.positive_examples.add_example(pos)
+                    else:
+                        neg = Example()
+                        neg.add_group(EXP_GROUP_NAME, [event1, event2])
+                        hypothesis.negative_examples.add_example(neg)
+
+
+    @staticmethod
+    def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
+        """Infer Invariants for the FunctionCoverRelation."""
+        all_hypotheses = DistinctArgumentRelation.generate_hypothesis(trace)
+
+        # for hypothesis in all_hypotheses:
+        #     DistinctArgumentRelation.collect_examples(trace, hypothesis)
+
         # 4. Precondition inference
         print("Start precondition inference...")
         failed_hypothesis = []
-        hypos_to_delete = []
-        for hypo in hypothesis_with_examples:
-            logger.debug(
-                f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
+        for hypothesis in all_hypotheses.copy():
+            preconditions = find_precondition(
+                hypothesis, trace
             )
-            preconditions = find_precondition(hypothesis_with_examples[hypo], [trace])
-            logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
-
             if preconditions is not None:
-                hypothesis_with_examples[hypo].invariant.precondition = preconditions
-            else:
-                logger.debug(f"Precondition not found for {hypo}")
-                failed_hypothesis.append(
-                    FailedHypothesis(hypothesis_with_examples[hypo])
+                hypothesis.invariant.precondition = (
+                    preconditions
                 )
-                hypos_to_delete.append(hypo)
-
-        for hypo in hypos_to_delete:
-            # remove key from hypothesis_with_examples
-            hypothesis_with_examples.pop(hypo)
+            else:
+                failed_hypothesis.append(
+                    FailedHypothesis(hypothesis)
+                )
+                all_hypotheses.remove(hypothesis)
         print("End precondition inference")
 
         return (
-            list([hypo.invariant for hypo in hypothesis_with_examples.values()]),
+            list([hypo.invariant for hypo in all_hypotheses]),
             failed_hypothesis,
         )
 

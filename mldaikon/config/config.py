@@ -123,3 +123,15 @@ TRAIN_STEP_NAMES = [
 
 ENABLE_COND_DUMP = False
 INSTR_DESCRIPTORS = False
+
+
+ALL_STAGE_NAMES = {
+    "init",
+    "training",
+    "evaluation",
+    "inference",
+    "testing",
+    "checkpointing",
+    "preprocessing",
+    "postprocessing",
+}

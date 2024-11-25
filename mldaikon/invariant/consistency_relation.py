@@ -111,7 +111,43 @@ class ConsistencyRelation(Relation):
     @staticmethod
     def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants for the ConsistencyRelation."""
+        logger = logging.getLogger(__name__)
 
+        hypotheses = ConsistencyRelation.generate_hypothesis(trace)
+
+        failed_hypothesis = []
+        passed_hypothesis = []
+        for hypo in hypotheses:
+            param1 = hypo.invariant.params[0]
+            param2 = hypo.invariant.params[1]
+
+            assert isinstance(param1, VarTypeParam) and isinstance(
+                param2, VarTypeParam
+            ), "Invariant parameters should be VarTypeParam."
+
+            logger.debug(f"Finding Precondition for: {hypo.invariant.text_description}")
+            preconditions = find_precondition(hypo, [trace])
+            logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
+
+            if preconditions is not None:
+                hypo.invariant.precondition = preconditions
+                hypo.invariant.num_positive_examples = len(hypo.positive_examples)
+                hypo.invariant.num_negative_examples = len(hypo.negative_examples)
+                passed_hypothesis.append(hypo)
+            else:
+                logger.debug(
+                    f"Precondition not found for {hypo.invariant.text_description}"
+                )
+                failed_hypothesis.append(FailedHypothesis(hypo))
+
+        return (
+            list([hypothesis.invariant for hypothesis in passed_hypothesis]),
+            failed_hypothesis,
+        )
+
+    @staticmethod
+    def generate_hypothesis(trace: Trace) -> list[Hypothesis]:
+        """Generate Hypothesis for the ConsistencyRelation."""
         logger = logging.getLogger(__name__)
 
         ## 1. Pre-scanning: Collecting variable instances and their values from the trace
@@ -119,7 +155,7 @@ class ConsistencyRelation(Relation):
         var_insts = trace.get_var_insts()
         if len(var_insts) == 0:
             logger.warning("No variables found in the trace.")
-            return [], []
+            return []
 
         def is_hypo_already_in_hypothesis(hypo: tuple, hypothesis: set) -> bool:
             return (
@@ -206,7 +242,6 @@ class ConsistencyRelation(Relation):
         # filtered_hypothesis = [("torch.nn.Parameter", "data", "torch.nn.Parameter", "data")]
 
         ## 4.  Positive Examples and Negative Examples Collection
-        group_name = VAR_GROUP_NAME
         hypothesis_with_examples = {
             hypo: Hypothesis(
                 invariant=Invariant(
@@ -218,121 +253,99 @@ class ConsistencyRelation(Relation):
                     precondition=None,
                     text_description=f"Consistency Relation between {hypo[0]}.{hypo[1]} and {hypo[2]}.{hypo[3]}",
                 ),
-                positive_examples=ExampleList({group_name}),
-                negative_examples=ExampleList({group_name}),
+                positive_examples=ExampleList({VAR_GROUP_NAME}),
+                negative_examples=ExampleList({VAR_GROUP_NAME}),
             )
             for hypo in filtered_hypothesis
         }
 
         for hypo in hypothesis_with_examples:
-            var_type1 = hypo[0]
-            attr1 = hypo[1]
-            var_type2 = hypo[2]
-            attr2 = hypo[3]
+            ConsistencyRelation.collect_examples(trace, hypothesis_with_examples[hypo])
 
-            is_skipping_init_values = False
-            if skip_init_values(var_type1) or skip_init_values(var_type2):
-                is_skipping_init_values = True
+        return list(hypothesis_with_examples.values())
 
-            # collect all variables that have the same types as var_type1 and var_type2
-            var_type1_vars = [
-                var_inst for var_inst in var_insts if var_inst.var_type == var_type1
-            ]
-            var_type2_vars = [
-                var_inst for var_inst in var_insts if var_inst.var_type == var_type2
-            ]
+    @staticmethod
+    def collect_examples(trace: Trace, hypothesis: Hypothesis):
+        """Collect Examples for the ConsistencyRelation.
+        The modification of the hypothesis is done in-place.
+        """
+        inv = hypothesis.invariant
+        assert (
+            inv.relation == ConsistencyRelation
+        ), "Invariant should be ConsistencyRelation."
+        assert len(inv.params) == 2, "Invariant should have exactly two parameters."
 
-            for idx1, var_inst1 in enumerate(
-                tqdm(var_type1_vars, desc=f"Collecting Examples for Hypo: {hypo}")
-            ):
-                for idx2, var_inst2 in enumerate(var_type2_vars):
-                    if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
-                        continue
-                    if var_inst1 == var_inst2:
-                        continue
-                    for _, value1 in enumerate(
-                        var_insts[var_inst1][attr1][int(is_skipping_init_values) :]
+        param1 = inv.params[0]
+        param2 = inv.params[1]
+
+        assert isinstance(param1, VarTypeParam) and isinstance(
+            param2, VarTypeParam
+        ), "Invariant parameters should be VarTypeParam."
+        var_type1, attr1 = param1.var_type, param1.attr_name
+        var_type2, attr2 = param2.var_type, param2.attr_name
+
+        is_skipping_init_values = False
+        if skip_init_values(var_type1) or skip_init_values(var_type2):
+            is_skipping_init_values = True
+
+        var_insts = trace.get_var_insts()
+
+        # collect all variables that have the same types as var_type1 and var_type2
+        var_type1_vars = [
+            var_inst for var_inst in var_insts if var_inst.var_type == var_type1
+        ]
+        var_type2_vars = [
+            var_inst for var_inst in var_insts if var_inst.var_type == var_type2
+        ]
+
+        for idx1, var_inst1 in enumerate(
+            tqdm(var_type1_vars, desc=f"Collecting Examples for Hypo: {hypothesis}")
+        ):
+            for idx2, var_inst2 in enumerate(var_type2_vars):
+                if var_type1 == var_type2 and attr1 == attr2 and idx1 >= idx2:
+                    continue
+                if var_inst1 == var_inst2:
+                    continue
+                for _, value1 in enumerate(
+                    var_insts[var_inst1][attr1][int(is_skipping_init_values) :]
+                ):
+                    for _, value2 in enumerate(
+                        var_insts[var_inst2][attr2][int(is_skipping_init_values) :]
                     ):
-                        for _, value2 in enumerate(
-                            var_insts[var_inst2][attr2][int(is_skipping_init_values) :]
-                        ):
-                            saw_overlap = False
-                            overlap = calc_liveness_overlap(
-                                value1.liveness, value2.liveness
-                            )
-                            if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
-                                if compare_with_fp_tolerance(
-                                    value1.value,
-                                    value2.value,
-                                ):
-                                    hypothesis_with_examples[
-                                        hypo
-                                    ].positive_examples.add_example(
-                                        Example(
-                                            {
-                                                group_name: [
-                                                    value1.traces[0],
-                                                    value2.traces[0],
-                                                ]
-                                            }  ## HACK to make preconditions inference work for `step`
-                                        )
+                        saw_overlap = False
+                        overlap = calc_liveness_overlap(
+                            value1.liveness, value2.liveness
+                        )
+                        if overlap > config.LIVENESS_OVERLAP_THRESHOLD:
+                            if compare_with_fp_tolerance(
+                                value1.value,
+                                value2.value,
+                            ):
+                                hypothesis.positive_examples.add_example(
+                                    Example(
+                                        {
+                                            VAR_GROUP_NAME: [
+                                                value1.traces[0],
+                                                value2.traces[0],
+                                            ]
+                                        }  ## HACK to make preconditions inference work for `step`
                                     )
-                                else:
-                                    hypothesis_with_examples[
-                                        hypo
-                                    ].negative_examples.add_example(
-                                        Example(
-                                            {
-                                                group_name: [
-                                                    value1.traces[0],
-                                                    value2.traces[0],
-                                                ]
-                                            }  ## HACK to make preconditions inference work for `step`
-                                        )
-                                    )
+                                )
                             else:
-                                if saw_overlap:
-                                    # there won't be any more overlap, so we can break
-                                    break
-
-        ## 5. Precondition Inference TODO: this can be abstracted into a separate function that takes a list of hypothesis and returns those with preconditions
-        failed_hypothesis = []
-        passed_hypothesis = []
-        for hypo in hypothesis_with_examples:
-            logger.debug(
-                f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
-            )
-            preconditions = find_precondition(
-                hypothesis_with_examples[hypo],
-                trace=trace,
-                keys_to_skip=[
-                    f"attributes.{hypo[1]}",
-                    f"attributes.{hypo[3]}",
-                    "attributes.data",
-                    "attributes.grad",
-                ],
-            )
-            logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
-
-            if preconditions is not None:
-                hypothesis_with_examples[hypo].invariant.precondition = preconditions
-                hypothesis_with_examples[hypo].invariant.num_positive_examples = len(
-                    hypothesis_with_examples[hypo].positive_examples
-                )
-                hypothesis_with_examples[hypo].invariant.num_negative_examples = len(
-                    hypothesis_with_examples[hypo].negative_examples
-                )
-                passed_hypothesis.append(hypothesis_with_examples[hypo])
-            else:
-                logger.debug(f"Precondition not found for {hypo}")
-                failed_hypothesis.append(
-                    FailedHypothesis(hypothesis_with_examples[hypo])
-                )
-
-        return (
-            list([hypothesis.invariant for hypothesis in passed_hypothesis]),
-            failed_hypothesis,
-        )
+                                hypothesis.negative_examples.add_example(
+                                    Example(
+                                        {
+                                            VAR_GROUP_NAME: [
+                                                value1.traces[0],
+                                                value2.traces[0],
+                                            ]
+                                        }  ## HACK to make preconditions inference work for `step`
+                                    )
+                                )
+                        else:
+                            if saw_overlap:
+                                # there won't be any more overlap, so we can break
+                                break
 
     @staticmethod
     def evaluate(value_group: list) -> bool:
@@ -505,3 +518,24 @@ class ConsistencyRelation(Relation):
             check_passed=True,
             triggered=inv_triggered,
         )
+
+    @staticmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        assert (
+            len(hypothesis.invariant.params) == 2
+        ), "Invariant should have exactly two parameters."
+        param1 = hypothesis.invariant.params[0]
+        param2 = hypothesis.invariant.params[1]
+
+        assert isinstance(param1, VarTypeParam) and isinstance(
+            param2, VarTypeParam
+        ), "Invariant parameters should be VarTypeParam."
+        attr1 = param1.var_type, param1.attr_name
+        attr2 = param2.var_type, param2.attr_name
+
+        return [
+            f"attributes.{attr1}",
+            f"attributes.{attr2}",
+            "attributes.data",
+            "attributes.grad",
+        ]

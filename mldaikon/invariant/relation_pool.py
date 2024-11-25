@@ -17,7 +17,7 @@ relation_pool: list[Type] = [
     ConsistentOutputRelation,
     ConsistentInputOutputRelation,
     VarPeriodicChangeRelation,
-    FunctionCoverRelation,
-    FunctionLeadRelation,
+    # FunctionCoverRelation,
+    # FunctionLeadRelation,
     ThresholdRelation,
 ]

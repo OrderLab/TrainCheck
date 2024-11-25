@@ -327,7 +327,7 @@ def global_wrapper(
                 "func_call_id": func_call_id,
                 "thread_id": thread_id,
                 "process_id": process_id,
-                "meta_vars": get_meta_vars(),
+                "meta_vars": pre_meta_vars,
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": func_name,
                 # "args": [f"{arg}" for arg in args],
@@ -346,7 +346,7 @@ def global_wrapper(
         pre_record.copy()
     )  # copy the pre_record (though we don't actually need to copy anything)
     post_record["type"] = TraceLineType.FUNC_CALL_POST
-    post_record["meta_vars"] = get_meta_vars()
+    post_record["meta_vars"] = pre_meta_vars
 
     result_to_dump = result
 
@@ -1011,6 +1011,7 @@ class VarSampler:
         self.param_versions = {}  # type: ignore
         timestamp = datetime.datetime.now().timestamp()
 
+        curr_meta_vars = get_meta_vars()
         for param in self._get_state_copy():
             attributes = param["attributes"]
             if dump_tensor_hash:
@@ -1026,7 +1027,7 @@ class VarSampler:
                     "var_type": param["type"],
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
-                    "meta_vars": get_meta_vars(),
+                    "meta_vars": curr_meta_vars,
                     "type": TraceLineType.STATE_CHANGE,
                     "attributes": attributes,
                     "time": timestamp,
@@ -1054,6 +1055,7 @@ class VarSampler:
 
         timestamp = datetime.datetime.now().timestamp()
 
+        curr_meta_vars = get_meta_vars()
         for param in self._get_state_copy():
             dump_trace_VAR(
                 {
@@ -1061,7 +1063,7 @@ class VarSampler:
                     "var_type": param["type"],  # FIXME: hardcoding the type for now
                     "process_id": os.getpid(),
                     "thread_id": threading.current_thread().ident,
-                    "meta_vars": get_meta_vars(),
+                    "meta_vars": curr_meta_vars,
                     "type": TraceLineType.STATE_CHANGE,
                     "attributes": param["attributes"],
                     "time": timestamp,

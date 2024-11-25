@@ -179,11 +179,9 @@ class FunctionLeadRelation(Relation):
     say function A and function B are two functions in the trace, we say function A covers function B when
     every time function A is called, a function B invocation follows.
     """
-
     @staticmethod
-    def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
-        """Infer Invariants for the FunctionCoverRelation."""
-
+    def generate_hypothesis(trace) -> list[Hypothesis]:
+        """Generate hypothesis for the FunctionLeadRelation on trace."""
         logger = logging.getLogger(__name__)
 
         # 1. Pre-process all the events
@@ -199,7 +197,7 @@ class FunctionLeadRelation(Relation):
             logger.warning(
                 "No relevant function calls found in the trace, skipping the analysis"
             )
-            return [], []
+            return []
 
         function_times, function_id_map, listed_events = get_func_data_per_PT(
             trace, function_pool
@@ -289,9 +287,7 @@ class FunctionLeadRelation(Relation):
                     continue
 
                 flag_A = None
-                # flag_B = None
                 pre_record_A = []
-                # pre_record_B = []
 
                 for event in events_list:
                     if event["type"] != "function_call (pre)":
@@ -300,7 +296,6 @@ class FunctionLeadRelation(Relation):
                     if func_A == event["function"]:
                         if flag_A is None:
                             flag_A = event["time"]
-                            # flag_B = None
                             pre_record_A = [event]
                             continue
 
@@ -314,8 +309,6 @@ class FunctionLeadRelation(Relation):
                         continue
 
                     if func_B == event["function"]:
-                        # pre_record_B = [event]
-                        # flag_B = event["time"]
                         if flag_A is None:
                             continue
 
@@ -327,7 +320,7 @@ class FunctionLeadRelation(Relation):
 
                         flag_A = None
                         pre_record_A = []
-
+                
                 if flag_A is not None:
                     flag_A = None
                     neg = Example()
@@ -336,203 +329,210 @@ class FunctionLeadRelation(Relation):
                         (func_A, func_B)
                     ].negative_examples.add_example(neg)
                     pre_record_A = []
+
         print("End adding examples")
 
-        # 5. Precondition inference
-        brief_moode = False
+        return list(hypothesis_with_examples.values())
+    
+    @staticmethod
+    def collect_examples(trace, hypothesis):
+        """Generate examples for a hypothesis on trace."""
+        inv = hypothesis.invariant
+
+        function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
+        function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+        listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+    
+        # If the trace contains no function, return original hypothesis
+        func_names = trace.get_func_names()
+        if len(func_names) == 0:
+            print("No function calls found in the trace, skipping the collecting")
+            return
+
+        function_pool = (
+            []
+        )  # Here function_pool only contains functions existing in given invariant
+
+        invariant_length = len(inv.params)
+        for i in range(invariant_length):
+            func = inv.params[i]
+            assert isinstance(
+                func, APIParam
+            ), "Invariant parameters should be APIParam."
+            function_pool.append(func.api_full_name)
+
+        function_pool = list(set(function_pool).intersection(func_names))
+
+        if len(function_pool) == 0:
+            print(
+                "No relevant function calls found in the trace, skipping the collecting"
+            )
+            return
+
+        print("Start fetching data for collecting...")
+        function_times, function_id_map, listed_events = get_func_data_per_PT(
+            trace, function_pool
+        )
+        print("End fetching data for collecting...")
+
+        def check_same_level(funcA: str, funcB: str, process_id, thread_id):
+            if funcA == funcB:
+                return False
+
+            if funcA not in function_id_map[(process_id, thread_id)]:
+                return False
+
+            if funcB not in function_id_map[(process_id, thread_id)]:
+                return True
+
+            for idA in function_id_map[(process_id, thread_id)][funcA]:
+                for idB in function_id_map[(process_id, thread_id)][funcB]:
+                    preA = function_times[(process_id, thread_id)][idA]["start"]
+                    postA = function_times[(process_id, thread_id)][idA]["end"]
+                    preB = function_times[(process_id, thread_id)][idB]["start"]
+                    postB = function_times[(process_id, thread_id)][idB]["end"]
+                    if preB >= postA:
+                        break
+                    if postB <= preA:
+                        continue
+                    return False
+            return True
+
+        print("Starting collecting iteration...")
+        for i in range(invariant_length - 1):
+            func_A = inv.params[i]
+            func_B = inv.params[i + 1]
+
+            assert isinstance(func_A, APIParam) and isinstance(
+                func_B, APIParam
+            ), "Invariant parameters should be string."
+
+            for (process_id, thread_id), events_list in listed_events.items():
+                funcA = func_A.api_full_name
+                funcB = func_B.api_full_name
+
+                if not check_same_level(funcA, funcB, process_id, thread_id):
+                    continue
+
+                # check
+                flag_A = None
+                pre_record_A = None
+                for event in events_list:
+
+                    if event["type"] != "function_call (pre)":
+                        continue
+
+                    if funcA == event["function"]:
+                        if flag_A is None:
+                            flag_A = event["time"]
+                            pre_record_A = event
+                            continue
+                        
+                        neg = Example()
+                        neg.add_group(EXP_GROUP_NAME, pre_record_A)
+                        hypothesis.negative_examples.add_example(neg)
+                        pre_record_A = [event]
+                        continue
+
+                    if funcB == event["function"]:
+                        if flag_A is None:
+                            continue
+
+                        pos = Example()
+                        pos.add_group(EXP_GROUP_NAME, pre_record_A)
+                        hypothesis.positive_examples.add_example(pos)
+                        flag_A = None
+                        pre_record_A = []
+                
+                if flag_A is not None:
+                    flag_A = None
+                    neg = Example()
+                    neg.add_group(EXP_GROUP_NAME, pre_record_A)
+                    hypothesis_with_examples[
+                        (func_A, func_B)
+                    ].negative_examples.add_example(neg)
+                    pre_record_A = []
+
+
+    @staticmethod
+    def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
+        """Infer Invariants for the FunctionLeadrRelation."""
+
+        all_hypotheses = FunctionLeadRelation.generate_hypothesis(trace)
+
+        # for hypothesis in all_hypotheses:
+        #     FunctionLeadRelation.collect_examples(trace, hypothesis)
+        
+        print("Start precondition inference...")
+        failed_hypothesis = []
+        for hypothesis in all_hypotheses.copy():
+            preconditions = find_precondition(
+                hypothesis, trace
+            )
+            if preconditions is not None:
+                hypothesis.invariant.precondition = (
+                    preconditions
+                )
+            else:
+                failed_hypothesis.append(
+                    FailedHypothesis(hypothesis)
+                )
+                all_hypotheses.remove(hypothesis)
+        print("End precondition inference")
+
         if_merge = True
 
-        failed_hypothesis = []
+        if not if_merge:
+            return (
+                list(
+                    [hypo.invariant for hypo in all_hypotheses]
+                ),
+                failed_hypothesis,
+            )
 
-        if not brief_moode:
-            # Do complete precondition inference
-            print("Start precondition inference...")
-            hypos_to_delete = []
-            for hypo in hypothesis_with_examples:
-                logger.debug(
-                    f"Finding Precondition for {hypo}: {hypothesis_with_examples[hypo].invariant.text_description}"
-                )
-                preconditions = find_precondition(
-                    hypothesis_with_examples[hypo], [trace]
-                )
-                logger.debug(f"Preconditions for {hypo}:\n{str(preconditions)}")
+        # 6. Merge invariants
+        print("Start merging invariants...")
+        relation_pool: Dict[
+            GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
+        ] = {}
+        for hypothesis in all_hypotheses:
+            param0 = hypothesis.invariant.params[0]
+            param1 = hypothesis.invariant.params[1]
 
-                if preconditions is not None:
-                    hypothesis_with_examples[hypo].invariant.precondition = (
-                        preconditions
-                    )
-                else:
-                    logger.debug(f"Precondition not found for {hypo}")
-                    failed_hypothesis.append(
-                        FailedHypothesis(hypothesis_with_examples[hypo])
-                    )
-                    hypos_to_delete.append(hypo)
-
-            for hypo in hypos_to_delete:
-                # remove key from hypothesis_with_examples
-                hypothesis_with_examples.pop(hypo)
-
-            if not if_merge:
-                return (
-                    list(
-                        [hypo.invariant for hypo in hypothesis_with_examples.values()]
-                    ),
-                    failed_hypothesis,
-                )
-            print("End precondition inference")
-
-            # 6. Merge invariants
-            print("Start merging invariants...")
-            relation_pool: Dict[
-                GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
-            ] = {}
-            for hypo in hypothesis_with_examples:
-                if (
-                    hypothesis_with_examples[hypo].invariant.precondition
-                    not in relation_pool
-                ):
-                    relation_pool[
-                        hypothesis_with_examples[hypo].invariant.precondition
-                    ] = []
-                relation_pool[
-                    hypothesis_with_examples[hypo].invariant.precondition
-                ].append((APIParam(hypo[0]), APIParam(hypo[1])))
-
-            merged_relations: Dict[
-                GroupedPreconditions | None, List[List[APIParam]]
-            ] = {}
-
-            for key, values in tqdm(relation_pool.items(), desc="Merging Invariants"):
-                merged_relations[key] = merge_relations(values)
-
-            merged_ininvariants = []
-
-            for key, merged_values in merged_relations.items():
-                for merged_value in merged_values:
-                    new_invariant = Invariant(
-                        relation=FunctionLeadRelation,
-                        params=[param for param in merged_value],
-                        precondition=key,
-                        text_description="Merged FunctionLeadRelation in Ordered List",
-                    )
-                    merged_ininvariants.append(new_invariant)
-            print("End merging invariants")
-
-            return merged_ininvariants, failed_hypothesis
-
-        else:
-
-            def dp_merge(
-                pair: Tuple[APIParam, APIParam],
-                pairs: List[Tuple[APIParam, APIParam]],
-                precondition_cache: Dict[
-                    Tuple[APIParam, APIParam], GroupedPreconditions | None
-                ],
-                sequence_cache: Dict[Tuple[APIParam, APIParam], Dict[str, Any]],
+            assert(isinstance(param0, APIParam) and isinstance(param1, APIParam))
+            
+            if (
+                hypothesis.invariant.precondition
+                not in relation_pool
             ):
-                a, b = pair
+                relation_pool[
+                    hypothesis.invariant.precondition
+                ] = []
+            relation_pool[
+                hypothesis.invariant.precondition
+            ].append((param0, param1))
 
-                if pair in sequence_cache:
-                    return sequence_cache[pair]
+        merged_relations: Dict[
+            GroupedPreconditions | None, List[List[APIParam]]
+        ] = {}
 
-                current_sequence = [a, b]
+        for key, values in tqdm(relation_pool.items(), desc="Merging Invariants"):
+            merged_relations[key] = merge_relations(values)
 
-                if pair not in precondition_cache:
-                    precondition_cache[pair] = find_precondition(
-                        hypothesis_with_examples[(a.api_full_name, b.api_full_name)],
-                        [trace],
-                    )
+        merged_ininvariants = []
 
-                current_precondition = precondition_cache[pair]
+        for key, merged_values in merged_relations.items():
+            for merged_value in merged_values:
+                new_invariant = Invariant(
+                    relation=FunctionLeadRelation,
+                    params=[param for param in merged_value],
+                    precondition=key,
+                    text_description="Merged FunctionLeadRelation in Ordered List",
+                )
+                merged_ininvariants.append(new_invariant)
+        print("End merging invariants")
 
-                if current_precondition is None:
-                    pairs.remove(pair)
-                    failed_hypothesis.append(
-                        FailedHypothesis(
-                            hypothesis_with_examples[(a.api_full_name, b.api_full_name)]
-                        )
-                    )
-                    return None
-
-                for next_pair in pairs[:]:
-                    if next_pair[0] == b:
-                        if next_pair not in precondition_cache:
-                            precondition_cache[next_pair] = find_precondition(
-                                hypothesis_with_examples[
-                                    (
-                                        next_pair[0].api_full_name,
-                                        next_pair[1].api_full_name,
-                                    )
-                                ],
-                                [trace],
-                            )
-
-                        next_precondition = precondition_cache[next_pair]
-
-                        if current_precondition == next_precondition:
-                            result = dp_merge(
-                                next_pair, pairs, precondition_cache, sequence_cache
-                            )
-                            merged_sequence = result["sequence"]
-                            if merged_sequence is not None:
-                                current_sequence.extend(merged_sequence[1:])
-
-                sequence_cache[pair] = {}
-                sequence_cache[pair]["sequence"] = current_sequence
-                sequence_cache[pair]["precondition"] = current_precondition
-
-                # Add pruning logic
-                for i in range(len(current_sequence) - 1):
-                    for j in range(i + 1, len(current_sequence)):
-                        sub_pair = (current_sequence[i], current_sequence[j])
-                        if sub_pair not in sequence_cache:
-                            sub_sequence = []
-                            sub_sequence.append(current_sequence[i])
-                            sub_sequence.extend(current_sequence[j:])
-                            sequence_cache[sub_pair] = {}
-                            sequence_cache[sub_pair]["sequence"] = sub_sequence
-                            sequence_cache[sub_pair][
-                                "precondition"
-                            ] = current_precondition
-
-                return sequence_cache[pair]
-
-            pairs: List[Tuple[APIParam, APIParam]] = [
-                (APIParam(hypo[0]), APIParam(hypo[1]))
-                for hypo in hypothesis_with_examples
-            ]
-
-            merged_sequences: Dict[
-                GroupedPreconditions | None, List[List[APIParam]]
-            ] = {}
-            precondition_cache: Dict[
-                Tuple[APIParam, APIParam], GroupedPreconditions | None
-            ] = {}
-            sequence_cache: Dict[Tuple[APIParam, APIParam], Dict[str, Any]] = {}
-
-            for pair in pairs[:]:
-                if pair not in sequence_cache:
-                    result = dp_merge(pair, pairs, precondition_cache, sequence_cache)
-                    if result is not None:
-                        merged_sequence = result["sequence"]
-                        precondition = result["precondition"]
-                        if precondition not in merged_sequences:
-                            merged_sequences[precondition] = []
-                        merged_sequences[precondition].append(merged_sequence)
-
-            merged_ininvariants = []
-
-            for key, merged_values in merged_sequences.items():
-                for merged_value in merged_values:
-                    new_invariant = Invariant(
-                        relation=FunctionLeadRelation,
-                        params=[param for param in merged_value],
-                        precondition=key,
-                        text_description="Merged FunctionLeadRelation in Ordered List",
-                    )
-                    merged_ininvariants.append(new_invariant)
-
-            return merged_ininvariants, failed_hypothesis
+        return merged_ininvariants, failed_hypothesis
 
     @staticmethod
     def evaluate(value_group: list) -> bool:

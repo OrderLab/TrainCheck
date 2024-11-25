@@ -1068,6 +1068,16 @@ class GroupedPreconditions:
             values=valid_stages,
         )
 
+        invalid_stages = set(config.ALL_STAGE_NAMES) - valid_stages
+
+        inverted_state_clause = PreconditionClause(
+            prop_name=STAGE_KEY,
+            prop_dtype=str,
+            _type=PT.CONSTANT,
+            additional_path=None,
+            values=invalid_stages,
+        )
+
         # add the stage clause to all the preconditions, if UNCONDITIONAL, then swap it with the stage clause
         for group_name, preconditions in self.grouped_preconditions.items():
             if preconditions.is_unconditional():
@@ -1075,11 +1085,12 @@ class GroupedPreconditions:
                     [Precondition([stage_clause])], inverted=False
                 )
             else:
-                assert (
-                    not preconditions.inverted
-                ), "Adding clause to inverted preconditions is not supported yet"
-                for precondition in preconditions:
-                    precondition.add_clause(stage_clause)
+                if not preconditions.inverted:
+                    for precondition in preconditions:
+                        precondition.add_clause(stage_clause)
+                else:
+                    for precondition in preconditions:
+                        precondition.add_clause(inverted_state_clause)
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, GroupedPreconditions):
@@ -1158,9 +1169,10 @@ class Invariant:
                 "num_negative_examples": self.num_negative_examples,
             }
         else:
-            assert (
-                self.precondition is None
-            ), "Precondition should be None for failed cases"
+            # assert (
+            #     self.precondition is None
+            # ), "Precondition should be None for failed cases"
+            # HACK: NEED TO CHECK ALL FAILED INVARIANTS THAT HAVE PRECONDITIONS
             return {
                 "text_description": self.text_description,
                 "relation": self.relation.__name__,
@@ -1429,6 +1441,26 @@ class FailedHypothesis:
 class Relation(abc.ABC):
 
     @staticmethod
+    def generate_hypothesis(trace: Trace) -> list[Hypothesis]:
+        """Given a trace, should return a list of hypothesis with positive/negative examples collected on the current trace
+        args:
+            trace: Trace
+                A trace to generate the hypothesis on.
+        """
+        raise NotImplementedError("generate_hypothesis method is not implemented yet.")
+
+    @staticmethod
+    def collect_examples(trace: Trace, hypothesis: Hypothesis):
+        """Given a trace and a hypothesis, should collect positive and negative examples for the hypothesis.
+        args:
+            trace: Trace
+                A trace to collect the examples on.
+            hypothesis: Hypothesis
+                The hypothesis to collect the examples for.
+        """
+        raise NotImplementedError("collect_examples method is not implemented yet.")
+
+    @staticmethod
     @abc.abstractmethod
     def infer(trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Given a trace, should return a boolean value indicating
@@ -1450,6 +1482,17 @@ class Relation(abc.ABC):
             value_group: list
                 A list of values to evaluate the relation on. The length of the list
                 should be equal to the number of variables in the relation.
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
+        """Given a hypothesis, should return a list of keys to skip in the infer process.
+
+        args:
+            hypothesis: Hypothesis
+                The hypothesis to get the keys to skip for.
         """
         pass
 

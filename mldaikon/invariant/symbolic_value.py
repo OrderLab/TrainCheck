@@ -78,6 +78,8 @@ def generalize_values(values: list[type]) -> MD_NONE | type | str:
     """Given a list of values, should return a generalized value."""
     assert values, "Values should not be empty"
 
+    values = [tuple(v) if isinstance(v, list) else v for v in values]  # type: ignore
+
     if len(set(values)) == 1:
         # no need to generalize
         return values[0]
