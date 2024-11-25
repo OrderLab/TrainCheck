@@ -179,6 +179,7 @@ class FunctionLeadRelation(Relation):
     say function A and function B are two functions in the trace, we say function A covers function B when
     every time function A is called, a function B invocation follows.
     """
+
     @staticmethod
     def generate_hypothesis(trace) -> list[Hypothesis]:
         """Generate hypothesis for the FunctionLeadRelation on trace."""
@@ -320,7 +321,7 @@ class FunctionLeadRelation(Relation):
 
                         flag_A = None
                         pre_record_A = []
-                
+
                 if flag_A is not None:
                     flag_A = None
                     neg = Example()
@@ -333,7 +334,7 @@ class FunctionLeadRelation(Relation):
         print("End adding examples")
 
         return list(hypothesis_with_examples.values())
-    
+
     @staticmethod
     def collect_examples(trace, hypothesis):
         """Generate examples for a hypothesis on trace."""
@@ -342,7 +343,7 @@ class FunctionLeadRelation(Relation):
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
-    
+
         # If the trace contains no function, return original hypothesis
         func_names = trace.get_func_names()
         if len(func_names) == 0:
@@ -427,7 +428,7 @@ class FunctionLeadRelation(Relation):
                             flag_A = event["time"]
                             pre_record_A = event
                             continue
-                        
+
                         neg = Example()
                         neg.add_group(EXP_GROUP_NAME, pre_record_A)
                         hypothesis.negative_examples.add_example(neg)
@@ -443,16 +444,13 @@ class FunctionLeadRelation(Relation):
                         hypothesis.positive_examples.add_example(pos)
                         flag_A = None
                         pre_record_A = []
-                
+
                 if flag_A is not None:
                     flag_A = None
                     neg = Example()
                     neg.add_group(EXP_GROUP_NAME, pre_record_A)
-                    hypothesis_with_examples[
-                        (func_A, func_B)
-                    ].negative_examples.add_example(neg)
+                    hypothesis.negative_examples.add_example(neg)
                     pre_record_A = []
-
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
@@ -462,21 +460,15 @@ class FunctionLeadRelation(Relation):
 
         # for hypothesis in all_hypotheses:
         #     FunctionLeadRelation.collect_examples(trace, hypothesis)
-        
+
         print("Start precondition inference...")
         failed_hypothesis = []
         for hypothesis in all_hypotheses.copy():
-            preconditions = find_precondition(
-                hypothesis, trace
-            )
+            preconditions = find_precondition(hypothesis, [trace])
             if preconditions is not None:
-                hypothesis.invariant.precondition = (
-                    preconditions
-                )
+                hypothesis.invariant.precondition = preconditions
             else:
-                failed_hypothesis.append(
-                    FailedHypothesis(hypothesis)
-                )
+                failed_hypothesis.append(FailedHypothesis(hypothesis))
                 all_hypotheses.remove(hypothesis)
         print("End precondition inference")
 
@@ -484,9 +476,7 @@ class FunctionLeadRelation(Relation):
 
         if not if_merge:
             return (
-                list(
-                    [hypo.invariant for hypo in all_hypotheses]
-                ),
+                list([hypo.invariant for hypo in all_hypotheses]),
                 failed_hypothesis,
             )
 
@@ -499,22 +489,13 @@ class FunctionLeadRelation(Relation):
             param0 = hypothesis.invariant.params[0]
             param1 = hypothesis.invariant.params[1]
 
-            assert(isinstance(param0, APIParam) and isinstance(param1, APIParam))
-            
-            if (
-                hypothesis.invariant.precondition
-                not in relation_pool
-            ):
-                relation_pool[
-                    hypothesis.invariant.precondition
-                ] = []
-            relation_pool[
-                hypothesis.invariant.precondition
-            ].append((param0, param1))
+            assert isinstance(param0, APIParam) and isinstance(param1, APIParam)
 
-        merged_relations: Dict[
-            GroupedPreconditions | None, List[List[APIParam]]
-        ] = {}
+            if hypothesis.invariant.precondition not in relation_pool:
+                relation_pool[hypothesis.invariant.precondition] = []
+            relation_pool[hypothesis.invariant.precondition].append((param0, param1))
+
+        merged_relations: Dict[GroupedPreconditions | None, List[List[APIParam]]] = {}
 
         for key, values in tqdm(relation_pool.items(), desc="Merging Invariants"):
             merged_relations[key] = merge_relations(values)

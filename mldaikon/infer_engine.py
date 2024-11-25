@@ -6,6 +6,8 @@ import os
 import random
 import time
 
+from tqdm import tqdm
+
 import mldaikon.config.config as config
 from mldaikon.invariant.base_cls import (
     FailedHypothesis,
@@ -62,8 +64,10 @@ class InferEngine:
     def generate_hypothesis(
         self, disabled_relations: list[Relation]
     ) -> list[list[Hypothesis]]:
+        logger.info("Generating hypotheses")
         hypotheses = []
         for trace in self.traces:
+            current_trace_hypotheses: list[Hypothesis] = []
             for relation in relation_pool:
                 if disabled_relations is not None and relation in disabled_relations:
                     logger.info(
@@ -71,19 +75,25 @@ class InferEngine:
                     )
                     continue
                 logger.info(f"Generating hypotheses for relation: {relation.__name__}")
-                hypotheses.append(relation.generate_hypothesis(trace))
+                inferred_hypos = relation.generate_hypothesis(trace)
                 logger.info(
-                    f"Found {len(hypotheses[-1])} hypotheses for relation: {relation.__name__}"
+                    f"Found {len(inferred_hypos)} hypotheses for relation: {relation.__name__}"
                 )
+                current_trace_hypotheses.extend(inferred_hypos)
+            hypotheses.append(current_trace_hypotheses)
         return hypotheses
 
     def collect_examples(self, hypotheses: list[list[Hypothesis]]):
-        for i, trace in enumerate(self.traces):
-            for j, hypothesis in enumerate(hypotheses[i]):
+        logger.info("Collecting examples")
+        for i, trace in enumerate(
+            tqdm(self.traces, desc="Collecting examples on traces")
+        ):
+            for j, trace_hypotheses in enumerate(hypotheses):
                 if j == i:
                     # already collected examples for this hypothesis on the same trace that generated it
                     continue
-                hypothesis.invariant.relation.collect_examples(trace, hypothesis)
+                for hypothesis in trace_hypotheses:
+                    hypothesis.invariant.relation.collect_examples(trace, hypothesis)
 
     def infer_precondition(self, hypotheses: list[list[Hypothesis]]):
         all_hypotheses: list[Hypothesis] = []
