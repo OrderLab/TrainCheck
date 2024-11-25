@@ -322,6 +322,8 @@ class APIContainRelation(Relation):
 
     @staticmethod
     def collect_examples(trace, hypothesis):
+        logger = logging.getLogger(__name__)
+
         inv = hypothesis.invariant
         assert (
             len(inv.params) == 2
@@ -333,6 +335,15 @@ class APIContainRelation(Relation):
         assert isinstance(
             child_param, (APIParam, VarTypeParam, VarNameParam)
         ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
+
+        if (
+            not isinstance(child_param, APIParam)
+            and not trace.is_var_instrumented_proxy()
+        ):
+            logger.warning(
+                "The current trace is not collected with the proxy-based variable instrumentation, skip example collection"
+            )
+            return
 
         parent_func_name = parent_param.api_full_name
 

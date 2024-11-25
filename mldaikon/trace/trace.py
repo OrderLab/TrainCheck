@@ -131,6 +131,12 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
+    def is_var_instrumented_proxy(self) -> bool:
+        """Check if the trace was collected with proxy model instrumentation."""
+        raise NotImplementedError(
+            "This function should be implemented in the child class."
+        )
+
     def query_active_context_managers(
         self, time: float, process_id: int, thread_id: int
     ) -> list[ContextManagerState]:

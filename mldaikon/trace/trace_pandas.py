@@ -382,6 +382,10 @@ class TracePandas(Trace):
         # but for now, we will check if the trace has the stage column
         return STAGE_KEY in self.events.columns
 
+    def is_var_instrumented_proxy(self):
+        # hack: check if "mode" is a column in the trace to determine if the trace is a variable trace
+        return "mode" in self.events.columns
+
     def query_active_context_managers(
         self, time: float, process_id: int, thread_id: int
     ) -> list[ContextManagerState]:
@@ -995,7 +999,7 @@ class TracePandas(Trace):
 
         assert (
             len(post_records) <= 1
-        ), f"{post_records.height} post call events found for {func_call_id}, expected 1"
+        ), f"{post_records.shape[0]} post call events found for {func_call_id}, expected 1"
 
         if len(post_records) == 0:
             logger.warning(f"No post call event found for {func_call_id}")
