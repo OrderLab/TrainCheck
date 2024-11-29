@@ -56,6 +56,16 @@ class TracePandas(Trace):
         self.var_insts = None
         self.var_changes = None
 
+        self.same_level_func_cover = None
+        self.same_level_func_lead = None
+        self.valid_relations_cover = None
+        self.valid_relations_lead = None
+
+        self.listed_events = None
+        self.function_id_map = None
+        self.function_times = None
+        self.function_pool = None
+
         self.all_func_call_ids: dict[str, list[str]] = {}
         self.context_manager_states: dict[PTID, list[ContextManagerState]]
         self.cache_high_level_events_within_id: dict[

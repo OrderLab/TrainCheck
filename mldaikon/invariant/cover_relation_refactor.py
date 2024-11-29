@@ -1,6 +1,7 @@
 import logging
 from itertools import permutations
 from typing import Any, Dict, List, Set, Tuple
+from mldaikon.trace.trace_pandas import TracePandas
 
 from tqdm import tqdm
 
@@ -15,7 +16,7 @@ from mldaikon.invariant.base_cls import (
     Invariant,
     Relation,
 )
-from mldaikon.invariant.lead_relation import (
+from mldaikon.invariant.lead_relation_refactor import (
     get_func_data_per_PT,
     get_func_names_to_deal_with,
 )
@@ -109,16 +110,29 @@ class FunctionCoverRelation(Relation):
         function_pool: Set[Any] = set()
 
         # If the trace contains no function, return []
-        function_pool = set(get_func_names_to_deal_with(trace))
+        assert(isinstance(trace, TracePandas))
+        if(trace.function_pool is not None):
+            function_pool = trace.function_pool
+        else:
+            function_pool = set(get_func_names_to_deal_with(trace))
+            trace.function_pool = function_pool
+
         if len(function_pool) == 0:
             logger.warning(
                 "No relevant function calls found in the trace, skipping the analysis"
             )
             return []
-
-        function_times, function_id_map, listed_events = get_func_data_per_PT(
-            trace, function_pool
-        )
+        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+            function_times = trace.function_times
+            function_id_map = trace.function_id_map
+            listed_events = trace.listed_events
+        else:
+            function_times, function_id_map, listed_events = get_func_data_per_PT(
+                trace, function_pool
+            )
+            trace.function_times = function_times
+            trace.function_id_map = function_id_map
+            trace.listed_events = listed_events
         print("End preprocessing")
 
         # 2. Check if two function on the same level for each thread and process
@@ -149,21 +163,27 @@ class FunctionCoverRelation(Relation):
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
-        for (process_id, thread_id), _ in tqdm(
-            listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
-        ):
-            same_level_func[(process_id, thread_id)] = {}
-            for funcA, funcB in tqdm(
-                permutations(function_pool, 2),
-                ascii=True,
-                leave=True,
-                desc="Combinations Checked",
+        if(trace.same_level_func_cover is not None and trace.valid_relations is not None):
+            same_level_func = trace.same_level_func_cover
+            valid_relations = trace.valid_relations
+        else:
+            for (process_id, thread_id), _ in tqdm(
+                listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
             ):
-                if check_same_level(funcA, funcB, process_id, thread_id):
-                    if funcA not in same_level_func[(process_id, thread_id)]:
-                        same_level_func[(process_id, thread_id)][funcA] = []
-                    same_level_func[(process_id, thread_id)][funcA].append(funcB)
-                    valid_relations[(funcA, funcB)] = True
+                same_level_func[(process_id, thread_id)] = {}
+                for funcA, funcB in tqdm(
+                    permutations(function_pool, 2),
+                    ascii=True,
+                    leave=True,
+                    desc="Combinations Checked",
+                ):
+                    if check_same_level(funcA, funcB, process_id, thread_id):
+                        if funcA not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][funcA] = []
+                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
+                        valid_relations[(funcA, funcB)] = True
+            trace.same_level_func_cover = same_level_func
+            trace.valid_relations = valid_relations
         print("End same level checking")
 
         # 3. Generating hypothesis
@@ -252,45 +272,44 @@ class FunctionCoverRelation(Relation):
     @staticmethod
     def collect_examples(trace, hypothesis):
         """Generate examples for a hypothesis on trace."""
-        inv = hypothesis.invariant
 
+        logger = logging.getLogger(__name__)
+
+        # 1. Pre-process all the events
+        print("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+        function_pool: Set[Any] = set()
 
-        # If the trace contains no function, return orginal hypothesis
-        func_names = trace.get_func_names()
-        if len(func_names) == 0:
-            print("No function calls found in the trace, skipping the collecting")
-            return
-
-        function_pool = (
-            []
-        )  # Here function_pool only contains functions existing in given invariant
-
-        invariant_length = len(inv.params)
-        for i in range(invariant_length):
-            func = inv.params[i]
-            assert isinstance(
-                func, APIParam
-            ), "Invariant parameters should be APIParam."
-            function_pool.append(func.api_full_name)
-
-        function_pool = list(set(function_pool).intersection(func_names))
+        # If the trace contains no function, return []
+        assert(isinstance(trace, TracePandas))
+        if(trace.function_pool is not None):
+            function_pool = trace.function_pool
+        else:
+            function_pool = set(get_func_names_to_deal_with(trace))
+            trace.function_pool = function_pool
 
         if len(function_pool) == 0:
-            print(
-                "No relevant function calls found in the trace, skipping the collecting"
+            logger.warning(
+                "No relevant function calls found in the trace, skipping the analysis"
             )
             return
+        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+            function_times = trace.function_times
+            function_id_map = trace.function_id_map
+            listed_events = trace.listed_events
+        else:
+            function_times, function_id_map, listed_events = get_func_data_per_PT(
+                trace, function_pool
+            )
+            trace.function_times = function_times
+            trace.function_id_map = function_id_map
+            trace.listed_events = listed_events
+        print("End preprocessing")
 
-        print("Start fetching data for collecting...")
-        function_times, function_id_map, listed_events = get_func_data_per_PT(
-            trace, function_pool
-        )
-        print("End fetching data for collecting...")
-
-        def check_same_level(funcA: str, funcB: str, process_id, thread_id):
+        # 2. Check if two function on the same level for each thread and process
+        def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
             if funcA == funcB:
                 return False
 
@@ -313,6 +332,55 @@ class FunctionCoverRelation(Relation):
                     return False
             return True
 
+        print("Start same level checking...")
+        same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        valid_relations: Dict[Tuple[str, str], bool] = {}
+
+        if(trace.same_level_func_cover is not None and trace.valid_relations is not None):
+            same_level_func = trace.same_level_func_cover
+            valid_relations = trace.valid_relations
+        else:
+            for (process_id, thread_id), _ in tqdm(
+                listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
+            ):
+                same_level_func[(process_id, thread_id)] = {}
+                for funcA, funcB in tqdm(
+                    permutations(function_pool, 2),
+                    ascii=True,
+                    leave=True,
+                    desc="Combinations Checked",
+                ):
+                    if check_same_level(funcA, funcB, process_id, thread_id):
+                        if funcA not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][funcA] = []
+                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
+                        valid_relations[(funcA, funcB)] = True
+            trace.same_level_func_cover = same_level_func
+            trace.valid_relations = valid_relations
+        print("End same level checking")
+
+        inv = hypothesis.invariant
+
+        function_pool_temp = (
+            []
+        )
+
+        invariant_length = len(inv.params)
+        for i in range(invariant_length):
+            func = inv.params[i]
+            assert isinstance(
+                func, APIParam
+            ), "Invariant parameters should be APIParam."
+            function_pool_temp.append(func.api_full_name)
+
+        function_pool = list(set(function_pool).intersection(function_pool_temp))
+
+        if len(function_pool) == 0:
+            print(
+                "No relevant function calls found in the trace, skipping the collecting"
+            )
+            return
+
         print("Starting collecting iteration...")
         for i in tqdm(range(invariant_length - 1)):
             func_A = inv.params[i]
@@ -326,7 +394,10 @@ class FunctionCoverRelation(Relation):
                 funcA = func_A.api_full_name
                 funcB = func_B.api_full_name
 
-                if not check_same_level(funcA, funcB, process_id, thread_id):
+                if funcA not in same_level_func[(process_id, thread_id)]:
+                    continue
+
+                if funcB not in same_level_func[(process_id, thread_id)][funcA]:
                     continue
 
                 # check
