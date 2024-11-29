@@ -17,9 +17,6 @@ from mldaikon.trace.types import (
 logger = logging.getLogger(__name__)
 
 # TODO: formalize the trace schema for efficient polars processing
-CACHE_FUNC_CALL_EVENTS: dict[
-    str, FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent
-] = {}
 
 
 def _unnest_all(schema, separator):
@@ -81,6 +78,9 @@ class Trace:
         self.events = events
         self.truncate_incomplete_func_calls = truncate_incomplete_func_calls
         self.var_changes: list[VarChangeEvent] | None = None
+        self.cache_id_2_func_call_event: dict[
+            str, FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent
+        ] = {}
         raise NotImplementedError("This class should not be instantiated directly.")
 
     def _rm_incomplete_trailing_func_calls(self):
@@ -416,8 +416,8 @@ class Trace:
         self, func_call_id: str
     ) -> FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent:
         """Extract a function call event from the trace, given its func_call_id."""
-        if func_call_id in CACHE_FUNC_CALL_EVENTS:
-            return CACHE_FUNC_CALL_EVENTS[func_call_id]
+        if func_call_id in self.cache_id_2_func_call_event:
+            return self.cache_id_2_func_call_event[func_call_id]
 
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
@@ -442,7 +442,7 @@ class Trace:
         else:
             raise ValueError(f"Unknown function call event type: {post_record['type']}")
 
-        CACHE_FUNC_CALL_EVENTS[func_call_id] = event
+        self.cache_id_2_func_call_event[func_call_id] = event
         return event
 
     def query_func_call_events_within_time(

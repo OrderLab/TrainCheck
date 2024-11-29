@@ -58,6 +58,9 @@ class TracePandas(Trace):
 
         self.all_func_call_ids: dict[str, list[str]] = {}
         self.context_manager_states: dict[PTID, list[ContextManagerState]]
+        self.cache_high_level_events_within_id: dict[
+            str, list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
+        ] = {}
 
         if isinstance(events, list) and all(
             [isinstance(e, pd.DataFrame) for e in events]
@@ -1106,6 +1109,10 @@ class TracePandas(Trace):
     ) -> list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]:
         """Extract all high-level events (function calls and variable changes) within a specific function call."""
         # no change
+
+        if func_call_id in self.cache_high_level_events_within_id:
+            return self.cache_high_level_events_within_id[func_call_id]
+
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
         if post_record is None:
@@ -1128,7 +1135,9 @@ class TracePandas(Trace):
             func_call_id
         )
 
-        return high_level_func_call_events + high_level_var_change_events
+        contained_events = high_level_func_call_events + high_level_var_change_events
+        self.cache_high_level_events_within_id[func_call_id] = contained_events
+        return contained_events
 
     def get_time_precentage(self, time: int) -> float:
         return (time - self.get_start_time()) / (
