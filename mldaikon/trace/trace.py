@@ -17,6 +17,9 @@ from mldaikon.trace.types import (
 logger = logging.getLogger(__name__)
 
 # TODO: formalize the trace schema for efficient polars processing
+CACHE_FUNC_CALL_EVENTS: dict[
+    str, FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent
+] = {}
 
 
 def _unnest_all(schema, separator):
@@ -413,27 +416,34 @@ class Trace:
         self, func_call_id: str
     ) -> FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent:
         """Extract a function call event from the trace, given its func_call_id."""
+        if func_call_id in CACHE_FUNC_CALL_EVENTS:
+            return CACHE_FUNC_CALL_EVENTS[func_call_id]
+
         pre_record = self.get_pre_func_call_record(func_call_id)
         post_record = self.get_post_func_call_record(func_call_id)
 
+        event: FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent
         if post_record is None:
             # query the end time of the trace on the specific process and thread
             potential_end_time = self.get_end_time(
                 pre_record["process_id"], pre_record["thread_id"]
             )
-            return IncompleteFuncCallEvent(
+            event = IncompleteFuncCallEvent(
                 pre_record["function"], pre_record, potential_end_time
             )
 
-        if post_record["type"] == TraceLineType.FUNC_CALL_POST:
-            return FuncCallEvent(pre_record["function"], pre_record, post_record)
+        elif post_record["type"] == TraceLineType.FUNC_CALL_POST:
+            event = FuncCallEvent(pre_record["function"], pre_record, post_record)
 
-        if post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
-            return FuncCallExceptionEvent(
+        elif post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+            event = FuncCallExceptionEvent(
                 pre_record["function"], pre_record, post_record
             )
+        else:
+            raise ValueError(f"Unknown function call event type: {post_record['type']}")
 
-        raise ValueError(f"Unknown function call event type: {post_record['type']}")
+        CACHE_FUNC_CALL_EVENTS[func_call_id] = event
+        return event
 
     def query_func_call_events_within_time(
         self,
