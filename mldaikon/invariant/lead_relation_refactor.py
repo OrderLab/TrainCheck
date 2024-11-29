@@ -302,9 +302,9 @@ class FunctionLeadRelation(Relation):
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
         
-        if(trace.same_level_func_lead is not None and trace.valid_relations is not None):
+        if(trace.same_level_func_lead is not None and trace.valid_relations_lead is not None):
             same_level_func = trace.same_level_func_lead
-            valid_relations = trace.valid_relations
+            valid_relations = trace.valid_relations_lead
         else:
             for (process_id, thread_id), _ in tqdm(
                 listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
@@ -322,7 +322,7 @@ class FunctionLeadRelation(Relation):
                         same_level_func[(process_id, thread_id)][funcA].append(funcB)
                         valid_relations[(funcA, funcB)] = True
             trace.same_level_func_lead = same_level_func
-            trace.valid_relations = valid_relations
+            trace.valid_relations_lead = valid_relations
         print("End same level checking")
 
         # 3. Generating hypothesis
@@ -479,9 +479,9 @@ class FunctionLeadRelation(Relation):
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
         
-        if(trace.same_level_func_lead is not None and trace.valid_relations is not None):
+        if(trace.same_level_func_lead is not None and trace.valid_relations_lead is not None):
             same_level_func = trace.same_level_func_lead
-            valid_relations = trace.valid_relations
+            valid_relations = trace.valid_relations_lead
         else:
             for (process_id, thread_id), _ in tqdm(
                 listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
@@ -499,7 +499,7 @@ class FunctionLeadRelation(Relation):
                         same_level_func[(process_id, thread_id)][funcA].append(funcB)
                         valid_relations[(funcA, funcB)] = True
             trace.same_level_func_lead = same_level_func
-            trace.valid_relations = valid_relations
+            trace.valid_relations_lead = valid_relations
         print("End same level checking")
     
         inv = hypothesis.invariant
@@ -671,41 +671,27 @@ class FunctionLeadRelation(Relation):
 
         assert inv.precondition is not None, "Invariant should have a precondition."
 
+        logger = logging.getLogger(__name__)
+
+        # 1. Pre-process all the events
+        print("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+        function_pool: Set[Any] = set()
 
-        inv_triggered = False
-        # If the trace contains no function, return vacuous true result
-        func_names = trace.get_func_names()
-        if len(func_names) == 0:
-            print("No function calls found in the trace, skipping the checking")
-            return CheckerResult(
-                trace=None,
-                invariant=inv,
-                check_passed=True,
-                triggered=False,
-            )
+        # If the trace contains no function, safely exists infer process
+        assert(isinstance(trace, TracePandas))
 
-        function_pool = (
-            []
-        )  # Here function_pool only contains functions existing in given invariant
-
-        invariant_length = len(inv.params)
-        for i in range(invariant_length):
-            func = inv.params[i]
-            assert isinstance(
-                func, APIParam
-            ), "Invariant parameters should be APIParam."
-            function_pool.append(func.api_full_name)
-
-        function_pool = list(set(function_pool).intersection(func_names))
-
-        # YUXUAN ASK: if function_pool is not stictly subset of func_names, should we directly return false?
+        if(trace.function_pool is not None):
+            function_pool = trace.function_pool
+        else:
+            function_pool = set(get_func_names_to_deal_with(trace))
+            trace.function_pool = function_pool
 
         if len(function_pool) == 0:
-            print(
-                "No relevant function calls found in the trace, skipping the checking"
+            logger.warning(
+                "No relevant function calls found in the trace, skipping the analysis"
             )
             return CheckerResult(
                 trace=None,
@@ -714,13 +700,21 @@ class FunctionLeadRelation(Relation):
                 triggered=False,
             )
 
-        print("Start fetching data for checking...")
-        function_times, function_id_map, listed_events = get_func_data_per_PT(
-            trace, function_pool
-        )
-        print("End fetching data for checking...")
+        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+            function_times = trace.function_times
+            function_id_map = trace.function_id_map
+            listed_events = trace.listed_events
+        else:
+            function_times, function_id_map, listed_events = get_func_data_per_PT(
+                trace, function_pool
+            )
+            trace.function_times = function_times
+            trace.function_id_map = function_id_map
+            trace.listed_events = listed_events
+        print("End preprocessing")
 
-        def check_same_level(funcA: str, funcB: str, process_id, thread_id):
+        # 2. Check if two function on the same level for each thread and process
+        def check_same_level(funcA: str, funcB: str, process_id: str, thread_id: str):
             if funcA == funcB:
                 return False
 
@@ -742,6 +736,60 @@ class FunctionLeadRelation(Relation):
                         continue
                     return False
             return True
+
+        print("Start same level checking...")
+        same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        valid_relations: Dict[Tuple[str, str], bool] = {}
+        
+        if(trace.same_level_func_lead is not None and trace.valid_relations_lead is not None):
+            same_level_func = trace.same_level_func_lead
+            valid_relations = trace.valid_relations_lead
+        else:
+            for (process_id, thread_id), _ in tqdm(
+                listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
+            ):
+                same_level_func[(process_id, thread_id)] = {}
+                for funcA, funcB in tqdm(
+                    permutations(function_pool, 2),
+                    ascii=True,
+                    leave=True,
+                    desc="Combinations Checked",
+                ):
+                    if check_same_level(funcA, funcB, process_id, thread_id):
+                        if funcA not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][funcA] = []
+                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
+                        valid_relations[(funcA, funcB)] = True
+            trace.same_level_func_lead = same_level_func
+            trace.valid_relations_lead = valid_relations
+        print("End same level checking")
+
+        inv_triggered = False
+
+        function_pool_temp = (
+            []
+        )
+
+        invariant_length = len(inv.params)
+        for i in range(invariant_length):
+            func = inv.params[i]
+            assert isinstance(
+                func, APIParam
+            ), "Invariant parameters should be APIParam."
+            function_pool_temp.append(func.api_full_name)
+
+        function_pool = list(set(function_pool).intersection(function_pool_temp))
+
+        if len(function_pool) == 0:
+            print(
+                "No relevant function calls found in the trace, skipping the checking"
+            )
+            return CheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+                triggered=False,
+            )
 
         print("Starting checking iteration...")
         for i in range(invariant_length - 1):
