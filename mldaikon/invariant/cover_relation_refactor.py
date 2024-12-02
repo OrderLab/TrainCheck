@@ -678,7 +678,10 @@ class FunctionCoverRelation(Relation):
                 funcA = func_A.api_full_name
                 funcB = func_B.api_full_name
 
-                if not check_same_level(funcA, funcB, process_id, thread_id):
+                if funcA not in same_level_func[(process_id, thread_id)]:
+                    continue
+
+                if funcB not in same_level_func[(process_id, thread_id)][funcA]:
                     continue
 
                 # check

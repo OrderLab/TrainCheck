@@ -545,7 +545,7 @@ class FunctionLeadRelation(Relation):
 
                 # check
                 flag_A = None
-                pre_record_A = None
+                pre_record_A = []
                 for event in events_list:
 
                     if event["type"] != "function_call (pre)":
@@ -554,7 +554,7 @@ class FunctionLeadRelation(Relation):
                     if funcA == event["function"]:
                         if flag_A is None:
                             flag_A = event["time"]
-                            pre_record_A = event
+                            pre_record_A = [event]
                             continue
 
                         neg = Example()
@@ -804,7 +804,10 @@ class FunctionLeadRelation(Relation):
                 funcA = func_A.api_full_name
                 funcB = func_B.api_full_name
 
-                if not check_same_level(funcA, funcB, process_id, thread_id):
+                if funcA not in same_level_func[(process_id, thread_id)]:
+                    continue
+
+                if funcB not in same_level_func[(process_id, thread_id)][funcA]:
                     continue
 
                 # check
@@ -818,7 +821,7 @@ class FunctionLeadRelation(Relation):
                     if funcA == event["function"]:
                         if flag_A is None:
                             flag_A = event["time"]
-                            pre_recordA = event
+                            pre_recordA = [event]
                             continue
                         if inv.precondition.verify([events_list], EXP_GROUP_NAME):
                             inv_triggered = True
