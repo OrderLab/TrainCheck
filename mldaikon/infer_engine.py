@@ -169,6 +169,11 @@ if __name__ == "__main__":
         help="Disable specific relations",
     )
     parser.add_argument(
+        "--enable-relation",
+        nargs="+",
+        help="Enable specific relations, overrides disable-relation",
+    )
+    parser.add_argument(
         "--disable-precond-sampling",
         action="store_true",
         help="Disable sampling of positive and negative examples for precondition inference [By default sampling is enabled]",
@@ -220,6 +225,19 @@ if __name__ == "__main__":
             if rel_name not in name_in_relation_pool:
                 raise ValueError(f"Relation {rel_name} not found in the relation pool")
             disabled_relations.append(name_in_relation_pool[rel_name])  # type: ignore
+
+    if args.enable_relation is not None:
+        name_in_relation_pool = {
+            relation.__name__: relation for relation in relation_pool
+        }
+        disabled_relations = [
+            relation  # type: ignore
+            for relation in relation_pool
+            if relation.__name__ not in args.enable_relation
+        ]  # type: ignore
+        logger.info(
+            f"Enabled relations: {[relation.__name__ for relation in relation_pool if relation not in disabled_relations]}"
+        )
 
     config.ENABLE_PRECOND_SAMPLING = not args.disable_precond_sampling
     config.PRECOND_SAMPLING_THRESHOLD = args.precond_sampling_threshold

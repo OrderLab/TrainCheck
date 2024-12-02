@@ -66,6 +66,10 @@ class TracePandas(Trace):
         self.function_times = None
         self.function_pool = None
 
+        self.cache_id_2_func_call_event: dict[
+            str, FuncCallEvent | FuncCallExceptionEvent
+        ] = {}
+
         self.all_func_call_ids: dict[str, list[str]] = {}
         self.context_manager_states: dict[PTID, list[ContextManagerState]]
         self.cache_high_level_events_within_id: dict[
