@@ -1,7 +1,6 @@
 import logging
 from itertools import permutations
 from typing import Any, Dict, List, Set, Tuple
-from mldaikon.trace.trace_pandas import TracePandas
 
 from tqdm import tqdm
 
@@ -22,6 +21,7 @@ from mldaikon.invariant.lead_relation_refactor import (
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+from mldaikon.trace.trace_pandas import TracePandas
 
 EXP_GROUP_NAME = "func_cover"
 
@@ -110,8 +110,8 @@ class FunctionCoverRelation(Relation):
         function_pool: Set[Any] = set()
 
         # If the trace contains no function, return []
-        assert(isinstance(trace, TracePandas))
-        if(trace.function_pool is not None):
+        assert isinstance(trace, TracePandas)
+        if trace.function_pool is not None:
             function_pool = trace.function_pool
         else:
             function_pool = set(get_func_names_to_deal_with(trace))
@@ -122,7 +122,11 @@ class FunctionCoverRelation(Relation):
                 "No relevant function calls found in the trace, skipping the analysis"
             )
             return []
-        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+        if (
+            trace.function_times is not None
+            and trace.function_id_map is not None
+            and trace.listed_events is not None
+        ):
             function_times = trace.function_times
             function_id_map = trace.function_id_map
             listed_events = trace.listed_events
@@ -163,7 +167,10 @@ class FunctionCoverRelation(Relation):
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
-        if(trace.same_level_func_cover is not None and trace.valid_relations_cover is not None):
+        if (
+            trace.same_level_func_cover is not None
+            and trace.valid_relations_cover is not None
+        ):
             same_level_func = trace.same_level_func_cover
             valid_relations = trace.valid_relations_cover
         else:
@@ -283,8 +290,8 @@ class FunctionCoverRelation(Relation):
         function_pool: Set[Any] = set()
 
         # If the trace contains no function, return []
-        assert(isinstance(trace, TracePandas))
-        if(trace.function_pool is not None):
+        assert isinstance(trace, TracePandas)
+        if trace.function_pool is not None:
             function_pool = trace.function_pool
         else:
             function_pool = set(get_func_names_to_deal_with(trace))
@@ -295,7 +302,11 @@ class FunctionCoverRelation(Relation):
                 "No relevant function calls found in the trace, skipping the analysis"
             )
             return
-        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+        if (
+            trace.function_times is not None
+            and trace.function_id_map is not None
+            and trace.listed_events is not None
+        ):
             function_times = trace.function_times
             function_id_map = trace.function_id_map
             listed_events = trace.listed_events
@@ -336,7 +347,10 @@ class FunctionCoverRelation(Relation):
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
-        if(trace.same_level_func_cover is not None and trace.valid_relations_cover is not None):
+        if (
+            trace.same_level_func_cover is not None
+            and trace.valid_relations_cover is not None
+        ):
             same_level_func = trace.same_level_func_cover
             valid_relations = trace.valid_relations_cover
         else:
@@ -361,9 +375,7 @@ class FunctionCoverRelation(Relation):
 
         inv = hypothesis.invariant
 
-        function_pool_temp = (
-            []
-        )
+        function_pool_temp = []
 
         invariant_length = len(inv.params)
         for i in range(invariant_length):
@@ -452,30 +464,22 @@ class FunctionCoverRelation(Relation):
         print("Start precondition inference...")
         failed_hypothesis = []
         for hypothesis in all_hypotheses.copy():
-            preconditions = find_precondition(
-                hypothesis, trace
-            )
+            preconditions = find_precondition(hypothesis, [trace])
             if preconditions is not None:
-                hypothesis.invariant.precondition = (
-                    preconditions
-                )
+                hypothesis.invariant.precondition = preconditions
             else:
-                failed_hypothesis.append(
-                    FailedHypothesis(hypothesis)
-                )
+                failed_hypothesis.append(FailedHypothesis(hypothesis))
                 all_hypotheses.remove(hypothesis)
         print("End precondition inference")
 
         if not if_merge:
             return (
-                list(
-                    [hypo.invariant for hypo in all_hypotheses]
-                ),
+                list([hypo.invariant for hypo in all_hypotheses]),
                 failed_hypothesis,
             )
         print("End precondition inference")
 
-            # 6. Merge invariants
+        # 6. Merge invariants
         print("Start merging invariants...")
         relation_pool: Dict[
             GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
@@ -485,21 +489,12 @@ class FunctionCoverRelation(Relation):
             param0 = hypothesis.invariant.params[0]
             param1 = hypothesis.invariant.params[1]
 
-            assert(isinstance(param0, APIParam) and isinstance(param1, APIParam))
-            if (
-                hypothesis.invariant.precondition
-                not in relation_pool
-            ):
-                relation_pool[
-                    hypothesis.invariant.precondition
-                ] = []
-            relation_pool[
-                hypothesis.invariant.precondition
-            ].append((param0, param1))
+            assert isinstance(param0, APIParam) and isinstance(param1, APIParam)
+            if hypothesis.invariant.precondition not in relation_pool:
+                relation_pool[hypothesis.invariant.precondition] = []
+            relation_pool[hypothesis.invariant.precondition].append((param0, param1))
 
-        merged_relations: Dict[
-            GroupedPreconditions | None, List[List[APIParam]]
-        ] = {}
+        merged_relations: Dict[GroupedPreconditions | None, List[List[APIParam]]] = {}
 
         for key, values in tqdm(relation_pool.items(), desc="Merging Invariants"):
             merged_relations[key] = merge_relations(values)
@@ -556,8 +551,8 @@ class FunctionCoverRelation(Relation):
         function_pool: Set[Any] = set()
 
         # If the trace contains no function, return []
-        assert(isinstance(trace, TracePandas))
-        if(trace.function_pool is not None):
+        assert isinstance(trace, TracePandas)
+        if trace.function_pool is not None:
             function_pool = trace.function_pool
         else:
             function_pool = set(get_func_names_to_deal_with(trace))
@@ -574,7 +569,11 @@ class FunctionCoverRelation(Relation):
                 triggered=False,
             )
 
-        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+        if (
+            trace.function_times is not None
+            and trace.function_id_map is not None
+            and trace.listed_events is not None
+        ):
             function_times = trace.function_times
             function_id_map = trace.function_id_map
             listed_events = trace.listed_events
@@ -615,7 +614,10 @@ class FunctionCoverRelation(Relation):
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
-        if(trace.same_level_func_cover is not None and trace.valid_relations_cover is not None):
+        if (
+            trace.same_level_func_cover is not None
+            and trace.valid_relations_cover is not None
+        ):
             same_level_func = trace.same_level_func_cover
             valid_relations = trace.valid_relations_cover
         else:
@@ -640,9 +642,7 @@ class FunctionCoverRelation(Relation):
 
         inv_triggered = False
 
-        function_pool_temp = (
-            []
-        )
+        function_pool_temp = []
 
         invariant_length = len(inv.params)
         for i in range(invariant_length):
@@ -652,7 +652,7 @@ class FunctionCoverRelation(Relation):
             ), "Invariant parameters should be APIParam."
             function_pool_temp.append(func.api_full_name)
 
-        function_pool = list(set(function_pool).intersection(function_pool_temp))
+        function_pool = set(function_pool).intersection(set(function_pool_temp))  # type: ignore
 
         if len(function_pool) == 0:
             print(

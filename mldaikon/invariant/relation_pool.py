@@ -7,8 +7,11 @@ from mldaikon.invariant.consistency_transient_vars import (
     ThresholdRelation,
 )
 from mldaikon.invariant.contain_relation import APIContainRelation
-from mldaikon.invariant.cover_relation import FunctionCoverRelation
-from mldaikon.invariant.lead_relation import FunctionLeadRelation
+from mldaikon.invariant.cover_relation_refactor import FunctionCoverRelation
+from mldaikon.invariant.DistinctArgumentRelation_refactor import (
+    DistinctArgumentRelation,
+)
+from mldaikon.invariant.lead_relation_refactor import FunctionLeadRelation
 from mldaikon.invariant.var_periodic_change_relation import VarPeriodicChangeRelation
 
 relation_pool: list[Type] = [
@@ -17,7 +20,8 @@ relation_pool: list[Type] = [
     ConsistentOutputRelation,
     ConsistentInputOutputRelation,
     VarPeriodicChangeRelation,
-    # FunctionCoverRelation,
-    # FunctionLeadRelation,
+    FunctionCoverRelation,
+    FunctionLeadRelation,
+    DistinctArgumentRelation,
     ThresholdRelation,
 ]

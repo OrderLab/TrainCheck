@@ -37,12 +37,10 @@ FUNC_SIGNATURE_OBJS: dict[str, inspect.Signature | None] = {}
 STAGE_KEY = "meta_vars.stage"
 
 
-def load_function_signature(func_name: str) -> inspect.Signature | None:
-    if func_name in FUNC_SIGNATURE_OBJS:
-        return FUNC_SIGNATURE_OBJS[func_name]
-
+def load_function_obj(func_name: str) -> Any:
+    """Load the function object from the provided function name."""
     # need to load the function's parent module
-    # find the module name up to the last dot that's prior to a lowercase letterq
+    # find the module name up to the last dot that's prior to a lowercase letter
     try:
         func_paths = func_name.split(".")
         module_name = func_paths[0]
@@ -61,7 +59,25 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
         assert callable(
             func_obj
         ), f"Function {func_name} is not callable, check loading logic."
+        return func_obj
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Failed to load the object for the function: {func_name}, error: {e}"
+        )
+        return None
 
+
+def load_function_signature(func_name: str) -> inspect.Signature | None:
+    if func_name in FUNC_SIGNATURE_OBJS:
+        return FUNC_SIGNATURE_OBJS[func_name]
+
+    # need to load the function's parent module
+    # find the module name up to the last dot that's prior to a lowercase letterq
+    try:
+        func_obj = load_function_obj(func_name)
+        if func_obj is None:
+            raise ValueError(f"Failed to load the function object for {func_name}")
         FUNC_SIGNATURE_OBJS[func_name] = inspect.signature(func_obj)
         return FUNC_SIGNATURE_OBJS[func_name]
     except Exception as e:
@@ -73,6 +89,13 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
             None  # failed to load the signature, mark it here to avoid repeated attempts
         )
         return None
+
+
+def is_signature_empty(func_name: str) -> bool:
+    signature = load_function_signature(func_name)
+    if signature is None:
+        return True
+    return len(signature.parameters) == 0
 
 
 class Arguments:

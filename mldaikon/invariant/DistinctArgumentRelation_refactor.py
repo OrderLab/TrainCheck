@@ -1,5 +1,3 @@
-import logging
-import copy
 from itertools import combinations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
@@ -64,8 +62,8 @@ def get_event_data_per_function_per_step(trace: Trace, function_pool: Set[Any]):
         for func_call_id in func_call_ids:
             event = trace.query_func_call_event(func_call_id)
             if (
-                "meta_vars.step" not in event.pre_record or
-                event.pre_record["meta_vars.step"] is None
+                "meta_vars.step" not in event.pre_record
+                or event.pre_record["meta_vars.step"] is None
                 or "args" not in event.pre_record
             ):
                 continue
@@ -205,7 +203,7 @@ class DistinctArgumentRelation(Relation):
 
         # If there is no filtered function, return [], []
         if not function_pool:
-            return [], []
+            return []
 
         # This is just for test.
         # function_pool = set()
@@ -274,7 +272,7 @@ class DistinctArgumentRelation(Relation):
         print("End adding examples")
 
         return list(hypothesis_with_examples.values())
-    
+
     @staticmethod
     def collect_examples(trace, hypothesis):
         """Generate examples for a hypothesis on trace."""
@@ -306,9 +304,7 @@ class DistinctArgumentRelation(Relation):
             for PT_pair1, PT_pair2 in combinations(records.keys(), 2):
                 for event1 in records[PT_pair1]:
                     for event2 in records[PT_pair2]:
-                        if not is_arguments_list_same(
-                            event1["args"], event2["args"]
-                        ):
+                        if not is_arguments_list_same(event1["args"], event2["args"]):
                             pos = Example()
                             pos.add_group(EXP_GROUP_NAME, [event1, event2])
                             hypothesis.positive_examples.add_example(pos)
@@ -328,7 +324,6 @@ class DistinctArgumentRelation(Relation):
                         neg.add_group(EXP_GROUP_NAME, [event1, event2])
                         hypothesis.negative_examples.add_example(neg)
 
-
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
         """Infer Invariants for the FunctionCoverRelation."""
@@ -341,17 +336,11 @@ class DistinctArgumentRelation(Relation):
         print("Start precondition inference...")
         failed_hypothesis = []
         for hypothesis in all_hypotheses.copy():
-            preconditions = find_precondition(
-                hypothesis, trace
-            )
+            preconditions = find_precondition(hypothesis, [trace])
             if preconditions is not None:
-                hypothesis.invariant.precondition = (
-                    preconditions
-                )
+                hypothesis.invariant.precondition = preconditions
             else:
-                failed_hypothesis.append(
-                    FailedHypothesis(hypothesis)
-                )
+                failed_hypothesis.append(FailedHypothesis(hypothesis))
                 all_hypotheses.remove(hypothesis)
         print("End precondition inference")
 

@@ -1,8 +1,6 @@
 import logging
 from itertools import permutations
-import polars as pl
 from typing import Any, Dict, Iterable, List, Set, Tuple
-from mldaikon.trace.trace_pandas import TracePandas
 
 from tqdm import tqdm
 
@@ -14,12 +12,12 @@ from mldaikon.invariant.base_cls import (
     FailedHypothesis,
     GroupedPreconditions,
     Hypothesis,
-    IncompleteFuncCallEvent,
     Invariant,
     Relation,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+from mldaikon.trace.trace_pandas import TracePandas
 
 EXP_GROUP_NAME = "func_lead"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 4  # ideally this should be proportional to the number of training and testing iterations in the trace
@@ -86,10 +84,7 @@ def get_func_data_per_PT(trace: Trace, function_pool: Iterable[str]):
 
         for _, event in sorted_group_events.iterrows():
             if event["function"] in function_pool:
-                if (
-                    event["function"]
-                    not in function_id_map[(process_id, thread_id)]
-                ):
+                if event["function"] not in function_id_map[(process_id, thread_id)]:
                     function_id_map[(process_id, thread_id)][event["function"]] = []
                 func_id = event["func_call_id"]
                 function_id_map[(process_id, thread_id)][event["function"]].append(
@@ -99,9 +94,9 @@ def get_func_data_per_PT(trace: Trace, function_pool: Iterable[str]):
                 if event["type"] == "function_call (pre)":
                     if func_id not in function_times[(process_id, thread_id)]:
                         function_times[(process_id, thread_id)][func_id] = {}
-                    function_times[(process_id, thread_id)][func_id]["start"] = (
-                        event["time"]
-                    )
+                    function_times[(process_id, thread_id)][func_id]["start"] = event[
+                        "time"
+                    ]
                     function_times[(process_id, thread_id)][func_id]["function"] = (
                         event["function"]
                     )
@@ -115,9 +110,7 @@ def get_func_data_per_PT(trace: Trace, function_pool: Iterable[str]):
                 # populate the listed_events
                 if (process_id, thread_id) not in listed_events:
                     listed_events[(process_id, thread_id)] = []
-                listed_events[(process_id, thread_id)].extend(
-                    [event.to_dict()]
-                )
+                listed_events[(process_id, thread_id)].extend([event.to_dict()])
 
     # for func_name in tqdm(function_pool):
     #     func_call_ids = trace.get_func_call_ids(func_name)
@@ -247,9 +240,9 @@ class FunctionLeadRelation(Relation):
         function_pool: Set[Any] = set()
 
         # If the trace contains no function, safely exists infer process
-        assert(isinstance(trace, TracePandas))
+        assert isinstance(trace, TracePandas)
 
-        if(trace.function_pool is not None):
+        if trace.function_pool is not None:
             function_pool = trace.function_pool
         else:
             function_pool = set(get_func_names_to_deal_with(trace))
@@ -261,7 +254,11 @@ class FunctionLeadRelation(Relation):
             )
             return []
 
-        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+        if (
+            trace.function_times is not None
+            and trace.function_id_map is not None
+            and trace.listed_events is not None
+        ):
             function_times = trace.function_times
             function_id_map = trace.function_id_map
             listed_events = trace.listed_events
@@ -301,8 +298,11 @@ class FunctionLeadRelation(Relation):
         print("Start same level checking...")
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
-        
-        if(trace.same_level_func_lead is not None and trace.valid_relations_lead is not None):
+
+        if (
+            trace.same_level_func_lead is not None
+            and trace.valid_relations_lead is not None
+        ):
             same_level_func = trace.same_level_func_lead
             valid_relations = trace.valid_relations_lead
         else:
@@ -424,9 +424,9 @@ class FunctionLeadRelation(Relation):
         function_pool: Set[Any] = set()
 
         # If the trace contains no function, safely exists infer process
-        assert(isinstance(trace, TracePandas))
+        assert isinstance(trace, TracePandas)
 
-        if(trace.function_pool is not None):
+        if trace.function_pool is not None:
             function_pool = trace.function_pool
         else:
             function_pool = set(get_func_names_to_deal_with(trace))
@@ -438,7 +438,11 @@ class FunctionLeadRelation(Relation):
             )
             return
 
-        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+        if (
+            trace.function_times is not None
+            and trace.function_id_map is not None
+            and trace.listed_events is not None
+        ):
             function_times = trace.function_times
             function_id_map = trace.function_id_map
             listed_events = trace.listed_events
@@ -478,8 +482,11 @@ class FunctionLeadRelation(Relation):
         print("Start same level checking...")
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
-        
-        if(trace.same_level_func_lead is not None and trace.valid_relations_lead is not None):
+
+        if (
+            trace.same_level_func_lead is not None
+            and trace.valid_relations_lead is not None
+        ):
             same_level_func = trace.same_level_func_lead
             valid_relations = trace.valid_relations_lead
         else:
@@ -501,12 +508,10 @@ class FunctionLeadRelation(Relation):
             trace.same_level_func_lead = same_level_func
             trace.valid_relations_lead = valid_relations
         print("End same level checking")
-    
+
         inv = hypothesis.invariant
 
-        function_pool_temp = (
-            []
-        )
+        function_pool_temp = []
 
         invariant_length = len(inv.params)
         for i in range(invariant_length):
@@ -516,7 +521,7 @@ class FunctionLeadRelation(Relation):
             ), "Invariant parameters should be APIParam."
             function_pool_temp.append(func.api_full_name)
 
-        function_pool = list(set(function_pool).intersection(function_pool_temp))
+        function_pool = set(function_pool).intersection(function_pool_temp)
 
         if len(function_pool) == 0:
             print(
@@ -681,9 +686,9 @@ class FunctionLeadRelation(Relation):
         function_pool: Set[Any] = set()
 
         # If the trace contains no function, safely exists infer process
-        assert(isinstance(trace, TracePandas))
+        assert isinstance(trace, TracePandas)
 
-        if(trace.function_pool is not None):
+        if trace.function_pool is not None:
             function_pool = trace.function_pool
         else:
             function_pool = set(get_func_names_to_deal_with(trace))
@@ -700,7 +705,11 @@ class FunctionLeadRelation(Relation):
                 triggered=False,
             )
 
-        if(trace.function_times is not None and trace.function_id_map is not None and trace.listed_events is not None):
+        if (
+            trace.function_times is not None
+            and trace.function_id_map is not None
+            and trace.listed_events is not None
+        ):
             function_times = trace.function_times
             function_id_map = trace.function_id_map
             listed_events = trace.listed_events
@@ -740,8 +749,11 @@ class FunctionLeadRelation(Relation):
         print("Start same level checking...")
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
-        
-        if(trace.same_level_func_lead is not None and trace.valid_relations_lead is not None):
+
+        if (
+            trace.same_level_func_lead is not None
+            and trace.valid_relations_lead is not None
+        ):
             same_level_func = trace.same_level_func_lead
             valid_relations = trace.valid_relations_lead
         else:
@@ -766,9 +778,7 @@ class FunctionLeadRelation(Relation):
 
         inv_triggered = False
 
-        function_pool_temp = (
-            []
-        )
+        function_pool_temp = []
 
         invariant_length = len(inv.params)
         for i in range(invariant_length):
@@ -778,7 +788,7 @@ class FunctionLeadRelation(Relation):
             ), "Invariant parameters should be APIParam."
             function_pool_temp.append(func.api_full_name)
 
-        function_pool = list(set(function_pool).intersection(function_pool_temp))
+        function_pool = set(function_pool).intersection(set(function_pool_temp))
 
         if len(function_pool) == 0:
             print(

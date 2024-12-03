@@ -24,6 +24,7 @@ from mldaikon.invariant.base_cls import (
     calc_likelihood,
     construct_api_param,
     construct_var_param_from_var_change,
+    is_signature_empty,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.invariant.symbolic_value import generalize_values
@@ -529,6 +530,10 @@ class APIContainRelation(Relation):
             func_name
             for func_name in func_names
             if not any(skip in func_name for skip in ANALYSIS_SKIP_FUNC_NAMES)
+        ]
+
+        func_names = [
+            func_name for func_name in func_names if not is_signature_empty(func_name)
         ]
 
         if len(func_names) == 0:
