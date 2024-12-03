@@ -442,7 +442,11 @@ def find_precondition_from_single_group(
         )
         return [UnconditionalPrecondition()]
 
-    if _current_depth == 0 and _stage_grouping_eligible(positive_examples):
+    if (
+        _current_depth == 0
+        and _stage_grouping_eligible(positive_examples)
+        and _stage_grouping_eligible(negative_examples)
+    ):
         # TODO: move this outside to the find_precondition function
         logger.info(
             "Stage grouping is eligible, splitting the hypothesis according to the stage values"
