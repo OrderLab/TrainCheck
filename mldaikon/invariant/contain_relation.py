@@ -249,6 +249,15 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
         generalized_value = generalize_values(values)
         setattr(merged_child_param, field, generalized_value)
 
+    # if the negative examples are empty, log it out!!!
+    if len(all_negative_examples) == 0:
+        logger = logging.getLogger(__name__)
+        logger.error("The negative examples are empty, this is not expected")
+        for hypo in hypotheses:
+            logger.error(
+                f"{hypo.invariant.text_description}, positive examples: {len(hypo.positive_examples)}, negative examples: {len(hypo.negative_examples)}"
+            )
+
     # construct the merged hypotheses
     merged_hypothesis = Hypothesis(
         invariant=Invariant(
