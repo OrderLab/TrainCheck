@@ -1370,22 +1370,15 @@ class ExampleList:
         return len(self.examples)
 
     @staticmethod
-    def from_iterable_of_examples(input: Iterable[Example]) -> ExampleList:
-        group_names = None
+    def from_iterable_of_examples(
+        input: Iterable[Example], preset_group_names: set[str]
+    ) -> ExampleList:
         examples = []
         for exp in input:
-            if group_names is None:
-                group_names = exp.get_group_names()
-            else:
-                assert group_names == exp.get_group_names()
+            assert preset_group_names == exp.get_group_names()
             examples.append(exp)
 
-        if len(examples) == 0:
-            assert group_names is None
-            return ExampleList(set())
-
-        assert group_names is not None
-        example_list = ExampleList(group_names)
+        example_list = ExampleList(preset_group_names)
         example_list.examples = examples
         return example_list
 

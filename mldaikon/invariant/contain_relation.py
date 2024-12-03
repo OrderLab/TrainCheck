@@ -262,8 +262,12 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
             num_negative_examples=len(all_positive_examples),
             precondition=None,  # to be inferred later
         ),
-        positive_examples=ExampleList.from_iterable_of_examples(all_positive_examples),
-        negative_examples=ExampleList.from_iterable_of_examples(all_negative_examples),
+        positive_examples=ExampleList.from_iterable_of_examples(
+            all_positive_examples, pos_exp_group_names
+        ),
+        negative_examples=ExampleList.from_iterable_of_examples(
+            all_negative_examples, neg_exp_group_names
+        ),  # this is not correct as in the case of no negative examples, we should still have the negative examples group names initialized
     )
 
     return [merged_hypothesis]
