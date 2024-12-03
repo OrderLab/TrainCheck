@@ -33,8 +33,22 @@ ANALYSIS_SKIP_FUNC_NAMES = [
     "torch._VariableFunctionsClass",
     "torch.nn.modules.module.Module._call_impl",
     "torch.nn.modules.module.Module._wrapped_impl",
-    "torch.cuda._is_compiled",
+    "torch.nn.modules.module.Module._wrapped_call_impl" "torch.cuda._is_compiled",
     "torch.is_grad_enabled",
+    "torch._ops.OpOverload",
+    "torch.nn.modules.module.Module",
+    "torch.utils.data._utils",
+    "torch.distributed.utils._to_kwargs",
+    "torch.distributed.utils._recursive_to",
+    "torch.nn.parallel.scatter_gather._is_namedtuple",
+    "torch.nn._reduction",
+    "torch.nn.functional",
+    "torch._tensor.Tensor.backward",  # no autograd invariants
+    "torch.autograd",  # no autograd invariants
+    "torch.optim.optimizer.Optimizer._optimizer_step_code",
+    "torch.optim.optimizer._get_value",
+    "torch.overrides",
+    "._",  # skip all private functions (they can only be the contained, but not containing functions)
 ]
 
 
