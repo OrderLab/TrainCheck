@@ -63,11 +63,10 @@ class InferEngine:
 
     def generate_hypothesis(
         self, disabled_relations: list[Relation]
-    ) -> list[list[Hypothesis]]:
+    ) -> dict[Hypothesis, list[int]]:
         logger.info("Generating hypotheses")
-        hypotheses = []
-        for trace in self.traces:
-            current_trace_hypotheses: list[Hypothesis] = []
+        hypotheses_and_trace_idxs: dict[Hypothesis, list[int]] = {}
+        for trace_idx, trace in enumerate(tqdm(self.traces, desc="Scanning Traces")):
             for relation in relation_pool:
                 if disabled_relations is not None and relation in disabled_relations:
                     logger.info(
@@ -79,27 +78,67 @@ class InferEngine:
                 logger.info(
                     f"Found {len(inferred_hypos)} hypotheses for relation: {relation.__name__}"
                 )
-                current_trace_hypotheses.extend(inferred_hypos)
-            hypotheses.append(current_trace_hypotheses)
-        return hypotheses
+                for hypo in inferred_hypos:
+                    if hypo not in hypotheses_and_trace_idxs:
+                        hypotheses_and_trace_idxs[hypo] = [trace_idx]
+                        # print("Already new one")
+                    else:
+                        # print("Already inside")
+                        hypotheses_and_trace_idxs[hypo].append(trace_idx)
+                        # get the key in the dictionary
+                        original_hypos = [
+                            original_hypo
+                            for original_hypo in hypotheses_and_trace_idxs.keys()
+                            if original_hypo == hypo
+                        ]
+                        assert len(original_hypos) == 1
 
-    def collect_examples(self, hypotheses: list[list[Hypothesis]]):
+                        original_hypo = original_hypos[0]
+                        orig_pos_num = len(original_hypo.positive_examples)
+                        orig_neg_num = len(original_hypo.negative_examples)
+
+                        original_hypo.positive_examples.examples.extend(
+                            hypo.positive_examples.examples
+                        )
+                        original_hypo.negative_examples.examples.extend(
+                            hypo.negative_examples.examples
+                        )
+
+                        # sanity check for modification correctness
+                        original_hypos = [
+                            original_hypo
+                            for original_hypo in hypotheses_and_trace_idxs.keys()
+                            if original_hypo == hypo
+                        ]
+                        assert len(original_hypos) == 1
+
+                        original_hypo = original_hypos[0]
+                        assert len(
+                            original_hypo.positive_examples
+                        ) == orig_pos_num + len(
+                            hypo.positive_examples
+                        ), f"{len(original_hypo.positive_examples)} != {orig_pos_num} + {len(hypo.positive_examples)}"
+                        assert len(
+                            original_hypo.negative_examples
+                        ) == orig_neg_num + len(
+                            hypo.negative_examples
+                        ), f"{len(original_hypo.negative_examples)} != {orig_neg_num} + {len(hypo.negative_examples)}"
+
+        return hypotheses_and_trace_idxs
+
+    def collect_examples(self, hypotheses: dict[Hypothesis, list[int]]):
         logger.info("Collecting examples")
-        for i, trace in enumerate(
-            tqdm(self.traces, desc="Collecting examples on traces")
-        ):
-            for j, trace_hypotheses in enumerate(hypotheses):
-                if j == i:
-                    # already collected examples for this hypothesis on the same trace that generated it
+        for hypo, trace_idxs in hypotheses.items():
+            for trace_idx, trace in enumerate(self.traces):
+                if trace_idx in trace_idxs:
                     continue
-                for hypothesis in trace_hypotheses:
-                    hypothesis.invariant.relation.collect_examples(trace, hypothesis)
+                logger.info(f"Collecting examples for hypothesis: {hypo}")
+                hypo.invariant.relation.collect_examples(trace, hypo)
 
-    def infer_precondition(self, hypotheses: list[list[Hypothesis]]):
+    def infer_precondition(self, hypotheses: dict[Hypothesis, list[int]]):
         all_hypotheses: list[Hypothesis] = []
-        for trace_hypotheses in hypotheses:
-            for hypothesis in trace_hypotheses:
-                all_hypotheses.append(hypothesis)
+        for hypo in hypotheses:
+            all_hypotheses.append(hypo)
 
         invariants = []
         failed_hypos = []
@@ -265,6 +304,10 @@ if __name__ == "__main__":
     time_start = time.time()
     engine = InferEngine(traces)
     invs, failed_hypos = engine.infer_multi_trace(disabled_relations=disabled_relations)
+
+    # sort the invariants by the text description
+    invs = sorted(invs, key=lambda x: x.text_description)
+
     time_end = time.time()
     logger.info(f"Inference completed in {time_end - time_start} seconds.")
 

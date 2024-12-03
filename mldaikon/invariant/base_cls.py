@@ -1163,7 +1163,7 @@ class Invariant:
         return f"""Relation: {self.relation}\nParam Selectors: {self.params}\nPrecondition: {self.precondition}\nText Description: {self.text_description}"""
 
     def __hash__(self) -> int:
-        self_dict = self.to_dict()
+        self_dict = self.to_dict(_dumping_for_failed_cases=True)
         # remove num_positive_examples, num_negative_examples, and text description as they are optional
         self_dict.pop("num_positive_examples", None)
         self_dict.pop("num_negative_examples", None)
@@ -1445,6 +1445,14 @@ class Hypothesis:
 
     def __repr__(self) -> str:
         return self._print_debug()
+
+    def __hash__(self):
+        return hash(self.invariant)
+
+    def __eq__(self, other):
+        if not isinstance(other, Hypothesis):
+            return False
+        return hash(self) == hash(other)
 
 
 class FailedHypothesis:

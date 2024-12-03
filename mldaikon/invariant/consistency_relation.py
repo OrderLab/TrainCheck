@@ -173,7 +173,7 @@ class ConsistencyRelation(Relation):
         )  # {(var_type1, attr1, var_type2, attr2)}
         for var_inst, other_var_inst in tqdm(
             combinations(var_insts, 2),
-            desc="Generating Hypothesis",
+            desc="Generating Hypothesis for Consistency Relation",
             total=len(var_insts) * (len(var_insts) - 1) // 2,
         ):
             for attr in var_insts[var_inst]:
