@@ -183,8 +183,12 @@ def prune_func_call(
 def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
     assert len(hypotheses) > 0, "Expected at least one hypotheses to be merged"
 
+    logger = logging.getLogger(__name__)
     pos_exp_group_names = hypotheses[0].positive_examples.get_group_names()
     neg_exp_group_names = hypotheses[0].negative_examples.get_group_names()
+    logger.debug(
+        f"In _merge_hypothesis Positive example group names: {pos_exp_group_names}, Negative example group names: {neg_exp_group_names}"
+    )
 
     used_dynamic_analysis = pos_exp_group_names == neg_exp_group_names
 
@@ -401,8 +405,8 @@ class APIContainRelation(Relation):
                     hypothesis.negative_examples.add_example(example)
             else:
                 contained_events = grouped_events.get(VarChangeEvent, [])
+                found = False
                 for event in contained_events:
-                    found = False
                     if child_param.check_event_match(event):
                         # add a positive example
                         parent_pre_record = trace.get_pre_func_call_record(
@@ -410,9 +414,13 @@ class APIContainRelation(Relation):
                         )
                         example = Example()
                         example.add_group(PARENT_GROUP_NAME, [parent_pre_record])
-                        example.add_group(VAR_GROUP_NAME, event.get_traces())
                         hypothesis.positive_examples.add_example(example)
                         found = True
+                        if check_for_unchanged_vars:
+                            example.add_group(VAR_GROUP_NAME, event.get_traces())
+                        else:
+                            # only one example is enough if we don't have var state in the example
+                            break
                 if check_for_unchanged_vars:
                     assert (
                         found
@@ -548,6 +556,12 @@ class APIContainRelation(Relation):
         func_names = [
             func_name for func_name in func_names if not is_signature_empty(func_name)
         ]
+
+        # func_names = [
+        #     func_name
+        #     for func_name in func_names
+        #     if func_name == "torch.optim.adam.Adam.step"
+        # ]
 
         if len(func_names) == 0:
             logger.warning(
@@ -766,6 +780,7 @@ class APIContainRelation(Relation):
                     )  # same child event can occur multiple times in a particular parent event, due to the above assert it is save to use None to ignore the KeyError
                     example = Example()
                     example.add_group(PARENT_GROUP_NAME, [parent_event.pre_record])
+
                     if (parent_param, child_param) in hypos_for_dynamic_analysis:
                         example.add_group(VAR_GROUP_NAME, event.get_traces())
                     hypotheses[parent_param][child_param].positive_examples.add_example(

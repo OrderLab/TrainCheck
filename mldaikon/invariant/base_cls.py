@@ -429,6 +429,9 @@ class VarTypeParam(Param):
             event.var_id.var_type == self.var_type and event.attr_name == self.attr_name
         )
 
+        if not var_attr_matched:
+            return False
+
         if self.const_value != _NOT_SET:
             logger = logging.getLogger(__name__)
             logger.warning(
@@ -460,7 +463,7 @@ class VarTypeParam(Param):
                 else:
                     return False
 
-        return var_attr_matched and pre_and_post_value_matched
+        return pre_and_post_value_matched
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type
@@ -671,8 +674,8 @@ def construct_var_param_from_var_change(
         return VarTypeParam(
             event.var_id.var_type,
             event.attr_name,
-            pre_value=pre_value,
-            post_value=new_value,
+            pre_value=make_hashable(pre_value),
+            post_value=make_hashable(new_value),
             # const_value=None, # TODO
         )
     elif config.VAR_INV_TYPE == "name":
@@ -680,8 +683,8 @@ def construct_var_param_from_var_change(
             event.var_id.var_type,
             event.var_id.var_name,
             event.attr_name,
-            pre_value=pre_value,
-            post_value=new_value,
+            pre_value=make_hashable(pre_value),
+            post_value=make_hashable(new_value),
             # const_value=None, # TODO
         )
 

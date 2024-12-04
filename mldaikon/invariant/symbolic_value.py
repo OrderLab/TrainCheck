@@ -63,14 +63,24 @@ generalized_value_match = {
 
 
 def check_generalized_value_match(generalized_type: str, value: Any) -> bool:
-    """Check if a concrete value matches a generalized type."""
+    """Check if a concrete value matches a generalized type.
+    Assumes that the value is a numeric type or MD_NONE.
+    """
     assert (
         generalized_type in generalized_value_match
     ), f"Invalid generalized type: {generalized_type}, expected one of {generalized_value_match.keys()}"
 
+    if not isinstance(value, (int, float, MD_NONE)):
+        # the only allowed generation is NON_NONE or ANYTHING
+        assert generalized_type in {
+            NON_NONE,
+            ANYTHING,
+        }, f"Invalid generalized type: {generalized_type} for non numerical value: {type(value)}, allowed types: NON_NONE, ANYTHING"
+        return generalized_value_match[generalized_type](value)
+
     assert isinstance(
         value, (int, float, MD_NONE)
-    ), f"Expecting value to be a numeric type (though we should support more), got: {value}"
+    ), f"Expecting value to be a numeric type (though we should support more), got: {value} of type {type(value)}"
     return generalized_value_match[generalized_type](value)
 
 
@@ -79,7 +89,6 @@ def generalize_values(values: list[type]) -> MD_NONE | type | str:
     assert values, "Values should not be empty"
 
     values = [tuple(v) if isinstance(v, list) else v for v in values]  # type: ignore
-
     if len(set(values)) == 1:
         # no need to generalize
         return values[0]

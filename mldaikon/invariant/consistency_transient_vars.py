@@ -340,7 +340,7 @@ class ConsistentOutputRelation(Relation):
                                 VarTypeParam(
                                     var_type="torch.Tensor",
                                     attr_name=prop,
-                                    const_value=prop_val,
+                                    const_value=make_hashable(prop_val),
                                 ),
                             ],
                             precondition=None,
@@ -466,6 +466,11 @@ class ConsistentOutputRelation(Relation):
         func_name = inv.params[0].api_full_name
         # get all the function calls for the function
         func_call_ids = trace.get_func_call_ids(func_name)
+
+        # sample 100 function calls for quick false positive evaluation
+        import random
+
+        func_call_ids = random.sample(func_call_ids, min(100, len(func_call_ids)))
 
         triggered = False
         # for each function call, check if the property holds
@@ -769,6 +774,11 @@ class ConsistentInputOutputRelation(Relation):
         func_name = api_param.api_full_name
         func_call_ids = trace.get_func_call_ids(func_name)
         triggered = False
+
+        # sample 100 function calls for quick false positive evaluation
+        import random
+
+        func_call_ids = random.sample(func_call_ids, min(100, len(func_call_ids)))
 
         for func_call_id in tqdm(
             func_call_ids, desc=f"Checking invariant {inv.text_description}"
@@ -1138,6 +1148,12 @@ class ThresholdRelation(Relation):
         func_name = api_param.api_full_name
         # get all function calls for the function
         func_call_ids = trace.get_func_call_ids(func_name)
+
+        # sample 100 function calls for quick false positive evaluation
+        import random
+
+        func_call_ids = random.sample(func_call_ids, min(100, len(func_call_ids)))
+
         if len(func_call_ids) == 0:
             return CheckerResult(
                 trace=None, invariant=inv, check_passed=True, triggered=False

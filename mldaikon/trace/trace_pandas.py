@@ -617,6 +617,11 @@ class TracePandas(Trace):
             .tolist()
         )
 
+        if len(is_bound_method) == 0:
+            raise AssertionError(
+                f"Boundness information not found for {func_name}, could be the function not existing in the trace."
+            )
+
         assert (
             None not in is_bound_method
         ), f"Boundness information not found for {func_name}"
@@ -820,6 +825,9 @@ class TracePandas(Trace):
                         continue
 
                     if col.startswith(config.VAR_ATTR_PREFIX):
+                        from mldaikon.invariant.base_cls import make_hashable
+
+                        curr_value = make_hashable(state_change[col])
                         attr_name = get_attr_name(col)
 
                         if any(
@@ -833,7 +841,7 @@ class TracePandas(Trace):
                         if attr_name not in attr_values:
                             attr_values[attr_name] = [
                                 AttrState(
-                                    state_change[col],
+                                    curr_value,
                                     Liveness(state_change["time"], None),
                                     [state_change.to_dict()],
                                 )
@@ -843,14 +851,14 @@ class TracePandas(Trace):
                                 col
                             ] and not (
                                 safe_isnan(attr_values[attr_name][-1].value)
-                                and safe_isnan(state_change[col])
+                                and safe_isnan(curr_value)
                             ):
                                 attr_values[attr_name][-1].liveness.end_time = (
                                     state_change["time"]
                                 )
                                 attr_values[attr_name].append(
                                     AttrState(
-                                        state_change[col],
+                                        curr_value,
                                         Liveness(state_change["time"], None),
                                         [state_change.to_dict()],
                                     )

@@ -132,6 +132,9 @@ class HighLevelEvent(object):
         # compare the fields of the class
         return self.__dict__ == other.__dict__
 
+    def __repr__(self):
+        return self.__str__()
+
 
 class FuncCallEvent(HighLevelEvent):
     """A function call event."""

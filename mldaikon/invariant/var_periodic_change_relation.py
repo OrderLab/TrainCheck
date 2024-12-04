@@ -14,6 +14,7 @@ from mldaikon.invariant.base_cls import (
     Relation,
     VarNameParam,
     VarTypeParam,
+    make_hashable,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace, VarInstId
@@ -79,7 +80,9 @@ class VarPeriodicChangeRelation(Relation):
                         )
                         if config.VAR_INV_TYPE == "name"
                         else VarTypeParam(
-                            var_id.var_type, attr_name, const_value=hypo_value
+                            var_id.var_type,
+                            attr_name,
+                            const_value=make_hashable(hypo_value),
                         )
                     )
                     key: tuple[VarTypeParam | VarNameParam, str] = (param, hypo_value)
