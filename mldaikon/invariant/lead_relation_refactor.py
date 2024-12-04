@@ -831,7 +831,7 @@ class FunctionLeadRelation(Relation):
                     if funcA == event["function"]:
                         if flag_A is None:
                             flag_A = event["time"]
-                            pre_recordA = [event]
+                            pre_recordA = event
                             continue
                         if inv.precondition.verify([events_list], EXP_GROUP_NAME):
                             inv_triggered = True

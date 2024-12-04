@@ -1252,6 +1252,9 @@ class CheckerResult:
     def __str__(self) -> str:
         return f"Trace: {self.trace}\nInvariant: {self.invariant}\nResult: {self.check_passed}"
 
+    def __repr__(self):
+        return self.__str__()
+
     def get_min_time(self):
         if not hasattr(self, "min_time"):
             self.min_time = min([x["time"] for x in self.trace])
