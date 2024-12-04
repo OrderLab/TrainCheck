@@ -300,7 +300,11 @@ def find_precondition(
             )
         )
 
-        if len(grouped_preconditions[group_name]) == 0:
+        if (
+            len(grouped_preconditions[group_name]) == 0
+            and len(positive_examples) > 0
+            and len(negative_examples) > 0
+        ):
             # try doing inverted precondition inference
             logger.warning(
                 f"Empty preconditions found for group {group_name}, trying to infer the preconditions by inverting the negative examples."
