@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import threading
+import time
 import traceback
 import types
 import uuid
@@ -236,6 +237,8 @@ def global_wrapper(
     if DISABLE_WRAPPER:
         return original_function(*args, **kwargs)
 
+    ENTER_PERF_TIME = time.perf_counter()
+
     logger = logging.getLogger(__name__)
 
     func_call_id = uuid.uuid4().hex
@@ -320,8 +323,11 @@ def global_wrapper(
         original_function = unproxy_func(original_function)
 
     try:
+        ORIG_ENTER_PERF_TIME = time.perf_counter()
         result = original_function(*args, **kwargs)
+        ORIG_EXIT_PERF_TIME = time.perf_counter()
     except Exception as e:
+        ORIG_EXIT_PERF_TIME = time.perf_counter()
         dump_trace_API(
             {
                 "func_call_id": func_call_id,
@@ -339,6 +345,10 @@ def global_wrapper(
             },
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
+        EXIT_PERF_TIME = time.perf_counter()
+        logger.debug(
+            f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+        )
         raise e
     pre_record.pop("args")
     pre_record.pop("kwargs")
@@ -413,6 +423,10 @@ def global_wrapper(
     post_record["return_values"] = to_dict_return_value(result_to_dump)
     dump_trace_API(post_record)
 
+    EXIT_PERF_TIME = time.perf_counter()
+    logger.debug(
+        f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+    )
     return result
 
 
