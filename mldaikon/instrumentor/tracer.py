@@ -50,6 +50,8 @@ DISABLE_WRAPPER = False
 GENERATE_START_TOKEN_ID: None | int = None
 GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
 
+COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1"
+
 
 class TraceLineType:
     FUNC_CALL_PRE = "function_call (pre)"
@@ -346,8 +348,12 @@ def global_wrapper(
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
         EXIT_PERF_TIME = time.perf_counter()
-        logger.debug(
-            f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+        (
+            print(
+                f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+            )
+            if COLLECT_OVERHEAD_METRICS
+            else None
         )
         raise e
     pre_record.pop("args")
@@ -424,8 +430,12 @@ def global_wrapper(
     dump_trace_API(post_record)
 
     EXIT_PERF_TIME = time.perf_counter()
-    logger.debug(
-        f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+    (
+        print(
+            f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+        )
+        if COLLECT_OVERHEAD_METRICS
+        else None
     )
     return result
 
