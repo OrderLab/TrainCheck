@@ -696,22 +696,28 @@ class FunctionCoverRelation(Relation):
                         pre_recordB = None
 
                     if funcB == event["function"]:
+                        if not inv.precondition.verify([event], EXP_GROUP_NAME):
+                            continue
+                        
+                        inv_triggered = True
+
                         if flag_B is not None:
-                            if inv.precondition.verify([events_list], EXP_GROUP_NAME):
-                                inv_triggered = True
-                                print(
-                                    "The relation "
-                                    + funcA
-                                    + " covers "
-                                    + funcB
-                                    + " is violated!\n"
-                                )
-                                return CheckerResult(
-                                    trace=[pre_recordB, event],
-                                    invariant=inv,
-                                    check_passed=False,
-                                    triggered=True,
-                                )
+
+                            inv_triggered = True
+                            print(
+                                "The relation "
+                                + funcA
+                                + " covers "
+                                + funcB
+                                + " is violated!\n"
+                            )
+                            return CheckerResult(
+                                trace=[pre_recordB, event],
+                                invariant=inv,
+                                check_passed=False,
+                                triggered=True,
+                            )
+
                         flag_B = event["time"]
                         pre_recordB = event
 
@@ -725,4 +731,4 @@ class FunctionCoverRelation(Relation):
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
-        return ["function"]
+        return []

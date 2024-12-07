@@ -829,25 +829,30 @@ class FunctionLeadRelation(Relation):
                         continue
 
                     if funcA == event["function"]:
+                        if not inv.precondition.verify([event], EXP_GROUP_NAME):
+                            continue
+                        
+                        inv_triggered = True
+
                         if flag_A is None:
                             flag_A = event["time"]
-                            pre_recordA = event
+                            pre_recordA = [event]
                             continue
-                        if inv.precondition.verify([events_list], EXP_GROUP_NAME):
-                            inv_triggered = True
-                            print(
-                                "The relation "
-                                + funcA
-                                + " leads "
-                                + funcB
-                                + " is violated!\n"
-                            )
-                            return CheckerResult(
-                                trace=[pre_recordA, event],
-                                invariant=inv,
-                                check_passed=False,
-                                triggered=True,
-                            )
+                       
+                        print(
+                            "The relation "
+                            + funcA
+                            + " leads "
+                            + funcB
+                            + " is violated!\n"
+                        )
+
+                        return CheckerResult(
+                            trace=[pre_recordA, event],
+                            invariant=inv,
+                            check_passed=False,
+                            triggered=True,
+                        )
                     if funcB == event["function"]:
                         flag_A = None
                         pre_recordA = None
@@ -861,4 +866,4 @@ class FunctionLeadRelation(Relation):
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
-        return ["function"]
+        return []
