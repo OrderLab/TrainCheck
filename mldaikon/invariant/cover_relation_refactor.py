@@ -725,4 +725,4 @@ class FunctionCoverRelation(Relation):
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
-        return []
+        return ["function"]
