@@ -243,6 +243,7 @@ class FunctionLeadRelation(Relation):
                 ascii=True,
                 leave=True,
                 desc="Combinations Checked",
+                total=len(function_pool) ** 2,
             ):
                 if check_same_level(funcA, funcB, process_id, thread_id):
                     if funcA not in same_level_func[(process_id, thread_id)]:

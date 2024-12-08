@@ -1,0 +1,5 @@
+pyscript: multigpu.py
+shscript: run.sh
+models_to_track: 
+  - model
+model_tracker_style: sampler

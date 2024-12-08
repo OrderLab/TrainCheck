@@ -315,6 +315,7 @@ class FunctionLeadRelation(Relation):
                     ascii=True,
                     leave=True,
                     desc="Combinations Checked",
+                    total=len(function_pool) ** 2,
                 ):
                     if check_same_level(funcA, funcB, process_id, thread_id):
                         if funcA not in same_level_func[(process_id, thread_id)]:
@@ -499,6 +500,7 @@ class FunctionLeadRelation(Relation):
                     ascii=True,
                     leave=True,
                     desc="Combinations Checked",
+                    total=len(function_pool) ** 2,
                 ):
                     if check_same_level(funcA, funcB, process_id, thread_id):
                         if funcA not in same_level_func[(process_id, thread_id)]:
@@ -766,6 +768,7 @@ class FunctionLeadRelation(Relation):
                     ascii=True,
                     leave=True,
                     desc="Combinations Checked",
+                    total=len(function_pool) ** 2,
                 ):
                     if check_same_level(funcA, funcB, process_id, thread_id):
                         if funcA not in same_level_func[(process_id, thread_id)]:
@@ -836,7 +839,7 @@ class FunctionLeadRelation(Relation):
 
                         if flag_A is None:
                             flag_A = event["time"]
-                            pre_recordA = [event]
+                            pre_recordA = event
                             continue
                        
                         print(
@@ -866,4 +869,4 @@ class FunctionLeadRelation(Relation):
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
-        return []
+        return ["function"]
