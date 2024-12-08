@@ -440,6 +440,125 @@ def global_wrapper(
     return result
 
 
+# def global_wrapper(
+#     original_function,
+#     is_bound_method,
+#     is_builtin,
+#     scan_proxy_in_args,
+#     dump_stack_trace,
+#     cond_dump,
+#     *args,
+#     **kwargs,
+# ):
+#     """Instrumentation for APIs
+
+#     Pre-call Phase
+#     1. Log the pre-call information
+#     2. Unproxy the arguments if the function is a C level function -- Proxy objects passed to built-in functions will cause segfault
+#     3. Add additional 'observer' (monitoring whether the input arguments have changed after the function call) to the function if specified
+
+#     Call Phase
+#     1. Calls the original function
+#     2. If an exception is raised, log the exception and re-raise it
+
+#     Post-call Phase
+#     1. Log the post-call information
+#     """
+
+#     global DISABLE_WRAPPER
+#     if DISABLE_WRAPPER:
+#         return original_function(*args, **kwargs)
+
+#     ENTER_PERF_TIME = time.perf_counter()
+
+#     logger = logging.getLogger(__name__)
+
+#     func_call_id = uuid.uuid4().hex
+#     thread_id = threading.current_thread().ident
+#     process_id = os.getpid()
+#     func_name = typename(original_function)
+#     pre_meta_vars = get_meta_vars()
+
+#     # determine at runtime whether to dump the trace
+#     is_dumping = should_dump_trace(
+#         cond_dump,
+#         PTID(process_id, thread_id),
+#         f"API_{func_name}",  # any key that can uniquely identify the function or the variable to be dumped
+#         meta_vars=pre_meta_vars,
+#         meta_vars_targets=None,  # can be used to restrain the meta_vars to a subset of keys
+#         update_cache=True,
+#     )
+
+#     if not is_dumping:
+#         # logger.debug(f"Skipping dump for {func_name} as meta_vars have not changed")
+#         # print(f"Skipping dump for {func_name} as meta_vars have not changed")
+#         # return core_wrapper(original_function, is_builtin, *args, **kwargs)
+#         return original_function(*args, **kwargs)
+
+#     pre_record = {
+#         "func_call_id": func_call_id,
+#         "thread_id": thread_id,
+#         "process_id": process_id,
+#         "meta_vars": pre_meta_vars,
+#         "type": TraceLineType.FUNC_CALL_PRE,
+#         "function": func_name,
+#         "is_bound_method": is_bound_method,
+#         "obj_id": None if not is_bound_method else id(args[0]),
+#     }
+
+#     dump_trace_API(pre_record)
+
+#     try:
+#         ORIG_ENTER_PERF_TIME = time.perf_counter()
+#         result = original_function(*args, **kwargs)
+#         ORIG_EXIT_PERF_TIME = time.perf_counter()
+#     except Exception as e:
+#         ORIG_EXIT_PERF_TIME = time.perf_counter()
+#         dump_trace_API(
+#             {
+#                 "func_call_id": func_call_id,
+#                 "thread_id": thread_id,
+#                 "process_id": process_id,
+#                 "meta_vars": pre_meta_vars,
+#                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
+#                 "function": func_name,
+#                 # "args": [f"{arg}" for arg in args],
+#                 # "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
+#                 "exception": typename(e),
+#                 "exception_msg": str(e),
+#                 "is_bound_method": is_bound_method,
+#                 "obj_id": None if not is_bound_method else id(args[0]),
+#             },
+#         )
+#         logger.error(f"Error in {func_name}: {type(e)} {e}")
+#         EXIT_PERF_TIME = time.perf_counter()
+#         (
+#             print(
+#                 f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+#             )
+#             if COLLECT_OVERHEAD_METRICS
+#             else None
+#         )
+#         raise e
+#     post_record = (
+#         pre_record.copy()
+#     )  # copy the pre_record (though we don't actually need to copy anything)
+#     post_record["type"] = TraceLineType.FUNC_CALL_POST
+#     post_record["meta_vars"] = pre_meta_vars
+
+#     dump_trace_API(post_record)
+
+#     EXIT_PERF_TIME = time.perf_counter()
+#     (
+#         print(
+#             f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+#         )
+#         if COLLECT_OVERHEAD_METRICS
+#         else None
+#     )
+#     return result
+
+
 def core_wrapper(original_function, is_builtin, *args, **kwargs):
     """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
     We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
@@ -452,6 +571,17 @@ def core_wrapper(original_function, is_builtin, *args, **kwargs):
         original_function = unproxy_func(original_function)
     return original_function(*args, **kwargs)
 
+# def core_wrapper(original_function, is_builtin, *args, **kwargs):
+#     """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
+#     We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
+#     """
+#     # global DISABLE_WRAPPER
+#     # if DISABLE_WRAPPER:
+#     #     return original_function(*args, **kwargs)
+
+#     # if is_builtin:
+#     #     original_function = unproxy_func(original_function)
+#     return original_function(*args, **kwargs)
 
 def wrapper(
     original_function,
