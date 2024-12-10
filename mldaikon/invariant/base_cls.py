@@ -281,6 +281,8 @@ class Param:
                         args[k] = MD_NONE()
                     elif k == "arguments":
                         args[k] = Arguments.from_dict(v)
+                    elif "value" in k:
+                        args[k] = make_hashable(v)
                 return param_type(**args)
         raise ValueError(f"Unknown param type: {param_dict['param_type']}")
 
