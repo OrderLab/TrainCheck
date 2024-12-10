@@ -2,6 +2,7 @@ import argparse
 import os
 import random
 import shutil
+import sys
 import time
 import warnings
 from enum import Enum
@@ -203,8 +204,6 @@ def main():
 
 
 def main_worker(gpu, ngpus_per_node, args):
-    tc_tracer.DISABLE_WRAPPER = True
-
     global best_acc1
     args.gpu = gpu
 
@@ -437,6 +436,88 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
     model.train()
 
     end = time.time()
+
+    log_file = "api_calls.log"
+
+    def log_api_call(frame, event, arg):
+        """Trace function calls and log API calls."""
+        if event == "call":
+
+            # Frame data
+            # frame = sys._getframe()
+            function_name = frame.f_code.co_name
+            file_name = frame.f_code.co_filename
+            line_number = frame.f_lineno
+
+            # Filter for API-related calls (requests module in this example)
+            # with open(log_file, "a") as f:
+            with open(log_file, "w") as f:  # otherwise we will OOM
+                f.write(f"API Call: {function_name} at {file_name}:{line_number}\n")
+                for i in range(frame.f_code.co_argcount):
+                    name = frame.f_code.co_varnames[i]
+                    try:
+                        f.write(
+                            "    Argument "
+                            + str(name)
+                            + " is "
+                            + str(frame.f_locals[name])
+                        )
+                    except Exception:
+                        f.write("    Argument " + str(name) + " is not printable")
+                    f.write("\n")
+
+        # print return values as well!
+        if event == "return":
+            # Frame data
+            # frame = sys._getframe()
+            function_name = frame.f_code.co_name
+            file_name = frame.f_code.co_filename
+            line_number = frame.f_lineno
+
+            # Filter for API-related calls (requests module in this example)
+            with open(log_file, "a") as f:
+                f.write(f"API Return: {function_name} at {file_name}:{line_number}\n")
+                for i in range(frame.f_code.co_argcount):
+                    name = frame.f_code.co_varnames[i]
+                    try:
+                        f.write(
+                            "    Argument "
+                            + str(name)
+                            + " is "
+                            + str(frame.f_locals[name])
+                        )
+                    except Exception:
+                        f.write("    Argument " + str(name) + " is not printable")
+                    f.write("\n")
+
+        # logging for builtin functions
+        if event == "opcode":
+            # Frame data
+            # frame = sys._getframe()
+            function_name = frame.f_code.co_name
+            file_name = frame.f_code.co_filename
+            line_number = frame.f_lineno
+
+            # Filter for API-related calls (requests module in this example)
+            with open(log_file, "a") as f:
+                f.write(f"API Opcode: {function_name} at {file_name}:{line_number}\n")
+                for i in range(frame.f_code.co_argcount):
+                    name = frame.f_code.co_varnames[i]
+                    try:
+                        f.write(
+                            "    Argument "
+                            + str(name)
+                            + " is "
+                            + str(frame.f_locals[name])
+                        )
+                    except Exception:
+                        f.write("    Argument " + str(name) + " is not printable")
+                    f.write("\n")
+
+        return log_api_call
+
+    sys.settrace(log_api_call)
+
     for i, (images, target) in enumerate(train_loader):
         BATCH_START = time.perf_counter()
 
@@ -467,7 +548,7 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
         end = time.time()
         BATCH_END = time.perf_counter()
 
-        print(f"MD Batch time: {BATCH_END - BATCH_START}")
+        print("MD Batch time: ", BATCH_END - BATCH_START)
 
         if i % args.print_freq == 0:
             progress.display(i + 1)
