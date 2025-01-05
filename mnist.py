@@ -198,27 +198,11 @@ def main():
     print("Defining model...")
     model = Net()
     model = model.to(device)
-    # tracer.trace_state_variables(model)
 
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     print("Starting training...")
-    # let's profile the training loop
-    # from torch.profiler import profile, record_function, ProfilerActivity
-    # with profile(
-    #     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-    #     with_stack=True,
-    # ) as prof:
-    #     for epoch in range(1, args.epochs + 1):
-    #         with record_function("train"):
-    #             train(args, model, device, train_loader, optimizer, epoch)
-    #         print("Starting testing...")
-    #         with record_function("test"):
-    #             test(model, device, test_loader)
-    #         scheduler.step()
-    #     # save to file and open in Chrome browser
-    # prof.export_chrome_trace("trace_instrumented.json")
 
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)

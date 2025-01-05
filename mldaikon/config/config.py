@@ -20,7 +20,6 @@ WRAP_WITHOUT_DUMP = [
     "torch.overrides.handle_torch_function",
     "torch._ops.OpOverloadPacket",
     "torch._ops._OpNamespace",
-
     # added after doing initial evaluation
     "torch.nn.modules.module.Module._call_impl",
     "torch.nn.modules.module.Module._wrapped_impl",
@@ -46,7 +45,7 @@ ANALYSIS_SKIP_FUNC_NAMES = [
     "torch._VariableFunctionsClass",
     "torch.nn.modules.module.Module._call_impl",
     "torch.nn.modules.module.Module._wrapped_impl",
-    "torch.nn.modules.module.Module._wrapped_call_impl", 
+    "torch.nn.modules.module.Module._wrapped_call_impl",
     "torch.cuda._is_compiled",
     "torch.is_grad_enabled",
     "torch._ops.OpOverload",

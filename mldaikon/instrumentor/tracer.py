@@ -571,6 +571,7 @@ def core_wrapper(original_function, is_builtin, *args, **kwargs):
         original_function = unproxy_func(original_function)
     return original_function(*args, **kwargs)
 
+
 # def core_wrapper(original_function, is_builtin, *args, **kwargs):
 #     """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
 #     We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
@@ -582,6 +583,7 @@ def core_wrapper(original_function, is_builtin, *args, **kwargs):
 #     # if is_builtin:
 #     #     original_function = unproxy_func(original_function)
 #     return original_function(*args, **kwargs)
+
 
 def wrapper(
     original_function,
