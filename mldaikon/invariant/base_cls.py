@@ -845,13 +845,14 @@ class PreconditionClause:
             if not found or pd.isna(value):
                 return False
 
-            if not isinstance(value, Hashable):
+            if not isinstance(value, Hashable) and self.type != PT.EXIST:
                 # print(
                 #     f"ERROR: Property {prop_name} is not hashable, skipping this property as we cannot deal with non-hashable properties yet."
                 # )
                 return False
 
-            prop_values_seen.add(value)
+            if self.type != PT.EXIST:
+                prop_values_seen.add(value)
 
         if self.type == PT.CONSTANT:
             if len(prop_values_seen) == 1 and tuple(prop_values_seen)[0] in self.values:
@@ -1050,9 +1051,31 @@ class GroupedPreconditions:
     def __init__(self, grouped_preconditions: dict[str, Preconditions]):
         self.grouped_preconditions = grouped_preconditions
 
-    def verify(self, example: list, group_name: str) -> bool:
+    def verify(
+        self, records: list, group_name: str, trace_for_metavars: Trace | None = None
+    ) -> bool:
+        """Verify the preconditions for the given group name.
+        Args:
+        - records: The list of trace records for a single example to verify the preconditions on
+        - group_name: The name of the group to verify the preconditions on
+        - trace_for_metavars: The trace to use for querying additional metavars that might have not been indexed in the example, e.g. the context managers.
+        """
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
-        return self.grouped_preconditions[group_name].verify(example)
+        assert len(records) > 0, "Records should not be empty"
+
+        if trace_for_metavars is not None:
+            earliest_time = records[0]["time"]
+            pid = records[0]["process_id"]
+            tid = records[0]["thread_id"]
+            meta_vars = trace_for_metavars.get_meta_vars(earliest_time, pid, tid)
+            print("META VARS", meta_vars)
+            # update every trace with the meta_vars
+            if meta_vars:
+                for key in meta_vars:
+                    for i in range(len(records)):
+                        records[i][f"meta_vars.{key}"] = meta_vars[key]
+
+        return self.grouped_preconditions[group_name].verify(records)
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -1079,12 +1102,6 @@ class GroupedPreconditions:
 
     def get_group_names(self) -> set[str]:
         return set(self.grouped_preconditions.keys())
-
-    def verify_for_group(self, example: list, group_name: str) -> bool:
-        # TODO: remove this function as it is duplicate of self.verify
-
-        assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
-        return self.grouped_preconditions[group_name].verify(example)
 
     def add_stage_info(self, valid_stages: set[str]):
         # construct a CONSTANT clause for the stage
