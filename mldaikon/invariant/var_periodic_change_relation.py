@@ -275,7 +275,9 @@ class VarPeriodicChangeRelation(Relation):
                 attr_inst.traces[-1]
                 for attr_inst in var_insts[var_id][var_param.attr_name]
             ]
-            if not inv.precondition.verify(example_trace_records, var_group_name):
+            if not inv.precondition.verify(
+                example_trace_records, var_group_name, trace
+            ):
                 continue
 
             triggered = True

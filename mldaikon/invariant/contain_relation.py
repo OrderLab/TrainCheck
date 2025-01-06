@@ -1027,8 +1027,8 @@ Defaulting to skip the var preconditon check for now.
 
             if check_relation_first:
                 # precondition check
-                if not preconditions.verify_for_group(
-                    [parent_pre_record], PARENT_GROUP_NAME
+                if not preconditions.verify(
+                    [parent_pre_record], PARENT_GROUP_NAME, trace
                 ):
                     logger.debug(
                         f"Precondition not met for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}, skipping the contained events check"
@@ -1055,8 +1055,8 @@ Defaulting to skip the var preconditon check for now.
                         break
 
                 # precondition check
-                if not preconditions.verify_for_group(
-                    [parent_pre_record], PARENT_GROUP_NAME
+                if not preconditions.verify(
+                    [parent_pre_record], PARENT_GROUP_NAME, trace
                 ):
                     logger.debug(
                         f"Precondition not met for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}, skipping the contained events check"
@@ -1087,8 +1087,8 @@ Defaulting to skip the var preconditon check for now.
                 for unchanged_var_state in unchanged_var_states:
                     # verify that no precondition is met for the unchanged vars
                     # MARK: precondition 2
-                    if not preconditions.verify_for_group(
-                        unchanged_var_state, VAR_GROUP_NAME
+                    if not preconditions.verify(
+                        unchanged_var_state, VAR_GROUP_NAME, trace
                     ):
                         logger.error(
                             f"INV CHECK ERROR: Precondition met for the unchanged vars for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"

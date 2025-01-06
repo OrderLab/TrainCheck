@@ -484,7 +484,9 @@ class ConsistentOutputRelation(Relation):
                 continue
 
             # check for precondition here
-            if not inv.precondition.verify([func_call_event.pre_record], "pre_event"):
+            if not inv.precondition.verify(
+                [func_call_event.pre_record], "pre_event", trace
+            ):
                 continue
 
             triggered = True
@@ -791,8 +793,8 @@ class ConsistentInputOutputRelation(Relation):
 
             # check for precondition here
             if not inv.precondition.verify(
-                [func_call_event.pre_record], "pre_event"
-            ):  # FIXME: need to query context
+                [func_call_event.pre_record], "pre_event", trace
+            ):
                 continue
 
             input_tensors = get_input_tensors(func_call_event)
@@ -1170,7 +1172,9 @@ class ThresholdRelation(Relation):
                 continue
 
             # check for precondition here
-            if not inv.precondition.verify([func_call_event.pre_record], "pre_event"):
+            if not inv.precondition.verify(
+                [func_call_event.pre_record], "pre_event", trace
+            ):
                 continue
 
             triggered = True

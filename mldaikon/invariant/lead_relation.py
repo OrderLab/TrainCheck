@@ -791,7 +791,7 @@ class FunctionLeadRelation(Relation):
                         continue
 
                     if funcA == event["function"]:
-                        if not inv.precondition.verify([event], EXP_GROUP_NAME):
+                        if not inv.precondition.verify([event], EXP_GROUP_NAME, trace):
                             continue
 
                         inv_triggered = True

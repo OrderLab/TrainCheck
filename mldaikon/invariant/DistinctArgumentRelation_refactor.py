@@ -404,7 +404,7 @@ class DistinctArgumentRelation(Relation):
         events_list = get_event_list(trace, function_pool)
         print("End preprocessing")
 
-        if not inv.precondition.verify([events_list], EXP_GROUP_NAME):
+        if not inv.precondition.verify([events_list], EXP_GROUP_NAME, trace):
             return CheckerResult(
                 trace=None,
                 invariant=inv,

@@ -463,7 +463,7 @@ class ConsistencyRelation(Relation):
                     )
                     if not compare_result:
                         # check for precondition match, if yes, report alarm
-                        if inv.precondition.verify(traces, VAR_GROUP_NAME):
+                        if inv.precondition.verify(traces, VAR_GROUP_NAME, trace):
                             inv_triggered = True
                             logger.error(
                                 f"Invariant {inv} violated near time {attr1_val.liveness.end_time}, precentage: {trace.get_time_precentage(attr1_val.liveness.end_time)}"  # type: ignore
@@ -483,7 +483,7 @@ class ConsistencyRelation(Relation):
                                 f"Violation detected but Precondition not satisfied at liveness 1: {attr1_val.liveness.start_time}, {attr1_val.liveness.end_time}, liveness 2: {attr2_val.liveness.start_time}, {attr2_val.liveness.end_time}, overlap: {calc_liveness_overlap(attr1_val.liveness, attr2_val.liveness)}"  # type: ignore
                             )
                 else:
-                    if inv.precondition.verify(traces, VAR_GROUP_NAME):
+                    if inv.precondition.verify(traces, VAR_GROUP_NAME, trace):
                         inv_triggered = True
                         compare_result = ConsistencyRelation.evaluate(
                             [attr1_val.value, attr2_val.value]
