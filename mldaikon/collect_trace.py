@@ -111,6 +111,13 @@ if __name__ == "__main__":
         If not provided, the python script will be run directly.""",
     )
     parser.add_argument(
+        "-a",
+        "--copy-all-files",
+        action="store_true",
+        help="""Copy all files in pyscript's folder to the result directory, 
+        this is necessary if you have relative paths in your code""",
+    )
+    parser.add_argument(
         "--output-dir",
         type=str,
         default="",
@@ -330,6 +337,14 @@ if __name__ == "__main__":
         output_dir=output_dir,
         instr_descriptors=args.instr_descriptors,
     )
+
+    if args.copy_all_files:
+        # copy all files in the same directory as the pyscript to the output directory
+        parent_dir = os.path.dirname(args.pyscript)
+        if parent_dir == "":
+            parent_dir = "."
+        for file in os.listdir(parent_dir):
+            os.system(f"cp -r {os.path.join(parent_dir, file)} {output_dir}")
 
     # call into the program runner
     program_runner = runner.ProgramRunner(
