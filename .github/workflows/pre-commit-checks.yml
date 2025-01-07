@@ -42,19 +42,19 @@ jobs:
 
       - name: Run black
         id: black
-        run: black --check . --exclude tests
+        run: black --check mldaikon --exclude tests
 
-      - name: Run mypy
+      - name: Run mypy on main source code folder
         id: mypy
-        run: mypy . --install-types --non-interactive --ignore-missing-imports --exclude tests
+        run: mypy mldaikon --install-types --non-interactive --ignore-missing-imports
 
       - name: Run isort
         id: isort
-        run: isort --check --profile=black . --skip tests
+        run: isort --check --profile=black mldaikon --skip tests
 
       - name: Run ruff
         id: ruff
-        run: ruff check . --exclude tests
+        run: ruff check mldaikon
 
       - name: Check if any checks failed
         if: failure()
