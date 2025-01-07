@@ -1,9 +1,8 @@
-set -e
-
-# configs
 import os
 import subprocess
 
+# configs
+$RAISE_SUBPROC_ERROR = True
 os.environ["PYTHONUNBUFFERED"] = "1"
 
 SELC_INV_FILE = "sampled_100_invariants.json"
@@ -23,15 +22,13 @@ bash collect_wrapper_overhead.sh
 cd ..
 mv @(MICRO_FOLDER)/wrapper_overhead_micro.csv @(RES_FOLDER)/
 
-def run_cmd_and_get_output(cmd: str, kill_sec: int) -> str:
+def run_cmd(cmd: str, kill_sec: int):
     p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         output, _ = p.communicate(timeout=kill_sec)
     except subprocess.TimeoutExpired:
         print(f"Timeout: {kill_sec} seconds, killing the process")
         p.kill()
-        output, _ = p.communicate()
-    return output.decode("utf-8")
 
 # run e2e benchmark
 def run_exp(kill_sec: int = 100, workload: str = "mnist"):
@@ -40,8 +37,9 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
     ORIG_PY = "main.py"
     SETTRACE_PY = "main_settrace.py"
     RUN_SH = "run.sh"
-    CMD_TRAINCHECK = "python -m mldaikon.collect_trace --use-config --config md-config.yml"
-    CMD_TRAINCHECK_SELECTIVE = CMD_TRAINCHECK + f" -i ../{SELC_INV_FILE}"
+    CMD_TRAINCHECK = "python -m mldaikon.collect_trace --use-config --config md-config.yml --output-dir traincheck"
+    CMD_TRAINCHECK_SELECTIVE = f"python -m mldaikon.collect_trace --use-config --config md-config.yml --output-dir traincheck-selective -i ../{SELC_INV_FILE}"
+
 
     with open(f"{E2E_FOLDER}/{workload}/{RUN_SH}", "r") as f:
         cmd = f.read().strip()
@@ -53,32 +51,34 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
 
     # 1. naive running
     print("Running naive setup")
-    output = run_cmd_and_get_output(cmd, kill_sec)
-    with open(f"../../{RES_FOLDER}/e2e_{workload}_naive.txt", "w") as f:
-        f.write(output)
+    run_cmd(cmd, kill_sec)
+    cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_naive.txt")
+    rm iteration_times.txt
 
     # 2. settrace running
     print("Running settrace setup")
-    output_settrace = run_cmd_and_get_output(cmd_settrace, kill_sec)
-    with open(f"../../{RES_FOLDER}/e2e_{workload}_settrace.txt", "w") as f:
-        f.write(output_settrace)
+    run_cmd(cmd_settrace, kill_sec)
+    rm api_calls.log
+    cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_settrace.txt")
+    rm iteration_times.txt
 
     # 3. traincheck proxy instrumentation
     print("Running traincheck proxy instrumentation")
-    output_traincheck = run_cmd_and_get_output(CMD_TRAINCHECK, kill_sec)
-    with open(f"../../{RES_FOLDER}/e2e_{workload}_traincheck.txt", "w") as f:
-        f.write(output_traincheck)
+    run_cmd(CMD_TRAINCHECK, kill_sec)
+    cp traincheck/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_traincheck.txt")
+    rm -rf traincheck
+    # rm iteration_times.txt
 
     # 4. traincheck selective instrumentation
     print("Running traincheck selective instrumentation")
-    output_traincheck_selective = run_cmd_and_get_output(CMD_TRAINCHECK_SELECTIVE, kill_sec)
-    with open(f"../../{RES_FOLDER}/e2e_{workload}_traincheck_selective.txt", "w") as f:
-        f.write(output_traincheck_selective)
+    run_cmd(CMD_TRAINCHECK_SELECTIVE, kill_sec)
+    cp traincheck-selective/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_traincheck_selective.txt")
+    rm -rf traincheck-selective
 
     cd ../..
 
 
 # e2e workload
-run_exp(kill_sec=100, workload="mnist")
-run_exp(kill_sec=100, workload="resnet18")
-run_exp(kill_sec=100, workload="transformer")
+run_exp(kill_sec=50, workload="mnist")
+run_exp(kill_sec=50, workload="resnet18")
+run_exp(kill_sec=50, workload="transformer")

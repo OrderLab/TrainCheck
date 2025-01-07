@@ -8,6 +8,7 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
+MD_BATCH_FILE_NAME = "iteration_times.txt"
 
 class Net(nn.Module):
     def __init__(self):
@@ -37,6 +38,8 @@ class Net(nn.Module):
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
+    with open(MD_BATCH_FILE_NAME, "w") as f:
+        f.write("")
     for batch_idx, (data, target) in enumerate(train_loader):
         BATCH_START = time.perf_counter()
         data, target = data.to(device), target.to(device)
@@ -46,7 +49,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         BATCH_END = time.perf_counter()
-        print(f"MD Batch time: {BATCH_END - BATCH_START}")
+        with open(MD_BATCH_FILE_NAME, "a") as f:
+            f.write("%s\n" % (BATCH_END - BATCH_START))
         if batch_idx % args.log_interval == 0:
             print(
                 "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(

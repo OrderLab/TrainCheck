@@ -212,6 +212,9 @@ def train():
 
     # Turn on training mode which enables dropout.
     model.train()
+    MD_BATCH_FILE_NAME = "iteration_times.txt"
+    with open(MD_BATCH_FILE_NAME, "w") as f:
+        f.write("")
     total_loss = 0.0
     start_time = time.time()
     ntokens = len(corpus.dictionary)
@@ -242,7 +245,8 @@ def train():
         total_loss += loss.item()
 
         BATCH_END = time.perf_counter()
-        print(f"MD Batch time: {BATCH_END - BATCH_START}")
+        with open(MD_BATCH_FILE_NAME, "a") as f:
+            f.write("%s\n" % (BATCH_END - BATCH_START))
 
         if batch % args.log_interval == 0 and batch > 0:
             cur_loss = total_loss / args.log_interval

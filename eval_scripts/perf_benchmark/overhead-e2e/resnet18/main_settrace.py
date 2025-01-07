@@ -435,6 +435,10 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
     # switch to train mode
     model.train()
 
+    MD_BATCH_FILE_NAME = "iteration_times.txt"
+    with open(MD_BATCH_FILE_NAME, "w") as f:
+        f.write("")
+
     end = time.time()
 
     log_file = "api_calls.log"
@@ -548,7 +552,8 @@ def train(train_loader, model, criterion, optimizer, epoch, device, args):
         end = time.time()
         BATCH_END = time.perf_counter()
 
-        print("MD Batch time: ", BATCH_END - BATCH_START)
+        with open(MD_BATCH_FILE_NAME, "a") as f:
+            f.write("%s\n" % (BATCH_END - BATCH_START))
 
         if i % args.print_freq == 0:
             progress.display(i + 1)
