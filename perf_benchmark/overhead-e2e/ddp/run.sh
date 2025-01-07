@@ -1,1 +1,0 @@
-python3 multigpu.py --batch_size 8 1 2

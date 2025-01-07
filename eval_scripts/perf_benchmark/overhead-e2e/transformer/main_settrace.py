@@ -2,18 +2,16 @@
 import argparse
 import math
 import os
+import sys
 import time
 
+import data
 import model
 import torch
 import torch.nn as nn
 import torch.onnx
 
-import data
-import mldaikon.instrumentor.tracer as tc_tracer
 from mldaikon import annotate_stage
-
-tc_tracer.DISABLE_WRAPPER = True
 
 parser = argparse.ArgumentParser(
     description="PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model"
@@ -210,6 +208,87 @@ def evaluate(data_source):
 def train():
     annotate_stage("training")
 
+    log_file = "api_calls.log"
+
+    def log_api_call(frame, event, arg):
+        """Trace function calls and log API calls."""
+        if event == "call":
+
+            # Frame data
+            # frame = sys._getframe()
+            function_name = frame.f_code.co_name
+            file_name = frame.f_code.co_filename
+            line_number = frame.f_lineno
+
+            # Filter for API-related calls (requests module in this example)
+            # with open(log_file, "a") as f:
+            with open(log_file, "w") as f:  # otherwise we will OOM
+                f.write(f"API Call: {function_name} at {file_name}:{line_number}\n")
+                for i in range(frame.f_code.co_argcount):
+                    name = frame.f_code.co_varnames[i]
+                    try:
+                        f.write(
+                            "    Argument "
+                            + str(name)
+                            + " is "
+                            + str(frame.f_locals[name])
+                        )
+                    except Exception:
+                        f.write("    Argument " + str(name) + " is not printable")
+                    f.write("\n")
+
+        # print return values as well!
+        if event == "return":
+            # Frame data
+            # frame = sys._getframe()
+            function_name = frame.f_code.co_name
+            file_name = frame.f_code.co_filename
+            line_number = frame.f_lineno
+
+            # Filter for API-related calls (requests module in this example)
+            with open(log_file, "a") as f:
+                f.write(f"API Return: {function_name} at {file_name}:{line_number}\n")
+                for i in range(frame.f_code.co_argcount):
+                    name = frame.f_code.co_varnames[i]
+                    try:
+                        f.write(
+                            "    Argument "
+                            + str(name)
+                            + " is "
+                            + str(frame.f_locals[name])
+                        )
+                    except Exception:
+                        f.write("    Argument " + str(name) + " is not printable")
+                    f.write("\n")
+
+        # logging for builtin functions
+        if event == "opcode":
+            # Frame data
+            # frame = sys._getframe()
+            function_name = frame.f_code.co_name
+            file_name = frame.f_code.co_filename
+            line_number = frame.f_lineno
+
+            # Filter for API-related calls (requests module in this example)
+            with open(log_file, "a") as f:
+                f.write(f"API Opcode: {function_name} at {file_name}:{line_number}\n")
+                for i in range(frame.f_code.co_argcount):
+                    name = frame.f_code.co_varnames[i]
+                    try:
+                        f.write(
+                            "    Argument "
+                            + str(name)
+                            + " is "
+                            + str(frame.f_locals[name])
+                        )
+                    except Exception:
+                        f.write("    Argument " + str(name) + " is not printable")
+                    f.write("\n")
+
+        return log_api_call
+
+    sys.settrace(log_api_call)
+
     # Turn on training mode which enables dropout.
     model.train()
     total_loss = 0.0
@@ -217,8 +296,6 @@ def train():
     ntokens = len(corpus.dictionary)
     if args.model != "Transformer":
         hidden = model.init_hidden(args.batch_size)
-
-    tc_tracer.DISABLE_WRAPPER = False
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
         BATCH_START = time.perf_counter()
         data, targets = get_batch(train_data, i)
