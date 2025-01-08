@@ -45,8 +45,7 @@ for task in all_results:
             continue
         overhead = all_results[task][method] / all_results[task]["naive"]
         overhead_results.append([task, method, overhead])
-        
-        
+
 df = pd.DataFrame(overhead_results, columns=["task", "method", "overhead"])
 # dump to csv
 df.to_csv(f"{res_folder}/overhead_e2e.csv", index=False)
