@@ -5,13 +5,13 @@ on:
       - main
     paths:
       - '.github/workflows/**'
-      - 'tests/bench_instrumentor/**'
+      - 'eval_scripts/perf_benchmark/**'
       - 'mldaikon/instrumentor/**'
       - 'mldaikon/proxy_wrapper/**'
   pull_request:
     paths:
       - '.github/workflows/**'
-      - 'tests/bench_instrumentor/**'
+      - 'eval_scripts/perf_benchmark/**'
       - 'mldaikon/instrumentor/**'
       - 'mldaikon/proxy_wrapper/**'
     
