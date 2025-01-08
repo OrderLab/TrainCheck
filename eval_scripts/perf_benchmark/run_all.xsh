@@ -34,12 +34,17 @@ cd ..
 mv @(MICRO_FOLDER)/wrapper_overhead_micro.csv @(RES_FOLDER)/
 
 def run_cmd(cmd: str, kill_sec: int):
-    p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    try:
-        output, _ = p.communicate(timeout=kill_sec)
-    except subprocess.TimeoutExpired:
-        print(f"Timeout: {kill_sec} seconds, killing the process")
-        p.kill()
+    with open("cmd_output.log", "w") as f:
+        p = subprocess.Popen(cmd.split(), stdout=f, stderr=f)
+        try:
+            output, _ = p.communicate(timeout=kill_sec)
+        except subprocess.TimeoutExpired:
+            print(f"Timeout: {kill_sec} seconds, killing the process")
+            p.terminate()
+            try:
+                p.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                p.kill()
 
 # run e2e benchmark
 def run_exp(kill_sec: int = 100, workload: str = "mnist"):
@@ -75,7 +80,7 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
 
     # 3. traincheck proxy instrumentation
     print("Running traincheck proxy instrumentation")
-    run_cmd(CMD_TRAINCHECK, kill_sec)
+    run_cmd(CMD_TRAINCHECK, 30)
     cp traincheck/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
     rm -rf traincheck
     # rm iteration_times.txt
