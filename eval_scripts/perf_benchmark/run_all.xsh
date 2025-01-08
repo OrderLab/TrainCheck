@@ -1,13 +1,23 @@
 import os
 import subprocess
 
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--res_folder", type=str, required=False)
+args = parser.parse_args()
+
 # configs
 $RAISE_SUBPROC_ERROR = True
 os.environ["PYTHONUNBUFFERED"] = "1"
 
 SELC_INV_FILE = "sampled_100_invariants.json"
-COMMIT = $(git rev-parse --short HEAD)
-RES_FOLDER = f"perf_eval_res_{COMMIT}"
+COMMIT = $(git rev-parse --short HEAD).strip()
+
+if args.res_folder:
+    RES_FOLDER = args.res_folder
+else:
+    RES_FOLDER = f"perf_eval_res_{COMMIT}"
 
 MICRO_FOLDER = "overhead-micro"
 E2E_FOLDER = "overhead-e2e"
@@ -59,20 +69,20 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
     print("Running settrace setup")
     run_cmd(cmd_settrace, kill_sec)
     rm api_calls.log
-    cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_settrace.txt")
+    cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_systrace.txt")
     rm iteration_times.txt
 
     # 3. traincheck proxy instrumentation
     print("Running traincheck proxy instrumentation")
     run_cmd(CMD_TRAINCHECK, kill_sec)
-    cp traincheck/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_traincheck.txt")
+    cp traincheck/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
     rm -rf traincheck
     # rm iteration_times.txt
 
     # 4. traincheck selective instrumentation
     print("Running traincheck selective instrumentation")
     run_cmd(CMD_TRAINCHECK_SELECTIVE, kill_sec)
-    cp traincheck-selective/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_traincheck_selective.txt")
+    cp traincheck-selective/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_selective.txt")
     rm -rf traincheck-selective
 
     cd ../..
