@@ -1,5 +1,7 @@
+import atexit
 import logging
 import os
+import signal
 import subprocess
 import sys
 
@@ -9,6 +11,69 @@ from mldaikon.config.config import TMP_FILE_PREFIX
 def program_print(program_output: str):
     # print the program output in blue color
     print("\033[94m" + program_output + "\033[0m")
+
+
+RUNNING_PROCESS = None
+KILLING_PROCESS = (
+    False  # True indicates that SIGTERM has been sent to the running process
+)
+
+
+# make sure process is killed when the program is exited
+def kill_running_process():
+    global RUNNING_PROCESS
+    global KILLING_PROCESS
+    if RUNNING_PROCESS is None or KILLING_PROCESS:
+        return
+
+    KILLING_PROCESS = True
+    print("Killing the running process...")
+    os.killpg(
+        os.getpgid(RUNNING_PROCESS.pid), signal.SIGTERM
+    )  # send SIGTERM to the process group NOTE: the signal will be delivered here again
+
+
+ORIGINAL_SIGINT_HANDLER = signal.getsignal(signal.SIGINT)
+ORIGINAL_SIGTERM_HANDLER = signal.getsignal(signal.SIGTERM)
+
+
+def handle_SIGINT(signum, frame):
+    global KILLING_PROCESS
+
+    print("Received SIGINT")
+    if KILLING_PROCESS:
+        exit(130)
+        return
+    kill_running_process()
+    if callable(ORIGINAL_SIGINT_HANDLER):
+        ORIGINAL_SIGINT_HANDLER(signum, frame)
+
+
+def handle_SIGTERM(signum, frame):
+    global KILLING_PROCESS
+
+    print("Received SIGTERM")
+    if KILLING_PROCESS:
+        exit(143)
+        return
+    kill_running_process()
+    if callable(ORIGINAL_SIGTERM_HANDLER):
+        ORIGINAL_SIGTERM_HANDLER(signum, frame)
+
+
+curr_excepthook = sys.excepthook
+
+
+def kill_running_process_on_except(typ, value, tb):
+    kill_running_process()
+    curr_excepthook(typ, value, tb)
+
+
+def register_hook_closing_program():
+    signal.signal(signal.SIGTERM, handle_SIGTERM)
+    signal.signal(signal.SIGINT, handle_SIGINT)
+    atexit.register(kill_running_process)
+    sys.excepthook = kill_running_process_on_except
 
 
 class ProgramRunner(object):
@@ -80,6 +145,10 @@ class ProgramRunner(object):
         Runs the program and returns the output and execution status of the program.
         """
 
+        global RUNNING_PROCESS
+
+        register_hook_closing_program()
+
         if self.dry_run:
             return "Dry run. Program not executed.", 0
 
@@ -146,6 +215,8 @@ class ProgramRunner(object):
                     stderr=subprocess.STDOUT,
                     env=os.environ,
                 )
+
+        RUNNING_PROCESS = process
 
         out_lines = []  # STDERR is redirected to STDOUT
         assert process.stdout is not None
