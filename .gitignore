@@ -17,6 +17,7 @@ trace_count.ipynb
 
 
 *.txt
+!requirements*.txt
 pretrain_gpt2_codeparrot_short.sh
 .hydra/*
 cora/*

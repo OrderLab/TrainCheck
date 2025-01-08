@@ -9,6 +9,7 @@ args = parser.parse_args()
 
 # configs
 $RAISE_SUBPROC_ERROR = True
+$XONSH_SHOW_TRACEBACK = True
 os.environ["PYTHONUNBUFFERED"] = "1"
 
 SELC_INV_FILE = "sampled_100_invariants.json"
