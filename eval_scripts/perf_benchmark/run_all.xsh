@@ -1,16 +1,15 @@
+import argparse
 import os
+import signal
 import subprocess
 
-import argparse
+# configs
+$RAISE_SUBPROC_ERROR = True
+os.environ["PYTHONUNBUFFERED"] = "1"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--res_folder", type=str, required=False)
 args = parser.parse_args()
-
-# configs
-$RAISE_SUBPROC_ERROR = True
-$XONSH_SHOW_TRACEBACK = True
-os.environ["PYTHONUNBUFFERED"] = "1"
 
 SELC_INV_FILE = "sampled_100_invariants.json"
 COMMIT = $(git rev-parse --short HEAD).strip()
@@ -35,16 +34,17 @@ mv @(MICRO_FOLDER)/wrapper_overhead_micro.csv @(RES_FOLDER)/
 
 def run_cmd(cmd: str, kill_sec: int):
     with open("cmd_output.log", "w") as f:
-        p = subprocess.Popen(cmd.split(), stdout=f, stderr=f)
+        p = subprocess.Popen(cmd, shell=True, stdout=f, stderr=f)
         try:
             output, _ = p.communicate(timeout=kill_sec)
         except subprocess.TimeoutExpired:
             print(f"Timeout: {kill_sec} seconds, killing the process")
-            p.terminate()
-            try:
-                p.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                p.kill()
+            # os.kill(
+            #     p.pid, signal.SIGTERM
+            # )  # send SIGTERM to the process group NOTE: the signal will be delivered here again
+            # p.kill()
+            p.terminate() # sends SIGTERM
+            print("Killed the running process...")
 
 # run e2e benchmark
 def run_exp(kill_sec: int = 100, workload: str = "mnist"):
@@ -63,7 +63,7 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
 
     cd f"{E2E_FOLDER}/{workload}"
 
-    # run five setups
+    # run four setups
 
     # 1. naive running
     print("Running naive setup")
@@ -79,11 +79,14 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
     rm iteration_times.txt
 
     # 3. traincheck proxy instrumentation
-    print("Running traincheck proxy instrumentation")
-    run_cmd(CMD_TRAINCHECK, 30)
+    print("Running traincheck instrumentation")
+    run_cmd(CMD_TRAINCHECK, kill_sec)
+    print("Trying to copy")
+    print(os.listdir("traincheck"))
+    # shutil.copy("traincheck/iteration_times.txt", f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
     cp traincheck/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
+    print("Copied")
     rm -rf traincheck
-    # rm iteration_times.txt
 
     # 4. traincheck selective instrumentation
     print("Running traincheck selective instrumentation")

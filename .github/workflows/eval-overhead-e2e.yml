@@ -25,7 +25,7 @@ jobs:
   benchmark:
     runs-on: self-hosted
 
-    name: Run pytest-benchmark benchmark example
+    name: Run Overhead Benchmarks
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
