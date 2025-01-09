@@ -61,13 +61,16 @@ jobs:
 
       - name: Commit and push plots to gh-pages
         run: |
-          git config --global user.email "jyuxuan@umich.edu"
-          git config --global user.name "Yuxuan Jiang"
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          git config user.email "jyuxuan@umich.edu"
+          git config user.name "Yuxuan Jiang"
+          git config pull.rebase true
+          git fetch
           git checkout gh-pages
-          git pull origin gh-pages
+          git pull
           cp eval_scripts/perf_benchmark/overhead_micro.pdf dev/bench
           cp eval_scripts/perf_benchmark/overhead_macro.pdf dev/bench
-          git add overhead_micro.pdf
-          git add overhead_macro.pdf
-          git commit -m "Update benchmark plots"
+          git add dev/bench/overhead_micro.pdf
+          git add dev/bench/overhead_macro.pdf
+          git commit -m "Update benchmark plots for $COMMIT_HASH"
           git push origin gh-pages
