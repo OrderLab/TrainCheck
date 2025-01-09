@@ -110,4 +110,6 @@ if __name__ == "__main__":
         sys.stderr.write("Must specify input data file\n")
         sys.exit(1)
     df = pd.read_csv(args.input, index_col=0)
+    print("parsed data")
+    print(df)
     plot_overhead(df)
