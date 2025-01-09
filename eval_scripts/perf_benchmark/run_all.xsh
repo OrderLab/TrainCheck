@@ -36,24 +36,17 @@ def get_all_GPU_pids():
     pids = $(nvidia-smi | grep 'python' | awk '{ print $5 }').split()
     return pids
 
+def kill_all_GPU_processes():
+    nvidia-smi | grep 'python' | awk '{ print $5 }' | xargs -n1 kill -9
+
 def run_cmd(cmd: str, kill_sec: int):
     with open("cmd_output.log", "w") as f:
         p = subprocess.Popen(cmd, shell=True, stdout=f, stderr=f)
         try:
             output, _ = p.communicate(timeout=kill_sec)
         except subprocess.TimeoutExpired:
-            print(f"Timeout: {kill_sec} seconds, killing the process {p.pid}")
-            # os.kill(
-            #     p.pid, signal.SIGTERM
-            # )  # send SIGTERM to the process group NOTE: the signal will be delivered here again
-            # p.kill()
-            p.terminate() # sends SIGTERM
-
-            if str(p.pid + 1) in get_all_GPU_pids():
-                print("Found additional plausible GPU process, killing it...")
-                kill -9 @(p.pid + 1)
-                
-            print("Killed the running process...")
+            print(f"Timeout: {kill_sec} seconds, killing all GPU processes")
+            kill_all_GPU_processes()
 
 # run e2e benchmark
 def run_exp(kill_sec: int = 100, workload: str = "mnist"):
@@ -107,6 +100,6 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
 
 
 # e2e workload
-run_exp(kill_sec=15, workload="mnist")
-run_exp(kill_sec=15, workload="resnet18")
-run_exp(kill_sec=15, workload="transformer")
+run_exp(kill_sec=60, workload="mnist")
+run_exp(kill_sec=60, workload="resnet18")
+run_exp(kill_sec=60, workload="transformer")
