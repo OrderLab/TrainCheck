@@ -56,8 +56,8 @@ jobs:
           cd eval_scripts/perf_benchmark
           COMMIT_HASH=$(git rev-parse --short HEAD)
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          python3 plot_e2e.py -i perf_benchmark_results/wrapper_overhead_micro.csv -o ./overhead_micro.pdf -t "$COMMIT_HASH - $COMMIT_MESSAGE"
-          python3 plot_e2e.py -i perf_benchmark_results/wrapper_overhead_macro.csv -o ./overhead_macro.pdf -t "$COMMIT_HASH - $COMMIT_MESSAGE"
+          python3 plot_micro.py -i perf_benchmark_results/wrapper_overhead_micro.csv -o ./overhead_micro.pdf -t "$COMMIT_HASH - $COMMIT_MESSAGE"
+          python3 plot_e2e.py -i perf_benchmark_results/overhead_e2e.csv -o ./overhead_macro.pdf -t "$COMMIT_HASH - $COMMIT_MESSAGE"
 
       - name: Commit and push plots to gh-pages
         run: |
