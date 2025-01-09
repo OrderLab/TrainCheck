@@ -38,6 +38,7 @@ def plot(args):
     ax.grid(axis="x", linestyle="--", zorder=0)
     ax.set_ylabel("")
     ax.set_xlabel("Ratio")
+    ax.set_title(args.title)
 
     max_width = max([p.get_width() for p in ax.patches])
     for p in ax.patches:

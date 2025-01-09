@@ -1,6 +1,6 @@
 import argparse
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--res_folder", type=str, required=True)

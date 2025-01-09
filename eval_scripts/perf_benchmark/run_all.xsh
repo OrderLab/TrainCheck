@@ -107,6 +107,6 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
 
 
 # e2e workload
-run_exp(kill_sec=50, workload="mnist")
-run_exp(kill_sec=50, workload="resnet18")
-run_exp(kill_sec=50, workload="transformer")
+run_exp(kill_sec=15, workload="mnist")
+run_exp(kill_sec=15, workload="resnet18")
+run_exp(kill_sec=15, workload="transformer")

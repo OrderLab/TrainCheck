@@ -81,6 +81,7 @@ def plot_overhead(df):
     show_abs_bar_label(ax, monkey_bars, monkey_patch)
     show_abs_bar_label(ax, selective_bars, selective)
 
+    ax.set_title(args.title)
     ax.set_xticks(ind + width)
     ax.set_xticklabels(systrace.index.values, rotation=0)
     ax.set_ylim(0.1, 2500)
