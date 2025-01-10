@@ -9,7 +9,22 @@ import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
 import mldaikon.proxy_wrapper.proxy_config as proxy_config
 import mldaikon.runner as runner
-from mldaikon.invariant.base_cls import APIParam, Invariant, read_inv_file
+from mldaikon.invariant.base_cls import (
+    APIParam,
+    Arguments,
+    Invariant,
+    VarNameParam,
+    VarTypeParam,
+    read_inv_file,
+)
+from mldaikon.invariant.consistency_relation import ConsistencyRelation
+from mldaikon.invariant.consistency_transient_vars import (
+    ConsistentInputOutputRelation,
+    ConsistentOutputRelation,
+    ThresholdRelation,
+)
+from mldaikon.invariant.contain_relation import VAR_GROUP_NAME, APIContainRelation
+from mldaikon.invariant.DistinctArgumentRelation import DistinctArgumentRelation
 
 
 def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
@@ -22,6 +37,74 @@ def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
             if isinstance(param, APIParam):
                 funcs.add(param.api_full_name)
     return sorted(list(funcs))
+
+
+def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, bool]]:
+    """
+    Get per function instrumentation options
+    """
+    funcs = {}
+    for inv in invariants:
+        for param in inv.params:
+            if isinstance(param, APIParam):
+                if param.api_full_name not in funcs:
+                    funcs[param.api_full_name] = {
+                        "scan_proxy_in_args": False,
+                        "dump_args": False,
+                        "dump_ret": False,
+                    }
+                # configure whether the arguments or return values needs to be dumped
+                if isinstance(
+                    inv.relation, (ConsistentInputOutputRelation, ThresholdRelation)
+                ):
+                    funcs[param.api_full_name]["dump_args"] = True
+                    funcs[param.api_full_name]["dump_ret"] = True
+                elif isinstance(inv.relation, ConsistentOutputRelation):
+                    funcs[param.api_full_name]["dump_ret"] = True
+                elif isinstance(inv.relation, DistinctArgumentRelation):
+                    funcs[param.api_full_name]["dump_args"] = True
+
+                if isinstance(inv.relation, APIContainRelation):
+                    # if the argument of this param is not empty, then dump it
+                    if isinstance(param.arguments, Arguments):
+                        funcs[param.api_full_name]["dump_args"] = True
+
+        if isinstance(inv.relation, APIContainRelation):
+            for param in inv.relation.params:
+                if (
+                    isinstance(param, (VarNameParam, VarTypeParam))
+                    and not inv.precondition.get_group(
+                        VAR_GROUP_NAME
+                    ).is_unconditional()
+                ):
+                    # if the APIContain invariant describes a variable, and the precondition is not unconditional on the variable, then scan the arguments of the function
+                    funcs[param.api_full_name]["scan_proxy_in_args"] = True
+                else:
+                    funcs[param.api_full_name]["scan_proxy_in_args"] = False
+
+    return funcs
+
+
+class InstrOpt:
+    def __init__(self, invariants: list[Invariant]):
+        self.funcs_to_instr = get_list_of_funcs_from_invariants(invariants)
+        self.funcs_instr_opts: dict[str, dict[str, bool]] = {}
+        self.model_tracker_style = None
+
+        # determine model_tracker_style:
+        # if any of the invariants to be deployed is an APIContain invariant with a param describing a variable, then use proxy
+        # if any of the invariants to be deployed is a Consistency invariant, then use sampler (if not already set to proxy)
+        for inv in invariants:
+            if isinstance(inv.relation, APIContainRelation):
+                if isinstance(inv.relation.param, (VarNameParam, VarTypeParam)):
+                    self.model_tracker_style = "proxy"
+                    break
+            if isinstance(inv.relation, ConsistencyRelation):
+                if self.model_tracker_style is None:
+                    self.model_tracker_style = "sampler"
+
+        # determine funcs_instr_opts
+        self.funcs_instr_opts = get_per_func_instr_opts(invariants)
 
 
 def dump_env(output_dir: str):
