@@ -162,7 +162,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--disable-scan-proxy-in-args",
         action="store_true",
-        help="NOT Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions",
+        help="NOT Scan the arguments of the function for proxy objects, this will enable the infer engine to understand the relationship between the proxy objects and the functions. Overriden to False if Proxy-based variable tracking is not needed",
     )
     parser.add_argument(
         "--API-dump-stack-trace",
@@ -323,10 +323,17 @@ if __name__ == "__main__":
         delta_dump_config,  # Ziming: add delta_dump_config for proxy_wrapper
     ]
 
+    # if args.disable_scan_proxy_in_args:
+    scan_proxy_in_args = not args.disable_scan_proxy_in_args
+
+    # if no proxy tracking specified in the arguments, disable the scan_proxy_in_args
+    if not args.models_to_track or args.model_tracker_style != "proxy":
+        scan_proxy_in_args = False
+
     source_code = instrumentor.instrument_file(
         path=args.pyscript,
         modules_to_instr=args.modules_to_instr,
-        scan_proxy_in_args=not args.disable_scan_proxy_in_args,
+        scan_proxy_in_args=scan_proxy_in_args,
         use_full_instr=args.use_full_instr,
         funcs_of_inv_interest=funcs_of_inv_interest,
         models_to_track=args.models_to_track,
