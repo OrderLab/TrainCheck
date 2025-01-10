@@ -2,8 +2,6 @@
 # ML-DAIKON
 [![Pre-commit checks](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml)
 
-[![Instrumentor Benchmark](https://github.com/OrderLab/ml-daikon/actions/workflows/bench-instr-e2e.yml/badge.svg)](https://github.com/OrderLab/ml-daikon/actions/workflows/bench-instr-e2e.yml)
-
 Instrumentor Performance Benchmark Results: http://orderlab.io/ml-daikon/dev/bench/
 
 ## Instrumentator Usage
