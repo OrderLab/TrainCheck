@@ -161,7 +161,7 @@ if __name__ == "__main__":
         "proxy_module": args.proxy_module,
         # "scan_proxy_in_args": False,
         # "allow_disable_dump": False,
-        # "funcs_of_inv_interest": None,
+        # "funcs_to_instr": None,
         "output_dir": output_dir,
         "API_LOG_DIR": api_log_dir,
         "profiling": str(args.profiling),

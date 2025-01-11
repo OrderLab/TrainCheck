@@ -2,6 +2,7 @@ import polars as pl
 
 # tracer + instrumentor configs
 TMP_FILE_PREFIX = "_ml_daikon_"
+INSTR_OPTS_FILE = "instr_opts.json"
 INSTR_MODULES_TO_INSTR = ["torch"]
 INSTR_MODULES_TO_SKIP = [
     "torch.fx",
@@ -150,7 +151,6 @@ TRAIN_STEP_NAMES = [
 
 ENABLE_COND_DUMP = False
 INSTR_DESCRIPTORS = False
-
 
 ALL_STAGE_NAMES = {
     "init",

@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import logging
 import os
 
@@ -89,7 +90,6 @@ def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, 
 
 class InstrOpt:
     def __init__(self, invariants: list[Invariant]):
-        self.funcs_to_instr = get_list_of_funcs_from_invariants(invariants)
         self.funcs_instr_opts: dict[str, dict[str, bool]] = {}
         self.model_tracker_style = None
 
@@ -111,6 +111,19 @@ class InstrOpt:
 
         # determine funcs_instr_opts
         self.funcs_instr_opts = get_per_func_instr_opts(invariants)
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "funcs_instr_opts": self.funcs_instr_opts,
+                "model_tracker_style": self.model_tracker_style,
+            }
+        )
+
+    def from_json(self, instr_opt_json_str: str):
+        instr_opt_dict = yaml.safe_load(instr_opt_json_str)
+        self.funcs_instr_opts = instr_opt_dict["funcs_instr_opts"]
+        self.model_tracker_style = instr_opt_dict["model_tracker_style"]
 
 
 def dump_env(output_dir: str):
@@ -359,17 +372,6 @@ if __name__ == "__main__":
         os.makedirs(output_dir)
     dump_env(output_dir)
 
-    # selective instrumentation if invariants are provided, only funcs_of_inv_interest will be instrumented with trace collection
-    funcs_of_inv_interest = None
-    if args.invariants is not None:
-        invariants = read_inv_file(args.invariants)
-        funcs_of_inv_interest = get_list_of_funcs_from_invariants(invariants)
-
-        import json
-
-        print(json.dumps(get_per_func_instr_opts(invariants), indent=4))
-        exit(0)
-
     # set up adjusted proxy_config
     proxy_basic_config: dict[str, int | bool | str] = {}
     for configs in [
@@ -417,20 +419,44 @@ if __name__ == "__main__":
     if not args.models_to_track or args.model_tracker_style != "proxy":
         scan_proxy_in_args = False
 
-    source_code = instrumentor.instrument_file(
-        path=args.pyscript,
-        modules_to_instr=args.modules_to_instr,
-        scan_proxy_in_args=scan_proxy_in_args,
-        use_full_instr=args.use_full_instr,
-        funcs_of_inv_interest=funcs_of_inv_interest,
-        models_to_track=args.models_to_track,
-        model_tracker_style=args.model_tracker_style,
-        adjusted_proxy_config=adjusted_proxy_config,  # type: ignore
-        API_dump_stack_trace=args.API_dump_stack_trace,
-        cond_dump=args.cond_dump,
-        output_dir=output_dir,
-        instr_descriptors=args.instr_descriptors,
-    )
+    if args.invariants:
+        # selective instrumentation if invariants are provided, only funcs_to_instr will be instrumented with trace collection
+        invariants = read_inv_file(args.invariants)
+        instr_opts = InstrOpt(invariants)
+        with open(os.path.join(output_dir, config.INSTR_OPTS_FILE), "w") as f:
+            f.write(instr_opts.to_json())
+        models_to_track = (
+            args.models_to_track if instr_opts.model_tracker_style else None
+        )
+        source_code = instrumentor.instrument_file(
+            path=args.pyscript,
+            modules_to_instr=args.modules_to_instr,
+            scan_proxy_in_args=scan_proxy_in_args,
+            use_full_instr=args.use_full_instr,
+            funcs_to_instr=None,
+            models_to_track=models_to_track,
+            model_tracker_style=instr_opts.model_tracker_style,
+            adjusted_proxy_config=adjusted_proxy_config,  # type: ignore
+            API_dump_stack_trace=args.API_dump_stack_trace,
+            cond_dump=args.cond_dump,
+            output_dir=output_dir,
+            instr_descriptors=args.instr_descriptors,
+        )
+    else:
+        source_code = instrumentor.instrument_file(
+            path=args.pyscript,
+            modules_to_instr=args.modules_to_instr,
+            scan_proxy_in_args=scan_proxy_in_args,
+            use_full_instr=args.use_full_instr,
+            funcs_to_instr=None,
+            models_to_track=args.models_to_track,
+            model_tracker_style=args.model_tracker_style,
+            adjusted_proxy_config=adjusted_proxy_config,  # type: ignore
+            API_dump_stack_trace=args.API_dump_stack_trace,
+            cond_dump=args.cond_dump,
+            output_dir=output_dir,
+            instr_descriptors=args.instr_descriptors,
+        )
 
     if args.copy_all_files:
         # copy all files in the same directory as the pyscript to the output directory

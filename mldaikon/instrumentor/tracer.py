@@ -732,7 +732,7 @@ class Instrumentor:
         ),
         scan_proxy_in_args: bool,
         use_full_instr: bool,
-        funcs_of_inv_interest: Optional[list[str]] = None,
+        funcs_to_instr: Optional[list[str]] = None,
         API_dump_stack_trace: bool = False,
         cond_dump: bool = False,
     ):
@@ -751,7 +751,7 @@ class Instrumentor:
             use_full_instr (bool):
                 Whether to dump trace for all APIs. If False, APIs in certain modules deemed to be not important (e.g. `jit` in `torch`) will not have trace being dumped.
                 Refer to WRAP_WITHOUT_DUMP in config.py for the list of functions/modules that will have the dump disabled.
-            funcs_of_inv_interest (Optional[List[Callable]]):
+            funcs_to_instr (Optional[List[Callable]]):
                 An optional list of functions that are of interest for invariant inference.
                 If provided, all functions not in this list will be instrumented with dump disabled,
                 and the functions in this list will be instrumented with dump enabled. NOTE: If this list is provided, use_full_str must be set to False. WRAP_WITHOUT_DUMP will be ignored.
@@ -786,11 +786,11 @@ class Instrumentor:
         self.target = target
         self.scan_proxy_in_args = scan_proxy_in_args
         self.use_full_instr = use_full_instr
-        self.funcs_of_inv_interest = funcs_of_inv_interest
+        self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
         self.cond_dump = cond_dump
 
-        if self.funcs_of_inv_interest is not None and self.use_full_instr:
+        if self.funcs_to_instr is not None and self.use_full_instr:
             get_instrumentation_logger_for_process().fatal(
                 "Invariants are provided but use_full_instr is True. Selective instrumentation cannot be done. Please remove the `--use-full-instr` flag or remove the invariants"
             )
@@ -798,9 +798,9 @@ class Instrumentor:
                 "Invariants are provided but use_full_instr is True. Selective instrumentation cannot be done. Please remove the `--use-full-instr` flag or remove the invariants"
             )
 
-        if self.funcs_of_inv_interest is not None:
+        if self.funcs_to_instr is not None:
             get_instrumentation_logger_for_process().info(
-                f"Functions of interest for invariant inference: {self.funcs_of_inv_interest}"
+                f"Functions of interest for invariant inference: {self.funcs_to_instr}"
             )
 
     def instrument(self) -> int:
@@ -876,20 +876,18 @@ class Instrumentor:
         )
 
         # do some simple checking for correctness:
-        # 1. if funcs_of_inv_interest is provided, then METRIC_INSTRUMENTED_FUNC_LIST["dump"] should be equal to funcs_of_inv_interest
-        if self.funcs_of_inv_interest is not None:
+        # 1. if funcs_to_instr is provided, then METRIC_INSTRUMENTED_FUNC_LIST["dump"] should be equal to funcs_to_instr
+        if self.funcs_to_instr is not None:
             # assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) == set(
-            #     self.funcs_of_inv_interest
-            # ), f"METRIC_INSTRUMENTED_FUNC_LIST['dump'] != funcs_of_inv_interest, diff: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+            #     self.funcs_to_instr
+            # ), f"METRIC_INSTRUMENTED_FUNC_LIST['dump'] != funcs_to_instr, diff: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_to_instr)}"
             assert set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]).issubset(
-                set(self.funcs_of_inv_interest)
-            ), f"Actual functions being instrumented are not a subset of the functions required by the provided invariants, diff: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+                set(self.funcs_to_instr)
+            ), f"Actual functions being instrumented are not a subset of the functions required by the provided invariants, diff: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_to_instr)}"
 
-            if set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) != set(
-                self.funcs_of_inv_interest
-            ):
+            if set(METRIC_INSTRUMENTED_FUNC_LIST["dump"]) != set(self.funcs_to_instr):
                 get_instrumentation_logger_for_process().warning(
-                    f"Not all functions required by the provided invariants are instrumented (e.g. due to transfering ), some invariants might not be active at all, funcs not instrumented: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_of_inv_interest)}"
+                    f"Not all functions required by the provided invariants are instrumented (e.g. due to transfering ), some invariants might not be active at all, funcs not instrumented: {set(METRIC_INSTRUMENTED_FUNC_LIST['dump']) ^ set(self.funcs_to_instr)}"
                 )  # TODO: report a number of functions not instrumented and thus the invariants that will not be active
 
         IS_INSTRUMENTING = False
@@ -970,15 +968,15 @@ class Instrumentor:
     def should_disable_dump(self, attr) -> bool:
         """Check if the dump should be disabled for the attribute.
         If use_full_instr is True, then the dump will not be disabled.
-        If funcs_of_inv_interest is provided, then the dump will be disabled for all functions except the ones in funcs_of_inv_interest.
+        If funcs_to_instr is provided, then the dump will be disabled for all functions except the ones in funcs_to_instr.
         If the attribute is in WRAP_WITHOUT_DUMP, then the dump will be disabled. Otherwise, the dump will not be disabled.
         """
 
         if self.use_full_instr:
             return False
 
-        if self.funcs_of_inv_interest is not None:
-            if typename(attr) in self.funcs_of_inv_interest:
+        if self.funcs_to_instr is not None:
+            if typename(attr) in self.funcs_to_instr:
                 return False
             return True
 
