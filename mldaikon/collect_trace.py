@@ -43,46 +43,48 @@ def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, 
     """
     Get per function instrumentation options
     """
-    funcs = {}
+    func_instr_opts = {}
     for inv in invariants:
         for param in inv.params:
             if isinstance(param, APIParam):
-                if param.api_full_name not in funcs:
-                    funcs[param.api_full_name] = {
+                if param.api_full_name not in func_instr_opts:
+                    func_instr_opts[param.api_full_name] = {
                         "scan_proxy_in_args": False,
                         "dump_args": False,
                         "dump_ret": False,
                     }
                 # configure whether the arguments or return values needs to be dumped
-                if isinstance(
-                    inv.relation, (ConsistentInputOutputRelation, ThresholdRelation)
-                ):
-                    funcs[param.api_full_name]["dump_args"] = True
-                    funcs[param.api_full_name]["dump_ret"] = True
-                elif isinstance(inv.relation, ConsistentOutputRelation):
-                    funcs[param.api_full_name]["dump_ret"] = True
-                elif isinstance(inv.relation, DistinctArgumentRelation):
-                    funcs[param.api_full_name]["dump_args"] = True
+                if inv.relation in (ConsistentInputOutputRelation, ThresholdRelation):
+                    func_instr_opts[param.api_full_name]["dump_args"] = True
+                    func_instr_opts[param.api_full_name]["dump_ret"] = True
+                elif inv.relation == ConsistentOutputRelation:
+                    func_instr_opts[param.api_full_name]["dump_ret"] = True
+                elif inv.relation == DistinctArgumentRelation:
+                    func_instr_opts[param.api_full_name]["dump_args"] = True
 
-                if isinstance(inv.relation, APIContainRelation):
+                if inv.relation == APIContainRelation:
                     # if the argument of this param is not empty, then dump it
                     if isinstance(param.arguments, Arguments):
-                        funcs[param.api_full_name]["dump_args"] = True
+                        func_instr_opts[param.api_full_name]["dump_args"] = True
 
-        if isinstance(inv.relation, APIContainRelation):
-            for param in inv.relation.params:
-                if (
-                    isinstance(param, (VarNameParam, VarTypeParam))
-                    and not inv.precondition.get_group(
-                        VAR_GROUP_NAME
-                    ).is_unconditional()
-                ):
-                    # if the APIContain invariant describes a variable, and the precondition is not unconditional on the variable, then scan the arguments of the function
-                    funcs[param.api_full_name]["scan_proxy_in_args"] = True
-                else:
-                    funcs[param.api_full_name]["scan_proxy_in_args"] = False
+        if inv.relation == APIContainRelation:
+            assert isinstance(inv.params[0], APIParam)
+            assert inv.precondition is not None
+            if (
+                isinstance(inv.params[1], (VarNameParam, VarTypeParam))
+                and VAR_GROUP_NAME in inv.precondition.get_group_names()
+                and not inv.precondition.get_group(VAR_GROUP_NAME).is_unconditional()
+            ):
+                # if the APIContain invariant describes a variable, and the precondition is not unconditional on the variable, then scan the arguments of the function
+                func_instr_opts[inv.params[0].api_full_name][
+                    "scan_proxy_in_args"
+                ] = True
+            else:
+                func_instr_opts[inv.params[0].api_full_name][
+                    "scan_proxy_in_args"
+                ] = False
 
-    return funcs
+    return func_instr_opts
 
 
 class InstrOpt:
@@ -95,13 +97,17 @@ class InstrOpt:
         # if any of the invariants to be deployed is an APIContain invariant with a param describing a variable, then use proxy
         # if any of the invariants to be deployed is a Consistency invariant, then use sampler (if not already set to proxy)
         for inv in invariants:
-            if isinstance(inv.relation, APIContainRelation):
-                if isinstance(inv.relation.param, (VarNameParam, VarTypeParam)):
-                    self.model_tracker_style = "proxy"
-                    break
-            if isinstance(inv.relation, ConsistencyRelation):
+            if inv.relation == APIContainRelation:
+                for param in inv.params:
+                    if isinstance(param, (VarNameParam, VarTypeParam)):
+                        self.model_tracker_style = "proxy"
+                        break
+            if inv.relation == ConsistencyRelation:
                 if self.model_tracker_style is None:
                     self.model_tracker_style = "sampler"
+
+            if self.model_tracker_style == "proxy":
+                break
 
         # determine funcs_instr_opts
         self.funcs_instr_opts = get_per_func_instr_opts(invariants)
@@ -271,13 +277,6 @@ if __name__ == "__main__":
     )
 
     ## variable tracker configs
-    # parser.add_argument(
-    #     "--proxy-module",
-    #     type=str,
-    #     default="",
-    #     help="The module to be traced by the proxy wrapper",
-    # )
-
     parser.add_argument(
         "--models-to-track",
         nargs="*",
@@ -365,6 +364,11 @@ if __name__ == "__main__":
     if args.invariants is not None:
         invariants = read_inv_file(args.invariants)
         funcs_of_inv_interest = get_list_of_funcs_from_invariants(invariants)
+
+        import json
+
+        print(json.dumps(get_per_func_instr_opts(invariants), indent=4))
+        exit(0)
 
     # set up adjusted proxy_config
     proxy_basic_config: dict[str, int | bool | str] = {}
