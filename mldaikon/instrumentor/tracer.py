@@ -358,8 +358,8 @@ def global_wrapper(
             else None
         )
         raise e
-    pre_record.pop("args")
-    pre_record.pop("kwargs")
+    pre_record.pop("args", None)
+    pre_record.pop("kwargs", None)
     post_record = (
         pre_record.copy()
     )  # copy the pre_record (though we don't actually need to copy anything)
