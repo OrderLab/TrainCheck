@@ -1,4 +1,3 @@
-import atexit
 import logging
 import os
 import signal
@@ -72,7 +71,6 @@ def kill_running_process_on_except(typ, value, tb):
 def register_hook_closing_program():
     signal.signal(signal.SIGTERM, handle_SIGTERM)
     signal.signal(signal.SIGINT, handle_SIGINT)
-    atexit.register(kill_running_process)
     sys.excepthook = kill_running_process_on_except
 
 

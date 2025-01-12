@@ -9,7 +9,7 @@ Instrumentor(
     torch,
     scan_proxy_in_args=True,
     use_full_instr=False,
-    funcs_of_inv_interest=[
+    funcs_to_instr=[
         "torch.cuda.is_available",
         "torch._VariableFunctionsClass.matmul",
         "torch._VariableFunctionsClass.bmm",

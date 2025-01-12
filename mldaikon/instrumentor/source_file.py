@@ -17,7 +17,7 @@ class InsertTracerVisitor(ast.NodeTransformer):
         modules_to_instr: list[str],
         scan_proxy_in_args: bool,
         use_full_instr: bool,
-        funcs_of_inv_interest: list[str] | None,
+        funcs_to_instr: list[str] | None,
         API_dump_stack_trace: bool,
         cond_dump: bool,
     ):
@@ -29,13 +29,13 @@ class InsertTracerVisitor(ast.NodeTransformer):
             self.modules_to_instr = modules_to_instr
         self.scan_proxy_in_args = scan_proxy_in_args
         self.use_full_instr = use_full_instr
-        self.funcs_of_inv_interest = funcs_of_inv_interest
+        self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
         self.cond_dump = cond_dump
 
     def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_of_inv_interest={str(self.funcs_of_inv_interest)}, API_dump_stack_trace={self.API_dump_stack_trace}, cond_dump={self.cond_dump}).instrument()"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_to_instr={str(self.funcs_to_instr)}, API_dump_stack_trace={self.API_dump_stack_trace}, cond_dump={self.cond_dump}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -81,7 +81,7 @@ def instrument_library(
     modules_to_instr: list[str],
     scan_proxy_in_args: bool,
     use_full_instr: bool,
-    funcs_of_inv_interest: list[str] | None,
+    funcs_to_instr: list[str] | None,
     API_dump_stack_trace: bool,
     cond_dump: bool,
 ) -> str:
@@ -103,7 +103,7 @@ def instrument_library(
         modules_to_instr,
         scan_proxy_in_args,
         use_full_instr,
-        funcs_of_inv_interest,
+        funcs_to_instr,
         API_dump_stack_trace,
         cond_dump,
     )
@@ -322,9 +322,9 @@ def instrument_file(
     modules_to_instr: list[str],
     scan_proxy_in_args: bool,
     use_full_instr: bool,
-    funcs_of_inv_interest: list[str] | None,
+    funcs_to_instr: list[str] | None,
     models_to_track: list[str] | None,
-    model_tracker_style: str,
+    model_tracker_style: str | None,
     adjusted_proxy_config: list[dict[str, int | bool | str]],
     API_dump_stack_trace: bool,
     cond_dump: bool,
@@ -344,7 +344,7 @@ def instrument_file(
         modules_to_instr,
         scan_proxy_in_args,
         use_full_instr,
-        funcs_of_inv_interest,
+        funcs_to_instr,
         API_dump_stack_trace,
         cond_dump,
     )
