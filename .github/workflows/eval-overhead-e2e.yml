@@ -63,11 +63,12 @@ jobs:
 
       - name: Commit and push plots to gh-pages
         run: |
-          COMMIT_HASH=$(git rev-parse --short HEAD)
           git config user.email "jyuxuan@umich.edu"
           git config user.name "Yuxuan Jiang"
           git config pull.rebase true
           git fetch
+          git pull
+          COMMIT_HASH=$(git rev-parse --short HEAD)
           git checkout gh-pages
           git pull
           cp eval_scripts/perf_benchmark/overhead_micro.pdf dev/bench
