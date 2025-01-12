@@ -217,6 +217,8 @@ def global_wrapper(
     scan_proxy_in_args,
     dump_stack_trace,
     cond_dump,
+    dump_args,
+    dump_ret,
     *args,
     **kwargs,
 ):
@@ -305,10 +307,10 @@ def global_wrapper(
                 pre_record["proxy_obj_names"].append(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                 )
-
-    dict_args_kwargs = to_dict_args_kwargs(args, kwargs)
-    pre_record["args"] = dict_args_kwargs["args"]
-    pre_record["kwargs"] = dict_args_kwargs["kwargs"]
+    if dump_args:
+        dict_args_kwargs = to_dict_args_kwargs(args, kwargs)
+        pre_record["args"] = dict_args_kwargs["args"]
+        pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
     if enable_C_level_observer and is_builtin:
         from mldaikon.proxy_wrapper.proxy_observer import (
@@ -425,8 +427,8 @@ def global_wrapper(
 
         print(response_starting_indices)
         print(response_lengths)
-
-    post_record["return_values"] = to_dict_return_value(result_to_dump)
+    if dump_ret:
+        post_record["return_values"] = to_dict_return_value(result_to_dump)
     dump_trace_API(post_record)
 
     EXIT_PERF_TIME = time.perf_counter()
@@ -592,6 +594,8 @@ def wrapper(
     dump_stack_trace,
     cond_dump,
     disable_dump=False,
+    dump_args=True,
+    dump_ret=True,
 ):
     is_builtin = is_c_level_function(original_function)
 
@@ -608,6 +612,8 @@ def wrapper(
                 scan_proxy_in_args,
                 dump_stack_trace,
                 cond_dump,
+                dump_args,
+                dump_ret,
                 *args,
                 **kwargs,
             )
@@ -794,7 +800,7 @@ class Instrumentor:
         self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
         self.cond_dump = cond_dump
-        self.instr_opts: None | dict[str, dict[str, bool]] = None
+        self.instr_opts: None | dict[str, dict[str, dict[str, bool]]] = None
 
         if self.funcs_to_instr is not None and self.use_full_instr:
             get_instrumentation_logger_for_process().fatal(
@@ -1011,6 +1017,34 @@ class Instrumentor:
                 return True
         return False
 
+    def get_wrapped_function(self, func_obj: Callable) -> Callable | None:
+        """Get the wrapped function for the provided function object"""
+        if self.instr_opts is not None:
+            func_name = typename(func_obj)
+            if func_name not in self.instr_opts["funcs_instr_opts"]:
+                return None
+
+            instr_opts = self.instr_opts["funcs_instr_opts"][func_name]
+            return wrapper(
+                func_obj,
+                is_bound_method=is_API_bound_method(func_obj),
+                scan_proxy_in_args=instr_opts["scan_proxy_in_args"],
+                disable_dump=self.should_disable_dump(func_obj),
+                dump_stack_trace=self.API_dump_stack_trace,
+                cond_dump=self.cond_dump,
+                dump_args=instr_opts["dump_args"],
+                dump_ret=instr_opts["dump_ret"],
+            )
+
+        return wrapper(
+            func_obj,
+            is_bound_method=is_API_bound_method(func_obj),
+            scan_proxy_in_args=self.scan_proxy_in_args,
+            disable_dump=self.should_disable_dump(func_obj),
+            dump_stack_trace=self.API_dump_stack_trace,
+            cond_dump=self.cond_dump,
+        )
+
     def _instrument_module(
         self,
         pymodule: types.ModuleType | type,
@@ -1098,14 +1132,16 @@ class Instrumentor:
                     )
                     attr = funcs_to_be_replaced[typename(attr)]
 
-                wrapped = wrapper(
-                    attr,
-                    is_bound_method=is_API_bound_method(attr),
-                    scan_proxy_in_args=self.scan_proxy_in_args,
-                    disable_dump=self.should_disable_dump(attr),
-                    dump_stack_trace=self.API_dump_stack_trace,
-                    cond_dump=self.cond_dump,
-                )
+                wrapped = self.get_wrapped_function(attr)
+                if wrapped is None:
+                    log_instrumentation_progress(
+                        depth,
+                        "Skipping function due to selective dumping",
+                        attr,
+                        attr_name,
+                        pymodule,
+                    )
+                    continue
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
