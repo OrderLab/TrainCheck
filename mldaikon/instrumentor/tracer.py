@@ -1017,12 +1017,19 @@ class Instrumentor:
                 return True
         return False
 
-    def get_wrapped_function(self, func_obj: Callable) -> Callable | None:
+    def get_wrapped_function(self, func_obj: Callable) -> Callable:
         """Get the wrapped function for the provided function object"""
         if self.instr_opts is not None:
             func_name = typename(func_obj)
             if func_name not in self.instr_opts["funcs_instr_opts"]:
-                return None
+                return wrapper(
+                    func_obj,
+                    is_bound_method=None,
+                    scan_proxy_in_args=None,
+                    dump_stack_trace=None,
+                    cond_dump=None,
+                    disable_dump=True,
+                )
 
             instr_opts = self.instr_opts["funcs_instr_opts"][func_name]
             return wrapper(
@@ -1133,15 +1140,6 @@ class Instrumentor:
                     attr = funcs_to_be_replaced[typename(attr)]
 
                 wrapped = self.get_wrapped_function(attr)
-                if wrapped is None:
-                    log_instrumentation_progress(
-                        depth,
-                        "Skipping function due to selective dumping",
-                        attr,
-                        attr_name,
-                        pymodule,
-                    )
-                    continue
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:
