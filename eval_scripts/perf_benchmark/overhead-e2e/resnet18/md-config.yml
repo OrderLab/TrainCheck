@@ -2,6 +2,3 @@ modules_to_instr:
 - torch
 pyscript: main.py
 shscript: run.sh
-models_to_track:
-- model
-model_tracker_style: proxy
