@@ -265,7 +265,9 @@ def global_wrapper(
     if not is_dumping:
         # logger.debug(f"Skipping dump for {func_name} as meta_vars have not changed")
         # print(f"Skipping dump for {func_name} as meta_vars have not changed")
-        return core_wrapper(original_function, is_builtin, *args, **kwargs)
+        return core_wrapper(
+            original_function, is_builtin, handle_proxy, *args, **kwargs
+        )
 
     pre_record = {
         "func_call_id": func_call_id,
@@ -980,6 +982,10 @@ class Instrumentor:
             and attr_name not in ["__init__", "__call__", "__enter__", "__exit__"]
         ):
             return "Skipping magic functions"
+
+        # print("attr_name: ", attr_name)
+        if "_ClassNamespace" in repr(attr):
+            return "Skipping attribute as it is _ClassNamespace and getting the qualname will raise an exception"
 
         attr_full_name = typename(attr)
         # 4. Skip if the attribute is in INSTR_MODULES_TO_SKIP | MANUAL CONFIG
