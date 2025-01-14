@@ -35,17 +35,22 @@ for f in files:
     method = f.split("_")[2].split(".")[0]
     if task not in all_results:
         all_results[task] = {}
-    all_results[task][method] = series.mean()
+    all_results[task][method] = series
 
 overhead_results = []
 for task in all_results:
     assert "naive" in all_results[task], f"naive (base situtation) not found in {task}"
+    min_len = len(all_results[task]["naive"])
     for method in all_results[task]:
+        min_len = min(len(all_results[task][method]), min_len)
         if method == "naive":
             continue
-        overhead = all_results[task][method] / all_results[task]["naive"]
-        overhead_results.append([task, method, overhead])
+        overhead_series = all_results[task][method][:min_len] / all_results[task]["naive"][:min_len]
+        overhead = np.mean(overhead_series)
+        std = np.std(overhead_series)
+        overhead_results.append([task, method, overhead, std])
 
-df = pd.DataFrame(overhead_results, columns=["task", "method", "overhead"])
+df = pd.DataFrame(overhead_results, columns=["task", "method", "overhead", "std"])
+df
 # dump to csv
 df.to_csv(f"{res_folder}/overhead_e2e.csv", index=False)

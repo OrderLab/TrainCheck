@@ -41,8 +41,11 @@ def show_abs_bar_label(ax, barh, abs_df):
 
 def plot_overhead(df):
     systrace = df[df["method"] == "systrace"]["overhead"]
+    systrace_std = df[df["method"] == "systrace"]["std"]
     monkey_patch = df[df["method"] == "monkey-patch"]["overhead"]
+    monkey_patch_std = df[df["method"] == "monkey-patch"]["std"]
     selective = df[df["method"] == "selective"]["overhead"]
+    selective_std = df[df["method"] == "selective"]["std"]
     print(systrace)
 
     figure, ax = plt.subplots(figsize=(5, 2))
@@ -52,6 +55,8 @@ def plot_overhead(df):
         ind,
         systrace.values,
         width - 0.03,
+        yerr=systrace_std.values,
+        capsize=5,
         bottom=0,
         label="settrace",
         color="#a6dc80",
@@ -61,6 +66,8 @@ def plot_overhead(df):
         ind + width,
         monkey_patch.values,
         width - 0.03,
+        yerr=monkey_patch_std.values,
+        capsize=5,
         bottom=0,
         label="mpatch",
         color="#98c8df",
@@ -70,6 +77,8 @@ def plot_overhead(df):
         ind + 2 * width,
         selective.values,
         width - 0.03,
+        yerr=selective_std.values,
+        capsize=5,
         bottom=0,
         label="selective",
         color="#ffb665",
