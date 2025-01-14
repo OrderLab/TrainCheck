@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from numba import cuda
+
+# from numba import cuda
 from torch import Tensor
 
 MULTIPLIER = 6364136223846793005
@@ -11,36 +12,40 @@ MODULUS = 2**64
 FIXED_CONSTANT = torch.tensor([42], dtype=torch.int64)  # Example fixed constant
 
 
-@cuda.jit("void(int64[:, :], int64[:], int64, int64)")
-def cuda_hash_kernel(data, hash_values, multiplier, increment):
-    idx = cuda.grid(1)
-    if idx < data.shape[0]:
-        hash_value = 0
-        for i in range(data.shape[1]):
-            hash_value = hash_value * multiplier + data[idx, i] + increment
-        hash_values[idx] = hash_value
+# @cuda.jit("void(int64[:, :], int64[:], int64, int64)")
+# def cuda_hash_kernel(data, hash_values, multiplier, increment):
+#     idx = cuda.grid(1)
+#     if idx < data.shape[0]:
+#         hash_value = 0
+#         for i in range(data.shape[1]):
+#             hash_value = hash_value * multiplier + data[idx, i] + increment
+#         hash_values[idx] = hash_value
 
 
 def hash_tensor_cuda(x):
 
-    # if x is more than 2D, flatten it to 2D
-    if x.ndim > 2:
-        x = x.flatten(start_dim=0, end_dim=-2)
-    elif x.ndim == 1:
-        # if x is 1D, add a dimension to make it 2D (n x 1)
-        x = x.unsqueeze(0)
-    (rows, _) = x.shape
+    # # if x is more than 2D, flatten it to 2D
+    # if x.ndim > 2:
+    #     x = x.flatten(start_dim=0, end_dim=-2)
+    # elif x.ndim == 1:
+    #     # if x is 1D, add a dimension to make it 2D (n x 1)
+    #     x = x.unsqueeze(0)
+    # (rows, _) = x.shape
 
-    hash_values = cuda.device_array(rows, dtype=np.int64)
+    # hash_values = cuda.device_array(rows, dtype=np.int64)
 
-    threads_per_block = 16
-    blocks_per_grid = (rows + threads_per_block - 1) // threads_per_block
+    # threads_per_block = 16
+    # blocks_per_grid = (rows + threads_per_block - 1) // threads_per_block
 
-    cuda_hash_kernel[blocks_per_grid, threads_per_block](
-        x, hash_values, MULTIPLIER, INCREMENT
-    )
+    # cuda_hash_kernel[blocks_per_grid, threads_per_block](
+    #     x, hash_values, MULTIPLIER, INCREMENT
+    # )
 
-    x = hash_values.copy_to_host()
+    # x = hash_values.copy_to_host()
+
+    # just compute a single sum of the tensor
+    x = torch.sum(x)
+    x = x.item
 
     return int(x[0])
 
