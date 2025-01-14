@@ -219,6 +219,7 @@ def global_wrapper(
     cond_dump,
     dump_args,
     dump_ret,
+    handle_proxy,
     *args,
     **kwargs,
 ):
@@ -312,19 +313,23 @@ def global_wrapper(
         pre_record["args"] = dict_args_kwargs["args"]
         pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
-    if enable_C_level_observer and is_builtin:
-        from mldaikon.proxy_wrapper.proxy_observer import (
-            add_observer_to_func,  # import here to avoid circular import
-        )
 
-        original_function = add_observer_to_func(
-            original_function, cond_dump=cond_dump, unproxy=True
-        )
-    elif is_funcs_to_be_unproxied(original_function):
-        original_function = unproxy_func(original_function, inspect_torch_module=True)
-    elif is_builtin:
-        # proxy objects being passed to backend will cause seg fault: TODO: replace with unproxy func
-        original_function = unproxy_func(original_function)
+    if handle_proxy:
+        if enable_C_level_observer and is_builtin:
+            from mldaikon.proxy_wrapper.proxy_observer import (
+                add_observer_to_func,  # import here to avoid circular import
+            )
+
+            original_function = add_observer_to_func(
+                original_function, cond_dump=cond_dump, unproxy=True
+            )
+        elif is_funcs_to_be_unproxied(original_function):
+            original_function = unproxy_func(
+                original_function, inspect_torch_module=True
+            )
+        elif is_builtin:
+            # proxy objects being passed to backend will cause seg fault: TODO: replace with unproxy func
+            original_function = unproxy_func(original_function)
 
     try:
         ORIG_ENTER_PERF_TIME = time.perf_counter()
@@ -561,7 +566,7 @@ def global_wrapper(
 #     return result
 
 
-def core_wrapper(original_function, is_builtin, *args, **kwargs):
+def core_wrapper(original_function, is_builtin, handle_proxy, *args, **kwargs):
     """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
     We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
     """
@@ -569,7 +574,7 @@ def core_wrapper(original_function, is_builtin, *args, **kwargs):
     if DISABLE_WRAPPER:
         return original_function(*args, **kwargs)
 
-    if is_builtin:
+    if handle_proxy and is_builtin:
         original_function = unproxy_func(original_function)
     return original_function(*args, **kwargs)
 
@@ -596,6 +601,7 @@ def wrapper(
     disable_dump=False,
     dump_args=True,
     dump_ret=True,
+    handle_proxy=True,
 ):
     is_builtin = is_c_level_function(original_function)
 
@@ -614,6 +620,7 @@ def wrapper(
                 cond_dump,
                 dump_args,
                 dump_ret,
+                handle_proxy,
                 *args,
                 **kwargs,
             )
@@ -623,7 +630,9 @@ def wrapper(
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
-            return core_wrapper(original_function, is_builtin, *args, **kwargs)
+            return core_wrapper(
+                original_function, is_builtin, handle_proxy, *args, **kwargs
+            )
 
     wrapped._ml_daikon_original_function = original_function
     wrapped._ml_daikon_instrumented = True
@@ -1019,7 +1028,12 @@ class Instrumentor:
 
     def get_wrapped_function(self, func_obj: Callable) -> Callable:
         """Get the wrapped function for the provided function object"""
+        used_proxy = True  # TODO: dump instr_opts when doing full instr as well so we can determine whether to handle proxy based on the specific instrumentation args
         if self.instr_opts is not None:
+            used_proxy = (
+                "model_tracker_style" in self.instr_opts
+                and self.instr_opts["model_tracker_style"] == "proxy"
+            )
             func_name = typename(func_obj)
             if func_name not in self.instr_opts["funcs_instr_opts"]:
                 return wrapper(
@@ -1029,6 +1043,7 @@ class Instrumentor:
                     dump_stack_trace=None,
                     cond_dump=None,
                     disable_dump=True,
+                    handle_proxy=used_proxy,
                 )
 
             instr_opts = self.instr_opts["funcs_instr_opts"][func_name]
@@ -1041,6 +1056,7 @@ class Instrumentor:
                 cond_dump=self.cond_dump,
                 dump_args=instr_opts["dump_args"],
                 dump_ret=instr_opts["dump_ret"],
+                handle_proxy=used_proxy,
             )
 
         return wrapper(
@@ -1050,6 +1066,7 @@ class Instrumentor:
             disable_dump=self.should_disable_dump(func_obj),
             dump_stack_trace=self.API_dump_stack_trace,
             cond_dump=self.cond_dump,
+            handle_proxy=used_proxy,
         )
 
     def _instrument_module(
