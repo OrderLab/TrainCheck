@@ -48,7 +48,7 @@ def plot_overhead(df):
     selective_std = df[df["method"] == "selective"]["std"]
     print(systrace)
 
-    figure, ax = plt.subplots(figsize=(5, 2))
+    figure, ax = plt.subplots(figsize=(10, 4))
     ind = np.arange(len(systrace))
     width = 0.2
     systrace_bars = ax.bar(

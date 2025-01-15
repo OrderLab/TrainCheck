@@ -1,3 +1,5 @@
+$XONSH_SHOW_TRACEBACK = True
+
 import argparse
 import numpy as np
 import pandas as pd
@@ -31,21 +33,26 @@ Transformer,selective,1.17
 all_results = {}
 for f in files:
     series = np.loadtxt(f"{res_folder}/{f}")
-    task = f.split("_")[1]
-    method = f.split("_")[2].split(".")[0]
+    task = "_".join(f.split("_")[1:-1])
+    method = f.split("_")[-1].split(".")[0]
     if task not in all_results:
         all_results[task] = {}
+    # if series is not a list, convert it to a list
+    if not isinstance(series, list):
+        series = series.tolist()
     all_results[task][method] = series
+    print(f"Task: {task}, method: {method}, len: {series}")
 
 overhead_results = []
 for task in all_results:
     assert "naive" in all_results[task], f"naive (base situtation) not found in {task}"
     min_len = len(all_results[task]["naive"])
     for method in all_results[task]:
+        print(f"Task: {task}, method: {method}")
         min_len = min(len(all_results[task][method]), min_len)
         if method == "naive":
             continue
-        overhead_series = all_results[task][method][:min_len] / all_results[task]["naive"][:min_len]
+        overhead_series = np.array(all_results[task][method][:min_len]) / np.array(all_results[task]["naive"][:min_len])
         overhead = np.mean(overhead_series)
         std = np.std(overhead_series)
         overhead_results.append([task, method, overhead, std])

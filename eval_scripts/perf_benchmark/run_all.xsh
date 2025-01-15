@@ -61,6 +61,9 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
 
     with open(f"{E2E_FOLDER}/{workload}/{RUN_SH}", "r") as f:
         cmd = f.read().strip()
+
+    # remove all '\' and linebreaks
+    cmd = cmd.replace("\\", "").replace("\n", "")
     cmd_settrace = cmd.replace(ORIG_PY, SETTRACE_PY)
 
     cd f"{E2E_FOLDER}/{workload}"
@@ -100,6 +103,13 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
 
 
 # e2e workload
-run_exp(kill_sec=60, workload="mnist")
-run_exp(kill_sec=60, workload="resnet18")
-run_exp(kill_sec=60, workload="transformer")
+# run_exp(kill_sec=60, workload="mnist")
+# run_exp(kill_sec=60, workload="resnet18")
+# run_exp(kill_sec=60, workload="transformer")
+
+# discover the workload
+workloads = os.listdir(E2E_FOLDER)
+workloads = [w for w in workloads if os.path.isdir(f"{E2E_FOLDER}/{w}") and w != "data"]
+print(f"{len(workloads)} workloads to run: ", workloads)
+for w in workloads:
+    run_exp(kill_sec=50, workload=w)
