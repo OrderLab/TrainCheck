@@ -1,0 +1,1 @@
+accelerate launch --config_file nlp_config.yml complete_nlp_example.py
