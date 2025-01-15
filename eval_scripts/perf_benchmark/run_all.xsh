@@ -112,4 +112,7 @@ workloads = os.listdir(E2E_FOLDER)
 workloads = [w for w in workloads if os.path.isdir(f"{E2E_FOLDER}/{w}") and w != "data"]
 print(f"{len(workloads)} workloads to run: ", workloads)
 for w in workloads:
-    run_exp(kill_sec=50, workload=w)
+    if "bert" in w:
+        run_exp(kill_sec=200, workload=w)
+    else:
+        run_exp(kill_sec=50, workload=w)
