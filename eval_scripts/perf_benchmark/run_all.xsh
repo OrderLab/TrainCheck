@@ -53,6 +53,13 @@ def run_cmd(cmd: str, kill_sec: int):
         except subprocess.TimeoutExpired:
             print(f"Timeout: {kill_sec} seconds, killing all GPU processes")
             kill_all_GPU_processes()
+    
+    # print the output
+    with open("cmd_output.log", "r") as f:
+        print("Output of the command:")
+        print(f.read())
+        print("End of the output")
+        
 
 # run e2e benchmark
 def run_exp(kill_sec: int = 100, workload: str = "mnist"):
