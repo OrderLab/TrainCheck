@@ -4,3 +4,9 @@ seaborn
 pandas
 lmdb
 requests
+transformers==4.45.0
+accelerate==1.1.1
+evaluate
+datasets>=3.2.0
+schedulefree
+huggingface_hub>=0.20.0
