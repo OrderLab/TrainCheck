@@ -37,7 +37,13 @@ def get_all_GPU_pids():
     return pids
 
 def kill_all_GPU_processes():
-    nvidia-smi | grep 'python' | awk '{ print $5 }' | xargs -n1 kill -9
+    pids = get_all_GPU_pids()
+    if len(pids) == 0:
+        print("No GPU processes to kill")
+        return
+    for pid in pids:
+        print(f"Killing process {pid}")
+        kill -9 @(pid)
 
 def run_cmd(cmd: str, kill_sec: int):
     with open("cmd_output.log", "w") as f:
