@@ -39,7 +39,7 @@ def get_all_GPU_pids():
 def kill_all_GPU_processes():
     pids = get_all_GPU_pids()
     if len(pids) == 0:
-        print("No GPU processes to kill")
+        print("Warning: No GPU processes to kill. Probably the original process crashed somewhere instead of running indefinitely")
         return
     for pid in pids:
         print(f"Killing process {pid}")
