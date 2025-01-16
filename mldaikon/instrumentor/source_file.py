@@ -11,6 +11,16 @@ Methods for reading and instrumenting source files.
 """
 
 
+def get_code_head_and_tail(source: str):
+    if source.startswith('"""'):
+        code_head = ""
+        code_tail = source
+    else:
+        code_head = source.split("\n")[0]
+        code_tail = "\n".join(source.split("\n")[1:])
+    return code_head, code_tail
+
+
 class InsertTracerVisitor(ast.NodeTransformer):
     def __init__(
         self,
@@ -235,13 +245,9 @@ for log_file in log_files:
                 )
                 break
         instrumented_source = ast.unparse(root_for_proxy)
+    code_head, code_tail = get_code_head_and_tail(instrumented_source)
 
-    instrumented_source = (
-        instrumented_source.split("\n")[0]
-        + proxy_start_code
-        + auto_observer_code
-        + "\n".join(instrumented_source.split("\n")[1:])
-    )
+    instrumented_source = code_head + proxy_start_code + auto_observer_code + code_tail
 
     return instrumented_source
 
@@ -304,15 +310,10 @@ def instrument_model_tracker_sampler(
             + [hook_code]
             + source.split("\n")[line_idx + 1 :]
         )
+    code_head, code_tail = get_code_head_and_tail(source)
 
     sampler_import_code = "from mldaikon.instrumentor import VarSampler"
-    source = (
-        source.split("\n")[0]
-        + "\n"
-        + sampler_import_code
-        + "\n"
-        + "\n".join(source.split("\n")[1:])
-    )
+    source = code_head + "\n" + sampler_import_code + "\n" + code_tail
 
     return source
 
@@ -381,11 +382,9 @@ general_config.INSTR_DESCRIPTORS = {instr_descriptors}
             )
 
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
+    code_head, code_tail = get_code_head_and_tail(instrumented_source)
     instrumented_source = (
-        instrumented_source.split("\n")[0]
-        + logging_start_code
-        + general_config_update
-        + "\n".join(instrumented_source.split("\n")[1:])
+        code_head + logging_start_code + general_config_update + code_tail
     )
 
     return instrumented_source
