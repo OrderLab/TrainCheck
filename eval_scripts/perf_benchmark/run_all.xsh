@@ -71,9 +71,11 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
     CMD_TRAINCHECK = "python -m mldaikon.collect_trace --use-config --config md-config.yml --output-dir traincheck"
     CMD_TRAINCHECK_SELECTIVE = f"python -m mldaikon.collect_trace --use-config --config md-config.yml --output-dir traincheck-selective -i ../{SELC_INV_FILE}"
 
-
-    with open(f"{E2E_FOLDER}/{workload}/{RUN_SH}", "r") as f:
-        cmd = f.read().strip()
+    if not os.path.exists(f"{E2E_FOLDER}/{workload}/{RUN_SH}"):
+        cmd = "python3 main.py"
+    else:
+        with open(f"{E2E_FOLDER}/{workload}/{RUN_SH}", "r") as f:
+            cmd = f.read().strip()
 
     # remove all '\' and linebreaks
     cmd = cmd.replace("\\", "").replace("\n", "")
