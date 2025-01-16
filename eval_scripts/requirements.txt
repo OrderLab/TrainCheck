@@ -10,3 +10,8 @@ evaluate
 datasets>=3.2.0
 schedulefree
 huggingface_hub>=0.20.0
+protobuf
+rouge-score
+nltk
+py7zr
+sentencepiece != 0.1.92
