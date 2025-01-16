@@ -83,34 +83,38 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist"):
 
     # run four setups
 
+    try:
     # 1. naive running
-    print("Running naive setup")
-    run_cmd(cmd, kill_sec)
-    cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_naive.txt")
-    rm iteration_times.txt
+        print("Running naive setup")
+        run_cmd(cmd, kill_sec)
+        cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_naive.txt")
+        rm iteration_times.txt
 
-    # 2. settrace running
-    print("Running settrace setup")
-    run_cmd(cmd_settrace, kill_sec)
-    rm api_calls.log
-    cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_systrace.txt")
-    rm iteration_times.txt
+        # 2. settrace running
+        print("Running settrace setup")
+        run_cmd(cmd_settrace, kill_sec)
+        rm api_calls.log
+        cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_systrace.txt")
+        rm iteration_times.txt
 
-    # 3. traincheck proxy instrumentation
-    print("Running traincheck instrumentation")
-    run_cmd(CMD_TRAINCHECK, kill_sec)
-    print("Trying to copy")
-    print(os.listdir("traincheck"))
-    # shutil.copy("traincheck/iteration_times.txt", f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
-    cp traincheck/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
-    print("Copied")
-    rm -rf traincheck
+        # 3. traincheck proxy instrumentation
+        print("Running traincheck instrumentation")
+        run_cmd(CMD_TRAINCHECK, kill_sec)
+        print("Trying to copy")
+        print(os.listdir("traincheck"))
+        # shutil.copy("traincheck/iteration_times.txt", f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
+        cp traincheck/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
+        print("Copied")
+        rm -rf traincheck
 
-    # 4. traincheck selective instrumentation
-    print("Running traincheck selective instrumentation")
-    run_cmd(CMD_TRAINCHECK_SELECTIVE, kill_sec)
-    cp traincheck-selective/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_selective.txt")
-    rm -rf traincheck-selective
+        # 4. traincheck selective instrumentation
+        print("Running traincheck selective instrumentation")
+        run_cmd(CMD_TRAINCHECK_SELECTIVE, kill_sec)
+        cp traincheck-selective/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_selective.txt")
+        rm -rf traincheck-selective
+    except Exception as e:
+        print(f"Error: {e}, skipping the rest of the experiment")
+        kill_all_GPU_processes()
 
     cd ../..
 
