@@ -15,3 +15,4 @@ rouge-score
 nltk
 py7zr
 sentencepiece != 0.1.92
+scikit-learn
