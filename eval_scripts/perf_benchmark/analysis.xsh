@@ -40,6 +40,8 @@ for f in files:
     # if series is not a list, convert it to a list
     if not isinstance(series, list):
         series = series.tolist()
+    if not isinstance(series, list):
+        series = [series]
     all_results[task][method] = series
     print(f"Task: {task}, method: {method}, len: {series}")
 

@@ -131,7 +131,9 @@ workloads = os.listdir(E2E_FOLDER)
 workloads = [w for w in workloads if os.path.isdir(f"{E2E_FOLDER}/{w}") and w != "data"]
 print(f"{len(workloads)} workloads to run: ", workloads)
 for w in workloads:
-    if "bert" in w:
+    if "ac_bert" in w:
         run_exp(kill_sec=200, workload=w)
+    elif "tf_summarization" in w:
+        run_exp(kill_sec=400, workload=w)
     else:
         run_exp(kill_sec=60, workload=w)
