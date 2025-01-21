@@ -207,6 +207,7 @@ class ProgramRunner(object):
                 program_output = f"Profiling result saved to {profile_output_path}"
 
             else:
+                os.chdir(os.path.dirname(self._tmp_py_script_path))
                 process = subprocess.Popen(
                     [self.python, "-u", self._tmp_py_script_path],
                     stdout=subprocess.PIPE,
