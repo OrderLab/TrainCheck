@@ -134,4 +134,4 @@ for w in workloads:
     if "bert" in w:
         run_exp(kill_sec=200, workload=w)
     else:
-        run_exp(kill_sec=600, workload=w)
+        run_exp(kill_sec=60, workload=w)
