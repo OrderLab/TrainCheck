@@ -20,6 +20,7 @@ from mldaikon.trace.types import (
     VarInstId,
 )
 from mldaikon.trace.utils import (
+    BindedFuncInput,
     bind_args_kwargs_to_signature,
     flatten_dict,
     load_signature_from_class_method_name,
@@ -368,13 +369,18 @@ class TracePandas(Trace):
 
             args = init_pre_record["args"]
             kwargs = init_pre_record["kwargs"]
-            signature = load_signature_from_class_method_name(
-                init_pre_record["function"]
-            )
+            if not pd.isna(args):
+                signature = load_signature_from_class_method_name(
+                    init_pre_record["function"]
+                )
 
-            binded_args_and_kwargs = bind_args_kwargs_to_signature(
-                args, kwargs, signature
-            )
+                binded_args_and_kwargs = bind_args_kwargs_to_signature(
+                    args, kwargs, signature
+                )
+            else:
+                # create an empty BindedFuncInput if args is NaN, as it indicates
+                # that we did not record the args and kwargs for this function call
+                binded_args_and_kwargs = BindedFuncInput({})
 
             ptid = PTID(process_id, thread_id)
             if ptid not in all_context_managers:
