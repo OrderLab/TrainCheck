@@ -62,12 +62,13 @@ def run_cmd(cmd: str, kill_sec: int):
         
 
 # run e2e benchmark
-def run_exp(kill_sec: int = 100, workload: str = "mnist"):
+def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = False):
     print(f"Running experiments for {workload}")
 
     ORIG_PY = "main.py"
     SETTRACE_PY = "main_settrace.py"
     RUN_SH = "run.sh"
+    MD_CONFIG_YML = "md-config.yml" if not use_proxy else "md-config-proxy.yml"
     CMD_TRAINCHECK = "python -m mldaikon.collect_trace --use-config --config md-config.yml --output-dir traincheck"
     CMD_TRAINCHECK_SELECTIVE = f"python -m mldaikon.collect_trace --use-config --config md-config.yml --output-dir traincheck-selective -i ../{SELC_INV_FILE}"
 
@@ -137,3 +138,6 @@ for w in workloads:
         run_exp(kill_sec=400, workload=w)
     else:
         run_exp(kill_sec=60, workload=w)
+
+# print("Running Proxy Experiments")
+# run_exp(kill_sec=60, workload="mnist", use_proxy=True)
