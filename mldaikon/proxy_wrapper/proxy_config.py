@@ -53,5 +53,3 @@ tensor_attribute_black_list = [
     "real",
 ]
 attribute_black_list = tensor_attribute_black_list
-
-profiling = False

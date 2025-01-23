@@ -12,7 +12,7 @@ def program_print(program_output: str):
     print("\033[94m" + program_output + "\033[0m")
 
 
-RUNNING_PROCESS = None
+RUNNING_PROCESSES = None
 KILLING_PROCESS = (
     False  # True indicates that SIGTERM has been sent to the running process
 )
@@ -20,16 +20,17 @@ KILLING_PROCESS = (
 
 # make sure process is killed when the program is exited
 def kill_running_process():
-    global RUNNING_PROCESS
+    global RUNNING_PROCESSES
     global KILLING_PROCESS
-    if RUNNING_PROCESS is None or KILLING_PROCESS:
+    if RUNNING_PROCESSES is None or KILLING_PROCESS:
         return
 
     KILLING_PROCESS = True
     print("Killing the running process...")
-    os.killpg(
-        os.getpgid(RUNNING_PROCESS.pid), signal.SIGTERM
-    )  # send SIGTERM to the process group NOTE: the signal will be delivered here again
+    for running_process in RUNNING_PROCESSES:
+        os.killpg(
+            os.getpgid(running_process.pid), signal.SIGTERM
+        )  # send SIGTERM to the process group NOTE: the signal will be delivered here again
 
 
 ORIGINAL_SIGINT_HANDLER = signal.getsignal(signal.SIGINT)
@@ -138,12 +139,31 @@ class ProgramRunner(object):
             with open(self._tmp_sh_script_path, "w") as file:
                 file.write(sh_script)
 
+        if self._tmp_sh_script_path is None:
+            self.cmd = [self.python, "-u", self._tmp_py_script_path]
+        else:
+            self.cmd = ["bash", self._tmp_sh_script_path]
+
+    def run_py_spy_profiling(self, pgid: int, output_dir: str):
+        py_spy_cmd = [
+            "py-spy",
+            "record",
+            "--pid",
+            str(pgid),
+            "--native",
+            "--subprocesses",
+            "--output",
+            os.path.join(output_dir, "py_spy_profile.svg"),
+        ]
+        py_spy_process = subprocess.Popen(py_spy_cmd)
+        return py_spy_process
+
     def run(self) -> tuple[str, int]:
         """
         Runs the program and returns the output and execution status of the program.
         """
 
-        global RUNNING_PROCESS
+        global RUNNING_PROCESSES
 
         register_hook_closing_program()
 
@@ -153,69 +173,26 @@ class ProgramRunner(object):
         # prepare env: set the PYTHONPATH to the directory of the original python script
         os.environ["PYTHONPATH"] = os.path.dirname(self.original_py_script_path)
 
+        current_dir = os.getcwd()
         if self._tmp_sh_script_path is not None:
-            if self.profiling == "True":
-                raise ValueError("Profiling is not supported with shell scripts.")
-            # change to the directory of the sh script
-            current_dir = os.getcwd()
             os.chdir(os.path.dirname(self._tmp_sh_script_path))
-            process = subprocess.Popen(
-                ["bash", self._tmp_sh_script_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                env=os.environ,
-            )
-            # change back to the original directory
-            os.chdir(current_dir)
         else:
-            if self.profiling == "True":
-                profile_script_name = self._tmp_py_script_path.split("/")[-1].split(
-                    "."
-                )[0]
-                assert profile_script_name.startswith(TMP_FILE_PREFIX)
-                profile_script_name = profile_script_name[len(TMP_FILE_PREFIX) :]
-                profile_output_path = os.path.join(
-                    os.path.dirname(self._tmp_py_script_path),
-                    f"{profile_script_name}.prof",
-                )
-                print("Profiling the program...")
-                print(
-                    f"Profiling the program and saving the result to {profile_output_path}"
-                )
-                cmdline = (
-                    " ".join(
-                        [
-                            self.python,
-                            "-m cProfile",
-                            "-o",
-                            f"{profile_output_path}",
-                            self._tmp_py_script_path,
-                        ]
-                    ),
-                )
-                print(f"Running command: {cmdline}")
-                # flush the stdout buffer
-                sys.stdout.flush()
-                process = subprocess.Popen(
-                    cmdline,
-                    shell=True,
-                    env=os.environ,
-                )
-                # save the profiling result
-                process.wait()
-                return_code = process.returncode
-                program_output = f"Profiling result saved to {profile_output_path}"
+            os.chdir(os.path.dirname(self._tmp_py_script_path))
+        process = subprocess.Popen(
+            self.cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=os.environ,
+        )
+        # change back to the original directory
+        os.chdir(current_dir)
 
-            else:
-                os.chdir(os.path.dirname(self._tmp_py_script_path))
-                process = subprocess.Popen(
-                    [self.python, "-u", self._tmp_py_script_path],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    env=os.environ,
-                )
+        RUNNING_PROCESSES = [process]
 
-        RUNNING_PROCESS = process
+        if self.profiling:
+            logging.info("Starting py-spy profiling...")
+            py_spy_process = self.run_py_spy_profiling(process.pid, self.output_dir)
+            RUNNING_PROCESSES.append(py_spy_process)
 
         out_lines = []  # STDERR is redirected to STDOUT
         assert process.stdout is not None
@@ -234,5 +211,10 @@ class ProgramRunner(object):
         with open(os.path.join(self.output_dir, "program_output.txt"), "w") as file:
             file.write(program_output)
             file.write(f"\n\nProgram exited with code {return_code}")
+
+        # join the py-spy process if it was started
+        if self.profiling:
+            logging.info("Waiting for py-spy process to finish...")
+            py_spy_process.wait()
 
         return program_output, return_code

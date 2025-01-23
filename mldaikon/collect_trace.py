@@ -240,11 +240,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--profiling",
-        type=str,  # @ziming-zh: why is this a string?
-        default=proxy_config.profiling,
-        help="Enable to do profiling during the training process,"
-        "there would be a train_profiling_results.pstats file generated"
-        "in the current directory",
+        default=False,
+        action="store_true",
+        help="Profile the instrumented program using py-spy, sudo may be required",
     )
     parser.add_argument(
         "-d",
@@ -376,7 +374,6 @@ if __name__ == "__main__":
     proxy_basic_config: dict[str, int | bool | str] = {}
     for configs in [
         "proxy_update_limit",
-        "profiling",
         "debug_mode",
         "enable_C_level_observer",
     ]:
