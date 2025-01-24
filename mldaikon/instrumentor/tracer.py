@@ -263,11 +263,14 @@ def global_wrapper(
     )
 
     if not is_dumping:
-        # logger.debug(f"Skipping dump for {func_name} as meta_vars have not changed")
-        # print(f"Skipping dump for {func_name} as meta_vars have not changed")
-        return core_wrapper(
-            original_function, is_builtin, handle_proxy, *args, **kwargs
-        )
+        if handle_proxy:
+            return core_wrapper(
+                original_function, is_builtin, handle_proxy, *args, **kwargs
+            )
+        else:
+            return original_function(
+                *args, **kwargs
+            )  # avoid additional function call as core_wrapper only handles proxy
 
     pre_record = {
         "func_call_id": func_call_id,
@@ -462,19 +465,6 @@ def core_wrapper(original_function, is_builtin, handle_proxy, *args, **kwargs):
     return original_function(*args, **kwargs)
 
 
-# def core_wrapper(original_function, is_builtin, *args, **kwargs):
-#     """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
-#     We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
-#     """
-#     # global DISABLE_WRAPPER
-#     # if DISABLE_WRAPPER:
-#     #     return original_function(*args, **kwargs)
-
-#     # if is_builtin:
-#     #     original_function = unproxy_func(original_function)
-#     return original_function(*args, **kwargs)
-
-
 def wrapper(
     original_function,
     is_bound_method,
@@ -511,11 +501,16 @@ def wrapper(
     else:
         METRIC_INSTRUMENTED_FUNC_LIST["no_dump"].append(typename(original_function))
 
-        @functools.wraps(original_function)
-        def wrapped(*args, **kwargs):
-            return core_wrapper(
-                original_function, is_builtin, handle_proxy, *args, **kwargs
-            )
+        if handle_proxy:
+
+            @functools.wraps(original_function)
+            def wrapped(*args, **kwargs):
+                return core_wrapper(
+                    original_function, is_builtin, handle_proxy, *args, **kwargs
+                )
+
+        else:
+            return original_function
 
     wrapped._ml_daikon_original_function = original_function
     wrapped._ml_daikon_instrumented = True
