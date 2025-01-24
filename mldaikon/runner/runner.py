@@ -190,7 +190,9 @@ class ProgramRunner(object):
         RUNNING_PROCESSES = [process]
 
         if self.profiling:
-            logging.info("Starting py-spy profiling...")
+            logging.info(
+                "Starting py-spy profiling on process with PID: %d", process.pid
+            )
             py_spy_process = self.run_py_spy_profiling(process.pid, self.output_dir)
             RUNNING_PROCESSES.append(py_spy_process)
 
