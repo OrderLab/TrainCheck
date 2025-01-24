@@ -9,6 +9,10 @@ import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
+MD_BATCH_FILE_NAME = "iteration_times.txt"
+with open(MD_BATCH_FILE_NAME, "w") as f:
+    f.write("")
+
 
 class Net(nn.Module):
     def __init__(self):
@@ -122,9 +126,6 @@ def train(args, model, device, train_loader, optimizer, epoch):
 
     sys.settrace(log_api_call)
 
-    MD_BATCH_FILE_NAME = "iteration_times.txt"
-    with open(MD_BATCH_FILE_NAME, "w") as f:
-        f.write("")
     for batch_idx, (data, target) in enumerate(train_loader):
         BATCH_START = time.perf_counter()
         data, target = data.to(device), target.to(device)
@@ -148,9 +149,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
             )
             if args.dry_run:
                 break
-    with open(MD_BATCH_FILE_NAME, "w") as f:
-        for item in all_iter_times:
-            f.write("%s\n" % item)
+
 
 def test(model, device, test_loader):
     model.eval()
