@@ -420,11 +420,19 @@ if __name__ == "__main__":
         # selective instrumentation if invariants are provided, only funcs_to_instr will be instrumented with trace collection
         invariants = read_inv_file(args.invariants)
         instr_opts = InstrOpt(invariants)
-        with open(os.path.join(output_dir, config.INSTR_OPTS_FILE), "w") as f:
-            f.write(instr_opts.to_json())
         models_to_track = (
             args.models_to_track if instr_opts.model_tracker_style else None
         )
+        if models_to_track is None:
+            logger.warning(
+                """Model tracker is needed as per the invariants, 
+but which to track is not specified in the arguments/md-config file, 
+disabling model tracking."""
+            )
+            instr_opts.model_tracker_style = None
+
+        with open(os.path.join(output_dir, config.INSTR_OPTS_FILE), "w") as f:
+            f.write(instr_opts.to_json())
         source_code = instrumentor.instrument_file(
             path=args.pyscript,
             modules_to_instr=args.modules_to_instr,
