@@ -18,7 +18,7 @@ import torch.utils
 import mldaikon.config.config as config  # needed to allow for change of values after import
 from mldaikon.config.config import (
     INSTR_MODULES_TO_SKIP,
-    TRAIN_STEP_NAMES,
+    SKIP_INSTR_APIS,
     WRAP_WITHOUT_DUMP,
 )
 from mldaikon.instrumentor.caches import cache_meta_vars, meta_vars
@@ -65,67 +65,8 @@ def is_c_level_function(original_function):
 
 
 def get_meta_vars() -> dict:
-    """HACK: this function is a hack to get the meta_vars from the related frames
-
-    it should only get
-    """
-
-    frame = inspect.currentframe()
-
-    all_frame_vars: dict[str, object] = {}
-    # get the file name list inside the repo
-    while frame is not None:
-        if "mldaikon" in frame.f_code.co_filename:
-            frame = frame.f_back
-            continue
-
-        frame_vars = frame.f_locals
-
-        file_full_path = frame.f_code.co_filename
-        # can we also get the function we are inside?
-        func_name = frame.f_code.co_name
-
-        if "/site-packages/" in file_full_path:
-            file_full_path = file_full_path.split("/site-packages/")[1]
-        file_full_path = file_full_path.strip("/home/")
-
-        new_frame_vars = {}
-        for name, value in frame_vars.items():
-            for step_var_name in TRAIN_STEP_NAMES:
-                if step_var_name.lower() in name.lower():
-                    if isinstance(value, (int, float)):
-                        if name in all_frame_vars:
-                            name = f"{name}_2"
-                        new_frame_vars[name] = value
-                        break
-                    # elif not callable(value):
-                    #     print("YUXUAN DEBUGGING: ", name, value, type(value))
-        frame = frame.f_back
-        # frame_vars = {
-        #     name: value
-        #     for name, value in frame_vars.items()
-        #     # Ziming: only dump primitive types, block the var name on the black list
-        #     if isinstance(value, (int, float, str, bool))
-        #     and (
-        #         not name.startswith("__")
-        #         and "mldaikon" not in name
-        #         and name not in META_VARS_FORBID_LIST
-        #     )
-        # }
-
-        full_path = f"{file_full_path}:{func_name}"
-        if new_frame_vars:
-            if full_path not in all_frame_vars:
-                all_frame_vars[full_path] = new_frame_vars
-            else:
-                print("YUXUAN DEBUGGING: RECURSIVE CALL DETECTED", full_path)
-                while f"{full_path}_2" in all_frame_vars:
-                    full_path = f"{full_path}_2"
-                all_frame_vars[f"{full_path}_2"] = new_frame_vars
-
-        # update the meta_vars with the current frame_vars
-        all_frame_vars.update(meta_vars)
-    return all_frame_vars
+    """Deprecated: use meta_vars directly"""
+    return meta_vars
 
 
 def should_dump_trace(
@@ -350,8 +291,6 @@ def global_wrapper(
                 "meta_vars": pre_meta_vars,
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": func_name,
-                # "args": [f"{arg}" for arg in args],
-                # "kwargs": [f"{k}={v}" for k, v in kwargs.items()],
                 "exception": typename(e),
                 "exception_msg": str(e),
                 "is_bound_method": is_bound_method,
@@ -881,6 +820,10 @@ class Instrumentor:
             # builtin methods in torch.Tensor's qualname does not start with torch for some reason
             return "Skipping attribute as it does not belong to the root module"
 
+        # 7. Skip if the user has specified to skip the attribute
+        if attr_full_name in SKIP_INSTR_APIS:
+            return "Skipping attribute as it is in SKIP_INSTR_APIS"
+
         return None
 
     def should_disable_dump(self, attr) -> bool:
@@ -909,7 +852,9 @@ class Instrumentor:
         return False
 
     def get_wrapped_function(self, func_obj: Callable) -> Callable:
-        """Get the wrapped function for the provided function object"""
+        """Get the wrapped function for the provided function object,
+        based on the instrumentation options provided in instr_opts.json.
+        """
         used_proxy = True  # TODO: dump instr_opts when doing full instr as well so we can determine whether to handle proxy based on the specific instrumentation args
         if self.instr_opts is not None:
             used_proxy = (
@@ -996,6 +941,7 @@ class Instrumentor:
                     get_instrumentation_logger_for_process().debug(
                         f"Depth: {depth}, lazy loading failed for attribute: {attr_name}, Module: {target_name}: {e}"
                     )
+                    continue
 
             if reason := self._should_skip_instr_attr(attr_name, pymodule):
                 get_instrumentation_logger_for_process().debug(

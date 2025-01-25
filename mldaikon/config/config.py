@@ -13,6 +13,14 @@ INSTR_MODULES_TO_SKIP = [
     # "torch._VariableFunctionsClass.matmul",
     # "torch._tensor._convert",
 ]
+
+# SKIP_INSTR_APIS specifies the APIs that should not be instrumented at all, often out of the consideration of performance and the fact that those APIs are not interesting for the analysis
+# caveat: not instrumenting an API means that no additional handling of proxied objects will be done, so the APIs here must not be any native APIs.
+SKIP_INSTR_APIS = [
+    "torch.nn.modules.module.Module._call_impl",
+    "torch.nn.modules.module.Module._wrapped_impl",
+    "torch.nn.modules.module.Module._wrapped_call_impl",
+]
 WRAP_WITHOUT_DUMP = [
     "torch._C",
     "torch._jit",
@@ -22,9 +30,6 @@ WRAP_WITHOUT_DUMP = [
     "torch._ops.OpOverloadPacket",
     "torch._ops._OpNamespace",
     # added after doing initial evaluation
-    "torch.nn.modules.module.Module._call_impl",
-    "torch.nn.modules.module.Module._wrapped_impl",
-    "torch.nn.modules.module.Module._wrapped_call_impl",
     "torch.nn.modules.module.Module._apply",
     "torch.autograd",
     "torch.cuda._is_compiled",
@@ -142,12 +147,13 @@ META_VARS_FORBID_LIST = [
 ]
 
 # question: can we use optimizer state to get step? That sounds more robust
-TRAIN_STEP_NAMES = [
-    "iter",
-    "iteration",
-    "step",
-    "batch_id",
-]
+# TRAIN_STEP_NAMES = [
+#     "iter",
+#     "iteration",
+#     "step",
+#     "batch_id",
+# ]
+
 
 ENABLE_COND_DUMP = False
 INSTR_DESCRIPTORS = False
