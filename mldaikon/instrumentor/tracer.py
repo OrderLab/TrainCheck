@@ -69,6 +69,29 @@ def get_meta_vars() -> dict:
     return meta_vars
 
 
+def increment_step_if_needed(func_obj, func_name, is_bound_method, args):
+    """Increment the global step if
+    - the function is torch.optim.Optimizer.step"""
+    logger = logging.getLogger(__name__)
+
+    if not is_bound_method:
+        return
+
+    obj = args[0]
+
+    if func_name.endswith(".step"):
+        # if the function is a bound method and the object is an instance of torch.optim.Optimizer
+        if isinstance(obj, torch.optim.Optimizer):
+            meta_vars[
+                "step"
+            ] += 1  # TODO: what if the users have annotated their own step function?
+            return True
+        else:
+            logger.debug(
+                f"Function {func_name} is not a bound method of torch.optim.Optimizer, got {func_obj}"
+            )
+
+
 def should_dump_trace(
     cond_dump: bool,
     ptid: PTID | None,
@@ -191,6 +214,8 @@ def global_wrapper(
     thread_id = threading.current_thread().ident
     process_id = os.getpid()
     func_name = typename(original_function)
+    increment_step_if_needed(original_function, func_name, is_bound_method, args)
+
     pre_meta_vars = get_meta_vars()
 
     # determine at runtime whether to dump the trace
