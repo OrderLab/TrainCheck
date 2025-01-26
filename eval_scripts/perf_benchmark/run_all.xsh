@@ -2,6 +2,7 @@ import argparse
 import os
 import signal
 import subprocess
+import time
 
 # configs
 $RAISE_SUBPROC_ERROR = True
@@ -49,7 +50,10 @@ def run_cmd(cmd: str, kill_sec: int):
     with open("cmd_output.log", "w") as f:
         p = subprocess.Popen(cmd, shell=True, stdout=f, stderr=f)
         try:
-            output, _ = p.communicate(timeout=kill_sec)
+            if kill_sec >= 0:
+                output, _ = p.communicate(timeout=kill_sec)
+            else:
+                output, _ = p.communicate()
         except subprocess.TimeoutExpired:
             print(f"Timeout: {kill_sec} seconds, killing all GPU processes")
             kill_all_GPU_processes()
@@ -89,7 +93,9 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
     try:
     # 1. naive running
         print("Running naive setup")
-        run_cmd(cmd, kill_sec)
+        NAIVE_ENTER_TIME = time.perf_counter()
+        run_cmd(cmd, -1)
+        NAIVE_EXIT_TIME = time.perf_counter()
         cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_naive.txt")
         rm iteration_times.txt
 
@@ -112,9 +118,17 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
 
         # 4. traincheck selective instrumentation
         print("Running traincheck selective instrumentation")
-        run_cmd(CMD_TRAINCHECK_SELECTIVE, kill_sec)
+        SEL_ENTER_TIME = time.perf_counter()
+        run_cmd(CMD_TRAINCHECK_SELECTIVE, -1)
+        SEL_EXIT_TIME = time.perf_counter()
         cp traincheck-selective/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_selective.txt")
         rm -rf traincheck-selective
+
+
+        # write the time
+        with open(f"../../{RES_FOLDER}/e2e_{workload}_completion-time.csv", "w") as f:
+            f.write(f"naive,{NAIVE_EXIT_TIME - NAIVE_ENTER_TIME}\n")
+            f.write(f"selective,{SEL_EXIT_TIME - SEL_ENTER_TIME}\n")
     except Exception as e:
         print(f"Error: {e}, skipping the rest of the experiment")
         kill_all_GPU_processes()
