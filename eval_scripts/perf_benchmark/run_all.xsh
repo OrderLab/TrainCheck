@@ -94,7 +94,7 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
     # 1. naive running
         print("Running naive setup")
         NAIVE_ENTER_TIME = time.perf_counter()
-        run_cmd(cmd, -1)
+        run_cmd(cmd, kill_sec)
         NAIVE_EXIT_TIME = time.perf_counter()
         cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_naive.txt")
         rm iteration_times.txt
@@ -119,7 +119,7 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
         # 4. traincheck selective instrumentation
         print("Running traincheck selective instrumentation")
         SEL_ENTER_TIME = time.perf_counter()
-        run_cmd(CMD_TRAINCHECK_SELECTIVE, -1)
+        run_cmd(CMD_TRAINCHECK_SELECTIVE, kill_sec)
         SEL_EXIT_TIME = time.perf_counter()
         cp traincheck-selective/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_selective.txt")
         rm -rf traincheck-selective
