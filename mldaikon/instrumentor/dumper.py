@@ -1,10 +1,10 @@
 import datetime
-import json  # consider using ORJSON for better performance?
 import logging
 import os
 import threading
 from queue import Empty, Queue
 
+import orjson as json  # consider using ORJSON for better performance?
 import torch
 
 from mldaikon.instrumentor.types import PTID

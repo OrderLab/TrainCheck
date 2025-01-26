@@ -481,16 +481,6 @@ def wrapper(
     return wrapped
 
 
-def safe_serialize(obj):
-    """Include custom serialization logic to handle parameters that cannot be serialized by json.dumps"""
-    try:
-        if isinstance(obj, torch.Tensor):
-            return f"Tensor(shape={obj.size()}, dtype={obj.dtype})"
-        return json.dumps(obj)
-    except TypeError:
-        return str(type(obj))
-
-
 # https://stackoverflow.com/a/63851681/9201239
 def get_all_subclasses(cls):
     subclass_list = []
