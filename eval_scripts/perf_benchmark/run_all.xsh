@@ -10,6 +10,7 @@ os.environ["PYTHONUNBUFFERED"] = "1"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--res_folder", type=str, required=False)
+parser.add_argument("-w", "--workloads", type=str, nargs='*', required=False)
 args = parser.parse_args()
 
 SELC_INV_FILE = "sampled_100_invariants.json"
@@ -142,7 +143,12 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
 # run_exp(kill_sec=60, workload="transformer")
 
 # discover the workload
-workloads = os.listdir(E2E_FOLDER)
+if args.workloads:
+    print("Running selected workloads")
+    workloads = args.workloads
+else:
+    workloads = os.listdir(E2E_FOLDER)
+
 workloads = [w for w in workloads if os.path.isdir(f"{E2E_FOLDER}/{w}") and w != "data"]
 print(f"{len(workloads)} workloads to run: ", workloads)
 for w in workloads:
