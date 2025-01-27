@@ -1,10 +1,11 @@
 import datetime
+import json
 import logging
 import os
 import threading
 from queue import Empty, Queue
 
-import orjson as json  # consider using ORJSON for better performance?
+import orjson
 import torch
 
 from mldaikon.instrumentor.types import PTID
@@ -31,6 +32,14 @@ trace_VAR_dumper_queues: dict[PTID, Queue] = {}
 
 # per process logging
 instrumentation_loggers: dict[int, logging.Logger] = {}
+
+
+def serialize(obj_dict: dict[str, object | str]) -> str:
+    try:
+        return orjson.dumps(obj_dict)
+    except Exception:
+        # if orjson fails (e.g. cannot handle ints larger than 64-bit), fallback to json
+        return json.dumps(obj_dict)
 
 
 def monitor_main_thread(main_thread, stop_event):
@@ -120,9 +129,7 @@ def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     trace_queue = get_trace_API_dumper_queue()
     trace["time"] = datetime.datetime.now().timestamp()
-    trace_queue.put(
-        json.dumps(trace)
-    )  # this is additional copying important, as the trace is mutable and we don't want subsequent changes to affect the trace
+    trace_queue.put(serialize(trace))
 
 
 def dump_trace_VAR(trace: dict):
@@ -130,7 +137,7 @@ def dump_trace_VAR(trace: dict):
     trace_queue = get_trace_VAR_dumper_queue()
     if "time" not in trace:
         trace["time"] = datetime.datetime.now().timestamp()
-    trace_queue.put(json.dumps(trace))
+    trace_queue.put(serialize(trace))
 
 
 def get_instrumentation_logger_for_process():
@@ -273,7 +280,9 @@ def var_to_serializable(obj) -> dict[str, object]:
     """
 
     try:
-        json.dumps({"foo": obj})
+        json.dumps(
+            {"foo": obj}
+        )  # HACK: using json instead of to check if obj is serializable as it always raises an exception if obj is not serializable, orjson may or may not raise an exception for unknown reasons.
         return {typename(obj): obj}
     except TypeError:
         if isinstance(obj, torch.dtype):
