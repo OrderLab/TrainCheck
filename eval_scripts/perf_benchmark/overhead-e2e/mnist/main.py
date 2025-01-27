@@ -11,6 +11,8 @@ from torchvision import datasets, transforms
 MD_BATCH_FILE_NAME = "iteration_times.txt"
 with open(MD_BATCH_FILE_NAME, "w") as f:
     f.write("")
+with open("./prestep_times.txt", "w") as f:
+    f.write("")
 
 
 class Net(nn.Module):
@@ -48,6 +50,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
+        BATCH_END1 = time.perf_counter()
+        with open("./prestep_times.txt", "a") as f:
+            f.write("%s\n" % (BATCH_END1 - BATCH_START))
         loss.backward()
         optimizer.step()
         BATCH_END = time.perf_counter()
