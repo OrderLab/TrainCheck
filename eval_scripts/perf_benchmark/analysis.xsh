@@ -32,11 +32,11 @@ Transformer,selective,1.17
 
 all_results = {}
 for f in files:
+    if "completion-time.csv" in f:
+        continue
     series = np.loadtxt(f"{res_folder}/{f}")
     task = "_".join(f.split("_")[1:-1])
     method = f.split("_")[-1].split(".")[0]
-    if method == "completion-time":
-        continue
     if task not in all_results:
         all_results[task] = {}
     # if series is not a list, convert it to a list
