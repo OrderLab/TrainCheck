@@ -1,1 +1,0 @@
-python main.py --cuda --epochs 2 --model Transformer --lr 5
