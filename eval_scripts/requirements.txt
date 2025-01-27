@@ -13,6 +13,7 @@ huggingface_hub>=0.20.0
 protobuf
 rouge-score
 nltk
+orjson
 py7zr
 sentencepiece != 0.1.92
 scikit-learn
