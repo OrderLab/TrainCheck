@@ -36,7 +36,7 @@ instrumentation_loggers: dict[int, logging.Logger] = {}
 
 def serialize(obj_dict: dict[str, object | str]) -> str:
     try:
-        return orjson.dumps(obj_dict)
+        return orjson.dumps(obj_dict).decode("utf-8")
     except Exception:
         # if orjson fails (e.g. cannot handle ints larger than 64-bit), fallback to json
         return json.dumps(obj_dict)
