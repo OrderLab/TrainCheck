@@ -13,19 +13,14 @@ import mldaikon.runner as runner
 from mldaikon.invariant.base_cls import (
     APIParam,
     Arguments,
+    InputOutputParam,
     Invariant,
     VarNameParam,
     VarTypeParam,
     read_inv_file,
 )
 from mldaikon.invariant.consistency_relation import ConsistencyRelation
-from mldaikon.invariant.consistency_transient_vars import (
-    ConsistentInputOutputRelation,
-    ConsistentOutputRelation,
-    ThresholdRelation,
-)
 from mldaikon.invariant.contain_relation import VAR_GROUP_NAME, APIContainRelation
-from mldaikon.invariant.DistinctArgumentRelation import DistinctArgumentRelation
 
 
 def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
@@ -44,29 +39,33 @@ def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, 
     """
     Get per function instrumentation options
     """
-    func_instr_opts = {}
+    func_instr_opts: dict[str, dict[str, bool]] = {}
     for inv in invariants:
         for param in inv.params:
-            if isinstance(param, APIParam):
-                if param.api_full_name not in func_instr_opts:
-                    func_instr_opts[param.api_full_name] = {
+            if isinstance(param, APIParam) or isinstance(param, InputOutputParam):
+                func_name = (
+                    param.api_full_name
+                    if isinstance(param, APIParam)
+                    else param.api_name
+                )
+                assert isinstance(func_name, str)
+                if func_name not in func_instr_opts:
+                    func_instr_opts[func_name] = {
                         "scan_proxy_in_args": False,
                         "dump_args": False,
-                        "dump_ret": False,
+                        "dump_ret": False,  # not really used for now
                     }
-                # configure whether the arguments or return values needs to be dumped
-                if inv.relation in (ConsistentInputOutputRelation, ThresholdRelation):
-                    func_instr_opts[param.api_full_name]["dump_args"] = True
-                    func_instr_opts[param.api_full_name]["dump_ret"] = True
-                elif inv.relation == ConsistentOutputRelation:
-                    func_instr_opts[param.api_full_name]["dump_ret"] = True
-                elif inv.relation == DistinctArgumentRelation:
-                    func_instr_opts[param.api_full_name]["dump_args"] = True
 
-                if inv.relation == APIContainRelation:
-                    # if the argument of this param is not empty, then dump it
-                    if isinstance(param.arguments, Arguments):
-                        func_instr_opts[param.api_full_name]["dump_args"] = True
+            if isinstance(param, APIParam):
+                func_name = param.api_full_name
+                if isinstance(param.arguments, Arguments):
+                    func_instr_opts[func_name]["dump_args"] = True
+
+            if isinstance(param, InputOutputParam):
+                func_name = param.api_name
+                assert isinstance(func_name, str)
+                func_instr_opts[func_name]["dump_args"] = True
+                func_instr_opts[func_name]["dump_ret"] = True
 
         if inv.relation == APIContainRelation:
             assert isinstance(inv.params[0], APIParam)
