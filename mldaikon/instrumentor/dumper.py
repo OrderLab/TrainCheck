@@ -23,7 +23,6 @@ from mldaikon.utils import typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 
-
 # per process & thread logging
 stop_event = threading.Event()
 monitoring_thread = None
@@ -32,6 +31,9 @@ trace_VAR_dumper_queues: dict[PTID, Queue] = {}
 
 # per process logging
 instrumentation_loggers: dict[int, logging.Logger] = {}
+
+# this is a global variable to store the attributes that cannot be accessed due to errors, so that we don't try to access them again and waste time.
+skip_attrs_due_to_errs: dict[str, set[str]] = {}
 
 
 def serialize(obj_dict: dict[str, object | str]) -> str:
@@ -209,7 +211,7 @@ def dump_tensor(value):
 def convert_var_to_dict(var, include_tensor_data=True) -> dict:
     result: dict[str, object | str] = {}
     # currently only dump primitive types, tensors and nn.Module
-
+    logger = logging.getLogger(__name__)
     try:
         attr_names = [name for name in dir(var) if not name.startswith("__")]
     except Exception as e:
@@ -218,6 +220,8 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
         )
         return result
 
+    var_type = str(type(var))
+
     for attr_name in attr_names:
         # don't track the attr_name starts with a _ (private variable)
         if attr_name.startswith("_") and not attr_name.startswith("_ML_DAIKON"):
@@ -225,6 +229,13 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
 
         if attr_name in attribute_black_list:
             continue
+
+        if (
+            var_type in skip_attrs_due_to_errs
+            and attr_name in skip_attrs_due_to_errs[var_type]
+        ):
+            continue
+
         try:
             attr = getattr(var, attr_name)
             if type(attr) in primitive_types:
@@ -261,9 +272,12 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
                 result[attr_name] = attr
 
         except Exception as e:  # noqa
-            print_debug(
-                lambda: f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it. Error: {e}."  # noqa
+            logger.warning(
+                f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it for all following dumps of variables of the same type. Error: {e}."
             )
+            if var_type not in skip_attrs_due_to_errs:
+                skip_attrs_due_to_errs[var_type] = set()
+            skip_attrs_due_to_errs[var_type].add(attr_name)
             continue
     if include_tensor_data and "data" not in result and isinstance(var, torch.Tensor):
         raise ValueError(
