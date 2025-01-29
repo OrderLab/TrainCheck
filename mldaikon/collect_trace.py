@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import inspect
 import json
 import logging
 import os
@@ -17,6 +18,7 @@ from mldaikon.invariant.base_cls import (
     Invariant,
     VarNameParam,
     VarTypeParam,
+    load_function_signature,
     read_inv_file,
 )
 from mldaikon.invariant.consistency_relation import ConsistencyRelation
@@ -35,11 +37,14 @@ def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
     return sorted(list(funcs))
 
 
-def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, bool]]:
+def get_per_func_instr_opts(
+    invariants: list[Invariant],
+) -> dict[str, dict[str, bool | dict]]:
     """
     Get per function instrumentation options
     """
-    func_instr_opts: dict[str, dict[str, bool]] = {}
+    func_instr_opts: dict[str, dict[str, bool | dict]] = {}
+    func_signatures: dict[str, inspect.Signature] = {}
     for inv in invariants:
         for param in inv.params:
             if isinstance(param, APIParam) or isinstance(param, InputOutputParam):
@@ -55,17 +60,51 @@ def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, 
                         "dump_args": False,
                         "dump_ret": False,  # not really used for now
                     }
+                if func_name not in func_signatures:
+                    signature = load_function_signature(func_name)
+                    assert (
+                        signature is not None
+                    ), f"Failed to load signature for {func_name}, cannot do selective instrumentation for arguments"
+                    func_signatures[func_name] = signature
 
             if isinstance(param, APIParam):
                 func_name = param.api_full_name
+
+                def merge(a: dict, b: dict, path=[]):
+                    for key in b:
+                        if key in a:
+                            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                                merge(a[key], b[key], path + [str(key)])
+                            elif a[key] != b[key]:
+                                raise Exception(
+                                    "Conflict at " + ".".join(path + [str(key)])
+                                )
+                        else:
+                            a[key] = b[key]
+                    return a
+
                 if isinstance(param.arguments, Arguments):
                     func_instr_opts[func_name]["dump_args"] = True
+                    arg_instr_opt = param.arguments.to_instr_opts_dict()
+                    if "dump_args_config" in func_instr_opts[func_name]:
+                        existing_config = func_instr_opts[func_name]["dump_args_config"]
+                        assert isinstance(existing_config, dict)
+                        func_instr_opts[func_name]["dump_args_config"] = merge(
+                            existing_config,
+                            arg_instr_opt,
+                        )
+                    else:
+                        func_instr_opts[func_name]["dump_args_config"] = arg_instr_opt
 
             if isinstance(param, InputOutputParam):
                 func_name = param.api_name
                 assert isinstance(func_name, str)
                 func_instr_opts[func_name]["dump_args"] = True
                 func_instr_opts[func_name]["dump_ret"] = True
+                # TODO: convert the arguments to instr_opts_dict (currently not possible as the index indicates the index of the argument/ret value among other tensors not all arguments)
+                logger.warning(
+                    "Currently not supporting fine-grained dumping of arguments and return values for InputOutputParam"
+                )
 
         if inv.relation == APIContainRelation:
             assert isinstance(inv.params[0], APIParam)
@@ -89,7 +128,7 @@ def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, 
 
 class InstrOpt:
     def __init__(self, invariants: list[Invariant]):
-        self.funcs_instr_opts: dict[str, dict[str, bool]] = {}
+        self.funcs_instr_opts: dict[str, dict[str, bool | dict]] = {}
         self.model_tracker_style = None
 
         # determine model_tracker_style:
