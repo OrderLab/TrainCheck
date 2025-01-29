@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import inspect
 import json
 import logging
 import os
@@ -18,7 +17,6 @@ from mldaikon.invariant.base_cls import (
     Invariant,
     VarNameParam,
     VarTypeParam,
-    load_function_signature,
     read_inv_file,
 )
 from mldaikon.invariant.consistency_relation import ConsistencyRelation
@@ -44,7 +42,6 @@ def get_per_func_instr_opts(
     Get per function instrumentation options
     """
     func_instr_opts: dict[str, dict[str, bool | dict]] = {}
-    func_signatures: dict[str, inspect.Signature] = {}
     for inv in invariants:
         for param in inv.params:
             if isinstance(param, APIParam) or isinstance(param, InputOutputParam):
@@ -60,12 +57,6 @@ def get_per_func_instr_opts(
                         "dump_args": False,
                         "dump_ret": False,  # not really used for now
                     }
-                if func_name not in func_signatures:
-                    signature = load_function_signature(func_name)
-                    assert (
-                        signature is not None
-                    ), f"Failed to load signature for {func_name}, cannot do selective instrumentation for arguments"
-                    func_signatures[func_name] = signature
 
             if isinstance(param, APIParam):
                 func_name = param.api_full_name
@@ -76,9 +67,16 @@ def get_per_func_instr_opts(
                             if isinstance(a[key], dict) and isinstance(b[key], dict):
                                 merge(a[key], b[key], path + [str(key)])
                             elif a[key] != b[key]:
-                                raise Exception(
-                                    "Conflict at " + ".".join(path + [str(key)])
-                                )
+                                if a[key] is None:
+                                    a[key] = b[key]
+                                elif b[key] is None:
+                                    pass
+                                else:
+                                    raise Exception(
+                                        "Conflict at "
+                                        + ".".join(path + [str(key)])
+                                        + f" {a[key]} != {b[key]}"
+                                    )
                         else:
                             a[key] = b[key]
                     return a

@@ -224,7 +224,7 @@ class Arguments:
         dictionary schema:
         {
             # for positional arguments
-            (arg_index, arg_name): [
+            (arg_idx, arg_name): [
                 {"attr_name": {"attr_name"}},
                 "attr_name",
                 ...
@@ -238,22 +238,31 @@ class Arguments:
         TODO: Refactor the returned value with a formally defined schema. For example we currently use None to indicate that the argument is a primitive type or just dump the field as is. This is not a good practice.
         """
 
-        instr_opts: dict[str | tuple[int, str], None | dict] = {}
-        if self.signature is None:
-            raise ValueError(
-                f"Failed to load the signature for the function: {self.func_name}, custom instrumentation options cannot be generated for selective dumping on this API's arguments, leading to performance overhead."
-            )
-
-        all_arg_names = list(self.signature.parameters.keys())
+        instr_opts: dict[str | int, None | dict] = {}
+        all_arg_names = []
+        if self.signature is not None:
+            all_arg_names = list(self.signature.parameters.keys())
         for arg_name in self.arguments:
-            arg_index = all_arg_names.index(arg_name)
-            # get the actual parameter
-            param = self.signature.parameters[arg_name]
+            param_key: str
+            param_idx: int = -1
+            try:
+                arg_idx = all_arg_names.index(arg_name)
+                # get the actual parameter
+                assert self.signature is not None
+                param = self.signature.parameters[arg_name]
 
-            param_key: str | tuple[int, str]
-            if param.kind == inspect.Parameter.VAR_POSITIONAL:
-                param_key = (arg_index, arg_name)
-            elif param.kind == inspect.Parameter.VAR_KEYWORD:
+                if param.kind == inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                    param_key = arg_name
+                    param_idx = arg_idx
+                elif param.kind == inspect.Parameter.KEYWORD_ONLY:
+                    param_key = arg_name
+                else:
+                    logging.warning(
+                        f"Function {self.func_name} have a non-positional_or_keyword parameter {arg_name}, kind {param.kind}, this is not supported for selective dumping, and will be skipped entirely."
+                    )
+                    continue
+            except ValueError:
+                # likely the signature cannot be loaded or in this case the signature is *args, **kwargs thus we cannot determine the index
                 param_key = arg_name
 
             arg_dict: dict[str, Any] = self.arguments[arg_name]
@@ -274,9 +283,13 @@ class Arguments:
 
                 replace_leaf_nodes(arg_instr_opt)
                 instr_opts[param_key] = arg_instr_opt
+                if param_idx != -1:
+                    instr_opts[param_idx] = arg_instr_opt
             else:
                 # arg is just a simple, primitive type
                 instr_opts[param_key] = None
+                if param_idx != -1:
+                    instr_opts[param_idx] = None
 
         return instr_opts
 
