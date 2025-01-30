@@ -9,7 +9,6 @@ import threading
 import time
 import traceback
 import types
-import uuid
 from typing import Any, Callable, Optional
 
 import torch
@@ -36,7 +35,7 @@ from mldaikon.instrumentor.replace_functions import (
 from mldaikon.instrumentor.types import PTID
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import enable_C_level_observer
-from mldaikon.utils import typename
+from mldaikon.utils import get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
@@ -228,7 +227,7 @@ def global_wrapper(
 
     logger = logging.getLogger(__name__)
 
-    func_call_id = uuid.uuid4().hex
+    func_call_id = get_unique_id()
     thread_id = threading.current_thread().ident
     process_id = os.getpid()
     func_name = typename(original_function)

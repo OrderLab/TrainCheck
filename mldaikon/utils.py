@@ -1,10 +1,14 @@
 import logging
 import sys
 import threading
+import time
 import traceback
+import uuid
 from importlib.machinery import ModuleSpec
 
 import torch
+
+PROCESS_UUID = uuid.uuid4().hex
 
 
 def safe_getattr(obj, attr, default=None):
@@ -100,3 +104,8 @@ def thread_excepthook(args):
 def register_custom_excepthook():
     sys.excepthook = handle_excepthook
     threading.excepthook = thread_excepthook
+
+
+def get_unique_id():
+    """Get a unique id a single program run"""
+    return f"{PROCESS_UUID}_{time.monotonic_ns()}"
