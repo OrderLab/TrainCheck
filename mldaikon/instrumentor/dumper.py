@@ -1,8 +1,8 @@
-import datetime
 import json
 import logging
 import os
 import threading
+import time
 from queue import Empty, Queue
 
 import orjson
@@ -130,7 +130,7 @@ def get_trace_VAR_dumper_queue():
 def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     trace_queue = get_trace_API_dumper_queue()
-    trace["time"] = datetime.datetime.now().timestamp()
+    trace["time"] = time.monotonic_ns()
     trace_queue.put(serialize(trace))
 
 
@@ -138,7 +138,7 @@ def dump_trace_VAR(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     trace_queue = get_trace_VAR_dumper_queue()
     if "time" not in trace:
-        trace["time"] = datetime.datetime.now().timestamp()
+        trace["time"] = time.monotonic_ns()
     trace_queue.put(serialize(trace))
 
 

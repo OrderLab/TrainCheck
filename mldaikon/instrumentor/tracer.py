@@ -223,7 +223,8 @@ def global_wrapper(
     if DISABLE_WRAPPER:
         return original_function(*args, **kwargs)
 
-    ENTER_PERF_TIME = time.perf_counter()
+    if COLLECT_OVERHEAD_METRICS:
+        ENTER_PERF_TIME = time.perf_counter()
 
     logger = logging.getLogger(__name__)
 
@@ -340,14 +341,12 @@ def global_wrapper(
             },
         )
         logger.error(f"Error in {func_name}: {type(e)} {e}")
-        EXIT_PERF_TIME = time.perf_counter()
-        (
+
+        if COLLECT_OVERHEAD_METRICS:
+            EXIT_PERF_TIME = time.perf_counter()
             print(
                 f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
             )
-            if COLLECT_OVERHEAD_METRICS
-            else None
-        )
         raise e
     pre_record.pop("args", None)
     pre_record.pop("kwargs", None)
@@ -422,14 +421,11 @@ def global_wrapper(
         post_record["return_values"] = to_dict_return_value(result_to_dump)
     dump_trace_API(post_record)
 
-    EXIT_PERF_TIME = time.perf_counter()
-    (
+    if COLLECT_OVERHEAD_METRICS:
+        EXIT_PERF_TIME = time.perf_counter()
         print(
             f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
         )
-        if COLLECT_OVERHEAD_METRICS
-        else None
-    )
     return result
 
 
