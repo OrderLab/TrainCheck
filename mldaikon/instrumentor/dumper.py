@@ -127,19 +127,60 @@ def get_trace_VAR_dumper_queue():
     return trace_queue
 
 
+class TraceBuffer:
+    def __init__(self, queue_getter, buffer_size=1000, flush_interval=5):
+        self.queue_getter = queue_getter
+        self.buffer_size = buffer_size
+        self.flush_interval = flush_interval
+        self.buffer = []
+        self.lock = threading.Lock()
+        self.last_flush_time = time.time()
+        self.flush_thread = threading.Thread(target=self._flush_periodically)
+        self.flush_thread.daemon = True
+        self.flush_thread.start()
+
+    def add_trace(self, trace):
+        with self.lock:
+            self.buffer.append(
+                serialize(trace)
+            )  # TODO: serialization step cannot be buffered rn as trace dicts might get modified
+            if (
+                len(self.buffer) >= self.buffer_size
+                or (time.time() - self.last_flush_time) >= self.flush_interval
+            ):
+                self._flush()
+
+    def _flush(self):
+        if not self.buffer:
+            return
+        trace_queue = self.queue_getter()
+        all_traces = "\n".join(self.buffer)
+        trace_queue.put(all_traces)
+        self.buffer.clear()
+        self.last_flush_time = time.time()
+
+    def _flush_periodically(self):
+        while not stop_event.is_set():
+            time.sleep(self.flush_interval)
+            with self.lock:
+                self._flush()
+
+
+api_trace_buffer = TraceBuffer(get_trace_API_dumper_queue)
+var_trace_buffer = TraceBuffer(get_trace_VAR_dumper_queue)
+
+
 def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    trace_queue = get_trace_API_dumper_queue()
     trace["time"] = time.monotonic_ns()
-    trace_queue.put(serialize(trace))
+    api_trace_buffer.add_trace(trace)
 
 
 def dump_trace_VAR(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    trace_queue = get_trace_VAR_dumper_queue()
     if "time" not in trace:
         trace["time"] = time.monotonic_ns()
-    trace_queue.put(serialize(trace))
+    var_trace_buffer.add_trace(trace)
 
 
 def get_instrumentation_logger_for_process():
