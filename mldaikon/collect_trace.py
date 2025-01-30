@@ -13,19 +13,14 @@ import mldaikon.runner as runner
 from mldaikon.invariant.base_cls import (
     APIParam,
     Arguments,
+    InputOutputParam,
     Invariant,
     VarNameParam,
     VarTypeParam,
     read_inv_file,
 )
 from mldaikon.invariant.consistency_relation import ConsistencyRelation
-from mldaikon.invariant.consistency_transient_vars import (
-    ConsistentInputOutputRelation,
-    ConsistentOutputRelation,
-    ThresholdRelation,
-)
 from mldaikon.invariant.contain_relation import VAR_GROUP_NAME, APIContainRelation
-from mldaikon.invariant.DistinctArgumentRelation import DistinctArgumentRelation
 
 
 def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
@@ -40,33 +35,74 @@ def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
     return sorted(list(funcs))
 
 
-def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, bool]]:
+def get_per_func_instr_opts(
+    invariants: list[Invariant],
+) -> dict[str, dict[str, bool | dict]]:
     """
     Get per function instrumentation options
     """
-    func_instr_opts = {}
+    func_instr_opts: dict[str, dict[str, bool | dict]] = {}
     for inv in invariants:
         for param in inv.params:
-            if isinstance(param, APIParam):
-                if param.api_full_name not in func_instr_opts:
-                    func_instr_opts[param.api_full_name] = {
+            if isinstance(param, APIParam) or isinstance(param, InputOutputParam):
+                func_name = (
+                    param.api_full_name
+                    if isinstance(param, APIParam)
+                    else param.api_name
+                )
+                assert isinstance(func_name, str)
+                if func_name not in func_instr_opts:
+                    func_instr_opts[func_name] = {
                         "scan_proxy_in_args": False,
                         "dump_args": False,
-                        "dump_ret": False,
+                        "dump_ret": False,  # not really used for now
                     }
-                # configure whether the arguments or return values needs to be dumped
-                if inv.relation in (ConsistentInputOutputRelation, ThresholdRelation):
-                    func_instr_opts[param.api_full_name]["dump_args"] = True
-                    func_instr_opts[param.api_full_name]["dump_ret"] = True
-                elif inv.relation == ConsistentOutputRelation:
-                    func_instr_opts[param.api_full_name]["dump_ret"] = True
-                elif inv.relation == DistinctArgumentRelation:
-                    func_instr_opts[param.api_full_name]["dump_args"] = True
 
-                if inv.relation == APIContainRelation:
-                    # if the argument of this param is not empty, then dump it
-                    if isinstance(param.arguments, Arguments):
-                        func_instr_opts[param.api_full_name]["dump_args"] = True
+            if isinstance(param, APIParam):
+                func_name = param.api_full_name
+
+                def merge(a: dict, b: dict, path=[]):
+                    for key in b:
+                        if key in a:
+                            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                                merge(a[key], b[key], path + [str(key)])
+                            elif a[key] != b[key]:
+                                if a[key] is None:
+                                    a[key] = b[key]
+                                elif b[key] is None:
+                                    pass
+                                else:
+                                    raise Exception(
+                                        "Conflict at "
+                                        + ".".join(path + [str(key)])
+                                        + f" {a[key]} != {b[key]}"
+                                    )
+                        else:
+                            a[key] = b[key]
+                    return a
+
+                if isinstance(param.arguments, Arguments):
+                    func_instr_opts[func_name]["dump_args"] = True
+                    arg_instr_opt = param.arguments.to_instr_opts_dict()
+                    if "dump_args_config" in func_instr_opts[func_name]:
+                        existing_config = func_instr_opts[func_name]["dump_args_config"]
+                        assert isinstance(existing_config, dict)
+                        func_instr_opts[func_name]["dump_args_config"] = merge(
+                            existing_config,
+                            arg_instr_opt,
+                        )
+                    else:
+                        func_instr_opts[func_name]["dump_args_config"] = arg_instr_opt
+
+            if isinstance(param, InputOutputParam):
+                func_name = param.api_name
+                assert isinstance(func_name, str)
+                func_instr_opts[func_name]["dump_args"] = True
+                func_instr_opts[func_name]["dump_ret"] = True
+                # TODO: convert the arguments to instr_opts_dict (currently not possible as the index indicates the index of the argument/ret value among other tensors not all arguments)
+                logger.warning(
+                    "Currently not supporting fine-grained dumping of arguments and return values for InputOutputParam"
+                )
 
         if inv.relation == APIContainRelation:
             assert isinstance(inv.params[0], APIParam)
@@ -90,7 +126,7 @@ def get_per_func_instr_opts(invariants: list[Invariant]) -> dict[str, dict[str, 
 
 class InstrOpt:
     def __init__(self, invariants: list[Invariant]):
-        self.funcs_instr_opts: dict[str, dict[str, bool]] = {}
+        self.funcs_instr_opts: dict[str, dict[str, bool | dict]] = {}
         self.model_tracker_style = None
 
         # determine model_tracker_style:

@@ -23,7 +23,6 @@ from mldaikon.utils import typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 
-
 # per process & thread logging
 stop_event = threading.Event()
 monitoring_thread = None
@@ -33,10 +32,13 @@ trace_VAR_dumper_queues: dict[PTID, Queue] = {}
 # per process logging
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
+# this is a global variable to store the attributes that cannot be accessed due to errors, so that we don't try to access them again and waste time.
+skip_attrs_due_to_errs: dict[str, set[str]] = {}
+
 
 def serialize(obj_dict: dict[str, object | str]) -> str:
     try:
-        return orjson.dumps(obj_dict)
+        return orjson.dumps(obj_dict).decode("utf-8")
     except Exception:
         # if orjson fails (e.g. cannot handle ints larger than 64-bit), fallback to json
         return json.dumps(obj_dict)
@@ -206,17 +208,35 @@ def dump_tensor(value):
     return param_list
 
 
-def convert_var_to_dict(var, include_tensor_data=True) -> dict:
+def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict:
+    """
+    TODO: variables can be nested and thus this should be a recursive function (dump_config supports this).
+    But this function is not recursive yet, so it only dumps the first level of attributes of the variable.
+
+    Args:
+        var: the variable to be converted to a dictionary.
+        include_tensor_data: whether to include the data of a tensor in the dictionary (introduces a lot of overhead).
+        dump_config: a dictionary that specifies which attributes to dump for the variable. If None, all attributes will be dumped.
+    """
+
     result: dict[str, object | str] = {}
     # currently only dump primitive types, tensors and nn.Module
+    logger = logging.getLogger(__name__)
+    if dump_config is None:
+        try:
+            attr_names = [
+                name for name in dir(var) if not name.startswith("__")
+            ]  # dir() won't get called on primitive vars (look at the logic below checking for primitive types) whose dump_config is always None, so no need to check for primitive types here.
+        except Exception as e:
+            get_instrumentation_logger_for_process().debug(
+                f"Failed to get attributes of object type {type(var)}, skipping it. Error: {e}."
+            )
+            return result
+    else:
+        # selective instrumentation mode
+        attr_names = list(dump_config.keys())
 
-    try:
-        attr_names = [name for name in dir(var) if not name.startswith("__")]
-    except Exception as e:
-        get_instrumentation_logger_for_process().debug(
-            f"Failed to get attributes of object type {type(var)}, skipping it. Error: {e}."
-        )
-        return result
+    var_type = str(type(var))
 
     for attr_name in attr_names:
         # don't track the attr_name starts with a _ (private variable)
@@ -225,6 +245,13 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
 
         if attr_name in attribute_black_list:
             continue
+
+        if (
+            var_type in skip_attrs_due_to_errs
+            and attr_name in skip_attrs_due_to_errs[var_type]
+        ):
+            continue
+
         try:
             attr = getattr(var, attr_name)
             if type(attr) in primitive_types:
@@ -261,9 +288,12 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
                 result[attr_name] = attr
 
         except Exception as e:  # noqa
-            print_debug(
-                lambda: f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it. Error: {e}."  # noqa
+            logger.warning(
+                f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it for all following dumps of variables of the same type. Error: {e}."
             )
+            if var_type not in skip_attrs_due_to_errs:
+                skip_attrs_due_to_errs[var_type] = set()
+            skip_attrs_due_to_errs[var_type].add(attr_name)
             continue
     if include_tensor_data and "data" not in result and isinstance(var, torch.Tensor):
         raise ValueError(
@@ -272,10 +302,11 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
     return result
 
 
-def var_to_serializable(obj) -> dict[str, object]:
+def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
     """Convert any object to a serializable dictionary.
 
-    Note that this function does not dump the `data` attribute of a tensor.
+    Note that this function is largely a wrapper of convert_var_to_dict to add some heuristics about how to dump a few types of objects.
+      and it does not dump the `data` attribute of a tensor.
     If you want to dump the `data` attribute of a tensor, use `convert_var_to_dict` and set `include_tensor_data=True`.
     """
 
@@ -290,7 +321,9 @@ def var_to_serializable(obj) -> dict[str, object]:
         elif isinstance(obj, torch.Size):
             return {typename(obj): tuple(obj)}
         try:
-            var_dict = convert_var_to_dict(obj, include_tensor_data=False)
+            var_dict = convert_var_to_dict(
+                obj, include_tensor_data=False, dump_config=dump_config
+            )
             return {typename(obj): var_dict}
         except RecursionError:
             logger = logging.getLogger(__name__)
