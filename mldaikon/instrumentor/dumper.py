@@ -208,17 +208,33 @@ def dump_tensor(value):
     return param_list
 
 
-def convert_var_to_dict(var, include_tensor_data=True) -> dict:
+def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict:
+    """
+    TODO: variables can be nested and thus this should be a recursive function (dump_config supports this).
+    But this function is not recursive yet, so it only dumps the first level of attributes of the variable.
+
+    Args:
+        var: the variable to be converted to a dictionary.
+        include_tensor_data: whether to include the data of a tensor in the dictionary (introduces a lot of overhead).
+        dump_config: a dictionary that specifies which attributes to dump for the variable. If None, all attributes will be dumped.
+    """
+
     result: dict[str, object | str] = {}
     # currently only dump primitive types, tensors and nn.Module
     logger = logging.getLogger(__name__)
-    try:
-        attr_names = [name for name in dir(var) if not name.startswith("__")]
-    except Exception as e:
-        get_instrumentation_logger_for_process().debug(
-            f"Failed to get attributes of object type {type(var)}, skipping it. Error: {e}."
-        )
-        return result
+    if dump_config is None:
+        try:
+            attr_names = [
+                name for name in dir(var) if not name.startswith("__")
+            ]  # dir() won't get called on primitive vars (look at the logic below checking for primitive types) whose dump_config is always None, so no need to check for primitive types here.
+        except Exception as e:
+            get_instrumentation_logger_for_process().debug(
+                f"Failed to get attributes of object type {type(var)}, skipping it. Error: {e}."
+            )
+            return result
+    else:
+        # selective instrumentation mode
+        attr_names = list(dump_config.keys())
 
     var_type = str(type(var))
 
@@ -286,10 +302,11 @@ def convert_var_to_dict(var, include_tensor_data=True) -> dict:
     return result
 
 
-def var_to_serializable(obj) -> dict[str, object]:
+def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
     """Convert any object to a serializable dictionary.
 
-    Note that this function does not dump the `data` attribute of a tensor.
+    Note that this function is largely a wrapper of convert_var_to_dict to add some heuristics about how to dump a few types of objects.
+      and it does not dump the `data` attribute of a tensor.
     If you want to dump the `data` attribute of a tensor, use `convert_var_to_dict` and set `include_tensor_data=True`.
     """
 
@@ -304,7 +321,9 @@ def var_to_serializable(obj) -> dict[str, object]:
         elif isinstance(obj, torch.Size):
             return {typename(obj): tuple(obj)}
         try:
-            var_dict = convert_var_to_dict(obj, include_tensor_data=False)
+            var_dict = convert_var_to_dict(
+                obj, include_tensor_data=False, dump_config=dump_config
+            )
             return {typename(obj): var_dict}
         except RecursionError:
             logger = logging.getLogger(__name__)

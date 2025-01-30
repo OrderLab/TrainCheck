@@ -150,13 +150,28 @@ def should_dump_trace(
     return False
 
 
-def to_dict_args_kwargs(args, kwargs) -> dict:
+def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
     global DISABLE_WRAPPER
     DISABLE_WRAPPER = True
-    result = {
-        "args": [var_to_serializable(arg) for arg in args],
-        "kwargs": {k: var_to_serializable(v) for k, v in kwargs.items()},
-    }
+    if dump_args_config is None:
+        result = {
+            "args": [var_to_serializable(arg) for arg in args],
+            "kwargs": {k: var_to_serializable(v) for k, v in kwargs.items()},
+        }
+    else:
+        result = {"args": [], "kwargs": {}}
+        args_dicts = []
+        kwargs_dicts = {}
+        for i, arg in enumerate(args):
+            if str(i) in dump_args_config:
+                args_dicts.append(var_to_serializable(arg, dump_args_config[str(i)]))
+
+        for k, v in kwargs.items():
+            if k in dump_args_config:
+                kwargs_dicts[k] = var_to_serializable(v, dump_args_config[k])
+
+        result["args"] = args_dicts
+        result["kwargs"] = kwargs_dicts
     DISABLE_WRAPPER = False
     return result
 
@@ -182,7 +197,9 @@ def global_wrapper(
     dump_stack_trace,
     cond_dump,
     dump_args,
+    dump_args_config,
     dump_ret,
+    dump_ret_config,
     handle_proxy,
     *args,
     **kwargs,
@@ -280,7 +297,7 @@ def global_wrapper(
                     [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                 )
     if dump_args:
-        dict_args_kwargs = to_dict_args_kwargs(args, kwargs)
+        dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
         pre_record["args"] = dict_args_kwargs["args"]
         pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
@@ -437,7 +454,9 @@ def wrapper(
     cond_dump,
     disable_dump=False,
     dump_args=True,
+    dump_args_config=None,
     dump_ret=True,
+    dump_ret_config=None,
     handle_proxy=True,
 ):
     is_builtin = is_c_level_function(original_function)
@@ -456,7 +475,9 @@ def wrapper(
                 dump_stack_trace,
                 cond_dump,
                 dump_args,
+                dump_args_config,
                 dump_ret,
+                dump_ret_config,
                 handle_proxy,
                 *args,
                 **kwargs,
@@ -897,7 +918,17 @@ class Instrumentor:
                 dump_stack_trace=self.API_dump_stack_trace,
                 cond_dump=self.cond_dump,
                 dump_args=instr_opts["dump_args"],
+                dump_args_config=(
+                    instr_opts["dump_args_config"]
+                    if "dump_args_config" in instr_opts
+                    else None
+                ),  # TODO: refactor this existence check | None indicates that everything should be dumped
                 dump_ret=instr_opts["dump_ret"],
+                dump_ret_config=(
+                    instr_opts["dump_ret_config"]
+                    if "dump_ret_config" in instr_opts
+                    else None
+                ),
                 handle_proxy=used_proxy,
             )
 
