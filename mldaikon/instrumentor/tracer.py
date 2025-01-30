@@ -51,6 +51,8 @@ GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
 
 COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1"
 
+logger = logging.getLogger("mldaikon.instrumentor.tracer")
+
 
 class TraceLineType:
     FUNC_CALL_PRE = "function_call (pre)"
@@ -71,8 +73,6 @@ def get_meta_vars() -> dict:
 def increment_step_if_needed(func_obj, func_name, is_bound_method, args):
     """Increment the global step if
     - the function is torch.optim.Optimizer.step"""
-    logger = logging.getLogger(__name__)
-
     if not is_bound_method:
         return
 
@@ -224,8 +224,6 @@ def global_wrapper(
 
     if COLLECT_OVERHEAD_METRICS:
         ENTER_PERF_TIME = time.perf_counter()
-
-    logger = logging.getLogger(__name__)
 
     func_call_id = get_unique_id()
     thread_id = threading.current_thread().ident
@@ -549,7 +547,6 @@ def is_API_instrumented(obj: Callable) -> bool:
 
 def is_API_bound_method(obj: Callable) -> bool:
     """We will see if the object will be a bound method or not. If the object is a bound method, we will return True, else False"""
-    logger = logging.getLogger(__name__)
     signature = None
 
     # handle the case where the object is already a bound method, theoretically, this should not happen
@@ -872,7 +869,6 @@ class Instrumentor:
                 return False
             return True
 
-        logger = logging.getLogger(__name__)
         attr_name = typename(attr)
         for wrap_without_dump_module in WRAP_WITHOUT_DUMP:
             if attr_name.startswith(wrap_without_dump_module):
