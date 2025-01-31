@@ -53,6 +53,8 @@ COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1
 
 logger = logging.getLogger("mldaikon.instrumentor.tracer")
 
+PROCESS_ID = os.getpid()
+
 
 class TraceLineType:
     FUNC_CALL_PRE = "function_call (pre)"
@@ -190,6 +192,7 @@ def to_dict_return_value(result) -> dict | list[dict]:
 
 def global_wrapper(
     original_function,
+    original_function_name,
     is_bound_method,
     is_builtin,
     scan_proxy_in_args,
@@ -219,6 +222,8 @@ def global_wrapper(
     """
 
     global DISABLE_WRAPPER
+    global PROCESS_ID
+
     if DISABLE_WRAPPER:
         return original_function(*args, **kwargs)
 
@@ -227,17 +232,17 @@ def global_wrapper(
 
     func_call_id = get_unique_id()
     thread_id = threading.current_thread().ident
-    process_id = os.getpid()
-    func_name = typename(original_function)
-    increment_step_if_needed(original_function, func_name, is_bound_method, args)
+    increment_step_if_needed(
+        original_function, original_function_name, is_bound_method, args
+    )
 
     pre_meta_vars = get_meta_vars()
 
     # determine at runtime whether to dump the trace
     is_dumping = should_dump_trace(
         cond_dump,
-        PTID(process_id, thread_id),
-        f"API_{func_name}",  # any key that can uniquely identify the function or the variable to be dumped
+        PTID(PROCESS_ID, thread_id),
+        f"API_{original_function_name}",  # any key that can uniquely identify the function or the variable to be dumped
         meta_vars=pre_meta_vars,
         meta_vars_targets=None,  # can be used to restrain the meta_vars to a subset of keys
         update_cache=True,
@@ -256,10 +261,10 @@ def global_wrapper(
     pre_record = {
         "func_call_id": func_call_id,
         "thread_id": thread_id,
-        "process_id": process_id,
+        "process_id": PROCESS_ID,
         "meta_vars": pre_meta_vars,
         "type": TraceLineType.FUNC_CALL_PRE,
-        "function": func_name,
+        "function": original_function_name,
         "is_bound_method": is_bound_method,
         "obj_id": None if not is_bound_method else id(args[0]),
     }
@@ -327,22 +332,22 @@ def global_wrapper(
             {
                 "func_call_id": func_call_id,
                 "thread_id": thread_id,
-                "process_id": process_id,
+                "process_id": PROCESS_ID,
                 "meta_vars": pre_meta_vars,
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                "function": func_name,
+                "function": original_function_name,
                 "exception": typename(e),
                 "exception_msg": str(e),
                 "is_bound_method": is_bound_method,
                 "obj_id": None if not is_bound_method else id(args[0]),
             },
         )
-        logger.error(f"Error in {func_name}: {type(e)} {e}")
+        logger.error(f"Error in {original_function_name}: {type(e)} {e}")
 
         if COLLECT_OVERHEAD_METRICS:
             EXIT_PERF_TIME = time.perf_counter()
             print(
-                f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+                f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
             )
         raise e
     pre_record.pop("args", None)
@@ -364,10 +369,10 @@ def global_wrapper(
 
     if (
         GENERATE_START_TOKEN_ID is not None
-        and re.match(pattern, func_name)
+        and re.match(pattern, original_function_name)
         and isinstance(result, torch.Tensor)
     ):
-        print(f"Found match for {func_name}")
+        print(f"Found match for {original_function_name}")
         # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
         response_starting_indices = []
         for i in range(result.size(0)):
@@ -421,7 +426,7 @@ def global_wrapper(
     if COLLECT_OVERHEAD_METRICS:
         EXIT_PERF_TIME = time.perf_counter()
         print(
-            f"WRAPPER TIME: {func_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+            f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
         )
     return result
 
@@ -453,15 +458,16 @@ def wrapper(
     handle_proxy=True,
 ):
     is_builtin = is_c_level_function(original_function)
-
+    original_function_name = typename(original_function)
     # determine statically whether to dump the trace
     if not disable_dump:
-        METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(typename(original_function))
+        METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(original_function_name)
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
             return global_wrapper(  # the wrapper cannot be invoked with named parameters as *args has to be after the named parameters
                 original_function,
+                original_function_name,
                 is_bound_method,
                 is_builtin,
                 scan_proxy_in_args,
@@ -477,7 +483,7 @@ def wrapper(
             )
 
     else:
-        METRIC_INSTRUMENTED_FUNC_LIST["no_dump"].append(typename(original_function))
+        METRIC_INSTRUMENTED_FUNC_LIST["no_dump"].append(original_function_name)
 
         if handle_proxy:
 
