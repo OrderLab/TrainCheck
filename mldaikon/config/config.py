@@ -1,5 +1,9 @@
 import polars as pl
 
+# trace dumper configs:
+BUFFER_SIZE = 1000  # number of events to buffer before dumping
+FLUSH_INTERVAL = 5  # seconds
+
 # tracer + instrumentor configs
 TMP_FILE_PREFIX = "_ml_daikon_"
 INSTR_OPTS_FILE = "instr_opts.json"
