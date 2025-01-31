@@ -143,7 +143,7 @@ class TraceBuffer:
     def add_trace(self, trace):
         with self.lock:
             self.buffer.append(
-                serialize(trace)
+                trace
             )  # TODO: serialization step cannot be buffered rn as trace dicts might get modified
             if (
                 len(self.buffer) >= self.buffer_size
@@ -155,7 +155,11 @@ class TraceBuffer:
         if not self.buffer:
             return
         trace_queue = self.queue_getter()
-        all_traces = "\n".join(self.buffer)
+
+        # serialize all traces in the buffer
+        all_traces = serialize(
+            self.buffer
+        )  # TODO: this is a naive implementation for performance result testing, for correctness we still need to split the traces into multiple lines
         trace_queue.put(all_traces)
         self.buffer.clear()
         self.last_flush_time = time.time()

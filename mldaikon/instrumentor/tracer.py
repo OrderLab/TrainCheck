@@ -360,13 +360,17 @@ def global_wrapper(
                 f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
             )
         raise e
-    pre_record.pop("args", None)
-    pre_record.pop("kwargs", None)
-    post_record = (
-        pre_record.copy()
-    )  # copy the pre_record (though we don't actually need to copy anything)
-    post_record["type"] = TraceLineType.FUNC_CALL_POST
-    post_record["meta_vars"] = pre_meta_vars
+
+    post_record = {
+        "func_call_id": func_call_id,
+        "thread_id": thread_id,
+        "process_id": PROCESS_ID,
+        "meta_vars": pre_meta_vars,
+        "type": TraceLineType.FUNC_CALL_POST,
+        "function": original_function_name,
+        "is_bound_method": is_bound_method,
+        "obj_id": None if not is_bound_method else id(args[0]),
+    }
 
     result_to_dump = result
 
