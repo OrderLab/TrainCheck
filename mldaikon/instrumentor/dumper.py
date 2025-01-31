@@ -8,6 +8,7 @@ from queue import Empty, Queue
 import orjson
 import torch
 
+from mldaikon.config.config import BUFFER_SIZE, FLUSH_INTERVAL
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
     primitive_types,
@@ -129,7 +130,9 @@ def get_trace_VAR_dumper_queue():
 
 
 class TraceBuffer:
-    def __init__(self, queue_getter, buffer_size=1000, flush_interval=5):
+    def __init__(
+        self, queue_getter, buffer_size=BUFFER_SIZE, flush_interval=FLUSH_INTERVAL
+    ):
         self.queue_getter = queue_getter
         self.buffer_size = buffer_size
         self.flush_interval = flush_interval
@@ -143,7 +146,7 @@ class TraceBuffer:
     def add_trace(self, trace):
         with self.lock:
             self.buffer.append(
-                trace
+                serialize(trace)
             )  # TODO: serialization step cannot be buffered rn as trace dicts might get modified
             if (
                 len(self.buffer) >= self.buffer_size
@@ -157,10 +160,7 @@ class TraceBuffer:
         trace_queue = self.queue_getter()
 
         # serialize all traces in the buffer
-        all_traces = serialize(
-            self.buffer
-        )  # TODO: this is a naive implementation for performance result testing, for correctness we still need to split the traces into multiple lines
-        trace_queue.put(all_traces)
+        trace_queue.put("\n".join(self.buffer))
         self.buffer.clear()
         self.last_flush_time = time.time()
 
