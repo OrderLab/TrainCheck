@@ -22,8 +22,8 @@ from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.utils import typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
-
 THREAD_DATA = threading.local()
+IS_CUDA_AVAILABLE = torch.cuda.is_available()
 
 # per process & thread logging
 stop_event = threading.Event()
@@ -232,7 +232,7 @@ def dump_tensor(value):
         if tensor_dump_format["dump_tensor_stats"]:
             param_list = tensor_stats(value)
         elif tensor_dump_format["dump_tensor_hash"]:
-            if not torch.cuda.is_available():
+            if not IS_CUDA_AVAILABLE:
                 raise Exception(
                     "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full' or 'stats'."
                 )
