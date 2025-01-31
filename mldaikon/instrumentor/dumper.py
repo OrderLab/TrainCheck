@@ -8,7 +8,6 @@ from queue import Empty, Queue
 import orjson
 import torch
 
-from mldaikon.instrumentor.types import PTID
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
     primitive_types,
@@ -23,17 +22,19 @@ from mldaikon.utils import typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 
+THREAD_DATA = threading.local()
+
 # per process & thread logging
 stop_event = threading.Event()
 monitoring_thread = None
-trace_API_dumper_queues: dict[PTID, Queue] = {}
-trace_VAR_dumper_queues: dict[PTID, Queue] = {}
 
 # per process logging
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
 # this is a global variable to store the attributes that cannot be accessed due to errors, so that we don't try to access them again and waste time.
 skip_attrs_due_to_errs: dict[str, set[str]] = {}
+
+logger = logging.getLogger(__name__)
 
 
 def serialize(obj_dict: dict[str, object | str]) -> str:
@@ -64,6 +65,7 @@ def trace_dumper(task_queue: Queue, trace_file_name: str, stop_event: threading.
 
 
 def get_trace_API_dumper_queue():
+    global THREAD_DATA
     global monitoring_thread
     if monitoring_thread is None:
         monitoring_thread = threading.Thread(
@@ -71,12 +73,11 @@ def get_trace_API_dumper_queue():
         )
         monitoring_thread.start()
 
+    if hasattr(THREAD_DATA, "API_trace_dumper_queue"):
+        return THREAD_DATA.API_trace_dumper_queue
+
     pid = os.getpid()
     tid = threading.current_thread().ident
-
-    ptid = PTID(pid, tid)
-    if ptid in trace_API_dumper_queues:
-        return trace_API_dumper_queues[ptid]
 
     output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
@@ -91,11 +92,12 @@ def get_trace_API_dumper_queue():
     )
     log_thread.start()
 
-    trace_API_dumper_queues[ptid] = trace_queue
+    THREAD_DATA.API_trace_dumper_queue = trace_queue
     return trace_queue
 
 
 def get_trace_VAR_dumper_queue():
+    global THREAD_DATA
     global monitoring_thread
     if monitoring_thread is None:
         monitoring_thread = threading.Thread(
@@ -103,12 +105,11 @@ def get_trace_VAR_dumper_queue():
         )
         monitoring_thread.start()
 
+    if hasattr(THREAD_DATA, "VAR_trace_dumper_queue"):
+        return THREAD_DATA.VAR_trace_dumper_queue
+
     pid = os.getpid()
     tid = threading.current_thread().ident
-
-    ptid = PTID(pid, tid)
-    if ptid in trace_VAR_dumper_queues:
-        return trace_VAR_dumper_queues[ptid]
 
     output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
@@ -122,8 +123,8 @@ def get_trace_VAR_dumper_queue():
         target=trace_dumper, args=(trace_queue, trace_file_full_path, stop_event)
     )
     log_thread.start()
+    THREAD_DATA.VAR_trace_dumper_queue = trace_queue
 
-    trace_VAR_dumper_queues[ptid] = trace_queue
     return trace_queue
 
 
@@ -262,7 +263,6 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
 
     result: dict[str, object | str] = {}
     # currently only dump primitive types, tensors and nn.Module
-    logger = logging.getLogger(__name__)
     if dump_config is None:
         try:
             attr_names = [
@@ -367,7 +367,6 @@ def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
             )
             return {typename(obj): var_dict}
         except RecursionError:
-            logger = logging.getLogger(__name__)
             logger.warning(
                 f"Recursion detected when converting object to dict. Probably due to a issue in the __getattr__ method of the object. Object type: {type(obj)}."
             )

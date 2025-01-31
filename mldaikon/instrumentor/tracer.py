@@ -51,9 +51,11 @@ GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
 
 COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1"
 
-logger = logging.getLogger("mldaikon.instrumentor.tracer")
 
 PROCESS_ID = os.getpid()
+THREAD_DATA = threading.local()
+
+logger = logging.getLogger("mldaikon.instrumentor.tracer")
 
 
 class TraceLineType:
@@ -61,6 +63,14 @@ class TraceLineType:
     FUNC_CALL_POST = "function_call (post)"
     FUNC_CALL_POST_EXCEPTION = "function_call (post) (exception)"
     STATE_CHANGE = "state_change"
+
+
+def get_thread_id() -> int:
+    global THREAD_DATA
+    # If the ID isn't cached yet, fetch and store it in this thread's local storage
+    if not hasattr(THREAD_DATA, "thread_id"):
+        THREAD_DATA.thread_id = threading.get_ident()
+    return THREAD_DATA.thread_id
 
 
 def is_c_level_function(original_function):
@@ -231,7 +241,7 @@ def global_wrapper(
         ENTER_PERF_TIME = time.perf_counter()
 
     func_call_id = get_unique_id()
-    thread_id = threading.current_thread().ident
+    thread_id = get_thread_id()
     increment_step_if_needed(
         original_function, original_function_name, is_bound_method, args
     )
@@ -323,11 +333,11 @@ def global_wrapper(
             original_function = unproxy_func(original_function)
 
     try:
-        ORIG_ENTER_PERF_TIME = time.perf_counter()
+        ORIG_ENTER_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
         result = original_function(*args, **kwargs)
-        ORIG_EXIT_PERF_TIME = time.perf_counter()
+        ORIG_EXIT_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
     except Exception as e:
-        ORIG_EXIT_PERF_TIME = time.perf_counter()
+        ORIG_EXIT_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
         dump_trace_API(
             {
                 "func_call_id": func_call_id,
