@@ -11,6 +11,7 @@ os.environ["PYTHONUNBUFFERED"] = "1"
 parser = argparse.ArgumentParser()
 parser.add_argument("--res_folder", type=str, required=False)
 parser.add_argument("-w", "--workloads", type=str, nargs='*', required=False)
+parser.add_argument("-v", "--track-variables", action="store_true", required=False)
 args = parser.parse_args()
 
 SELC_INV_FILE = "sampled_100_invariants.json"
@@ -153,11 +154,9 @@ workloads = [w for w in workloads if os.path.isdir(f"{E2E_FOLDER}/{w}") and w !=
 print(f"{len(workloads)} workloads to run: ", workloads)
 for w in workloads:
     if "ac_bert" in w:
-        run_exp(kill_sec=200, workload=w)
+        run_exp(kill_sec=200, workload=w, use_proxy=args.track_variables)
     elif "tf_summarization" in w:
-        run_exp(kill_sec=400, workload=w)
+        run_exp(kill_sec=400, workload=w, use_proxy=args.track_variables)
     else:
-        run_exp(kill_sec=60, workload=w)
+        run_exp(kill_sec=60, workload=w, use_proxy=args.track_variables)
 
-# print("Running Proxy Experiments")
-# run_exp(kill_sec=60, workload="mnist", use_proxy=True)
