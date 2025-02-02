@@ -42,7 +42,18 @@ def add_observer(module_name, function_name, cond_dump, observe_then_unproxy=Fal
             print(f"error finding {function_name}: module {module_name} not found")
 
     try:
-        function = module.__dict__.get(function_name)
+        # Retrieve the function or property
+        cls = module  # Assume module is a class
+        function = getattr(cls, function_name, None)
+
+        # Check if it's a property before proceeding
+        if isinstance(function, property):
+            print(
+                f"Skipping property function: {function_name} in module: {module_name}"
+            )
+            return
+
+        # Apply observer to non-property functions
         print(f"Observe function: {function_name} found in module: {module}")
         setattr(
             module,
