@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.4.4] - 2025-02-02
+
+### Added
+
+- Maintain proxy table
+
+### Fixed
+
+- Use getattr to access functions to prevent breaking the control flow for property functions
+
 ## [0.4.2] - 2024-07-12
 
 ### Added
