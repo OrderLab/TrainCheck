@@ -226,7 +226,7 @@ def tensor_stats(tensor: torch.Tensor):
         "std": std,
         "shape": shape,
     }
-    tensor.mldaikon_tensor_stats = result
+    tensor.mldaikon_tensor_stats = result  # type: ignore
     return result
 
 
