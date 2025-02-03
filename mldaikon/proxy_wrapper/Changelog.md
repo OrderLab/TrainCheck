@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning].
 
 - /
 
+## [0.4.4] - 2025-02-02
+
+### Added
+
+- Maintain global registry to proxied objects (to access the vars, use `from mldaikon.proxy_wrapper.proxy import get_registered_object`)
+- Bypass tensor stats/hash computation if it has already been calculated
+
+### Fixed
+
+- Use getattr to access functions to prevent breaking the control flow for property functions
+
 ## [0.4.2] - 2024-07-12
 
 ### Added

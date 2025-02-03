@@ -33,6 +33,21 @@ def get_line(filename, lineno):
     return linecache.getline(filename, lineno).strip()
 
 
+# Global dictionary to store registered objects
+global_registry = {}
+
+
+def register_object(var_name, obj):
+    """Registers an object into the global registry."""
+    if var_name:
+        global_registry[var_name] = obj
+
+
+def get_registered_object(var_name):
+    """Retrieves an object from the global registry."""
+    return global_registry.get(var_name, None)
+
+
 def proxy_handler(
     obj,
     logdir,
@@ -73,7 +88,7 @@ def proxy_handler(
         return obj
     for obj_type in handled_obj_type:
         if issubclass(type(obj), obj_type):
-            return Proxy(
+            proxied_obj = Proxy(
                 obj,
                 logdir=logdir,
                 log_level=log_level,
@@ -82,6 +97,12 @@ def proxy_handler(
                 from_call=from_call,
                 from_iter=from_iter,
             )
+
+            # Register the object
+            register_object(var_name, proxied_obj)
+            return proxied_obj
+
+    # if the object is not in handled_obj_type, then return the object directly
     return obj
 
 

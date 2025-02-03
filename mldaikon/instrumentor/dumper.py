@@ -212,18 +212,22 @@ def get_instrumentation_logger_for_process():
 
 
 def tensor_stats(tensor: torch.Tensor):
+    if hasattr(tensor, "mldaikon_tensor_stats"):
+        return tensor.mldaikon_tensor_stats
     min = float(tensor.min().item())
     max = float(tensor.max().item())
     mean = float(tensor.mean().item())
     std = float(tensor.std().item())
     shape = tuple(int(x) for x in tensor.size())
-    return {
+    result = {
         "min": min,
         "max": max,
         "mean": mean,
         "std": std,
         "shape": shape,
     }
+    tensor.mldaikon_tensor_stats = result  # type: ignore
+    return result
 
 
 def dump_tensor(value):
