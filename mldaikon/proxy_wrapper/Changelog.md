@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning].
 
 ### Added
 
-- Maintain proxy table
+- Maintain global registry to proxied objects (to access the vars, use `from mldaikon.proxy_wrapper.proxy import get_registered_object`)
+- Bypass tensor stats/hash computation if it has already been calculated
 
 ### Fixed
 
