@@ -85,6 +85,8 @@ def _reduce_last_axis(x: Tensor) -> Tensor:
 
 
 def tensor_hash(x: Tensor, with_parallel: bool = True, with_cuda: bool = True) -> int:
+    if hasattr(x, "_mldaikon_tensor_hash"):
+        return x._mldaikon_tensor_hash
     if with_parallel:
         assert x.dtype in [
             torch.float32,
@@ -102,13 +104,16 @@ def tensor_hash(x: Tensor, with_parallel: bool = True, with_cuda: bool = True) -
 
         if with_cuda and x.is_cuda:
             # Ensure the input is a floating-point tensor
-            return hash_tensor_cuda(x)
+            result = hash_tensor_cuda(x)
+            return result
         else:
-            return hash_tensor_cpu(x)
+            result = hash_tensor_cpu(x)
+            return result
     else:  # conventional approach using hashlib, use as the baseline to test the accuracy of the parallel approach
         # if on cuda, move to cpu. using hashlib to hash the tensor
         if x.is_cuda:
             x = x.cpu()
         import hashlib
 
-        return int(hashlib.sha256(x.detach().numpy().tobytes()).hexdigest(), 16)
+        result = int(hashlib.sha256(x.detach().numpy().tobytes()).hexdigest(), 16)
+        return result
