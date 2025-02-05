@@ -7,12 +7,19 @@ from mldaikon.utils import typename
 
 
 def observe_proxy_var(
-    var, phase, only_dump_when_change=True, pre_observed_var=None, trace_info=None
+    var,
+    phase,
+    observe_loc: str,
+    only_dump_when_change=True,
+    pre_observed_var=None,
+    trace_info=None,
 ):
     if is_proxied(var):
         if only_dump_when_change:
             if phase == "pre_observe":
-                trace_info = var.dump_trace(phase, only_dump_when_change)
+                trace_info = var.dump_trace(
+                    phase, only_dump_when_change, dump_loc=observe_loc
+                )
                 assert trace_info is not None, "trace_info should not be None"
                 return trace_info
 
@@ -22,7 +29,11 @@ def observe_proxy_var(
                 ), "pre_observed_var should not be None"
                 assert trace_info is not None, "trace_info should not be None"
                 var.dump_trace(
-                    phase, only_dump_when_change, pre_observed_var, trace_info
+                    phase,
+                    only_dump_when_change,
+                    pre_observed_var,
+                    trace_info,
+                    dump_loc=observe_loc,
                 )
         else:
             var.dump_trace(phase)
@@ -33,6 +44,7 @@ def observe_proxy_var(
 
 def add_observer_to_func(original_function, cond_dump, unproxy=False):
     only_dump_when_change = auto_observer_config["only_dump_when_change"]
+    original_function_name = typename(original_function)
 
     @functools.wraps(original_function)
     def wrapper(*args, **kwargs):
@@ -91,7 +103,10 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
             else:
                 pre_observed_var = var
             trace_info[i] = observe_proxy_var(
-                pre_observed_var, "pre_observe", only_dump_when_change
+                pre_observed_var,
+                "pre_observe",
+                original_function_name,
+                only_dump_when_change,
             )
 
         processed_function = original_function
@@ -105,6 +120,7 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
             observe_proxy_var(
                 var,
                 "post_observe",
+                original_function_name,
                 only_dump_when_change,
                 pre_observed_var,
                 trace_info[i],

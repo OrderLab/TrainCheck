@@ -47,7 +47,7 @@ class json_dumper(metaclass=Singleton):
         var_type,
         change_type,
         var_attributes,
-        stack_trace=None,
+        dump_loc=None,
     ):
 
         if (
@@ -62,6 +62,7 @@ class json_dumper(metaclass=Singleton):
             "var_name": var_name,
             "var_type": var_type,
             "mode": change_type,  # "new", "update"
+            "dump_loc": dump_loc,
             # "stack_trace": stack_trace,
             "process_id": process_id,
             "thread_id": thread_id,
@@ -70,6 +71,7 @@ class json_dumper(metaclass=Singleton):
             "attributes": var_attributes,
             "type": TraceLineType.STATE_CHANGE,
         }
+
         json_data = json.dumps(data)
 
         self.json_file.write(json_data + "\n")

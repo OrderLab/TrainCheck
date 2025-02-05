@@ -1,3 +1,3 @@
 import torch
 
-handled_obj_type = [torch.Tensor, torch.nn.Module]
+PROXY_SUPPORT_OBJ_TYPES = [torch.Tensor, torch.nn.Module]

@@ -24,7 +24,7 @@ from mldaikon.proxy_wrapper.dumper import (
 )
 from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
-from mldaikon.proxy_wrapper.proxy_handler import handled_obj_type
+from mldaikon.proxy_wrapper.proxy_handler import PROXY_SUPPORT_OBJ_TYPES
 from mldaikon.proxy_wrapper.utils import print_debug
 from mldaikon.utils import typename
 
@@ -86,7 +86,7 @@ def proxy_handler(
         obj = generator_proxy_handler()
     if typename(obj).startswith("torch.distributed"):
         return obj
-    for obj_type in handled_obj_type:
+    for obj_type in PROXY_SUPPORT_OBJ_TYPES:
         if issubclass(type(obj), obj_type):
             proxied_obj = Proxy(
                 obj,
@@ -152,6 +152,7 @@ class Proxy:
         prev_obj=None,
         prev_trace_info=None,
         disable_sampling=False,
+        dump_loc=None,
     ):
         if not should_dump_trace(
             general_config.ENABLE_COND_DUMP,
@@ -201,7 +202,7 @@ class Proxy:
                 else:
                     current_time = time.time()
                     self.__dict__["last_update_timestamp"] = current_time
-                    self.dump_to_trace(prev_obj, prev_trace_info)
+                    self.dump_to_trace(prev_obj, prev_trace_info, dump_loc)
 
             # record the trace info
             if proxy_config.debug_mode:
@@ -221,7 +222,7 @@ class Proxy:
             if only_record and status == "pre_observe":
                 return trace_info
 
-            self.dump_to_trace(self._obj, trace_info)
+            self.dump_to_trace(self._obj, trace_info, dump_loc)
             return None
         else:
             return SkippedDumpingObj(self._obj)
@@ -248,7 +249,7 @@ class Proxy:
                 new_copy.__dict__[attr_name] = copy.deepcopy(attr_value, memo)
         return new_copy
 
-    def dump_to_trace(self, obj, trace_info):
+    def dump_to_trace(self, obj, trace_info, dump_loc=None):
         if isinstance(trace_info, SkippedDumpingObj):
             return
         # version based filtering
@@ -260,9 +261,7 @@ class Proxy:
             status = trace_info["status"]
         else:
             status = "update"
-        if "frame_array" in trace_info:
-            dumped_frame_array = trace_info["frame_array"]
-        else:
+        if "frame_array" not in trace_info:
             raise ValueError("frame_array is not provided in trace_info")
 
         var_name = self.__dict__["var_name"]
@@ -295,7 +294,7 @@ class Proxy:
                 var_type=typename(obj),
                 change_type=status,
                 var_attributes=dump_attributes(self, obj),
-                stack_trace=dumped_frame_array,
+                dump_loc=dump_loc,
             )
 
     def __init__(
@@ -430,7 +429,7 @@ class Proxy:
                 # if the object is generated from getattr, then do not dump it
                 else:
                     trace_info["status"] = "update"
-                self.dump_to_trace(obj, trace_info)
+                self.dump_to_trace(obj, trace_info, dump_loc="initing")
                 self.__dict__["last_update_timestamp"] = current_time
                 Proxy.var_dict[current_var_name_list] = self
 
@@ -474,7 +473,7 @@ class Proxy:
                 else:
                     trace_info["status"] = "update"
 
-                self.dump_to_trace(obj, trace_info)
+                self.dump_to_trace(obj, trace_info, "initing")
 
             del Proxy.var_dict[current_var_name_list]
             self.__dict__["last_update_timestamp"] = current_time
