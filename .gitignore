@@ -57,3 +57,13 @@ Deepspeed/
 /lightning-thunder
 /machine-learning-issues/examples
 *.bin
+
+eval_scripts/perf_benchmark/overhead-e2e/*/*.svg
+eval_scripts/perf_benchmark/overhead-e2e/*/selective*
+eval_scripts/perf_benchmark/overhead-e2e/*/traincheck*
+*results*
+*perf_eval_res*
+*.pth.tar
+*.pth*
+*ubyte*
+eval_scripts/**/*.png
