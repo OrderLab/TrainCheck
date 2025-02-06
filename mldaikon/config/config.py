@@ -1,7 +1,7 @@
 import polars as pl
 
 # trace dumper configs:
-INSTR_MODE = "full"  # can be "full" or "selective" note that this config should not be changed, collect_trace.py will set this automatically
+INSTR_MODE = "selective"  # can be "full" or "selective" note that this config should not be changed, collect_trace.py will set this automatically
 
 BUFFER_SIZE = 1000  # number of events to buffer before dumping
 FLUSH_INTERVAL = 5  # seconds

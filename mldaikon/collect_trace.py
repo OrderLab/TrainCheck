@@ -41,6 +41,9 @@ def get_per_func_instr_opts(
     """
     Get per function instrumentation options
     """
+
+    # TODO: for APIContainRelation that describes a variable, if the precondition is not unconditional on the variable and the API belongs to a class, then all class methods should be instrumented with `scan_proxy_in_args` set to True
+
     func_instr_opts: dict[str, dict[str, bool | dict]] = {}
     for inv in invariants:
         for param in inv.params:

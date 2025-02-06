@@ -19,7 +19,7 @@ def observe_proxy_var(
     if is_proxied(var):
         # register/update the var to be observed in post_observe
         if phase == "post_observe":
-            var.register_observed_var()
+            var.register_object()
 
         if is_instr_selective():
             # do nothing but return, obj state dumps should be triggered separately
