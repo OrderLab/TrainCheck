@@ -1,4 +1,3 @@
-import datetime
 import functools
 import importlib
 import inspect
@@ -12,7 +11,6 @@ import types
 from typing import Any, Callable, Optional
 
 import torch
-import torch.utils
 
 import mldaikon.config.config as config  # needed to allow for change of values after import
 from mldaikon.config.config import (
@@ -1120,7 +1118,7 @@ class VarSampler:
             **Many of the activations and intermediate tensors are not updated inplace, so this observer will not be able to detect the changes in those tensors.**
         """
         self.param_versions = {}  # type: ignore
-        timestamp = datetime.datetime.now().timestamp()
+        timestamp = time.monotonic_ns()
 
         curr_meta_vars = get_meta_vars()
         for param in self._get_state_copy():
@@ -1164,7 +1162,7 @@ class VarSampler:
         2. Log the state
         """
 
-        timestamp = datetime.datetime.now().timestamp()
+        timestamp = time.monotonic_ns()
 
         curr_meta_vars = get_meta_vars()
         for param in self._get_state_copy():
