@@ -106,6 +106,11 @@ def register_custom_excepthook():
     threading.excepthook = thread_excepthook
 
 
+def get_timestamp_ns():
+    """Get the current timestamp, guaranteed to be unique in a single program run"""
+    return time.monotonic_ns()
+
+
 def get_unique_id():
     """Get a unique id a single program run"""
-    return f"{PROCESS_UUID}_{time.monotonic_ns()}"
+    return f"{PROCESS_UUID}_{get_timestamp_ns()}"

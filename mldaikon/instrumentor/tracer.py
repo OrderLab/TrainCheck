@@ -33,7 +33,7 @@ from mldaikon.instrumentor.replace_functions import (
 from mldaikon.instrumentor.types import PTID
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import enable_C_level_observer
-from mldaikon.utils import get_unique_id, typename
+from mldaikon.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
@@ -1118,7 +1118,7 @@ class VarSampler:
             **Many of the activations and intermediate tensors are not updated inplace, so this observer will not be able to detect the changes in those tensors.**
         """
         self.param_versions = {}  # type: ignore
-        timestamp = time.monotonic_ns()
+        timestamp = get_timestamp_ns()
 
         curr_meta_vars = get_meta_vars()
         for param in self._get_state_copy():
@@ -1162,7 +1162,7 @@ class VarSampler:
         2. Log the state
         """
 
-        timestamp = time.monotonic_ns()
+        timestamp = get_timestamp_ns()
 
         curr_meta_vars = get_meta_vars()
         for param in self._get_state_copy():

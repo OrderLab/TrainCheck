@@ -6,7 +6,6 @@ import linecache
 import logging
 import os
 import threading
-import time
 import types
 import typing
 from typing import Dict
@@ -26,7 +25,7 @@ from mldaikon.proxy_wrapper.dumper import json_dumper as dumper
 from mldaikon.proxy_wrapper.proxy_basics import unproxy_arg
 from mldaikon.proxy_wrapper.proxy_handler import PROXY_SUPPORT_OBJ_TYPES
 from mldaikon.proxy_wrapper.utils import print_debug
-from mldaikon.utils import typename
+from mldaikon.utils import get_timestamp_ns, typename
 
 
 def get_line(filename, lineno):
@@ -222,7 +221,7 @@ class Proxy:
             Proxy.var_dict[self.__dict__["var_name"]] = self
 
         if (
-            time.time()
+            get_timestamp_ns()
             - Proxy.var_dict[self.__dict__["var_name"]].__dict__[
                 "last_update_timestamp"
             ]
@@ -252,7 +251,7 @@ class Proxy:
                 if not dump_pre_and_post_trace:
                     return None
                 else:
-                    current_time = time.time()
+                    current_time = get_timestamp_ns()
                     self.__dict__["last_update_timestamp"] = current_time
                     self.dump_to_trace(prev_obj, prev_trace_info, dump_loc)
 
@@ -264,7 +263,7 @@ class Proxy:
             else:
                 dumped_frame_array = None
 
-            current_time = time.time()
+            current_time = get_timestamp_ns()
             trace_info = {
                 "time": current_time,
                 "status": status,
@@ -308,7 +307,7 @@ class Proxy:
         if "time" in trace_info:
             current_time = trace_info["time"]
         else:
-            current_time = time.time()
+            current_time = get_timestamp_ns()
         if "status" in trace_info:
             status = trace_info["status"]
         else:
@@ -467,7 +466,7 @@ class Proxy:
             if not dump_iter and from_iter:
                 return
 
-            current_time = time.time()
+            current_time = get_timestamp_ns()
             trace_info = {
                 "time": current_time,
                 "frame_array": dumped_frame_array,
@@ -492,11 +491,11 @@ class Proxy:
                 )
 
             print_debug(
-                lambda: f'Time elapse: {time.time() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"]}'
+                lambda: f'Time elapse: {get_timestamp_ns() - Proxy.var_dict[current_var_name_list].__dict__["last_update_timestamp"]}'
             )
             self.__dict__["_obj"] = obj
             if (
-                time.time()
+                get_timestamp_ns()
                 - Proxy.var_dict[current_var_name_list].__dict__[
                     "last_update_timestamp"
                 ]
@@ -511,7 +510,7 @@ class Proxy:
             if not dump_iter and from_iter:
                 return
 
-            current_time = time.time()
+            current_time = get_timestamp_ns()
 
             trace_info = {
                 "time": current_time,
@@ -578,7 +577,7 @@ class Proxy:
                 Proxy.var_dict[self.__dict__["var_name"]] = self
 
             print_debug(
-                lambda: f"Time elapse: {time.time() - Proxy.var_dict[self.__dict__['var_name']].__dict__['last_update_timestamp']}"
+                lambda: f"Time elapse: {get_timestamp_ns() - Proxy.var_dict[self.__dict__['var_name']].__dict__['last_update_timestamp']}"
             )
 
             if self.__dict__["var_name"] == "":

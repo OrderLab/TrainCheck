@@ -19,7 +19,7 @@ if torch.cuda.is_available():
     from mldaikon.proxy_wrapper.hash import tensor_hash
 
 from mldaikon.proxy_wrapper.utils import print_debug
-from mldaikon.utils import typename
+from mldaikon.utils import get_timestamp_ns, typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 THREAD_DATA = threading.local()
@@ -177,14 +177,14 @@ var_trace_buffer = TraceBuffer(get_trace_VAR_dumper_queue)
 
 def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
-    trace["time"] = time.monotonic_ns()
+    trace["time"] = get_timestamp_ns()
     api_trace_buffer.add_trace(trace)
 
 
 def dump_trace_VAR(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     if "time" not in trace:
-        trace["time"] = time.monotonic_ns()
+        trace["time"] = get_timestamp_ns()
     var_trace_buffer.add_trace(trace)
 
 
