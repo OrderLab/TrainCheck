@@ -14,7 +14,12 @@ def observe_proxy_var(
     pre_observed_var=None,
     trace_info=None,
 ):
+
     if is_proxied(var):
+        # register/update the var to be observed in post_observe
+        if phase == "post_observe":
+            var.register_observed_var()
+
         if only_dump_when_change:
             if phase == "pre_observe":
                 trace_info = var.dump_trace(

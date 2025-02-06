@@ -56,7 +56,7 @@ class ProxyRegistry:
         with self.registry_lock:
             self.registry[var_name] = RegistryEntry(proxy=var, stale=False)
 
-    def dump_sample(self):
+    def dump_sample(self, dump_loc=None):
         """A complete dump of all present proxy objects
 
         Calling this API mark all proxy objects as stale which
@@ -65,9 +65,9 @@ class ProxyRegistry:
         with self.registry_lock:
             for var_name, entry in self.registry.items():
                 entry.stale = True
-                entry.proxy.dump_trace("sample")
+                entry.proxy.dump_trace("sample", dump_loc=dump_loc)
 
-    def dump_only_modified(self):
+    def dump_only_modified(self, dump_loc=None):
         """Dump only the proxy variables that might be modified since last dump
 
         ** This is a middle ground between blindly dump everything everytime v.s. fully-accurate delta dumping **
@@ -87,16 +87,11 @@ class ProxyRegistry:
             for var_name, entry in self.registry.items():
                 if entry.stale:
                     entry.stale = False
-                    entry.proxy.dump_trace("selective-sample")
+                    entry.proxy.dump_trace("selective-sample", dump_loc=dump_loc)
 
 
 # Global dictionary to store registered objects
 global_registry = ProxyRegistry()
-
-
-def register_object(var_name, obj):
-    """Registers an object into the global registry."""
-    global_registry.add_var(obj, var_name)
 
 
 def proxy_handler(
@@ -150,7 +145,7 @@ def proxy_handler(
             )
 
             # Register the object
-            register_object(var_name, proxied_obj)
+            proxied_obj.register_object()
             return proxied_obj
 
     # if the object is not in handled_obj_type, then return the object directly
@@ -195,6 +190,9 @@ class Proxy:
             )
             frame = frame.f_back
         return frame_array
+
+    def register_object(self):
+        global_registry.add_var(self, self.__dict__["var_name"])
 
     def dump_trace(
         self,
@@ -579,6 +577,9 @@ class Proxy:
             print_debug(
                 lambda: f"Time elapse: {get_timestamp_ns() - Proxy.var_dict[self.__dict__['var_name']].__dict__['last_update_timestamp']}"
             )
+
+            # update the timestamp of the current object
+            self.register_object()
 
             if self.__dict__["var_name"] == "":
                 var_name = name
