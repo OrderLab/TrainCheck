@@ -1,6 +1,8 @@
 import polars as pl
 
 # trace dumper configs:
+INSTR_MODE = "full"  # can be "full" or "selective" note that this config should not be changed, collect_trace.py will set this automatically
+
 BUFFER_SIZE = 1000  # number of events to buffer before dumping
 FLUSH_INTERVAL = 5  # seconds
 
@@ -172,3 +174,12 @@ ALL_STAGE_NAMES = {
     "preprocessing",
     "postprocessing",
 }
+
+
+def is_instr_selective():
+    """A helper function to check if the instrumentation mode is selective
+
+    Currently, only the proxy-based variable tracking will make use of this specific function to do selective instrumentation.
+    For API and arg/ret value dumping, selective instrumentation is handled via the `instr_opts.json` file.
+    """
+    return INSTR_MODE == "selective"

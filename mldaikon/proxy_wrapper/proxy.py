@@ -603,6 +603,10 @@ class Proxy:
                     ),
                 )
             # dump frame array
+            if general_config.is_instr_selective():
+                # do not dump update traces
+                return None
+
             if type(value) in proxy_config.primitive_types:
                 self.dump_trace("update", disable_sampling=True)
             else:

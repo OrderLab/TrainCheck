@@ -1,5 +1,6 @@
 import functools
 
+from mldaikon.config.config import is_instr_selective
 from mldaikon.instrumentor.tracer import should_dump_trace
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
@@ -19,6 +20,10 @@ def observe_proxy_var(
         # register/update the var to be observed in post_observe
         if phase == "post_observe":
             var.register_observed_var()
+
+        if is_instr_selective():
+            # do nothing but return, obj state dumps should be triggered separately
+            return None
 
         if only_dump_when_change:
             if phase == "pre_observe":
