@@ -325,11 +325,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Use full instrumentation for the instrumentor, if not set, the instrumentor may not dump traces for certain APIs in modules deemed not important (e.g. jit in torch)",
     )
-    parser.add_argument(
-        "--cond-dump",
-        action="store_true",
-        help="Dump the conditions for the APIs conditionally, currently only dumps an API if meta_var has changed since the last dump",
-    )
 
     ## variable tracker configs
     parser.add_argument(
