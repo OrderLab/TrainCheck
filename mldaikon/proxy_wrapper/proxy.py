@@ -94,6 +94,10 @@ class ProxyRegistry:
 global_registry = ProxyRegistry()
 
 
+def get_global_registry():
+    return global_registry
+
+
 def proxy_handler(
     obj,
     logdir,
@@ -603,7 +607,7 @@ class Proxy:
                     ),
                 )
             # dump frame array
-            if general_config.is_instr_selective():
+            if general_config.should_disable_proxy_dumping():
                 # do not dump update traces
                 return None
 

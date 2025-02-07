@@ -86,27 +86,24 @@ class InstrOpt:
         self,
         func_instr_opts: dict[str, dict[str, bool | dict]],
         model_tracker_style: str | None,
-        is_instr_selective: bool,
+        disable_proxy_dumping: bool,
     ):
         assert model_tracker_style in [
             "sampler",
             "proxy",
             None,
         ], "model_tracker_style should be one of ['sampler', 'proxy', None]"
-        assert (
-            is_instr_selective
-        ), "Currently only supporting selective instrumentation when using instr_opts.json"
 
         self.funcs_instr_opts: dict[str, dict[str, bool | dict]] = func_instr_opts
         self.model_tracker_style = model_tracker_style
-        self.is_instr_selective = is_instr_selective
+        self.disable_proxy_dumping = disable_proxy_dumping
 
     def to_json(self) -> str:
         return json.dumps(
             {
                 "funcs_instr_opts": self.funcs_instr_opts,
                 "model_tracker_style": self.model_tracker_style,
-                "is_instr_selective": self.is_instr_selective,
+                "disable_proxy_dumping": self.disable_proxy_dumping,
             }
         )
 
@@ -116,7 +113,7 @@ class InstrOpt:
         return InstrOpt(
             instr_opt_dict["funcs_instr_opts"],
             instr_opt_dict["model_tracker_style"],
-            instr_opt_dict["is_instr_selective"],
+            instr_opt_dict["disable_proxy_dumping"],
         )
 
 
@@ -128,8 +125,8 @@ def load_instr_opts():
     return INSTR_OPTS
 
 
-def is_instr_selective() -> bool:
-    return INSTR_OPTS is not None and INSTR_OPTS.is_instr_selective
+def should_disable_proxy_dumping() -> bool:
+    return INSTR_OPTS is not None and INSTR_OPTS.disable_proxy_dumping
 
 
 # consistency relation configs

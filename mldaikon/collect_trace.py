@@ -58,7 +58,9 @@ def get_per_func_instr_opts(
                     func_instr_opts[func_name] = {
                         "scan_proxy_in_args": False,
                         "dump_args": False,
-                        "dump_ret": False,  # not really used for now
+                        "dump_ret": False,  # not really used for now'
+                        "check_unchanged_vars": False,
+                        "var_types_to_track": {},  # NOTE: do selective proxy dumping in APIs might interfere with correctness of the Consistency Relation Checking
                     }
 
             if isinstance(param, APIParam):
@@ -110,19 +112,29 @@ def get_per_func_instr_opts(
         if inv.relation == APIContainRelation:
             assert isinstance(inv.params[0], APIParam)
             assert inv.precondition is not None
-            if (
-                isinstance(inv.params[1], (VarNameParam, VarTypeParam))
-                and VAR_GROUP_NAME in inv.precondition.get_group_names()
-                and not inv.precondition.get_group(VAR_GROUP_NAME).is_unconditional()
-            ):
-                # if the APIContain invariant describes a variable, and the precondition is not unconditional on the variable, then scan the arguments of the function
-                func_instr_opts[inv.params[0].api_full_name][
-                    "scan_proxy_in_args"
-                ] = True
-            else:
-                func_instr_opts[inv.params[0].api_full_name][
-                    "scan_proxy_in_args"
-                ] = False
+            if isinstance(inv.params[1], (VarNameParam, VarTypeParam)):
+                if (
+                    VAR_GROUP_NAME in inv.precondition.get_group_names()
+                    and not inv.precondition.get_group(
+                        VAR_GROUP_NAME
+                    ).is_unconditional()
+                ):
+                    # if the APIContain invariant describes a variable, and the precondition is not unconditional on the variable, then scan the arguments of the function
+                    func_instr_opts[inv.params[0].api_full_name][
+                        "scan_proxy_in_args"
+                    ] = True
+                    func_instr_opts[inv.params[0].api_full_name][
+                        "check_unchanged_vars"
+                    ] = True
+                    func_instr_opts[inv.params[0].api_full_name][  # type: ignore
+                        "var_types_to_track"
+                    ].add(
+                        inv.params[1].var_type
+                    )  # type: ignore
+                else:
+                    func_instr_opts[inv.params[0].api_full_name][
+                        "scan_proxy_in_args"
+                    ] = False
 
     return func_instr_opts
 
@@ -145,6 +157,19 @@ def get_model_tracker_instr_opts(invariants: list[Invariant]) -> str | None:
         if tracker_type == "proxy":
             break
     return tracker_type
+
+
+def get_disable_proxy_dumping(invariants: list[Invariant]) -> bool:
+    """
+    Get disable proxy dumping options for checking
+
+    Always return True if an APIContain invariant requested proxy tracking
+
+    We cannot disable automatic variable dumping if only consistency relations but no APIContain
+    require variable states, as then no APIs will trigger state dumps.
+    However, the var tracker should be sampler if there's no APIContain anyway
+    """
+    return True
 
 
 def dump_env(output_dir: str):
@@ -443,7 +468,7 @@ if __name__ == "__main__":
         instr_opts = InstrOpt(
             func_instr_opts=get_per_func_instr_opts(invariants),
             model_tracker_style=get_model_tracker_instr_opts(invariants),
-            is_instr_selective=True,
+            disable_proxy_dumping=True,
         )
         models_to_track = (
             args.models_to_track if instr_opts.model_tracker_style else None

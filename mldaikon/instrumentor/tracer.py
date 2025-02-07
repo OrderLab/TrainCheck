@@ -30,6 +30,7 @@ from mldaikon.instrumentor.replace_functions import (
     is_funcs_to_be_unproxied,
 )
 from mldaikon.instrumentor.types import PTID
+from mldaikon.proxy_wrapper.proxy import get_global_registry
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import enable_C_level_observer
 from mldaikon.utils import get_timestamp_ns, get_unique_id, typename
@@ -198,18 +199,19 @@ def to_dict_return_value(result) -> dict | list[dict]:
 
 
 def global_wrapper(
-    original_function,
-    original_function_name,
-    is_bound_method,
-    is_builtin,
-    scan_proxy_in_args,
-    dump_stack_trace,
-    cond_dump,
-    dump_args,
+    original_function: Callable,
+    original_function_name: str,
+    is_bound_method: bool,
+    is_builtin: bool,
+    scan_proxy_in_args: bool,
+    dump_stack_trace: bool,
+    cond_dump: bool,
+    dump_args: bool,
     dump_args_config,
-    dump_ret,
+    dump_ret: bool,
     dump_ret_config,
-    handle_proxy,
+    handle_proxy: bool,
+    trigger_proxy_state_dump: bool,
     *args,
     **kwargs,
 ):
@@ -295,7 +297,7 @@ def global_wrapper(
                     args[i] = iter(arg_list)
                     find_proxy_in_args(arg_list)
 
-        args = list(args)
+        args = list(args)  # type: ignore[assignment]
         find_proxy_in_args(args)
         args = tuple(args)
 
@@ -330,11 +332,18 @@ def global_wrapper(
             original_function = unproxy_func(original_function)
 
     try:
-        ORIG_ENTER_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_ENTER_PERF_TIME = time.perf_counter()
         result = original_function(*args, **kwargs)
-        ORIG_EXIT_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_EXIT_PERF_TIME = time.perf_counter()
+
+        if handle_proxy and trigger_proxy_state_dump:
+            get_global_registry().dump_only_modified(dump_loc=original_function_name)
+
     except Exception as e:
-        ORIG_EXIT_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_EXIT_PERF_TIME = time.perf_counter()
         dump_trace_API(
             {
                 "func_call_id": func_call_id,
@@ -467,6 +476,7 @@ def wrapper(
     dump_ret=True,
     dump_ret_config=None,
     handle_proxy=True,
+    trigger_proxy_state_dump=False,
 ):
     is_builtin = is_c_level_function(original_function)
     original_function_name = typename(original_function)
@@ -489,7 +499,7 @@ def wrapper(
                 dump_ret,
                 dump_ret_config,
                 handle_proxy,
-                *args,
+                trigger_proxy_state_dump * args,
                 **kwargs,
             )
 
@@ -920,6 +930,7 @@ class Instrumentor:
                     else None
                 ),
                 handle_proxy=used_proxy,
+                trigger_proxy_state_dump=instr_opts["trigger_proxy_state_dump"],
             )
 
         return wrapper(
