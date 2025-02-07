@@ -1,7 +1,6 @@
 import functools
 import importlib
 import inspect
-import json
 import logging
 import os
 import threading
@@ -672,7 +671,7 @@ class Instrumentor:
         self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
         self.cond_dump = cond_dump
-        self.instr_opts: None | dict[str, dict[str, dict[str, bool]]] = None
+        self.instr_opts = config.load_instr_opts()
 
         if self.funcs_to_instr is not None and self.use_full_instr:
             get_instrumentation_logger_for_process().fatal(
@@ -685,21 +684,6 @@ class Instrumentor:
         if self.funcs_to_instr is not None:
             get_instrumentation_logger_for_process().info(
                 f"Functions of interest for invariant inference: {self.funcs_to_instr}"
-            )
-
-        # discover if instr_opts.json is present
-        instr_opts_path = config.INSTR_OPTS_FILE
-        print("instr_opts_path: ", instr_opts_path)
-        get_instrumentation_logger_for_process().info(
-            f"Checking instr_opts at {instr_opts_path}"
-        )
-        if os.path.exists(instr_opts_path):
-            print(f"Loading instr_opts from {instr_opts_path}")
-            with open(instr_opts_path, "r") as f:
-                instr_opts = json.load(f)
-                self.instr_opts = instr_opts
-            get_instrumentation_logger_for_process().info(
-                f"Loaded instr_opts: {json.dumps(instr_opts, indent=4)}"
             )
 
     def instrument(self) -> int:
@@ -904,10 +888,10 @@ class Instrumentor:
         if self.instr_opts is not None:
             used_proxy = (
                 "model_tracker_style" in self.instr_opts
-                and self.instr_opts["model_tracker_style"] == "proxy"
+                and self.instr_opts.model_tracker_style == "proxy"
             )
             func_name = typename(func_obj)
-            if func_name not in self.instr_opts["funcs_instr_opts"]:
+            if func_name not in self.instr_opts.funcs_instr_opts:
                 return wrapper(
                     func_obj,
                     is_bound_method=None,
@@ -918,7 +902,7 @@ class Instrumentor:
                     handle_proxy=used_proxy,
                 )
 
-            instr_opts = self.instr_opts["funcs_instr_opts"][func_name]
+            instr_opts = self.instr_opts.funcs_instr_opts[func_name]
             return wrapper(
                 func_obj,
                 is_bound_method=is_API_bound_method(func_obj),

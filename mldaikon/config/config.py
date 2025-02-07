@@ -1,8 +1,10 @@
+import json
+import os
+
 import polars as pl
+import yaml
 
 # trace dumper configs:
-INSTR_MODE = "selective"  # can be "full" or "selective" note that this config should not be changed, collect_trace.py will set this automatically
-
 BUFFER_SIZE = 1000  # number of events to buffer before dumping
 FLUSH_INTERVAL = 5  # seconds
 
@@ -75,6 +77,59 @@ ANALYSIS_SKIP_FUNC_NAMES = [
     "torch.overrides",
     "._",  # skip all private functions (they can only be the contained, but not containing functions)
 ]
+
+INSTR_OPTS = None  # TODO: set defaults for this variable
+
+
+class InstrOpt:
+    def __init__(
+        self,
+        func_instr_opts: dict[str, dict[str, bool | dict]],
+        model_tracker_style: str | None,
+        is_instr_selective: bool,
+    ):
+        assert model_tracker_style in [
+            "sampler",
+            "proxy",
+            None,
+        ], "model_tracker_style should be one of ['sampler', 'proxy', None]"
+        assert (
+            is_instr_selective
+        ), "Currently only supporting selective instrumentation when using instr_opts.json"
+
+        self.funcs_instr_opts: dict[str, dict[str, bool | dict]] = func_instr_opts
+        self.model_tracker_style = model_tracker_style
+        self.is_instr_selective = is_instr_selective
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "funcs_instr_opts": self.funcs_instr_opts,
+                "model_tracker_style": self.model_tracker_style,
+                "is_instr_selective": self.is_instr_selective,
+            }
+        )
+
+    @staticmethod
+    def from_json(instr_opt_json_str: str):
+        instr_opt_dict = yaml.safe_load(instr_opt_json_str)
+        return InstrOpt(
+            instr_opt_dict["funcs_instr_opts"],
+            instr_opt_dict["model_tracker_style"],
+            instr_opt_dict["is_instr_selective"],
+        )
+
+
+def load_instr_opts():
+    global INSTR_OPTS
+    if INSTR_OPTS is None and os.path.exists(INSTR_OPTS_FILE):
+        with open(INSTR_OPTS_FILE, "r") as f:
+            INSTR_OPTS = InstrOpt.from_json(f.read())
+    return INSTR_OPTS
+
+
+def is_instr_selective() -> bool:
+    return INSTR_OPTS is not None and INSTR_OPTS.is_instr_selective
 
 
 # consistency relation configs
@@ -174,12 +229,3 @@ ALL_STAGE_NAMES = {
     "preprocessing",
     "postprocessing",
 }
-
-
-def is_instr_selective():
-    """A helper function to check if the instrumentation mode is selective
-
-    Currently, only the proxy-based variable tracking will make use of this specific function to do selective instrumentation.
-    For API and arg/ret value dumping, selective instrumentation is handled via the `instr_opts.json` file.
-    """
-    return INSTR_MODE == "selective"

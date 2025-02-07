@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import json
 import logging
 import os
 
@@ -10,6 +9,7 @@ import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
 import mldaikon.proxy_wrapper.proxy_config as proxy_config
 import mldaikon.runner as runner
+from mldaikon.config.config import InstrOpt
 from mldaikon.invariant.base_cls import (
     APIParam,
     Arguments,
@@ -127,42 +127,24 @@ def get_per_func_instr_opts(
     return func_instr_opts
 
 
-class InstrOpt:
-    def __init__(self, invariants: list[Invariant]):
-        self.funcs_instr_opts: dict[str, dict[str, bool | dict]] = {}
-        self.model_tracker_style = None
+def get_model_tracker_instr_opts(invariants: list[Invariant]) -> str | None:
+    """
+    Get model tracker instrumentation options
+    """
 
-        # determine model_tracker_style:
-        # if any of the invariants to be deployed is an APIContain invariant with a param describing a variable, then use proxy
-        # if any of the invariants to be deployed is a Consistency invariant, then use sampler (if not already set to proxy)
-        for inv in invariants:
-            if inv.relation == APIContainRelation:
-                for param in inv.params:
-                    if isinstance(param, (VarNameParam, VarTypeParam)):
-                        self.model_tracker_style = "proxy"
-                        break
-            if inv.relation == ConsistencyRelation:
-                if self.model_tracker_style is None:
-                    self.model_tracker_style = "sampler"
+    tracker_type = None
+    for inv in invariants:
+        if inv.relation == APIContainRelation:
+            for param in inv.params:
+                if isinstance(param, (VarNameParam, VarTypeParam)):
+                    tracker_type = "proxy"
+                    break
+        if tracker_type is None and inv.relation == ConsistencyRelation:
+            tracker_type = "sampler"
 
-            if self.model_tracker_style == "proxy":
-                break
-
-        # determine funcs_instr_opts
-        self.funcs_instr_opts = get_per_func_instr_opts(invariants)
-
-    def to_json(self) -> str:
-        return json.dumps(
-            {
-                "funcs_instr_opts": self.funcs_instr_opts,
-                "model_tracker_style": self.model_tracker_style,
-            }
-        )
-
-    def from_json(self, instr_opt_json_str: str):
-        instr_opt_dict = yaml.safe_load(instr_opt_json_str)
-        self.funcs_instr_opts = instr_opt_dict["funcs_instr_opts"]
-        self.model_tracker_style = instr_opt_dict["model_tracker_style"]
+        if tracker_type == "proxy":
+            break
+    return tracker_type
 
 
 def dump_env(output_dir: str):
@@ -458,7 +440,11 @@ if __name__ == "__main__":
     if args.invariants:
         # selective instrumentation if invariants are provided, only funcs_to_instr will be instrumented with trace collection
         invariants = read_inv_file(args.invariants)
-        instr_opts = InstrOpt(invariants)
+        instr_opts = InstrOpt(
+            func_instr_opts=get_per_func_instr_opts(invariants),
+            model_tracker_style=get_model_tracker_instr_opts(invariants),
+            is_instr_selective=True,
+        )
         models_to_track = (
             args.models_to_track if instr_opts.model_tracker_style else None
         )
