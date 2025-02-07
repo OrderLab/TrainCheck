@@ -886,10 +886,7 @@ class Instrumentor:
         """
         used_proxy = True  # TODO: dump instr_opts when doing full instr as well so we can determine whether to handle proxy based on the specific instrumentation args
         if self.instr_opts is not None:
-            used_proxy = (
-                "model_tracker_style" in self.instr_opts
-                and self.instr_opts.model_tracker_style == "proxy"
-            )
+            used_proxy = self.instr_opts.model_tracker_style == "proxy"
             func_name = typename(func_obj)
             if func_name not in self.instr_opts.funcs_instr_opts:
                 return wrapper(
