@@ -31,7 +31,7 @@ def unparse_module(module_name, level=0):
     return None
 
 
-def add_observer(module_name, function_name, cond_dump, observe_then_unproxy=False):
+def add_observer(module_name, function_name, observe_then_unproxy=False):
     # import and get the function object use importlib
     try:
         module = importlib.import_module(module_name)
@@ -58,7 +58,7 @@ def add_observer(module_name, function_name, cond_dump, observe_then_unproxy=Fal
         setattr(
             module,
             function_name,
-            add_observer_to_func(function, cond_dump, observe_then_unproxy),
+            add_observer_to_func(function, observe_then_unproxy),
         )
 
     except AttributeError:
@@ -75,7 +75,6 @@ def add_observer_given_call_graph(
     neglect_hidden_func=True,
     neglect_hidden_module=True,
     observe_then_unproxy=False,
-    cond_dump=False,
 ):
     with open(log_file_path, "r") as f:
         lines = f.readlines()
@@ -106,15 +105,11 @@ def add_observer_given_call_graph(
                 if observe_up_to_depth:
                     if int(function_depth) <= depth:
                         # print(f'module_name: {module_name}, function_name: {function_name}, function_depth: {function_depth}')
-                        add_observer(
-                            module_name, function_name, cond_dump, observe_then_unproxy
-                        )
+                        add_observer(module_name, function_name, observe_then_unproxy)
                 else:
                     if int(function_depth) == depth:
                         # print(f'module_name: {module_name}, function_name: {function_name}, function_depth: {function_depth}')
-                        add_observer(
-                            module_name, function_name, cond_dump, observe_then_unproxy
-                        )
+                        add_observer(module_name, function_name, observe_then_unproxy)
 
 
 if __name__ == "__main__":

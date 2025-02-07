@@ -493,7 +493,6 @@ disabling model tracking."""
             model_tracker_style=instr_opts.model_tracker_style,
             adjusted_proxy_config=adjusted_proxy_config,  # type: ignore
             API_dump_stack_trace=args.API_dump_stack_trace,
-            cond_dump=args.cond_dump,
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
         )
@@ -508,7 +507,6 @@ disabling model tracking."""
             model_tracker_style=args.model_tracker_style,
             adjusted_proxy_config=adjusted_proxy_config,  # type: ignore
             API_dump_stack_trace=args.API_dump_stack_trace,
-            cond_dump=args.cond_dump,
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
         )

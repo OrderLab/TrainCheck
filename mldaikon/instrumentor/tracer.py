@@ -7,7 +7,7 @@ import threading
 import time
 import traceback
 import types
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import torch
 
@@ -17,7 +17,7 @@ from mldaikon.config.config import (
     SKIP_INSTR_APIS,
     WRAP_WITHOUT_DUMP,
 )
-from mldaikon.instrumentor.caches import cache_meta_vars, meta_vars
+from mldaikon.instrumentor.caches import meta_vars
 from mldaikon.instrumentor.dumper import (
     convert_var_to_dict,
     dump_trace_API,
@@ -29,7 +29,6 @@ from mldaikon.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
-from mldaikon.instrumentor.types import PTID
 from mldaikon.proxy_wrapper.proxy import get_global_registry
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import enable_C_level_observer
@@ -101,64 +100,6 @@ def increment_step_if_needed(func_obj, func_name, is_bound_method, args):
             )
 
 
-def should_dump_trace(
-    cond_dump: bool,
-    ptid: PTID | None,
-    key,
-    meta_vars: dict[str, Any] | None,
-    meta_vars_targets: list[str] | None,
-    update_cache: bool = True,
-) -> bool:
-    """Determine if trace dumping should be enabled for this particular function call
-    - cond_dump (bool): whether conditional dumping should be enabled at all, if False, always return True
-    - ptid (PTID): process and thread id, if None, will be inferred from the current process and thread
-    - key (str): a unique key that can identify the function or the variable to be dumped
-    - meta_vars (dict[str, Any]): the current meta_vars, if None, will be inferred from the current frame
-    - meta_vars_targets (list[str]|None): a subset of keys in meta_vars that should be used to determine if the trace should be dumped
-    - update_cache (bool): whether to update the cache_meta_vars with the current meta_vars if the trace should be dumped
-
-    If True is returned, cache_meta_vars will be updated with the current meta_vars
-    """
-    global IS_INSTRUMENTING
-    if IS_INSTRUMENTING:
-        # don't dump anything during instrumentation
-        return False
-
-    if not cond_dump:
-        return True
-
-    # conditional dumping logic
-    if ptid is None:
-        tid = threading.current_thread().ident
-        assert tid is not None, "threading.current_thread().ident is None"
-        ptid = PTID(os.getpid(), tid)
-
-    if meta_vars is None:
-        meta_vars = get_meta_vars()
-
-    prev_meta_vars = cache_meta_vars[ptid][key]
-    if not prev_meta_vars:
-        if update_cache:
-            cache_meta_vars[ptid][key] = meta_vars
-        return True
-
-    prev_targets = prev_meta_vars
-    targets = meta_vars
-    if meta_vars_targets:
-        prev_targets = {
-            k: v for k, v in prev_meta_vars.items() if k in meta_vars_targets
-        }
-        targets = {k: v for k, v in meta_vars.items() if k in meta_vars_targets}
-
-    # only if the meta_vars have changed, we will dump the trace
-    if prev_targets != targets:
-        if update_cache:
-            cache_meta_vars[ptid][key] = meta_vars
-        return True
-
-    return False
-
-
 def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
     global DISABLE_WRAPPER
     DISABLE_WRAPPER = True
@@ -205,7 +146,6 @@ def global_wrapper(
     is_builtin: bool,
     scan_proxy_in_args: bool,
     dump_stack_trace: bool,
-    cond_dump: bool,
     dump_args: bool,
     dump_args_config,
     dump_ret: bool,
@@ -247,25 +187,10 @@ def global_wrapper(
 
     pre_meta_vars = get_meta_vars()
 
-    # determine at runtime whether to dump the trace
-    is_dumping = should_dump_trace(
-        cond_dump,
-        PTID(PROCESS_ID, thread_id),
-        f"API_{original_function_name}",  # any key that can uniquely identify the function or the variable to be dumped
-        meta_vars=pre_meta_vars,
-        meta_vars_targets=None,  # can be used to restrain the meta_vars to a subset of keys
-        update_cache=True,
-    )
-
-    if not is_dumping:
-        if handle_proxy:
-            return core_wrapper(
-                original_function, is_builtin, handle_proxy, *args, **kwargs
-            )
-        else:
-            return original_function(
-                *args, **kwargs
-            )  # avoid additional function call as core_wrapper only handles proxy
+    if IS_INSTRUMENTING:
+        return original_function(
+            *args, **kwargs
+        )  # don't instrument while instrumenting
 
     pre_record = {
         "func_call_id": func_call_id,
@@ -320,9 +245,7 @@ def global_wrapper(
                 add_observer_to_func,  # import here to avoid circular import
             )
 
-            original_function = add_observer_to_func(
-                original_function, cond_dump=cond_dump, unproxy=True
-            )
+            original_function = add_observer_to_func(original_function, unproxy=True)
         elif is_funcs_to_be_unproxied(original_function):
             original_function = unproxy_func(
                 original_function, inspect_torch_module=True
@@ -469,7 +392,6 @@ def wrapper(
     is_bound_method,
     scan_proxy_in_args,
     dump_stack_trace,
-    cond_dump,
     disable_dump=False,
     dump_args=True,
     dump_args_config=None,
@@ -493,7 +415,6 @@ def wrapper(
                 is_builtin,
                 scan_proxy_in_args,
                 dump_stack_trace,
-                cond_dump,
                 dump_args,
                 dump_args_config,
                 dump_ret,
@@ -621,7 +542,6 @@ class Instrumentor:
         use_full_instr: bool,
         funcs_to_instr: Optional[list[str]] = None,
         API_dump_stack_trace: bool = False,
-        cond_dump: bool = False,
     ):
         """
         Instruments the specified target with additional tracing functionality.
@@ -644,9 +564,6 @@ class Instrumentor:
                 and the functions in this list will be instrumented with dump enabled. NOTE: If this list is provided, use_full_str must be set to False. WRAP_WITHOUT_DUMP will be ignored.
             API_dump_stack_trace (bool):
                 Whether to dump the stack trace of the function call. Enabling this will add the stack trace to the trace log.
-            cond_dump (bool):
-                Whether to dump the trace conditionally. If True, the trace will only be dumped if meta_vars have changed since the last call of this particular function.
-                This might cause additional overhead (cpu and memory) as the meta_vars will be compared with the previous call, and meta_vars will have to be cached in memory.
 
         Indirectly, at initialization, the instrumentor will also load the instr_opts.json file if it exists.
         This file is automatically generated by the `collect_trace` script when `--invariants` is provided.
@@ -680,7 +597,6 @@ class Instrumentor:
         self.use_full_instr = use_full_instr
         self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
-        self.cond_dump = cond_dump
         self.instr_opts = config.load_instr_opts()
 
         if self.funcs_to_instr is not None and self.use_full_instr:
@@ -904,7 +820,6 @@ class Instrumentor:
                     is_bound_method=None,
                     scan_proxy_in_args=None,
                     dump_stack_trace=None,
-                    cond_dump=None,
                     disable_dump=True,
                     handle_proxy=used_proxy,
                 )
@@ -916,7 +831,6 @@ class Instrumentor:
                 scan_proxy_in_args=instr_opts["scan_proxy_in_args"],
                 disable_dump=self.should_disable_dump(func_obj),
                 dump_stack_trace=self.API_dump_stack_trace,
-                cond_dump=self.cond_dump,
                 dump_args=instr_opts["dump_args"],
                 dump_args_config=(
                     instr_opts["dump_args_config"]
@@ -939,7 +853,6 @@ class Instrumentor:
             scan_proxy_in_args=self.scan_proxy_in_args,
             disable_dump=self.should_disable_dump(func_obj),
             dump_stack_trace=self.API_dump_stack_trace,
-            cond_dump=self.cond_dump,
             handle_proxy=used_proxy,
         )
 
