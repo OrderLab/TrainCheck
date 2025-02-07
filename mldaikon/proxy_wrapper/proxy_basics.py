@@ -4,6 +4,9 @@ import inspect
 
 import astor
 
+import mldaikon.proxy_wrapper.proxy_config as proxy_config
+from mldaikon.proxy_wrapper.proxy_registry import global_registry
+
 
 def is_proxied(obj):
     try:
@@ -17,7 +20,14 @@ def is_proxied(obj):
 def unproxy_arg(arg, inspect_torch_module=False):
 
     if is_proxied(arg):
-        return unproxy_arg(arg._obj, inspect_torch_module)
+        if proxy_config.add_obj_to_registry:
+            _obj = global_registry.access_obj(arg.__dict__["var_name"])
+            if _obj is not None:
+                return _obj
+        _obj = unproxy_arg(arg._obj, inspect_torch_module)
+        if proxy_config.add_obj_to_registry:
+            global_registry.add_unproxied_obj(arg.__dict__["var_name"], _obj)
+        return _obj
     elif type(arg) in [list]:
         return [unproxy_arg(element, inspect_torch_module) for element in arg]
     elif type(arg) in [tuple]:

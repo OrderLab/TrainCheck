@@ -1,5 +1,6 @@
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 proxy_update_limit = 0
+add_obj_to_registry = True
 debug_mode = False
 
 delta_dump_config = {
