@@ -59,7 +59,6 @@ def get_per_func_instr_opts(
                         "scan_proxy_in_args": False,
                         "dump_args": False,
                         "dump_ret": False,  # not really used for now'
-                        "check_unchanged_vars": False,
                         "var_types_to_track": {},  # NOTE: do selective proxy dumping in APIs might interfere with correctness of the Consistency Relation Checking
                     }
 
@@ -112,6 +111,7 @@ def get_per_func_instr_opts(
         if inv.relation == APIContainRelation:
             assert isinstance(inv.params[0], APIParam)
             assert inv.precondition is not None
+            var_track_config = func_instr_opts[inv.params[0].api_full_name]["var_types_to_track"]  # type: ignore
             if isinstance(inv.params[1], (VarNameParam, VarTypeParam)):
                 if (
                     VAR_GROUP_NAME in inv.precondition.get_group_names()
@@ -123,18 +123,16 @@ def get_per_func_instr_opts(
                     func_instr_opts[inv.params[0].api_full_name][
                         "scan_proxy_in_args"
                     ] = True
-                    func_instr_opts[inv.params[0].api_full_name][
-                        "check_unchanged_vars"
-                    ] = True
-                    func_instr_opts[inv.params[0].api_full_name][  # type: ignore
-                        "var_types_to_track"
-                    ].add(
-                        inv.params[1].var_type
-                    )  # type: ignore
+                    var_track_config[inv.params[1].var_type] = {"dump_unchanged": True}  # type: ignore
                 else:
                     func_instr_opts[inv.params[0].api_full_name][
                         "scan_proxy_in_args"
                     ] = False
+
+                    if inv.params[1].var_type not in var_track_config:  # type: ignore
+                        var_track_config[inv.params[1].var_type] = {  # type: ignore
+                            "dump_unchanged": False
+                        }
 
     return func_instr_opts
 
