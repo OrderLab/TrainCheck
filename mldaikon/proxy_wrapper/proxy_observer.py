@@ -1,9 +1,10 @@
 import functools
 
 from mldaikon.config.config import should_disable_proxy_dumping
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
-from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
 from mldaikon.utils import typename
+
+from .proxy_basics import is_proxied, unproxy_func
+from .proxy_config import auto_observer_config
 
 
 def observe_proxy_var(

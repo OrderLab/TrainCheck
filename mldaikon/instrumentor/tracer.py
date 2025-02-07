@@ -29,9 +29,9 @@ from mldaikon.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
-from mldaikon.proxy_wrapper.proxy import get_global_registry
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import enable_C_level_observer
+from mldaikon.proxy_wrapper.proxy_registry import get_global_registry
 from mldaikon.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
