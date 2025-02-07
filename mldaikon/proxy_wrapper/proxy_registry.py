@@ -1,6 +1,8 @@
 import threading
 import typing
 
+from mldaikon.utils import typename
+
 if typing.TYPE_CHECKING:
     from .proxy import Proxy
 
@@ -40,8 +42,13 @@ class ProxyRegistry:
                 entry.stale = True
                 entry.proxy.dump_trace("sample", dump_loc=dump_loc)
 
-    def dump_only_modified(self, dump_loc=None):
+    def dump_only_modified(self, dump_loc=None, dump_config=None):
         """Dump only the proxy variables that might be modified since last dump
+
+        args:
+            dump_loc: the location to dump the trace, an optional string to add to trace records
+            dump_config: the config for dumping, each key would be the type of the variable and the value
+                would be whether to dump all changed vars or just one
 
         ** This is a middle ground between blindly dump everything everytime v.s. fully-accurate delta dumping **
         fully-accuracy dumping is hard as for each "modifications" to the variable, you will need to compare
@@ -56,11 +63,21 @@ class ProxyRegistry:
         when calling the function, all dumped proxy vars will be marked as stale and will not be dumped next time
         unless there are new modification attempts to t
         """
+        to_dump_types = set(dump_config.keys())
         with self.registry_lock:
             for var_name, entry in self.registry.items():
+                var_type = typename(entry.proxy._obj)
+                if var_type not in to_dump_types:
+                    continue
+
                 if entry.stale:
-                    entry.stale = False
-                    entry.proxy.dump_trace("selective-sample", dump_loc=dump_loc)
+                    continue
+
+                entry.stale = True
+                entry.proxy.dump_trace("selective-sample", dump_loc=dump_loc)
+                if not dump_config[var_type]["dump_unchanged"]:
+                    # remove the var from to_dump_types so that we don't dump the same type twice
+                    to_dump_types.remove(var_type)
 
 
 # Global dictionary to store registered objects

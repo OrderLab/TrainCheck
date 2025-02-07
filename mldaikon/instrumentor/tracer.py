@@ -152,6 +152,7 @@ def global_wrapper(
     dump_ret_config,
     handle_proxy: bool,
     trigger_proxy_state_dump: bool,
+    proxy_state_dump_config: dict,
     *args,
     **kwargs,
 ):
@@ -169,6 +170,12 @@ def global_wrapper(
     Post-call Phase
     1. Log the post-call information
     """
+
+    # if "step" in original_function_name and not "scheduler" in original_function_name:
+    #     print("step function called" + original_function_name)
+    #     print(trigger_proxy_state_dump)
+    #     print(proxy_state_dump_config)
+    #     exit(1)
 
     global DISABLE_WRAPPER
     global PROCESS_ID
@@ -260,13 +267,16 @@ def global_wrapper(
         result = original_function(*args, **kwargs)
         if COLLECT_OVERHEAD_METRICS:
             ORIG_EXIT_PERF_TIME = time.perf_counter()
-
-        if handle_proxy and trigger_proxy_state_dump:
-            get_global_registry().dump_only_modified(dump_loc=original_function_name)
-
     except Exception as e:
         if COLLECT_OVERHEAD_METRICS:
             ORIG_EXIT_PERF_TIME = time.perf_counter()
+
+        if handle_proxy and trigger_proxy_state_dump:
+            print("dumping proxy state from" + original_function_name)
+            get_global_registry().dump_only_modified(
+                dump_loc=original_function_name, dump_config=proxy_state_dump_config
+            )
+
         dump_trace_API(
             {
                 "func_call_id": func_call_id,
@@ -289,6 +299,12 @@ def global_wrapper(
                 f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
             )
         raise e
+
+    if handle_proxy and trigger_proxy_state_dump:
+        print("dumping proxy state from" + original_function_name)
+        get_global_registry().dump_only_modified(
+            dump_loc=original_function_name, dump_config=proxy_state_dump_config
+        )
 
     post_record = {
         "func_call_id": func_call_id,
@@ -399,6 +415,7 @@ def wrapper(
     dump_ret_config=None,
     handle_proxy=True,
     trigger_proxy_state_dump=False,
+    proxy_state_dump_config=None,
 ):
     is_builtin = is_c_level_function(original_function)
     original_function_name = typename(original_function)
@@ -420,7 +437,9 @@ def wrapper(
                 dump_ret,
                 dump_ret_config,
                 handle_proxy,
-                trigger_proxy_state_dump * args,
+                trigger_proxy_state_dump,
+                proxy_state_dump_config,
+                *args,
                 **kwargs,
             )
 
@@ -824,27 +843,29 @@ class Instrumentor:
                     handle_proxy=used_proxy,
                 )
 
-            instr_opts = self.instr_opts.funcs_instr_opts[func_name]
+            func_instr_opt = self.instr_opts.funcs_instr_opts[func_name]
             return wrapper(
                 func_obj,
                 is_bound_method=is_API_bound_method(func_obj),
-                scan_proxy_in_args=instr_opts["scan_proxy_in_args"],
+                scan_proxy_in_args=func_instr_opt["scan_proxy_in_args"],
                 disable_dump=self.should_disable_dump(func_obj),
                 dump_stack_trace=self.API_dump_stack_trace,
-                dump_args=instr_opts["dump_args"],
+                dump_args=func_instr_opt["dump_args"],
                 dump_args_config=(
-                    instr_opts["dump_args_config"]
-                    if "dump_args_config" in instr_opts
+                    func_instr_opt["dump_args_config"]
+                    if "dump_args_config" in func_instr_opt
                     else None
                 ),  # TODO: refactor this existence check | None indicates that everything should be dumped
-                dump_ret=instr_opts["dump_ret"],
+                dump_ret=func_instr_opt["dump_ret"],
                 dump_ret_config=(
-                    instr_opts["dump_ret_config"]
-                    if "dump_ret_config" in instr_opts
+                    func_instr_opt["dump_ret_config"]
+                    if "dump_ret_config" in func_instr_opt
                     else None
                 ),
                 handle_proxy=used_proxy,
-                trigger_proxy_state_dump=instr_opts["trigger_proxy_state_dump"],
+                trigger_proxy_state_dump=self.instr_opts.disable_proxy_dumping
+                and len(func_instr_opt["var_types_to_track"]) > 0,
+                proxy_state_dump_config=func_instr_opt["var_types_to_track"],
             )
 
         return wrapper(
