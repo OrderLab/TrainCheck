@@ -184,11 +184,10 @@ class TracePandas(Trace):
             "func_call_id"
         ]
 
-        # print(incomplete_func_call_ids)
         incomplete_func_call_records = self.events[
             self.events["func_call_id"].isin(incomplete_func_call_ids)
         ]
-        # test_dump(incomplete_func_call_records)
+
         for _, row in tqdm(
             incomplete_func_call_records.iterrows(),
             desc="Removing Incomplete Function Calls",
@@ -219,10 +218,20 @@ class TracePandas(Trace):
                 )
             ]
 
+            outermost_exists = False
             outermost_incomplete = False
             if not filtered_events_post.empty:
-                outermost_func_call_post = filtered_events_post.iloc[0]
+                # if this filtered_events is not the last event of the process & thread, then there's no outermost function call (we didn't instrument the outermost function call probably)
+                if filtered_events_post["time"].iloc[0] != self.get_end_time(
+                    process_id, thread_id
+                ):
+                    outermost_exists = False
+                    outermost_incomplete = False
+                else:
+                    outermost_exists = True
+                    outermost_func_call_post = filtered_events_post.iloc[0]
             else:
+                outermost_exists = True
                 outermost_incomplete = True
                 outermost_func_call_post = None
 
@@ -233,7 +242,7 @@ class TracePandas(Trace):
                 # print(f"The outermost function call is incomplete: {outermost_func_call_pre['function']} with id {outermost_func_call_pre['func_call_id']}. Will treat it as a complete function call.")
                 continue
 
-            if not outermost_incomplete:
+            if not outermost_incomplete and outermost_exists:
                 assert (
                     thread_id != outermost_func_call_pre["thread_id"]
                 ), f"""Incomplete function call (func_call_id: {row['func_call_id']}) (name: {row["function"]}) is not on a different thread than outermost function (func_call_id: {outermost_func_call_pre['func_call_id']}) (name: {outermost_func_call_pre["function"]}) on process {process_id}. Please Investigate."""
@@ -253,16 +262,6 @@ class TracePandas(Trace):
                     )
 
             else:
-                # assert row["time"] == self.get_end_time(
-                #     process_id, thread_id
-                # ), f"Incomplete function call is not the last event for the process {process_id} and thread {thread_id}."
-
-                # logger.warning(
-                #     f"Removing incomplete function call: {row} as the outermost function call is also incomplete."
-                # )
-
-                # self.events = self.events[self.events["func_call_id"] != row["func_call_id"]]
-                # logger.warning(f"Removing incomplete function call: {row}")
                 self.events = self.events[
                     (self.events["process_id"] != process_id)
                     | (self.events["thread_id"] != thread_id)
@@ -369,7 +368,7 @@ class TracePandas(Trace):
 
             args = init_pre_record["args"]
             kwargs = init_pre_record["kwargs"]
-            if not pd.isna(args):
+            if not safe_isnan(args):
                 signature = load_signature_from_class_method_name(
                     init_pre_record["function"]
                 )
