@@ -17,7 +17,6 @@ Instrumentor(
         "torch._VariableFunctionsClass.conv2d",
     ],
     API_dump_stack_trace=False,
-    cond_dump=False,
 ).instrument()
 
 num_executions_per_API = 100

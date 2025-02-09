@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import json
 import logging
 import os
 
@@ -10,6 +9,7 @@ import mldaikon.config.config as config
 import mldaikon.instrumentor as instrumentor
 import mldaikon.proxy_wrapper.proxy_config as proxy_config
 import mldaikon.runner as runner
+from mldaikon.config.config import InstrOpt
 from mldaikon.invariant.base_cls import (
     APIParam,
     Arguments,
@@ -41,6 +41,9 @@ def get_per_func_instr_opts(
     """
     Get per function instrumentation options
     """
+
+    # TODO: for APIContainRelation that describes a variable, if the precondition is not unconditional on the variable and the API belongs to a class, then all class methods should be instrumented with `scan_proxy_in_args` set to True
+
     func_instr_opts: dict[str, dict[str, bool | dict]] = {}
     for inv in invariants:
         for param in inv.params:
@@ -55,7 +58,8 @@ def get_per_func_instr_opts(
                     func_instr_opts[func_name] = {
                         "scan_proxy_in_args": False,
                         "dump_args": False,
-                        "dump_ret": False,  # not really used for now
+                        "dump_ret": False,  # not really used for now'
+                        "var_types_to_track": {},  # NOTE: do selective proxy dumping in APIs might interfere with correctness of the Consistency Relation Checking
                     }
 
             if isinstance(param, APIParam):
@@ -107,59 +111,63 @@ def get_per_func_instr_opts(
         if inv.relation == APIContainRelation:
             assert isinstance(inv.params[0], APIParam)
             assert inv.precondition is not None
-            if (
-                isinstance(inv.params[1], (VarNameParam, VarTypeParam))
-                and VAR_GROUP_NAME in inv.precondition.get_group_names()
-                and not inv.precondition.get_group(VAR_GROUP_NAME).is_unconditional()
-            ):
-                # if the APIContain invariant describes a variable, and the precondition is not unconditional on the variable, then scan the arguments of the function
-                func_instr_opts[inv.params[0].api_full_name][
-                    "scan_proxy_in_args"
-                ] = True
-            else:
-                func_instr_opts[inv.params[0].api_full_name][
-                    "scan_proxy_in_args"
-                ] = False
+            var_track_config = func_instr_opts[inv.params[0].api_full_name]["var_types_to_track"]  # type: ignore
+            if isinstance(inv.params[1], (VarNameParam, VarTypeParam)):
+                if (
+                    VAR_GROUP_NAME in inv.precondition.get_group_names()
+                    and not inv.precondition.get_group(
+                        VAR_GROUP_NAME
+                    ).is_unconditional()
+                ):
+                    # if the APIContain invariant describes a variable, and the precondition is not unconditional on the variable, then scan the arguments of the function
+                    func_instr_opts[inv.params[0].api_full_name][
+                        "scan_proxy_in_args"
+                    ] = True
+                    var_track_config[inv.params[1].var_type] = {"dump_unchanged": True}  # type: ignore
+                else:
+                    func_instr_opts[inv.params[0].api_full_name][
+                        "scan_proxy_in_args"
+                    ] = False
+
+                    if inv.params[1].var_type not in var_track_config:  # type: ignore
+                        var_track_config[inv.params[1].var_type] = {  # type: ignore
+                            "dump_unchanged": False
+                        }
 
     return func_instr_opts
 
 
-class InstrOpt:
-    def __init__(self, invariants: list[Invariant]):
-        self.funcs_instr_opts: dict[str, dict[str, bool | dict]] = {}
-        self.model_tracker_style = None
+def get_model_tracker_instr_opts(invariants: list[Invariant]) -> str | None:
+    """
+    Get model tracker instrumentation options
+    """
 
-        # determine model_tracker_style:
-        # if any of the invariants to be deployed is an APIContain invariant with a param describing a variable, then use proxy
-        # if any of the invariants to be deployed is a Consistency invariant, then use sampler (if not already set to proxy)
-        for inv in invariants:
-            if inv.relation == APIContainRelation:
-                for param in inv.params:
-                    if isinstance(param, (VarNameParam, VarTypeParam)):
-                        self.model_tracker_style = "proxy"
-                        break
-            if inv.relation == ConsistencyRelation:
-                if self.model_tracker_style is None:
-                    self.model_tracker_style = "sampler"
+    tracker_type = None
+    for inv in invariants:
+        if inv.relation == APIContainRelation:
+            for param in inv.params:
+                if isinstance(param, (VarNameParam, VarTypeParam)):
+                    tracker_type = "proxy"
+                    break
+        if tracker_type is None and inv.relation == ConsistencyRelation:
+            tracker_type = "sampler"
 
-            if self.model_tracker_style == "proxy":
-                break
+        if tracker_type == "proxy":
+            break
+    return tracker_type
 
-        # determine funcs_instr_opts
-        self.funcs_instr_opts = get_per_func_instr_opts(invariants)
 
-    def to_json(self) -> str:
-        return json.dumps(
-            {
-                "funcs_instr_opts": self.funcs_instr_opts,
-                "model_tracker_style": self.model_tracker_style,
-            }
-        )
+def get_disable_proxy_dumping(invariants: list[Invariant]) -> bool:
+    """
+    Get disable proxy dumping options for checking
 
-    def from_json(self, instr_opt_json_str: str):
-        instr_opt_dict = yaml.safe_load(instr_opt_json_str)
-        self.funcs_instr_opts = instr_opt_dict["funcs_instr_opts"]
-        self.model_tracker_style = instr_opt_dict["model_tracker_style"]
+    Always return True if an APIContain invariant requested proxy tracking
+
+    We cannot disable automatic variable dumping if only consistency relations but no APIContain
+    require variable states, as then no APIs will trigger state dumps.
+    However, the var tracker should be sampler if there's no APIContain anyway
+    """
+    return True
 
 
 def dump_env(output_dir: str):
@@ -317,11 +325,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Use full instrumentation for the instrumentor, if not set, the instrumentor may not dump traces for certain APIs in modules deemed not important (e.g. jit in torch)",
     )
-    parser.add_argument(
-        "--cond-dump",
-        action="store_true",
-        help="Dump the conditions for the APIs conditionally, currently only dumps an API if meta_var has changed since the last dump",
-    )
 
     ## variable tracker configs
     parser.add_argument(
@@ -455,7 +458,11 @@ if __name__ == "__main__":
     if args.invariants:
         # selective instrumentation if invariants are provided, only funcs_to_instr will be instrumented with trace collection
         invariants = read_inv_file(args.invariants)
-        instr_opts = InstrOpt(invariants)
+        instr_opts = InstrOpt(
+            func_instr_opts=get_per_func_instr_opts(invariants),
+            model_tracker_style=get_model_tracker_instr_opts(invariants),
+            disable_proxy_dumping=True,
+        )
         models_to_track = (
             args.models_to_track if instr_opts.model_tracker_style else None
         )
@@ -479,7 +486,6 @@ disabling model tracking."""
             model_tracker_style=instr_opts.model_tracker_style,
             adjusted_proxy_config=adjusted_proxy_config,  # type: ignore
             API_dump_stack_trace=args.API_dump_stack_trace,
-            cond_dump=args.cond_dump,
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
         )
@@ -494,7 +500,6 @@ disabling model tracking."""
             model_tracker_style=args.model_tracker_style,
             adjusted_proxy_config=adjusted_proxy_config,  # type: ignore
             API_dump_stack_trace=args.API_dump_stack_trace,
-            cond_dump=args.cond_dump,
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
         )

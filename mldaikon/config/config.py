@@ -1,4 +1,8 @@
+import json
+import os
+
 import polars as pl
+import yaml
 
 # trace dumper configs:
 BUFFER_SIZE = 1000  # number of events to buffer before dumping
@@ -73,6 +77,56 @@ ANALYSIS_SKIP_FUNC_NAMES = [
     "torch.overrides",
     "._",  # skip all private functions (they can only be the contained, but not containing functions)
 ]
+
+INSTR_OPTS = None  # TODO: set defaults for this variable
+
+
+class InstrOpt:
+    def __init__(
+        self,
+        func_instr_opts: dict[str, dict[str, bool | dict]],
+        model_tracker_style: str | None,
+        disable_proxy_dumping: bool,
+    ):
+        assert model_tracker_style in [
+            "sampler",
+            "proxy",
+            None,
+        ], "model_tracker_style should be one of ['sampler', 'proxy', None]"
+
+        self.funcs_instr_opts: dict[str, dict[str, bool | dict]] = func_instr_opts
+        self.model_tracker_style = model_tracker_style
+        self.disable_proxy_dumping = disable_proxy_dumping
+
+    def to_json(self) -> str:
+        return json.dumps(
+            {
+                "funcs_instr_opts": self.funcs_instr_opts,
+                "model_tracker_style": self.model_tracker_style,
+                "disable_proxy_dumping": self.disable_proxy_dumping,
+            }
+        )
+
+    @staticmethod
+    def from_json(instr_opt_json_str: str):
+        instr_opt_dict = yaml.safe_load(instr_opt_json_str)
+        return InstrOpt(
+            instr_opt_dict["funcs_instr_opts"],
+            instr_opt_dict["model_tracker_style"],
+            instr_opt_dict["disable_proxy_dumping"],
+        )
+
+
+def load_instr_opts():
+    global INSTR_OPTS
+    if INSTR_OPTS is None and os.path.exists(INSTR_OPTS_FILE):
+        with open(INSTR_OPTS_FILE, "r") as f:
+            INSTR_OPTS = InstrOpt.from_json(f.read())
+    return INSTR_OPTS
+
+
+def should_disable_proxy_dumping() -> bool:
+    return INSTR_OPTS is not None and INSTR_OPTS.disable_proxy_dumping
 
 
 # consistency relation configs
@@ -159,7 +213,6 @@ META_VARS_FORBID_LIST = [
 # ]
 
 
-ENABLE_COND_DUMP = False
 INSTR_DESCRIPTORS = False
 
 ALL_STAGE_NAMES = {

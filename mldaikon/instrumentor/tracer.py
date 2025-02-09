@@ -1,14 +1,13 @@
 import functools
 import importlib
 import inspect
-import json
 import logging
 import os
 import threading
 import time
 import traceback
 import types
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import torch
 
@@ -18,7 +17,7 @@ from mldaikon.config.config import (
     SKIP_INSTR_APIS,
     WRAP_WITHOUT_DUMP,
 )
-from mldaikon.instrumentor.caches import cache_meta_vars, meta_vars
+from mldaikon.instrumentor.caches import meta_vars
 from mldaikon.instrumentor.dumper import (
     convert_var_to_dict,
     dump_trace_API,
@@ -30,9 +29,9 @@ from mldaikon.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
-from mldaikon.instrumentor.types import PTID
 from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
 from mldaikon.proxy_wrapper.proxy_config import enable_C_level_observer
+from mldaikon.proxy_wrapper.proxy_registry import get_global_registry
 from mldaikon.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
@@ -101,64 +100,6 @@ def increment_step_if_needed(func_obj, func_name, is_bound_method, args):
             )
 
 
-def should_dump_trace(
-    cond_dump: bool,
-    ptid: PTID | None,
-    key,
-    meta_vars: dict[str, Any] | None,
-    meta_vars_targets: list[str] | None,
-    update_cache: bool = True,
-) -> bool:
-    """Determine if trace dumping should be enabled for this particular function call
-    - cond_dump (bool): whether conditional dumping should be enabled at all, if False, always return True
-    - ptid (PTID): process and thread id, if None, will be inferred from the current process and thread
-    - key (str): a unique key that can identify the function or the variable to be dumped
-    - meta_vars (dict[str, Any]): the current meta_vars, if None, will be inferred from the current frame
-    - meta_vars_targets (list[str]|None): a subset of keys in meta_vars that should be used to determine if the trace should be dumped
-    - update_cache (bool): whether to update the cache_meta_vars with the current meta_vars if the trace should be dumped
-
-    If True is returned, cache_meta_vars will be updated with the current meta_vars
-    """
-    global IS_INSTRUMENTING
-    if IS_INSTRUMENTING:
-        # don't dump anything during instrumentation
-        return False
-
-    if not cond_dump:
-        return True
-
-    # conditional dumping logic
-    if ptid is None:
-        tid = threading.current_thread().ident
-        assert tid is not None, "threading.current_thread().ident is None"
-        ptid = PTID(os.getpid(), tid)
-
-    if meta_vars is None:
-        meta_vars = get_meta_vars()
-
-    prev_meta_vars = cache_meta_vars[ptid][key]
-    if not prev_meta_vars:
-        if update_cache:
-            cache_meta_vars[ptid][key] = meta_vars
-        return True
-
-    prev_targets = prev_meta_vars
-    targets = meta_vars
-    if meta_vars_targets:
-        prev_targets = {
-            k: v for k, v in prev_meta_vars.items() if k in meta_vars_targets
-        }
-        targets = {k: v for k, v in meta_vars.items() if k in meta_vars_targets}
-
-    # only if the meta_vars have changed, we will dump the trace
-    if prev_targets != targets:
-        if update_cache:
-            cache_meta_vars[ptid][key] = meta_vars
-        return True
-
-    return False
-
-
 def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
     global DISABLE_WRAPPER
     DISABLE_WRAPPER = True
@@ -199,18 +140,19 @@ def to_dict_return_value(result) -> dict | list[dict]:
 
 
 def global_wrapper(
-    original_function,
-    original_function_name,
-    is_bound_method,
-    is_builtin,
-    scan_proxy_in_args,
-    dump_stack_trace,
-    cond_dump,
-    dump_args,
+    original_function: Callable,
+    original_function_name: str,
+    is_bound_method: bool,
+    is_builtin: bool,
+    scan_proxy_in_args: bool,
+    dump_stack_trace: bool,
+    dump_args: bool,
     dump_args_config,
-    dump_ret,
+    dump_ret: bool,
     dump_ret_config,
-    handle_proxy,
+    handle_proxy: bool,
+    trigger_proxy_state_dump: bool,
+    proxy_state_dump_config: dict,
     *args,
     **kwargs,
 ):
@@ -229,6 +171,12 @@ def global_wrapper(
     1. Log the post-call information
     """
 
+    # if "step" in original_function_name and not "scheduler" in original_function_name:
+    #     print("step function called" + original_function_name)
+    #     print(trigger_proxy_state_dump)
+    #     print(proxy_state_dump_config)
+    #     exit(1)
+
     global DISABLE_WRAPPER
     global PROCESS_ID
 
@@ -246,25 +194,10 @@ def global_wrapper(
 
     pre_meta_vars = get_meta_vars()
 
-    # determine at runtime whether to dump the trace
-    is_dumping = should_dump_trace(
-        cond_dump,
-        PTID(PROCESS_ID, thread_id),
-        f"API_{original_function_name}",  # any key that can uniquely identify the function or the variable to be dumped
-        meta_vars=pre_meta_vars,
-        meta_vars_targets=None,  # can be used to restrain the meta_vars to a subset of keys
-        update_cache=True,
-    )
-
-    if not is_dumping:
-        if handle_proxy:
-            return core_wrapper(
-                original_function, is_builtin, handle_proxy, *args, **kwargs
-            )
-        else:
-            return original_function(
-                *args, **kwargs
-            )  # avoid additional function call as core_wrapper only handles proxy
+    if IS_INSTRUMENTING:
+        return original_function(
+            *args, **kwargs
+        )  # don't instrument while instrumenting
 
     pre_record = {
         "func_call_id": func_call_id,
@@ -296,7 +229,7 @@ def global_wrapper(
                     args[i] = iter(arg_list)
                     find_proxy_in_args(arg_list)
 
-        args = list(args)
+        args = list(args)  # type: ignore[assignment]
         find_proxy_in_args(args)
         args = tuple(args)
 
@@ -319,9 +252,7 @@ def global_wrapper(
                 add_observer_to_func,  # import here to avoid circular import
             )
 
-            original_function = add_observer_to_func(
-                original_function, cond_dump=cond_dump, unproxy=True
-            )
+            original_function = add_observer_to_func(original_function, unproxy=True)
         elif is_funcs_to_be_unproxied(original_function):
             original_function = unproxy_func(
                 original_function, inspect_torch_module=True
@@ -331,11 +262,21 @@ def global_wrapper(
             original_function = unproxy_func(original_function)
 
     try:
-        ORIG_ENTER_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_ENTER_PERF_TIME = time.perf_counter()
         result = original_function(*args, **kwargs)
-        ORIG_EXIT_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_EXIT_PERF_TIME = time.perf_counter()
     except Exception as e:
-        ORIG_EXIT_PERF_TIME = time.perf_counter() if COLLECT_OVERHEAD_METRICS else None
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_EXIT_PERF_TIME = time.perf_counter()
+
+        if handle_proxy and trigger_proxy_state_dump:
+            print("dumping proxy state from" + original_function_name)
+            get_global_registry().dump_only_modified(
+                dump_loc=original_function_name, dump_config=proxy_state_dump_config
+            )
+
         dump_trace_API(
             {
                 "func_call_id": func_call_id,
@@ -358,6 +299,12 @@ def global_wrapper(
                 f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
             )
         raise e
+
+    if handle_proxy and trigger_proxy_state_dump:
+        print("dumping proxy state from" + original_function_name)
+        get_global_registry().dump_only_modified(
+            dump_loc=original_function_name, dump_config=proxy_state_dump_config
+        )
 
     post_record = {
         "func_call_id": func_call_id,
@@ -461,13 +408,14 @@ def wrapper(
     is_bound_method,
     scan_proxy_in_args,
     dump_stack_trace,
-    cond_dump,
     disable_dump=False,
     dump_args=True,
     dump_args_config=None,
     dump_ret=True,
     dump_ret_config=None,
     handle_proxy=True,
+    trigger_proxy_state_dump=False,
+    proxy_state_dump_config=None,
 ):
     is_builtin = is_c_level_function(original_function)
     original_function_name = typename(original_function)
@@ -484,12 +432,13 @@ def wrapper(
                 is_builtin,
                 scan_proxy_in_args,
                 dump_stack_trace,
-                cond_dump,
                 dump_args,
                 dump_args_config,
                 dump_ret,
                 dump_ret_config,
                 handle_proxy,
+                trigger_proxy_state_dump,
+                proxy_state_dump_config,
                 *args,
                 **kwargs,
             )
@@ -612,7 +561,6 @@ class Instrumentor:
         use_full_instr: bool,
         funcs_to_instr: Optional[list[str]] = None,
         API_dump_stack_trace: bool = False,
-        cond_dump: bool = False,
     ):
         """
         Instruments the specified target with additional tracing functionality.
@@ -635,9 +583,6 @@ class Instrumentor:
                 and the functions in this list will be instrumented with dump enabled. NOTE: If this list is provided, use_full_str must be set to False. WRAP_WITHOUT_DUMP will be ignored.
             API_dump_stack_trace (bool):
                 Whether to dump the stack trace of the function call. Enabling this will add the stack trace to the trace log.
-            cond_dump (bool):
-                Whether to dump the trace conditionally. If True, the trace will only be dumped if meta_vars have changed since the last call of this particular function.
-                This might cause additional overhead (cpu and memory) as the meta_vars will be compared with the previous call, and meta_vars will have to be cached in memory.
 
         Indirectly, at initialization, the instrumentor will also load the instr_opts.json file if it exists.
         This file is automatically generated by the `collect_trace` script when `--invariants` is provided.
@@ -671,8 +616,7 @@ class Instrumentor:
         self.use_full_instr = use_full_instr
         self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
-        self.cond_dump = cond_dump
-        self.instr_opts: None | dict[str, dict[str, dict[str, bool]]] = None
+        self.instr_opts = config.load_instr_opts()
 
         if self.funcs_to_instr is not None and self.use_full_instr:
             get_instrumentation_logger_for_process().fatal(
@@ -685,21 +629,6 @@ class Instrumentor:
         if self.funcs_to_instr is not None:
             get_instrumentation_logger_for_process().info(
                 f"Functions of interest for invariant inference: {self.funcs_to_instr}"
-            )
-
-        # discover if instr_opts.json is present
-        instr_opts_path = config.INSTR_OPTS_FILE
-        print("instr_opts_path: ", instr_opts_path)
-        get_instrumentation_logger_for_process().info(
-            f"Checking instr_opts at {instr_opts_path}"
-        )
-        if os.path.exists(instr_opts_path):
-            print(f"Loading instr_opts from {instr_opts_path}")
-            with open(instr_opts_path, "r") as f:
-                instr_opts = json.load(f)
-                self.instr_opts = instr_opts
-            get_instrumentation_logger_for_process().info(
-                f"Loaded instr_opts: {json.dumps(instr_opts, indent=4)}"
             )
 
     def instrument(self) -> int:
@@ -902,43 +831,41 @@ class Instrumentor:
         """
         used_proxy = True  # TODO: dump instr_opts when doing full instr as well so we can determine whether to handle proxy based on the specific instrumentation args
         if self.instr_opts is not None:
-            used_proxy = (
-                "model_tracker_style" in self.instr_opts
-                and self.instr_opts["model_tracker_style"] == "proxy"
-            )
+            used_proxy = self.instr_opts.model_tracker_style == "proxy"
             func_name = typename(func_obj)
-            if func_name not in self.instr_opts["funcs_instr_opts"]:
+            if func_name not in self.instr_opts.funcs_instr_opts:
                 return wrapper(
                     func_obj,
                     is_bound_method=None,
                     scan_proxy_in_args=None,
                     dump_stack_trace=None,
-                    cond_dump=None,
                     disable_dump=True,
                     handle_proxy=used_proxy,
                 )
 
-            instr_opts = self.instr_opts["funcs_instr_opts"][func_name]
+            func_instr_opt = self.instr_opts.funcs_instr_opts[func_name]
             return wrapper(
                 func_obj,
                 is_bound_method=is_API_bound_method(func_obj),
-                scan_proxy_in_args=instr_opts["scan_proxy_in_args"],
+                scan_proxy_in_args=func_instr_opt["scan_proxy_in_args"],
                 disable_dump=self.should_disable_dump(func_obj),
                 dump_stack_trace=self.API_dump_stack_trace,
-                cond_dump=self.cond_dump,
-                dump_args=instr_opts["dump_args"],
+                dump_args=func_instr_opt["dump_args"],
                 dump_args_config=(
-                    instr_opts["dump_args_config"]
-                    if "dump_args_config" in instr_opts
+                    func_instr_opt["dump_args_config"]
+                    if "dump_args_config" in func_instr_opt
                     else None
                 ),  # TODO: refactor this existence check | None indicates that everything should be dumped
-                dump_ret=instr_opts["dump_ret"],
+                dump_ret=func_instr_opt["dump_ret"],
                 dump_ret_config=(
-                    instr_opts["dump_ret_config"]
-                    if "dump_ret_config" in instr_opts
+                    func_instr_opt["dump_ret_config"]
+                    if "dump_ret_config" in func_instr_opt
                     else None
                 ),
                 handle_proxy=used_proxy,
+                trigger_proxy_state_dump=self.instr_opts.disable_proxy_dumping
+                and len(func_instr_opt["var_types_to_track"]) > 0,
+                proxy_state_dump_config=func_instr_opt["var_types_to_track"],
             )
 
         return wrapper(
@@ -947,7 +874,6 @@ class Instrumentor:
             scan_proxy_in_args=self.scan_proxy_in_args,
             disable_dump=self.should_disable_dump(func_obj),
             dump_stack_trace=self.API_dump_stack_trace,
-            cond_dump=self.cond_dump,
             handle_proxy=used_proxy,
         )
 

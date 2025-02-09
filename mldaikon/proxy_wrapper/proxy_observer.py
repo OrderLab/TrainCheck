@@ -1,9 +1,10 @@
 import functools
 
-from mldaikon.instrumentor.tracer import should_dump_trace
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
-from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
+from mldaikon.config.config import should_disable_proxy_dumping
 from mldaikon.utils import typename
+
+from .proxy_basics import is_proxied, unproxy_func
+from .proxy_config import auto_observer_config
 
 
 def observe_proxy_var(
@@ -18,7 +19,11 @@ def observe_proxy_var(
     if is_proxied(var):
         # register/update the var to be observed in post_observe
         if phase == "post_observe":
-            var.register_observed_var()
+            var.register_object()
+
+        if should_disable_proxy_dumping():
+            # do nothing but return, obj state dumps should be triggered separately
+            return None
 
         if only_dump_when_change:
             if phase == "pre_observe":
@@ -47,7 +52,7 @@ def observe_proxy_var(
         NotImplementedError(f"observe method not implemented for {var}")
 
 
-def add_observer_to_func(original_function, cond_dump, unproxy=False):
+def add_observer_to_func(original_function, unproxy=False):
     only_dump_when_change = auto_observer_config["only_dump_when_change"]
     original_function_name = typename(original_function)
 
@@ -61,31 +66,10 @@ def add_observer_to_func(original_function, cond_dump, unproxy=False):
                 for element in arg:
                     if is_proxied(element):
                         proxied_var.append(element)
-                        if should_dump_trace(  # NOTE: Conditional dumping not implemented at the dump_to_trace level because the observing process has extra overhead
-                            cond_dump,
-                            None,
-                            f"VAR: {typename(element)}: {element.__dict__['var_name']}",
-                            None,
-                            None,
-                        ):
-                            observe_var.append(element)
-                        else:
-                            # TODO: @ziming-zh what's a good way to dump a log here? Does logger = logging.getLogger(__name__) work?
-                            pass
+                        observe_var.append(element)
             if is_proxied(arg):
                 proxied_var.append(arg)
-                if should_dump_trace(
-                    cond_dump,
-                    None,
-                    f"VAR: {typename(arg)}: {arg.__dict__['var_name']}",
-                    None,
-                    None,
-                ):
-                    observe_var.append(arg)
-                else:
-                    # TODO: @ziming-zh what's a good way to dump a log here? Does logger = logging.getLogger(__name__) work?
-                    pass
-        # print(typename(original_function), len(observe_var), len(proxied_var))
+                observe_var.append(arg)
 
         # pre observe
         trace_info = len(observe_var) * [None]

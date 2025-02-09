@@ -29,7 +29,6 @@ class InsertTracerVisitor(ast.NodeTransformer):
         use_full_instr: bool,
         funcs_to_instr: list[str] | None,
         API_dump_stack_trace: bool,
-        cond_dump: bool,
     ):
         super().__init__()
         if not modules_to_instr:
@@ -41,11 +40,10 @@ class InsertTracerVisitor(ast.NodeTransformer):
         self.use_full_instr = use_full_instr
         self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
-        self.cond_dump = cond_dump
 
     def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_to_instr={str(self.funcs_to_instr)}, API_dump_stack_trace={self.API_dump_stack_trace}, cond_dump={self.cond_dump}).instrument()"
+            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_to_instr={str(self.funcs_to_instr)}, API_dump_stack_trace={self.API_dump_stack_trace}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -93,7 +91,6 @@ def instrument_library(
     use_full_instr: bool,
     funcs_to_instr: list[str] | None,
     API_dump_stack_trace: bool,
-    cond_dump: bool,
 ) -> str:
     """
     Instruments the given source code and returns the instrumented source code.
@@ -115,7 +112,6 @@ def instrument_library(
         use_full_instr,
         funcs_to_instr,
         API_dump_stack_trace,
-        cond_dump,
     )
     root = visitor.visit(root)
     source = ast.unparse(root)
@@ -127,7 +123,6 @@ def instrument_model_tracker_proxy(
     source: str,
     models_to_track: list[str],
     adjusted_proxy_config: list[dict[str, int | bool | str]],
-    cond_dump: bool,
 ):
     auto_observer_config: dict[str, int | bool | str] = adjusted_proxy_config[0]
     proxy_basic_config: dict[str, int | bool | str] = adjusted_proxy_config[1]
@@ -163,7 +158,7 @@ from mldaikon.proxy_wrapper.proxy import Proxy
 """
 
     if auto_observer_config["enable_auto_observer"]:
-        auto_observer_code = f"""
+        auto_observer_code = """
 import glob
 import importlib
 from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
@@ -197,7 +192,6 @@ for log_file in log_files:
         neglect_hidden_func=neglect_hidden_func,
         neglect_hidden_module=neglect_hidden_module,
         observe_then_unproxy=observe_then_unproxy,
-        cond_dump={cond_dump}
     )
 """
     # find the main() function
@@ -328,7 +322,6 @@ def instrument_file(
     model_tracker_style: str | None,
     adjusted_proxy_config: list[dict[str, int | bool | str]],
     API_dump_stack_trace: bool,
-    cond_dump: bool,
     output_dir: str,
     instr_descriptors: bool,
 ) -> str:
@@ -347,7 +340,6 @@ def instrument_file(
         use_full_instr,
         funcs_to_instr,
         API_dump_stack_trace,
-        cond_dump,
     )
 
     # logging configs
@@ -359,9 +351,9 @@ os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
     # general config update
     general_config_update = f"""
 import mldaikon.config.config as general_config
-general_config.ENABLE_COND_DUMP = {cond_dump}
 general_config.INSTR_DESCRIPTORS = {instr_descriptors}
 """
+    # TODO: move the INSTR_DESCRIPTORS to the instr_opts file
 
     if models_to_track:
         assert model_tracker_style in [
@@ -373,7 +365,6 @@ general_config.INSTR_DESCRIPTORS = {instr_descriptors}
                 instrumented_source,
                 models_to_track,
                 adjusted_proxy_config,
-                cond_dump,
             )
         else:
             instrumented_source = instrument_model_tracker_sampler(
