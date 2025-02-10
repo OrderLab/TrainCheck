@@ -78,7 +78,7 @@ def get_trace_API_dumper_queue():
         return THREAD_DATA.API_trace_dumper_queue
 
     pid = os.getpid()
-    tid = threading.current_thread().ident
+    tid = threading.get_ident()
 
     output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
     assert (
@@ -130,62 +130,71 @@ def get_trace_VAR_dumper_queue():
 
 
 class TraceBuffer:
+    """Buffer traces and flush them to the trace log file periodically or when the buffer is full.
+
+    Caveat: **This class must be instantiated PER THREAD*, as the buffer is not thread-safe.
+    Also, the queue must be created at the same time as the buffer (as did in the __init__ method).
+    Previously, the queue was dynamic getted from the queue_getter method but it caused a mysterious bug,
+    where a trace file contains traces of different thread ids and process ids.
+    """
+
     def __init__(
         self, queue_getter, buffer_size=BUFFER_SIZE, flush_interval=FLUSH_INTERVAL
     ):
-        self.queue_getter = queue_getter
+        self.queue = queue_getter()
         self.buffer_size = buffer_size
         self.flush_interval = flush_interval
         self.buffer = []
-        self.lock = threading.Lock()
         self.last_flush_time = time.time()
         self.flush_thread = threading.Thread(target=self._flush_periodically)
         self.flush_thread.daemon = True
         self.flush_thread.start()
 
     def add_trace(self, trace):
-        with self.lock:
-            self.buffer.append(
-                serialize(trace)
-            )  # TODO: serialization step cannot be buffered rn as trace dicts might get modified
-            if (
-                len(self.buffer) >= self.buffer_size
-                or (time.time() - self.last_flush_time) >= self.flush_interval
-            ):
-                self._flush()
+        self.buffer.append(
+            serialize(trace)
+        )  # TODO: serialization step cannot be buffered rn as trace dicts might get modified
+        if (
+            len(self.buffer) >= self.buffer_size
+            or (time.time() - self.last_flush_time) >= self.flush_interval
+        ):
+            self._flush()
 
     def _flush(self):
         if not self.buffer:
             return
-        trace_queue = self.queue_getter()
-
         # serialize all traces in the buffer
-        trace_queue.put("\n".join(self.buffer))
+        self.queue.put("\n".join(self.buffer))
         self.buffer.clear()
         self.last_flush_time = time.time()
 
     def _flush_periodically(self):
         while not stop_event.is_set():
             time.sleep(self.flush_interval)
-            with self.lock:
-                self._flush()
+            self._flush()
 
 
-api_trace_buffer = TraceBuffer(get_trace_API_dumper_queue)
-var_trace_buffer = TraceBuffer(get_trace_VAR_dumper_queue)
+# THREAD_DATA.api_trace_buffer = TraceBuffer(get_trace_API_dumper_queue)
+# THREAD_DATA.var_trace_buffer = TraceBuffer(get_trace_VAR_dumper_queue)
 
 
 def dump_trace_API(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     trace["time"] = get_timestamp_ns()
-    api_trace_buffer.add_trace(trace)
+    if not hasattr(THREAD_DATA, "api_trace_buffer"):
+        THREAD_DATA.api_trace_buffer = TraceBuffer(get_trace_API_dumper_queue)
+
+    THREAD_DATA.api_trace_buffer.add_trace(trace)
 
 
 def dump_trace_VAR(trace: dict):
     """add a timestamp (unix) to the trace and dump it to the trace log file"""
     if "time" not in trace:
         trace["time"] = get_timestamp_ns()
-    var_trace_buffer.add_trace(trace)
+    if not hasattr(THREAD_DATA, "var_trace_buffer"):
+        THREAD_DATA.var_trace_buffer = TraceBuffer(get_trace_VAR_dumper_queue)
+
+    THREAD_DATA.var_trace_buffer.add_trace(trace)
 
 
 def get_instrumentation_logger_for_process():

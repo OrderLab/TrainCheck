@@ -8,7 +8,7 @@ from importlib.machinery import ModuleSpec
 
 import torch
 
-PROCESS_UUID = uuid.uuid4().hex
+THREAD_LOCAL = threading.local()
 
 
 def safe_getattr(obj, attr, default=None):
@@ -112,5 +112,7 @@ def get_timestamp_ns():
 
 
 def get_unique_id():
+    if not hasattr(THREAD_LOCAL, "PROCESS_UUID"):
+        THREAD_LOCAL.PROCESS_UUID = uuid.uuid4().hex
     """Get a unique id a single program run"""
-    return f"{PROCESS_UUID}_{get_timestamp_ns()}"
+    return f"{THREAD_LOCAL.PROCESS_UUID}_{get_timestamp_ns()}"

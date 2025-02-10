@@ -49,7 +49,6 @@ GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
 COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1"
 
 
-PROCESS_ID = os.getpid()
 THREAD_DATA = threading.local()
 
 logger = logging.getLogger("mldaikon.instrumentor.tracer")
@@ -62,12 +61,16 @@ class TraceLineType:
     STATE_CHANGE = "state_change"
 
 
-def get_thread_id() -> int:
+def get_process_thread_id() -> tuple[int, int]:
     global THREAD_DATA
     # If the ID isn't cached yet, fetch and store it in this thread's local storage
     if not hasattr(THREAD_DATA, "thread_id"):
         THREAD_DATA.thread_id = threading.get_ident()
-    return THREAD_DATA.thread_id
+
+    if not hasattr(THREAD_DATA, "process_id"):
+        THREAD_DATA.process_id = os.getpid()
+
+    return THREAD_DATA.process_id, THREAD_DATA.thread_id
 
 
 def is_c_level_function(original_function):
@@ -187,7 +190,7 @@ def global_wrapper(
         ENTER_PERF_TIME = time.perf_counter()
 
     func_call_id = get_unique_id()
-    thread_id = get_thread_id()
+    process_id, thread_id = get_process_thread_id()
     increment_step_if_needed(
         original_function, original_function_name, is_bound_method, args
     )
@@ -202,7 +205,8 @@ def global_wrapper(
     pre_record = {
         "func_call_id": func_call_id,
         "thread_id": thread_id,
-        "process_id": PROCESS_ID,
+        "process_id": process_id,
+        "process_id_real": os.getpid(),
         "meta_vars": pre_meta_vars,
         "type": TraceLineType.FUNC_CALL_PRE,
         "function": original_function_name,
@@ -281,7 +285,7 @@ def global_wrapper(
             {
                 "func_call_id": func_call_id,
                 "thread_id": thread_id,
-                "process_id": PROCESS_ID,
+                "process_id": process_id,
                 "meta_vars": pre_meta_vars,
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": original_function_name,
@@ -309,7 +313,7 @@ def global_wrapper(
     post_record = {
         "func_call_id": func_call_id,
         "thread_id": thread_id,
-        "process_id": PROCESS_ID,
+        "process_id": process_id,
         "meta_vars": pre_meta_vars,
         "type": TraceLineType.FUNC_CALL_POST,
         "function": original_function_name,
