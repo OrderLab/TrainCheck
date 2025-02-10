@@ -1,4 +1,4 @@
-model_tracker_style: sampler
+model_tracker_style: proxy
 models_to_track:
 - model
 modules_to_instr:
