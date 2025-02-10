@@ -26,6 +26,7 @@ from mldaikon.trace.utils import (
     load_signature_from_class_method_name,
     read_jsonlines_flattened_with_md_none,
 )
+from mldaikon.utils import safe_isnan
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +43,6 @@ def get_attr_name(col_name: str) -> str:
     if config.VAR_ATTR_PREFIX not in col_name:
         raise ValueError(f"{col_name} does not contain the tracker_var_field_prefix.")
     return col_name[len(config.VAR_ATTR_PREFIX) :]
-
-
-def safe_isnan(value: Any) -> bool:
-    return isinstance(value, float) and pd.isna(value)
 
 
 class TracePandas(Trace):

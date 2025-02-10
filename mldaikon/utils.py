@@ -5,7 +5,9 @@ import time
 import traceback
 import uuid
 from importlib.machinery import ModuleSpec
+from typing import Any
 
+import pandas as pd
 import torch
 
 THREAD_LOCAL = threading.local()
@@ -116,3 +118,7 @@ def get_unique_id():
         THREAD_LOCAL.PROCESS_UUID = uuid.uuid4().hex
     """Get a unique id a single program run"""
     return f"{THREAD_LOCAL.PROCESS_UUID}_{get_timestamp_ns()}"
+
+
+def safe_isnan(value: Any) -> bool:
+    return isinstance(value, float) and pd.isna(value)

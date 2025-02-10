@@ -1145,7 +1145,6 @@ class GroupedPreconditions:
             pid = records[0]["process_id"]
             tid = records[0]["thread_id"]
             meta_vars = trace_for_metavars.get_meta_vars(earliest_time, pid, tid)
-            print("META VARS", meta_vars)
             # update every trace with the meta_vars
             if meta_vars:
                 for key in meta_vars:

@@ -25,6 +25,7 @@ from mldaikon.trace.types import (
     FuncCallExceptionEvent,
     IncompleteFuncCallEvent,
 )
+from mldaikon.utils import safe_isnan
 
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"
@@ -109,6 +110,8 @@ def filter_functions_with_tensors(
                 return_values = func_call_event.return_values
                 if isinstance(return_values, dict):
                     return_values = [return_values]
+                if safe_isnan(return_values):
+                    return_values = []
                 for return_value in return_values:
                     type_value = list(return_value.keys())[0]
                     if (
@@ -153,6 +156,8 @@ def get_returned_tensors(
     return_values = func_call_event.return_values
     if isinstance(return_values, dict):
         return_values = [return_values]
+    if safe_isnan(return_values):
+        return []
     for return_value in return_values:
         type_value = list(return_value.keys())[0]
         attributes = return_value[type_value]
