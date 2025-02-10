@@ -56,7 +56,7 @@ def check_same_level(
         return False
 
     if funcA not in function_id_map[(process_id, thread_id)]:
-        return True
+        return False
 
     for idA in function_id_map[(process_id, thread_id)][funcA]:
         for idB in function_id_map[(process_id, thread_id)][funcB]:
