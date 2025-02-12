@@ -1012,13 +1012,6 @@ Defaulting to skip the var preconditon check for now.
             parent_func_call_ids, desc=f"Checking invariants for {inv.text_description}"
         ):
             parent_event_type = _get_parent_type(trace, parent_func_call_id)
-            if prune_func_call(
-                len(parent_func_call_ids),
-                parent_event_type,
-                nums_contained_events,
-                kind_of_parent_events,
-            ):
-                continue
             kind_of_parent_events.append(parent_event_type)
             # check for parent precondition
             parent_pre_record = trace.get_pre_func_call_record(parent_func_call_id)
