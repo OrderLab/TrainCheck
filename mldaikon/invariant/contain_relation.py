@@ -589,14 +589,6 @@ class APIContainRelation(Relation):
             ] = []
             for parent_func_call_id in parent_func_call_ids:
                 parent_event_type = _get_parent_type(trace, parent_func_call_id)
-                if prune_func_call(
-                    len(parent_func_call_ids),
-                    parent_event_type,
-                    nums_contained_events,
-                    kind_of_parent_events,
-                ):
-                    """This is not sound"""
-                    continue
                 contained_events = events_scanner(
                     trace=trace, func_call_id=parent_func_call_id
                 )
