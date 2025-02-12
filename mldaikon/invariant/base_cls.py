@@ -1179,7 +1179,7 @@ class GroupedPreconditions:
     def get_group_names(self) -> set[str]:
         return set(self.grouped_preconditions.keys())
 
-    def add_stage_info(self, valid_stages: set[str]):
+    def add_stage_info(self, valid_stages: set[str], all_stages: set[str]):
         # construct a CONSTANT clause for the stage
         stage_clause = PreconditionClause(
             prop_name=STAGE_KEY,
@@ -1189,7 +1189,7 @@ class GroupedPreconditions:
             values=valid_stages,
         )
 
-        invalid_stages = set(config.ALL_STAGE_NAMES) - valid_stages
+        invalid_stages = all_stages - valid_stages
 
         inverted_state_clause = PreconditionClause(
             prop_name=STAGE_KEY,
@@ -1520,13 +1520,39 @@ class Hypothesis:
         self.invariant = invariant
         self.positive_examples = positive_examples
         self.negative_examples = negative_examples
+        self.valid_only_for_stages = False
+        self.valid_stages: set[str] = set()
 
-    @staticmethod
-    def refine(trace: Trace, hypothesis_list: list) -> list:
-        # TODO: think about refinement for hypothesis (e.g. across multiple traces) / invariants (e.g A > B --> A >= B) needs abstaction for this
-        raise NotImplementedError("refine method is not implemented yet.")
+    def get_invariant(self, all_stages: set[str]) -> Invariant:
+        """
+        Get the invariant from the hypothesis.
+        This method should be used instead of directly accessing hypothesis.invariant
+        as it will set the number of positive and negative examples in the invariant,
+        and handle stage-based inference.
+        """
 
-        # hypothesis would be a major part of the inference process, as inferring & refining the invariants needs to be based on the positive and negative examples
+        inv = self.invariant
+        inv.num_positive_examples = len(self.positive_examples)
+        inv.num_negative_examples = len(self.negative_examples)
+
+        if self.valid_only_for_stages:
+            assert (
+                inv.precondition is not None
+            ), "Invariant precondition has to be first inferred"
+            inv.precondition.add_stage_info(self.valid_stages, all_stages)
+        return inv
+
+    def add_stage_info(self, stage: str | set[str], all_stages: set[str]):
+        self.valid_only_for_stages = True
+        if isinstance(stage, str):
+            self.valid_stages.add(stage)
+        else:
+            self.valid_stages.update(stage)
+
+        if self.valid_stages == all_stages:
+            self.valid_only_for_stages = False
+        else:
+            assert self.valid_stages.issubset(all_stages), "Invalid stages provided"
 
     def _print_debug(self):
         return f"Hypothesized Invariant: {self.invariant}\n# Positive examples: {len(self.positive_examples)}\n# Negative examples: {len(self.negative_examples)}"

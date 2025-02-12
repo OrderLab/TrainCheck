@@ -104,7 +104,7 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
-    def get_all_stages(self) -> list[str]:
+    def get_all_stages(self) -> set[str]:
         """Get all stages in the trace."""
         raise NotImplementedError(
             "This function should be implemented in the child class."

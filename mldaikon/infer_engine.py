@@ -31,7 +31,9 @@ random.seed(0)
 class InferEngine:
     def __init__(self, traces: list):
         self.traces = traces
-        pass
+        self.all_stages = set()
+        for trace in traces:
+            self.all_stages.update(trace.get_all_stages())
 
     def infer(self, disabled_relations: list[Relation]):
         all_invs = []
@@ -136,6 +138,8 @@ class InferEngine:
                 hypo.invariant.relation.collect_examples(trace, hypo)
 
     def infer_precondition(self, hypotheses: dict[Hypothesis, list[int]]):
+        """TODO: move the precondition inference driving code into Hypothesis.get_invariant()"""
+
         all_hypotheses: list[Hypothesis] = []
         for hypo in hypotheses:
             all_hypotheses.append(hypo)
@@ -143,19 +147,12 @@ class InferEngine:
         invariants = []
         failed_hypos = []
         for hypothesis in all_hypotheses:
-            hypothesis.invariant.num_positive_examples = len(
-                hypothesis.positive_examples
-            )
-            hypothesis.invariant.num_negative_examples = len(
-                hypothesis.negative_examples
-            )
             precondition = find_precondition(hypothesis, self.traces)
             if precondition is None:
                 failed_hypos.append(FailedHypothesis(hypothesis))
             else:
                 hypothesis.invariant.precondition = precondition
-                invariants.append(hypothesis.invariant)
-
+                invariants.append(hypothesis.get_invariant(self.all_stages))
         return invariants, failed_hypos
 
 

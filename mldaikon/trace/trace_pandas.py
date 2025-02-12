@@ -122,12 +122,12 @@ class TracePandas(Trace):
 
         return traces
 
-    def get_all_stages(self) -> list[str]:
+    def get_all_stages(self) -> set[str]:
         """Get all stages in the trace."""
         if not self.is_stage_annotated():
             raise ValueError("Trace is not annotated with stages.")
 
-        return self.events[STAGE_KEY].unique().tolist()
+        return set(self.events[STAGE_KEY].unique().tolist())
 
     def is_func_called(self, func_name: str, stage: None | str):
         """Check if a function is called in the trace."""

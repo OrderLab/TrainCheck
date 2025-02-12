@@ -41,7 +41,6 @@ from mldaikon.utils import typename
 PARENT_GROUP_NAME = "parent_func_call_pre"
 VAR_GROUP_NAME = "var_events"
 
-
 """ Possible Optimizations for Inference Speed of the APIContainRelation:
     - Parallelization
     - Checking lower level function calls first and use the results to infer the higher level function calls (i.e. module.to should reuse the results from module._apply)
@@ -340,6 +339,23 @@ class APIContainRelation(Relation):
 
     @staticmethod
     def collect_examples(trace, hypothesis):
+        """A wrapper for the real collect_examples method. Adding stage-based inference support"""
+        if hypothesis.valid_only_for_stages:
+            for (
+                stage,
+                stage_trace,
+            ) in (
+                trace.get_traces_for_stage().items()
+            ):  # This raise an error if in mutli-trace inference some inputs are annotated and some are not, we can also just skip the unannotated traces
+                if stage not in hypothesis.valid_stages:
+                    continue
+                APIContainRelation._collect_examples(stage_trace, hypothesis)
+        else:
+            APIContainRelation._collect_examples(trace, hypothesis)
+
+    @staticmethod
+    def _collect_examples(trace, hypothesis):
+        # TODO: only collect examples for a specific stage if the hypothesis is stage-based.
         logger = logging.getLogger(__name__)
 
         inv = hypothesis.invariant
@@ -492,29 +508,20 @@ class APIContainRelation(Relation):
 
         # merge the inferred invariants, for the unmerged invariants, add the stage information to the precondition
         merged_invariants = []
+        merged_successful_hypotheses: list[Hypothesis] = []
         all_stages = trace.get_all_stages()
         for invariant in invariants_by_stage:
-            supported_stages = invariants_by_stage[invariant]
-            if set(supported_stages) == set(all_stages):
-                merged_invariants.append(invariant)
-            else:
-                assert (
-                    invariant.precondition is not None
-                ), "Expected the precondition to be set for the invariant"
-                invariant.precondition.add_stage_info(set(supported_stages))
-                merged_invariants.append(invariant)
-
-        # for all the invariants' hypotheses, merge into one hypothesis by adding the examples
-        merged_successful_hypotheses: list[Hypothesis] = []
-        for hypotheses in invariants_to_hypos.values():
-            hypothesis = hypotheses[0]
-            for other_hypothesis in hypotheses[1:]:
+            supported_stages = set(invariants_by_stage[invariant])
+            hypothesis = invariants_to_hypos[invariant][0]
+            for other_hypothesis in invariants_to_hypos[invariant][1:]:
                 hypothesis.positive_examples.examples.extend(
                     other_hypothesis.positive_examples.examples
                 )
                 hypothesis.negative_examples.examples.extend(
                     other_hypothesis.negative_examples.examples
                 )
+            hypothesis.add_stage_info(supported_stages, all_stages)
+            merged_invariants.append(hypothesis.get_invariant(all_stages))
             merged_successful_hypotheses.append(hypothesis)
 
         # HACK: add the stage info to the failed hypotheses through the text description as well NEED TO CHANGE IF WE SUPPORT INVARIANT REFINEMENT
@@ -556,12 +563,6 @@ class APIContainRelation(Relation):
         func_names = [
             func_name for func_name in func_names if not is_signature_empty(func_name)
         ]
-
-        # func_names = [
-        #     func_name
-        #     for func_name in func_names
-        #     if func_name == "torch.optim.adam.Adam.step"
-        # ]
 
         if len(func_names) == 0:
             logger.warning(
