@@ -418,7 +418,10 @@ class ConsistentOutputRelation(Relation):
             for returned_tensor in returned_tensors:
                 prop = inv.params[1].attr_name
                 prop_val = inv.params[1].const_value
-                if prop not in returned_tensor or returned_tensor[prop] != prop_val:
+                if (
+                    prop not in returned_tensor
+                    or make_hashable(returned_tensor[prop]) != prop_val
+                ):
                     # add negative example
                     example = Example({"pre_event": [func_call_event.pre_record]})
                     hypothesis.negative_examples.add_example(example)
@@ -472,11 +475,6 @@ class ConsistentOutputRelation(Relation):
         # get all the function calls for the function
         func_call_ids = trace.get_func_call_ids(func_name)
 
-        # sample 100 function calls for quick false positive evaluation
-        import random
-
-        func_call_ids = random.sample(func_call_ids, min(100, len(func_call_ids)))
-
         triggered = False
         # for each function call, check if the property holds
         for func_call_id in tqdm(
@@ -509,7 +507,10 @@ class ConsistentOutputRelation(Relation):
             for returned_tensor in returned_tensors:
                 prop = inv.params[1].attr_name
                 prop_val = inv.params[1].const_value
-                if prop not in returned_tensor or returned_tensor[prop] != prop_val:
+                if (
+                    prop not in returned_tensor
+                    or make_hashable(returned_tensor[prop]) != prop_val
+                ):
                     return CheckerResult(
                         trace=[func_call_event.pre_record],
                         invariant=inv,
@@ -781,11 +782,6 @@ class ConsistentInputOutputRelation(Relation):
         func_name = api_param.api_full_name
         func_call_ids = trace.get_func_call_ids(func_name)
         triggered = False
-
-        # sample 100 function calls for quick false positive evaluation
-        import random
-
-        func_call_ids = random.sample(func_call_ids, min(100, len(func_call_ids)))
 
         for func_call_id in tqdm(
             func_call_ids, desc=f"Checking invariant {inv.text_description}"
@@ -1155,11 +1151,6 @@ class ThresholdRelation(Relation):
         func_name = api_param.api_full_name
         # get all function calls for the function
         func_call_ids = trace.get_func_call_ids(func_name)
-
-        # sample 100 function calls for quick false positive evaluation
-        import random
-
-        func_call_ids = random.sample(func_call_ids, min(100, len(func_call_ids)))
 
         if len(func_call_ids) == 0:
             return CheckerResult(
