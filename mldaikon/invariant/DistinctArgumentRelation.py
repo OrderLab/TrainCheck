@@ -15,6 +15,7 @@ from mldaikon.invariant.base_cls import (  # GroupedPreconditions,
 )
 from mldaikon.invariant.precondition import find_precondition
 from mldaikon.trace.trace import Trace
+from mldaikon.utils import safe_isnan
 
 EXP_GROUP_NAME = "distinct_arg"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 6
@@ -145,6 +146,8 @@ def compare_argument(value1, value2, IOU_criteria=True):
 
 
 def is_arguments_list_same(args1: list, args2: list):
+    if safe_isnan(args1) or safe_isnan(args2):
+        return False
     if len(args1) != len(args2):
         return False
     for index in range(len(args1)):
