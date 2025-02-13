@@ -206,7 +206,6 @@ def global_wrapper(
         "func_call_id": func_call_id,
         "thread_id": thread_id,
         "process_id": process_id,
-        "process_id_real": os.getpid(),
         "meta_vars": pre_meta_vars,
         "type": TraceLineType.FUNC_CALL_PRE,
         "function": original_function_name,
