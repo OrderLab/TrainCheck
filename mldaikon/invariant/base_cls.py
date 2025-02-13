@@ -1000,6 +1000,13 @@ class Precondition:
     def to_dict(self) -> dict:
         return {"clauses": [clause.to_dict() for clause in self.clauses]}
 
+    @staticmethod
+    def from_dict(precondition_dict: dict) -> Precondition:
+        clauses = []
+        for clause_dict in precondition_dict["clauses"]:
+            clauses.append(PreconditionClause.from_dict(clause_dict=clause_dict))
+        return Precondition(clauses=clauses)
+
     def __eq__(self, other) -> bool:
         if not isinstance(other, Precondition):
             return False
@@ -1101,12 +1108,7 @@ class Preconditions:
                 ), "Unconditional precondition should be the only precondition"
                 preconditions.append(UnconditionalPrecondition())
             else:
-                clauses = []
-                for clause_dict in precondition_dict["clauses"]:
-                    clauses.append(
-                        PreconditionClause.from_dict(clause_dict=clause_dict)
-                    )
-                preconditions.append(Precondition(clauses=clauses))
+                preconditions.append(Precondition.from_dict(precondition_dict))
         return Preconditions(preconditions, preconditions_dict["inverted"])
 
     def is_unconditional(self) -> bool:
@@ -1210,8 +1212,9 @@ class GroupedPreconditions:
                     for precondition in preconditions:
                         precondition.add_clause(stage_clause)
                 else:
-                    for precondition in preconditions:
-                        precondition.add_clause(inverted_state_clause)
+                    preconditions.preconditions.append(
+                        Precondition([inverted_state_clause])
+                    )
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, GroupedPreconditions):
