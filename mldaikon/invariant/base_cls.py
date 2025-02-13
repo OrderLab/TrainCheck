@@ -9,8 +9,6 @@ import math
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
-import pandas as pd
-
 import mldaikon.config.config as config
 from mldaikon.instrumentor.dumper import var_to_serializable
 from mldaikon.invariant.symbolic_value import (
@@ -27,6 +25,7 @@ from mldaikon.trace.types import (
     MDNONEJSONDecoder,
     VarChangeEvent,
 )
+from mldaikon.utils import safe_isnan
 
 
 class _NOT_SET:
@@ -919,7 +918,7 @@ class PreconditionClause:
         prop_values_seen = set()
         for i in range(len(example)):
             value, found = get_prop_from_record(example[i])
-            if not found or pd.isna(value):
+            if not found or safe_isnan(value):
                 return False
 
             if not isinstance(value, Hashable) and self.type != PT.EXIST:

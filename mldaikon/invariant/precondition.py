@@ -1,9 +1,7 @@
 import logging
-import random
 from itertools import combinations
 from typing import Hashable
 
-import pandas as pd
 from tqdm import tqdm
 
 import mldaikon.config.config as config
@@ -18,6 +16,7 @@ from mldaikon.invariant.base_cls import (
 )
 from mldaikon.trace.trace import Trace
 from mldaikon.trace.types import MD_NONE
+from mldaikon.utils import safe_isnan
 
 logger = logging.getLogger("Precondition")
 
@@ -46,71 +45,77 @@ def _find_local_clauses(
         "attributes",
         "var_type",
     }
-    # find properties that have only one value in the example
-    for prop in example[0]:
+
+    fields_for_inference = []
+    for field in example[0]:
         for prefix in relevant_key_prefixes:
-            if prop.startswith(prefix):
+            if field.startswith(prefix):
                 break
         else:
             # we skip inference on properties that are not relevant
             continue
 
-        # if prop in config.NOT_USE_AS_CLAUSE_FIELDS:
-        #     # skip meta_info about each event
-        #     continue
-
-        if isinstance(key_to_skip, list) and any(key in prop for key in key_to_skip):
+        if isinstance(key_to_skip, list) and any(key in field for key in key_to_skip):
             continue
 
-        if isinstance(key_to_skip, str) and key_to_skip in prop:
+        if isinstance(key_to_skip, str) and key_to_skip in field:
             continue
 
-        if not all(isinstance(example[i][prop], Hashable) for i in range(len(example))):
+        if not all(
+            isinstance(example[i][field], Hashable) for i in range(len(example))
+        ):
             # we cannot use non-hashable properties as preconditions, due to limitations in the current implementation (set cannot contain non-hashable objects)
             continue
 
-        prop_values_seen = {example[0][prop]}
+        all_record_has_field = True
+        for record in example:
+            if field not in record:
+                all_record_has_field = False
+                break
+            if safe_isnan(record[field]):
+                # we should not use NaN as a precondition
+                all_record_has_field = False
+                break
+
+        if not all_record_has_field:
+            continue
+
+        fields_for_inference.append(field)
+
+    # find properties that have only one value in the example
+    for field in fields_for_inference:
+        field_values_seen = {example[0][field]}
         for i in range(1, len(example)):
-            if prop not in example[i]:
-                # TODO: we might not want to skip this, as if this prop is a local attribute of a specific variable type, it might not be other traces
-                logger.error(
-                    f"Property {prop} not found in example {example[i]}, precondition inference might not be correct if this prop is not a local attribute of the variable"
-                )
-                continue
-            prop_values_seen.add(example[i][prop])
+            field_values_seen.add(example[i][field])
 
         # get the type of the property
-        prop_dtype = None
-        for value in prop_values_seen:
+        field_dtype = None
+        for value in field_values_seen:
             if value is None:
                 continue
-            if pd.isna(value):
-                continue
-            if prop_dtype is None:
-                prop_dtype = type(value)
-            # if prop_dtype != type(value) and value is not None:
-            #     raise ValueError(
-            #         f"Property {prop} has inconsistent types {prop_dtype, type(value)} in the example"
-            #     )
+            if field_dtype is None:
+                field_dtype = type(value)
 
-        if prop_dtype is None:
+        if field_dtype is None:
             # logger.warning(
             #     f"Property {prop} has no real values in the example, skipping this property as a clause."
             # )
             continue
 
-        if len(prop_values_seen) == 1 and prop_dtype is not None:
-            if prop_dtype is MD_NONE:
+        if len(field_values_seen) == 1 and field_dtype is not None:
+            if field_dtype is MD_NONE:
                 clauses.append(
-                    PreconditionClause(prop, None, PT.CONSTANT, None, {None})
+                    PreconditionClause(field, None, PT.CONSTANT, None, {None})
                 )
             clauses.append(
                 PreconditionClause(
-                    prop, prop_dtype, PT.CONSTANT, None, prop_values_seen
+                    field, field_dtype, PT.CONSTANT, None, field_values_seen
                 )
             )
-        elif len(prop_values_seen) == len(example) and None not in prop_values_seen:
-            clauses.append(PreconditionClause(prop, prop_dtype, PT.UNEQUAL, None, None))
+        elif len(field_values_seen) == len(example) and None not in field_values_seen:
+            clauses.append(
+                PreconditionClause(field, field_dtype, PT.UNEQUAL, None, None)
+            )
 
     # let's deal with meta_vars.context_managers separately
     all_context_managers = []
@@ -192,12 +197,12 @@ def _merge_clauses(
         seen_unique_constant_values = set()
         seen_unique_constant_exp_ids = set()
         constant_value_to_exp_ids: dict[object, set] = {}
-        prop_dtype = None
+        field_dtype = None
         for clause in clauses_and_exp_ids:
-            if prop_dtype is None:
-                prop_dtype = clause.prop_dtype
+            if field_dtype is None:
+                field_dtype = clause.prop_dtype
             if (
-                clause.type == PT.CONSTANT and prop_dtype is not bool
+                clause.type == PT.CONSTANT and field_dtype is not bool
             ):  # tensor_model_parallel (bool) and meta_vars.stage (str) are not merged
                 assert (
                     len(clause.values) == 1
@@ -215,8 +220,8 @@ def _merge_clauses(
                     "Consistent clause found in the local clauses, this should not happen"
                 )
 
-            if clause.type == PT.CONSTANT and prop_dtype is bool:
-                # if the prop_dtype is bool, we should not merge the constant clauses
+            if clause.type == PT.CONSTANT and field_dtype is bool:
+                # if the field_dtype is bool, we should not merge the constant clauses
                 merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
 
             if clause.type == PT.UNEQUAL:
@@ -226,24 +231,24 @@ def _merge_clauses(
                 # if we see an exist clause, just add it to the merged_clauses_and_exp_ids for now
                 merged_clauses_and_exp_ids[clause] = clauses_and_exp_ids[clause]
 
-        # assert prop_dtype is not None, "Property type should not be None"
+        # assert field_dtype is not None, "Property type should not be None"
 
         # merge the constant clauses into consistent clauses
         if len(seen_unique_constant_values) == 0:
             continue
 
         if (
-            prop_dtype is str
+            field_dtype is str
             and len(seen_unique_constant_values)
             > config.CONST_CLAUSE_STR_NUM_VALUES_THRESHOLD
         ) or (
-            prop_dtype is not str
+            field_dtype is not str
             and len(seen_unique_constant_values)
             > config.CONST_CLAUSE_NUM_VALUES_THRESHOLD
-            and prop_dtype is not bool
+            and field_dtype is not bool
         ):
             consistent_clause = PreconditionClause(
-                target, prop_dtype, PT.CONSISTENT, None, seen_unique_constant_values
+                target, field_dtype, PT.CONSISTENT, None, seen_unique_constant_values
             )
             merged_clauses_and_exp_ids[consistent_clause] = list(
                 seen_unique_constant_exp_ids
@@ -252,7 +257,7 @@ def _merge_clauses(
             # if the number of values seen is not too large, we should just keep the constant clauses
             for value in constant_value_to_exp_ids:
                 constant_clause = PreconditionClause(
-                    target, prop_dtype, PT.CONSTANT, None, {value}
+                    target, field_dtype, PT.CONSTANT, None, {value}
                 )
                 merged_clauses_and_exp_ids[constant_clause] = list(
                     constant_value_to_exp_ids[value]
@@ -511,30 +516,6 @@ def find_precondition_from_single_group(
     #             preconditions.extend(grouped_preconditions[stage])
 
     #         return preconditions
-
-    # if there are too many positive examples, let's sample a subset of them
-    if (
-        len(positive_examples) > config.PRECOND_SAMPLING_THRESHOLD
-        and config.ENABLE_PRECOND_SAMPLING
-    ):  # TODO: this should probably change for each relation as each might have different statistical significance requirements
-        # TODO: why can we do this? Partial clauses usually are at around 20% to 80%, so statistically, sampling should be fine.
-        logger.warning(
-            f"Too many positive examples: {len(positive_examples)}, sampling to {config.PRECOND_SAMPLING_THRESHOLD} examples, sampling ratio: {config.PRECOND_SAMPLING_THRESHOLD / len(positive_examples) * 100}%"
-        )
-        positive_examples = random.sample(
-            positive_examples, config.PRECOND_SAMPLING_THRESHOLD
-        )
-
-    if (
-        len(negative_examples) > config.PRECOND_SAMPLING_THRESHOLD
-        and config.ENABLE_PRECOND_SAMPLING
-    ):
-        logger.warning(
-            f"Too many negative examples: {len(negative_examples)}, sampling to {config.PRECOND_SAMPLING_THRESHOLD} examples, sampling ratio: {config.PRECOND_SAMPLING_THRESHOLD / len(negative_examples) * 100}%"
-        )
-        negative_examples = random.sample(
-            negative_examples, config.PRECOND_SAMPLING_THRESHOLD
-        )
 
     ## 1. Find the properties (meta_vars and variable local attributes) that consistently shows up positive examples
     all_local_clauses = []
