@@ -70,11 +70,6 @@ if __name__ == "__main__":
         help="Enable debug logging",
     )
     parser.add_argument(
-        "--report-only-failed",
-        action="store_true",
-        help="Only report the failed invariants",
-    )
-    parser.add_argument(
         "--check-relation-first",
         action="store_true",
         help="""Check the relation first, otherwise, the precondition will be checked first. 
@@ -170,11 +165,28 @@ if __name__ == "__main__":
 
     # dump the results to a file
     with open(
-        f"mldaikon_checker_results_{time_now}.log",
+        f"mldaikon_checker_results_failed_{time_now}.log",
         "w",
     ) as f:
-        if args.report_only_failed:
-            results = [res for res in results if not res.check_passed]
         for res in results:
-            json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-            f.write("\n")
+            if not res.check_passed:
+                json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                f.write("\n")
+
+    with open(
+        f"mldaikon_checker_results_not_triggered_{time_now}.log",
+        "w",
+    ) as f:
+        for res in results:
+            if not res.triggered:
+                json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                f.write("\n")
+
+    with open(
+        f"mldaikon_checker_results_passed_{time_now}.log",
+        "w",
+    ) as f:
+        for res in results:
+            if res.check_passed and res.triggered:
+                json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                f.write("\n")
