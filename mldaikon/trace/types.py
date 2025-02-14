@@ -148,7 +148,8 @@ class FuncCallEvent(HighLevelEvent):
             and post_record["type"] == TraceLineType.FUNC_CALL_POST
         )
 
-        self.args: list[dict[str, dict[str, object]]] = pre_record[
+        # TODO: use the Arguments class to replace self.args and self.kwargs
+        self.args: dict[str, dict[str, dict[str, object]]] = pre_record[
             "args"
         ]  # lists of [type -> attr_name -> value]
         self.kwargs: dict[str, dict[str, object]] = pre_record[
@@ -182,6 +183,7 @@ class IncompleteFuncCallEvent(HighLevelEvent):
         self.potential_end_time = potential_end_time
         assert pre_record["type"] == TraceLineType.FUNC_CALL_PRE
 
+        # TODO: replace self.args and self.kwargs with the Arguments class
         self.args = pre_record["args"]
         self.kwargs = pre_record["kwargs"]
 
@@ -209,6 +211,7 @@ class FuncCallExceptionEvent(HighLevelEvent):
             and post_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION
         )
 
+        # TODO: replace self.args and self.kwargs with the Arguments class
         self.args = pre_record["args"]
         self.kwargs = pre_record["kwargs"]
 

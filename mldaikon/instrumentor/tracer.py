@@ -108,16 +108,16 @@ def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
     DISABLE_WRAPPER = True
     if dump_args_config is None:
         result = {
-            "args": [var_to_serializable(arg) for arg in args],
+            "args": {i: var_to_serializable(arg) for i, arg in enumerate(args)},
             "kwargs": {k: var_to_serializable(v) for k, v in kwargs.items()},
         }
     else:
-        result = {"args": [], "kwargs": {}}
-        args_dicts = []
+        result = {"args": {}, "kwargs": {}}
+        args_dicts = {}
         kwargs_dicts = {}
         for i, arg in enumerate(args):
             if str(i) in dump_args_config:
-                args_dicts.append(var_to_serializable(arg, dump_args_config[str(i)]))
+                args_dicts[i] = var_to_serializable(arg, dump_args_config[str(i)])
 
         for k, v in kwargs.items():
             if k in dump_args_config:

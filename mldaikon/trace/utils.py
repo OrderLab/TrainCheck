@@ -71,7 +71,6 @@ def bind_args_kwargs_to_signature(
     """
 
     # NOTE: we have to implement our own binding instead of using inspect.Signature.bind is because during the tracing we might not record everything (e.g. for tensors).
-
     bind_args_and_kwargs: dict[str, dict] = (
         {}
     )  # {arg_name: {type of the provided value: [{attr: value}] | the value itself}}
@@ -81,7 +80,7 @@ def bind_args_kwargs_to_signature(
         # NOTE: when the first the argument is `self`, we usually can't properly serialize it during tracing. We don't skip it but still probably the consumer of this function should handle it properly.
         if idx >= len(args):
             break
-        bind_args_and_kwargs[arg_name] = args[idx]
+        bind_args_and_kwargs[arg_name] = args[str(idx)]
 
     # then consume the kwargs
     for kwarg_name, kwarg in kwargs.items():

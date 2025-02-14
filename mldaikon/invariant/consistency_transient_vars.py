@@ -91,7 +91,7 @@ def filter_functions_with_tensors(
         func_has_input_tensor = False
         func_has_output_tensor = False
         for func_call_event in func_call_ids_and_events.values():
-            for arg in func_call_event.args:
+            for arg in func_call_event.args.values():  # TODO: handle new format
                 assert len(arg) == 1
                 arg_type = list(arg.keys())[0]
                 if re.match(TENSOR_PATTERN, arg_type) or PARAMETER_KEYWORD in arg_type:
@@ -176,7 +176,7 @@ def get_input_tensors(
     Get all the input tensors that are passed to the function calls.
     """
     input_tensors = []
-    for arg in func_call_event.args:
+    for arg in func_call_event.args.values():
         assert len(arg) == 1
         arg_type = list(arg.keys())[0]
         if re.match(TENSOR_PATTERN, arg_type) or PARAMETER_KEYWORD in arg_type:

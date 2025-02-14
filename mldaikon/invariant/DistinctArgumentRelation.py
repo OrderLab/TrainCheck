@@ -150,9 +150,12 @@ def is_arguments_list_same(args1: list, args2: list):
         return False
     if len(args1) != len(args2):
         return False
-    for index in range(len(args1)):
+    for index in args1:
         arg1 = args1[index]
-        arg2 = args2[index]
+        if index in args2:
+            arg2 = args2[index]
+        else:
+            return False
         if not compare_argument(arg1, arg2):
             return False
     return True

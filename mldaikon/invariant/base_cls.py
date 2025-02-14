@@ -100,7 +100,7 @@ def is_signature_empty(func_name: str) -> bool:
 class Arguments:
     def __init__(
         self,
-        args: Iterable[Any],
+        args: dict[str, dict[str, Any]],
         kwargs: dict[str, dict[str, Any]],
         func_name: str,
         consider_default_values: bool = False,
@@ -147,7 +147,8 @@ class Arguments:
 
             self.arguments = kwargs.copy()
             signature_params = list(self.signature.parameters.keys())
-            for i, arg in enumerate(args):
+            for i_str, arg in args.items():
+                i = int(i_str)
                 if i < len(signature_params):
                     self.arguments[signature_params[i]] = arg
                 elif allow_unmatched_args:
@@ -184,7 +185,7 @@ class Arguments:
         return Arguments(
             kwargs=arguments_dict["args"],
             func_name=arguments_dict["func_name"],
-            args=[],
+            args={},
         )
 
     def merge_with(self, other: Arguments) -> Arguments:
@@ -203,7 +204,7 @@ class Arguments:
             # >, <, >=, <= for numerical types
             # TODO
 
-        return Arguments(args=[], kwargs=merged_args, func_name=self.func_name)
+        return Arguments(args={}, kwargs=merged_args, func_name=self.func_name)
 
     def is_empty(self) -> bool:
         return len(self.arguments) == 0
