@@ -33,7 +33,9 @@ class InferEngine:
         self.traces = traces
         self.all_stages = set()
         for trace in traces:
-            self.all_stages.update(trace.get_all_stages())
+            # FIXME: we don't fully support multi-stage traces with inconsistent stage annotations yet, not sure about the impact to invariant correctness.
+            if trace.is_stage_annotated():
+                self.all_stages.update(trace.get_all_stages())
 
     def infer(self, disabled_relations: list[Relation]):
         all_invs = []
