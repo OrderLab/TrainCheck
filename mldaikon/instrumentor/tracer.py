@@ -249,6 +249,12 @@ def global_wrapper(
         pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
 
+    if handle_proxy and trigger_proxy_state_dump:
+        """Mimiking the behavior the observer wrapper: pre-observe"""
+        get_global_registry().dump_only_modified(
+            dump_loc=original_function_name, dump_config=proxy_state_dump_config
+        )
+
     if handle_proxy:
         if enable_C_level_observer and is_builtin:
             from mldaikon.proxy_wrapper.proxy_observer import (
@@ -275,7 +281,7 @@ def global_wrapper(
             ORIG_EXIT_PERF_TIME = time.perf_counter()
 
         if handle_proxy and trigger_proxy_state_dump:
-            print("dumping proxy state from" + original_function_name)
+            """Mimiking the behavior the observer wrapper: post-observe"""
             get_global_registry().dump_only_modified(
                 dump_loc=original_function_name, dump_config=proxy_state_dump_config
             )
@@ -304,7 +310,6 @@ def global_wrapper(
         raise e
 
     if handle_proxy and trigger_proxy_state_dump:
-        print("dumping proxy state from" + original_function_name)
         get_global_registry().dump_only_modified(
             dump_loc=original_function_name, dump_config=proxy_state_dump_config
         )
