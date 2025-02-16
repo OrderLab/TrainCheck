@@ -1,0 +1,7 @@
+modules_to_instr:
+- torch
+pyscript: main.py
+models_to_track:
+- net
+model_tracker_style: proxy
+
