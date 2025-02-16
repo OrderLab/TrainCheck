@@ -156,7 +156,7 @@ def test(epoch):
 
 
 # for epoch in range(start_epoch, start_epoch+200):
-for epoch in range(start_epoch, start_epoch+3): # only 3 epochs
+for epoch in range(start_epoch, start_epoch+1): # only 3 epochs
     train(epoch)
     test(epoch)
     scheduler.step()

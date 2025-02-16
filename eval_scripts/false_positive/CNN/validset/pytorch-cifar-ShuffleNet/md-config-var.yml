@@ -4,4 +4,4 @@ pyscript: main.py
 models_to_track:
 - net
 model_tracker_style: proxy
-
+copy_all_files: true
