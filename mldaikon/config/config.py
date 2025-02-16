@@ -98,14 +98,24 @@ class InstrOpt:
         self.model_tracker_style = model_tracker_style
         self.disable_proxy_dumping = disable_proxy_dumping
 
-    def to_json(self) -> str:
-        return json.dumps(
-            {
-                "funcs_instr_opts": self.funcs_instr_opts,
-                "model_tracker_style": self.model_tracker_style,
-                "disable_proxy_dumping": self.disable_proxy_dumping,
-            }
-        )
+    def to_json(self, indent=True) -> str:
+        if indent:
+            return json.dumps(
+                {
+                    "funcs_instr_opts": self.funcs_instr_opts,
+                    "model_tracker_style": self.model_tracker_style,
+                    "disable_proxy_dumping": self.disable_proxy_dumping,
+                },
+                indent=4,
+            )
+        else:
+            return json.dumps(
+                {
+                    "funcs_instr_opts": self.funcs_instr_opts,
+                    "model_tracker_style": self.model_tracker_style,
+                    "disable_proxy_dumping": self.disable_proxy_dumping,
+                },
+            )
 
     @staticmethod
     def from_json(instr_opt_json_str: str):
