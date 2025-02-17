@@ -56,6 +56,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
             if args.dry_run:
                 break
 
+            if batch_idx == 50:
+                break
+
 def test(model, device, test_loader):
     annotate_stage("testing") # ML_DAIKON: stage annotation
     model.eval()
@@ -71,6 +74,8 @@ def test(model, device, test_loader):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             data_idx += 1
+            if data_idx == 10:
+                break
 
     test_loss /= len(test_loader.dataset)
 

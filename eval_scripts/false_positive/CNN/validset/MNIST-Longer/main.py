@@ -54,6 +54,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
                 100. * batch_idx / len(train_loader), loss.item()))
             if args.dry_run:
                 break
+            if batch_idx == 50:
+                break
 
 
 def test(model, device, test_loader):
@@ -71,6 +73,9 @@ def test(model, device, test_loader):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             data_idx += 1
+
+            if data_idx == 10:
+                break
 
     test_loss /= len(test_loader.dataset)
 

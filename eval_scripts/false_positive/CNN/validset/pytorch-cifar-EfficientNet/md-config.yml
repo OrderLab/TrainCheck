@@ -1,3 +1,4 @@
 modules_to_instr:
 - torch
 pyscript: main.py
+copy_all_files: true
