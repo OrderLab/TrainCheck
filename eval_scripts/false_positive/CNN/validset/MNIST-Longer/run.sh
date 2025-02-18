@@ -1,1 +1,1 @@
-python3 main.py --epochs 3
+python3 main.py --epochs 10
