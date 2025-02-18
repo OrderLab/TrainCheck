@@ -347,20 +347,21 @@ def global_wrapper(
             response = result[i]
             # Find all indices where the start_token_id matches
             matches = (response == GENERATE_START_TOKEN_ID).nonzero(as_tuple=True)[0]
-            if len(matches) == 0:
+            indexes = matches.tolist()
+            if len(indexes) == 0:
                 # No occurrences found
                 print(
                     f"start_token_id ({GENERATE_START_TOKEN_ID}) not found in response {i}"
                 )
                 start_index = -1  # Handle case where token is not found
-            elif len(matches) > 1:
+            elif len(indexes) > 1:
                 # Multiple occurrences found, raise an error
                 raise ValueError(
                     f"Multiple occurrences of start_token_id ({GENERATE_START_TOKEN_ID}) found in response {i}: {matches.tolist()}"
                 )
             else:
                 # Single occurrence found, get the index
-                start_index = matches.item()
+                start_index = indexes[0]
                 if not GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN:
                     start_index += 1
 
