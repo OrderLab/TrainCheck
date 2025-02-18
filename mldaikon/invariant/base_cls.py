@@ -28,7 +28,15 @@ from mldaikon.trace.types import (
 from mldaikon.utils import safe_isnan
 
 
-class _NOT_SET:
+class Meta_NOT_SET(type):
+    def __str__(cls):
+        return "NOT SET"
+
+    def __repr__(cls):
+        return "NOT SET"
+
+
+class _NOT_SET(metaclass=Meta_NOT_SET):
     pass
 
 
@@ -453,7 +461,7 @@ class APIParam(Param):
         return hash(self.api_full_name)
 
     def __str__(self):
-        return f"{self.api_full_name} {self.exception}"
+        return f"{self.api_full_name} with exception: {self.exception}"
 
     def __repr__(self):
         return self.__str__()
@@ -1282,7 +1290,7 @@ class Invariant:
         if not _dumping_for_failed_cases:
             assert (
                 self.precondition is not None
-            ), f"Invariant precondition is not set, check the infer function of {self.relation.__name__} (invariant text description: {self.text_description})"
+            ), f"Invariant precondition is NOT SET, check the infer function of {self.relation.__name__} (invariant text description: {self.text_description})"
 
             return {
                 "text_description": self.text_description,
@@ -1386,7 +1394,7 @@ class CheckerResult:
         if not self.check_passed:
             assert hasattr(
                 self, "time_precentage"
-            ), "Time percentage not set for failed check, please call calc_and_set_time_precentage before converting to dict"
+            ), "Time percentage NOT SET for failed check, please call calc_and_set_time_precentage before converting to dict"
 
             trace = self.trace.copy()
             MD_NONE.replace_with_none(trace)
