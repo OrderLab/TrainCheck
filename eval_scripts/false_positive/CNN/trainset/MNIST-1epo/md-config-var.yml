@@ -1,8 +1,8 @@
 modules_to_instr:
 - torch
 pyscript: main.py
+shscript: run.sh
 models_to_track:
-- net
+- model
 model_tracker_style: proxy
-copy_all_files: true
 
