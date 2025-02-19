@@ -1,0 +1,14 @@
+setups:
+  - input:
+    - MNIST-1epo
+  - input:
+    - MNIST-3epo
+  - input:
+    - MNIST-3epo-larger-model
+  - input:
+    - MNIST-3epo-CIFAR10
+  - input:
+    - MNIST-3epo
+    - MNIST-3epo-larger-model
+    - MNIST-3epo-CIFAR10
+trace_collection_parallelism: -1
