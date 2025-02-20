@@ -48,9 +48,13 @@ def get_inv_inference_command(setup) -> list[str]:
     return cmd
 
 
-def run_command(cmd, block) -> subprocess.Popen:
+def run_command(cmd, block, io_filename) -> subprocess.Popen:
     # run the experiment in a subprocess
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if io_filename:
+        with open(io_filename, "w") as f:
+            process = subprocess.Popen(cmd, stdout=f, stderr=f)
+    else:
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if block:
         process.wait()
         if process.returncode != 0:
@@ -81,27 +85,17 @@ def run_trace_collection(train_programs, valid_programs, parallelism):
                 # run the trace collection
                 print("Running trace collection for", program)
                 cmd = get_trace_collection_command(program)
-                process = run_command(cmd, block=False)
+                io_filename = f"{program}_trace_collection.log"
+                process = run_command(cmd, block=False, io_filename=io_filename)
                 running_experiments[program] = process
 
             # check for failed or completed experiments
             for program, process in running_experiments.copy().items():
                 if process.poll() is not None:
                     if process.returncode != 0:
-                        print(f"Trace collection failed for {program}")
-                        # check for the stderr of this process
-                        # if the error is due to cuda memory out of space, we can retry the experiment
-                        if "CUDA error: out of memory" in process.stderr:
-                            print(
-                                f"Retrying trace collection for {program} due to CUDA memory error after 1 minute"
-                            )
-                            process = run_command(program, block=True)
-                            running_experiments[program] = process
-                            READY_TRACES.append(program)
-                        else:
-                            raise Exception(
-                                f"Trace collection failed for {program} due to an unknown error, aborting, stdout: {process.stdout.read()}, stderr: {process.stderr.read()}"
-                            )
+                        raise Exception(
+                            f"Trace collection failed for {program} due to an unknown error, aborting"
+                        )
                     else:
                         print(f"Trace collection completed for {program}")
                         READY_TRACES.append(program)
@@ -112,7 +106,7 @@ def run_invariant_inference(setups):
     # run invariant inference
     running_setups = []
     leftover_setups = setups.copy()
-    while len(leftover_setups) > 0:
+    while len(leftover_setups) > 0 or len(running_setups) > 0:
         for setup in leftover_setups:
             if (
                 not any(setup == running_setup for running_setup, _ in running_setups)
@@ -120,13 +114,11 @@ def run_invariant_inference(setups):
                 # run invariant inference
                 print("Running invariant inference for", setup)
                 cmd = get_inv_inference_command(setup)
-                process = run_command(cmd, block=False)
+                io_filename = "_".join(setup["inputs"]) + "_inference.log"
+                process = run_command(cmd, block=False, io_filename=io_filename)
                 leftover_setups.remove(setup)
                 running_setups.append((setup, process))
                 break
-        else:
-            print("No trace ready for inference yet, waiting for 10 seconds")
-            time.sleep(10)
 
         # check for failed or completed experiments
         for setup, process in running_setups.copy():
@@ -135,24 +127,36 @@ def run_invariant_inference(setups):
                     print(f"Invariant inference failed for {setup}")
                     # check for the stderr of this process
                     # if the error is due to cuda memory out of space, we can retry the experiment
-                    if "killed" in process.stderr:
-                        print(f"Retrying invariant inference for {setup} due to OOM")
-                        cmd = get_inv_inference_command(setup)
-                        process = run_command(cmd, block=True)
-                        running_setups.remove((setup, process))
-                    else:
-                        raise Exception(
-                            f"Invariant inference failed for {program} due to an unknown error, aborting, stdout: {process.stdout}, stderr: {process.stderr}"
-                        )
+                    raise Exception(
+                        f"Invariant inference failed for {setup} due to an unknown error, aborting"
+                    )
                 else:
-                    print(f"Invariant inference completed for {program}")
+                    print(f"Invariant inference completed for {setup}")
                     READY_INVARIANTS.append(setup)
                     running_setups.remove((setup, process))
+
+    print("Exiting invariant inference loop")
 
 
 def run_invariant_checking(valid_programs, setups):
     # TBD
     pass
+
+
+def cleanup_trace_files():
+    # list out all folders with the prefix TRACE_OUTPUT_DIR_PREFIX
+    files = os.listdir(".")
+    trace_dirs = [file for file in files if file.startswith(TRACE_OUTPUT_DIR_PREFIX)]
+    for trace_dir in trace_dirs:
+        print(f"Removing {trace_dir}")
+        os.system(f"rm -rf {trace_dir}")
+
+    # remove all mldaikon logs
+    files = os.listdir(".")
+    mldaikon_logs = [file for file in files if file.startswith("mldaikon_")]
+    for log in mldaikon_logs:
+        print(f"Removing {log}")
+        os.system(f"rm {log}")
 
 
 if __name__ == "__main__":
@@ -173,6 +177,7 @@ if __name__ == "__main__":
     """
 
     os.chdir(args.bench)
+    cleanup_trace_files()
     train_programs = os.listdir("trainset")
     valid_programs = os.listdir("validset")
     # remove non folder and "data"
