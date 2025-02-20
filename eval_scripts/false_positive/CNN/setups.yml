@@ -1,13 +1,13 @@
 setups:
-  - input:
+  - inputs:
     - MNIST-1epo
-  - input:
+  - inputs:
     - MNIST-3epo
-  - input:
+  - inputs:
     - MNIST-3epo-larger-model
-  - input:
+  - inputs:
     - MNIST-3epo-CIFAR10
-  - input:
+  - inputs:
     - MNIST-3epo
     - MNIST-3epo-larger-model
     - MNIST-3epo-CIFAR10
