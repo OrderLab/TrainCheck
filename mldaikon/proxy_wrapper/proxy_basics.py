@@ -51,6 +51,12 @@ def unproxy_func(func, inspect_torch_module=False):
     return wrapper
 
 
+def unproxy_args_kwargs(args, kwargs, inspect_torch_module=False):
+    args = [unproxy_arg(arg, inspect_torch_module) for arg in args]
+    kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+    return args, kwargs
+
+
 def type_handle_mldaikon_proxy(x):
     if hasattr(x, "is_ml_daikon_proxied_obj"):
         return type(x._obj)

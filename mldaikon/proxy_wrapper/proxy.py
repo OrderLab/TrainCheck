@@ -23,7 +23,7 @@ from mldaikon.proxy_wrapper.dumper import (
 from mldaikon.utils import get_timestamp_ns, typename
 
 from .dumper import json_dumper as dumper
-from .proxy_basics import unproxy_arg
+from .proxy_basics import unproxy_arg, unproxy_args_kwargs
 from .proxy_handler import PROXY_SUPPORT_OBJ_TYPES
 from .proxy_registry import get_global_registry
 from .utils import print_debug
@@ -306,7 +306,7 @@ class Proxy:
 
         if type(obj) is Proxy:
             print_debug(
-                "logger_proxy: "
+                lambda: "logger_proxy: "
                 + f"Object '{obj.__class__.__name__}' is already a proxy"
             )
 
@@ -481,10 +481,13 @@ class Proxy:
 
     def __getattr__(self, name):
         print_debug(lambda: f"logger_proxy: Accessing attribute '{name}'")
+
         if name == "logdir":
             return self.__dict__.get("logdir", None)  # in order to pass down the dir
         if name == "_obj":
             return self.__dict__.get("_obj", None)  # in order to pass down the dir
+        if name == "__torch_function__":
+            return Proxy._unwrapping__torch_function__
         attr = getattr(self._obj, name)
 
         if self.__dict__["var_name"] == "":
@@ -601,3 +604,12 @@ class Proxy:
                 self.print_tensor(value)
             else:
                 print_debug(lambda: f"logger_proxy: {k}: {value}")
+
+    @classmethod
+    def _unwrapping__torch_function__(cls, func, types, args=(), kwargs=None):
+        # 🚨 Ensure Proxy does not interfere with PyTorch dispatch
+        if kwargs is None:
+            kwargs = {}
+
+        real_args, real_kwargs = unproxy_args_kwargs(args, kwargs)
+        return func(*real_args, **real_kwargs)
