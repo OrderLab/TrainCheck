@@ -383,11 +383,16 @@ if __name__ == "__main__":
         raise ValueError("Configuration file provided without --use-config flag")
     if use_config:
         config_file = args.config
+        path_prefix = os.path.dirname(config_file)
         with open(config_file, "r") as f:
             config_args = yaml.safe_load(f)
         for key, value in config_args.items():
             if not hasattr(args, key):
                 raise ValueError(f"Invalid configuration key: {key}")
+            if key == "pyscript":
+                value = os.path.join(path_prefix, value)
+            if key == "shscript":
+                value = os.path.join(path_prefix, value)
             setattr(args, key, value)
 
     # set up logging
