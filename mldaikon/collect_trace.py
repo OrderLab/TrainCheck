@@ -216,6 +216,20 @@ def get_default_output_folder(args: argparse.Namespace) -> str:
     return output_folder
 
 
+def is_path_md_output_dir(output_dir: str) -> bool:
+    """
+    Check if the output_dir is a path to a directory
+    """
+    if not os.path.isdir(output_dir):
+        return False
+
+    # see if the directory contains trace_API_* files
+    if any(file.startswith("trace_API_") for file in os.listdir(output_dir)):
+        return True
+
+    return False
+
+
 if __name__ == "__main__":
     # First parse the deciding arguments.
     use_config_args_parser = argparse.ArgumentParser(add_help=False)
@@ -515,6 +529,10 @@ disabling model tracking."""
         if parent_dir == "":
             parent_dir = "."
         for file in os.listdir(parent_dir):
+            if is_path_md_output_dir(
+                os.path.join(parent_dir, file)
+            ) or file == os.path.basename(output_dir):
+                continue
             os.system(f"cp -r {os.path.join(parent_dir, file)} {output_dir}")
 
     # call into the program runner
