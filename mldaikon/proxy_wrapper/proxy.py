@@ -487,7 +487,7 @@ class Proxy:
         if name == "_obj":
             return self.__dict__.get("_obj", None)  # in order to pass down the dir
         if name == "__torch_function__":
-            return Proxy._unwrapping__torch_function__
+            return Proxy.__torch_function__
         attr = getattr(self._obj, name)
 
         if self.__dict__["var_name"] == "":
@@ -606,7 +606,7 @@ class Proxy:
                 print_debug(lambda: f"logger_proxy: {k}: {value}")
 
     @classmethod
-    def _unwrapping__torch_function__(cls, func, types, args=(), kwargs=None):
+    def __torch_function__(cls, func, types, args=(), kwargs=None):
         # 🚨 Ensure Proxy does not interfere with PyTorch dispatch
         if kwargs is None:
             kwargs = {}
