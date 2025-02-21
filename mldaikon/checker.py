@@ -86,6 +86,12 @@ if __name__ == "__main__":
         default="pandas",
         help="Specify the backend to use for Trace",
     )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        type=str,
+        help="Output folder to store the results, defaulted to mldaikon_checker_results_{timestamp}/",
+    )
 
     args = parser.parse_args()
     _, read_trace_file = select_trace_implementation(args.backend)
@@ -120,6 +126,15 @@ if __name__ == "__main__":
     logger.info("Checker started with Arguments:")
     for arg, val in vars(args).items():
         logger.info("%s: %s", arg, val)
+
+    # create the output folder if not exists
+    if not args.output_dir:
+        args.output_dir = f"mldaikon_checker_results_{time_now}"
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # copy the invariants to the output folder
+    for inv_file in args.invariants:
+        os.system(f"cp {inv_file} {args.output_dir}/invariants.json")
 
     logger.info("Reading invaraints from %s", "\n".join(args.invariants))
     invs = read_inv_file(args.invariants)
@@ -165,7 +180,7 @@ if __name__ == "__main__":
 
     # dump the results to a file
     with open(
-        f"mldaikon_checker_results_failed_{time_now}.log",
+        os.path.join(args.output_dir, f"failed_{time_now}.log"),
         "w",
     ) as f:
         for res in results:
@@ -174,7 +189,7 @@ if __name__ == "__main__":
                 f.write("\n")
 
     with open(
-        f"mldaikon_checker_results_not_triggered_{time_now}.log",
+        os.path.join(args.output_dir, f"not_triggered_{time_now}.log"),
         "w",
     ) as f:
         for res in results:
@@ -183,7 +198,7 @@ if __name__ == "__main__":
                 f.write("\n")
 
     with open(
-        f"mldaikon_checker_results_passed_{time_now}.log",
+        os.path.join(args.output_dir, f"passed_{time_now}.log"),
         "w",
     ) as f:
         for res in results:
