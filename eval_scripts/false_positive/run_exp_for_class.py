@@ -25,6 +25,15 @@ def get_inv_file_name(setup: list[str]) -> str:
     return f"inv_{setup_names}.json"
 
 
+def get_checker_output_dir(setup: list[str], program: str) -> str:
+    setup_names = "_".join(setup["inputs"])
+    return f"checker_{setup_names}_{program}"
+
+
+def get_setup_key(setup: dict[str, list[str]]) -> tuple[str]:
+    return tuple(setup["inputs"])
+
+
 def get_trace_collection_command(program) -> list[str]:
     global PROGRAM_TO_PATH
     return [
@@ -45,6 +54,16 @@ def get_inv_inference_command(setup) -> list[str]:
         cmd.append(get_trace_collection_dir(program))
     cmd.append("-o")
     cmd.append(get_inv_file_name(setup))
+    return cmd
+
+
+def get_inv_checking_command(setup, program) -> list[str]:
+    cmd = ["python", "-m", "mldaikon.checker", "-f"]
+    cmd.append(get_trace_collection_dir(program))
+    cmd.append("-i")
+    cmd.append(get_inv_file_name(setup))
+    cmd.append("-o")
+    cmd.append(get_checker_output_dir(setup, program))
     return cmd
 
 
@@ -139,8 +158,45 @@ def run_invariant_inference(setups):
 
 
 def run_invariant_checking(valid_programs, setups):
-    # TBD
-    pass
+    # run invariant checking for each valid program for each setup
+    running_setups = {}
+    leftover_setups = setups.copy()
+
+    while len(leftover_setups) > 0 or len(running_setups) > 0:
+        for setup in READY_INVARIANTS:
+            setup = get_setup_key(setup)
+            if setup in running_setups:
+                # READY_INVARIANTS may have duplicates
+                continue
+            for program in valid_programs:
+                if not any(setup == running_setup for running_setup in running_setups):
+                    # run invariant checking
+                    print(f"Running invariant checking for {setup} on {program}")
+                    cmd = get_inv_checking_command(setup, program)
+                    io_filename = f"{program}_invariant_checking.log"
+                    process = run_command(cmd, block=False, io_filename=io_filename)
+                    if setup not in running_setups:
+                        running_setups[setup] = []
+                    running_setups[setup].append((program, process))
+            leftover_setups.remove(setup)
+
+        # check for failed or completed experiments
+        for setup, processes in running_setups.copy().items():
+            for program, process in processes.copy():
+                if process.poll() is not None:
+                    if process.returncode != 0:
+                        print(f"Invariant checking failed for {setup} on {program}")
+                        # check for the stderr of this process
+                        # if the error is due to cuda memory out of space, we can retry the experiment
+                        raise Exception(
+                            f"Invariant checking failed for {setup} on {program} due to an unknown error, aborting"
+                        )
+                    else:
+                        print(f"Invariant checking completed for {setup} on {program}")
+                        processes.remove((program, process))
+                        if len(processes) == 0:
+                            del running_setups[setup]
+    print("Exiting invariant checking loop")
 
 
 def cleanup_trace_files():
