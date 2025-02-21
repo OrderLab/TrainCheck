@@ -164,41 +164,43 @@ def run_invariant_checking(valid_programs, setups):
 
     while len(leftover_setups) > 0 or len(running_setups) > 0:
         for setup in READY_INVARIANTS:
-            setup = get_setup_key(setup)
-            if setup not in leftover_setups:
+            setup_key = get_setup_key(setup)
+            if setup_key not in leftover_setups:
                 continue
-            for program in leftover_setups[setup].copy():
+            for program in leftover_setups[setup_key].copy():
                 if program not in READY_TRACES:
                     continue
                 # run invariant checking
-                print(f"Running invariant checking for {setup} on {program}")
+                print(f"Running invariant checking for {setup_key} on {program}")
                 cmd = get_inv_checking_command(setup, program)
                 io_filename = f"{program}_invariant_checking.log"
                 process = run_command(cmd, block=False, io_filename=io_filename)
-                if setup not in running_setups:
-                    running_setups[setup] = []
-                running_setups[setup].append((program, process))
-                leftover_setups[setup].remove(program)
+                if setup_key not in running_setups:
+                    running_setups[setup_key] = []
+                running_setups[setup_key].append((program, process))
+                leftover_setups[setup_key].remove(program)
 
-            if len(leftover_setups[setup]) == 0:
-                del leftover_setups[setup]
+            if len(leftover_setups[setup_key]) == 0:
+                del leftover_setups[setup_key]
 
         # check for failed or completed experiments
-        for setup, processes in running_setups.copy().items():
+        for setup_key, processes in running_setups.copy().items():
             for program, process in processes.copy():
                 if process.poll() is not None:
                     if process.returncode != 0:
-                        print(f"Invariant checking failed for {setup} on {program}")
+                        print(f"Invariant checking failed for {setup_key} on {program}")
                         # check for the stderr of this process
                         # if the error is due to cuda memory out of space, we can retry the experiment
                         raise Exception(
-                            f"Invariant checking failed for {setup} on {program} due to an unknown error, aborting"
+                            f"Invariant checking failed for {setup_key} on {program} due to an unknown error, aborting"
                         )
                     else:
-                        print(f"Invariant checking completed for {setup} on {program}")
+                        print(
+                            f"Invariant checking completed for {setup_key} on {program}"
+                        )
                         processes.remove((program, process))
                         if len(processes) == 0:
-                            del running_setups[setup]
+                            del running_setups[setup_key]
     print("Exiting invariant checking loop")
 
 
