@@ -160,25 +160,28 @@ def run_invariant_inference(setups):
 def run_invariant_checking(valid_programs, setups):
     # run invariant checking for each valid program for each setup
     running_setups = {}
-    leftover_setups = setups.copy()
+    leftover_setups = {get_setup_key(setup): valid_programs.copy() for setup in setups}
 
     while len(leftover_setups) > 0 or len(running_setups) > 0:
         for setup in READY_INVARIANTS:
             setup = get_setup_key(setup)
-            if setup in running_setups:
-                # READY_INVARIANTS may have duplicates
+            if setup not in leftover_setups:
                 continue
-            for program in valid_programs:
-                if not any(setup == running_setup for running_setup in running_setups):
-                    # run invariant checking
-                    print(f"Running invariant checking for {setup} on {program}")
-                    cmd = get_inv_checking_command(setup, program)
-                    io_filename = f"{program}_invariant_checking.log"
-                    process = run_command(cmd, block=False, io_filename=io_filename)
-                    if setup not in running_setups:
-                        running_setups[setup] = []
-                    running_setups[setup].append((program, process))
-            leftover_setups.remove(setup)
+            for program in leftover_setups[setup].copy():
+                if program not in READY_TRACES:
+                    continue
+                # run invariant checking
+                print(f"Running invariant checking for {setup} on {program}")
+                cmd = get_inv_checking_command(setup, program)
+                io_filename = f"{program}_invariant_checking.log"
+                process = run_command(cmd, block=False, io_filename=io_filename)
+                if setup not in running_setups:
+                    running_setups[setup] = []
+                running_setups[setup].append((program, process))
+                leftover_setups[setup].remove(program)
+
+            if len(leftover_setups[setup]) == 0:
+                del leftover_setups[setup]
 
         # check for failed or completed experiments
         for setup, processes in running_setups.copy().items():
@@ -263,5 +266,10 @@ if __name__ == "__main__":
     inference_thread = threading.Thread(target=run_invariant_inference, args=(setups,))
     inference_thread.start()
 
+    # start the invariant checking thread
+    checking_thread = threading.Thread(
+        target=run_invariant_checking, args=(valid_programs, setups)
+    )
+    checking_thread.start()
     # start the inference and checking thread
     run_trace_collection(train_programs, valid_programs, parallelism)
