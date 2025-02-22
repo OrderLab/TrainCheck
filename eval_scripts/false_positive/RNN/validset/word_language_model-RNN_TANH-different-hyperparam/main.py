@@ -10,6 +10,12 @@ import torch.onnx
 import data
 import model
 
+import mldaikon.instrumentor.tracer as md_tracer
+from mldaikon.instrumentor import meta_vars
+from mldaikon import annotate_stage
+
+annotate_stage("init")
+
 parser = argparse.ArgumentParser(description='PyTorch Wikitext-2 RNN/LSTM/GRU/Transformer Language Model')
 parser.add_argument('--data', type=str, default='./data/wikitext-2',
                     help='location of the data corpus')
@@ -73,9 +79,9 @@ else:
 ###############################################################################
 # Load data
 ###############################################################################
-
+md_tracer.DISABLE_WRAPPER = True
 corpus = data.Corpus(args.data)
-
+md_tracer.DISABLE_WRAPPER = False
 # Starting from sequential data, batchify arranges the dataset into columns.
 # For instance, with the alphabet as the sequence and batch size 4, we'd get
 # ┌ a g m s ┐
@@ -143,24 +149,28 @@ def get_batch(source, i):
 
 def evaluate(data_source):
     # Turn on evaluation mode which disables dropout.
+    annotate_stage("testing")
     model.eval()
     total_loss = 0.
     ntokens = len(corpus.dictionary)
     if args.model != 'Transformer':
         hidden = model.init_hidden(eval_batch_size)
     with torch.no_grad():
+        batch_id = 0
         for i in range(0, data_source.size(0) - 1, args.bptt):
+            batch_id += 1
             data, targets = get_batch(data_source, i)
             output, hidden = model(data, hidden)
             hidden = repackage_hidden(hidden)
             total_loss += len(data) * criterion(output, targets).item()
-            if i == 10:
+            if batch_id == 10:
                 break
     return total_loss / (len(data_source) - 1)
 
 
 def train():
     # Turn on training mode which enables dropout.
+    annotate_stage("training")
     model.train()
     total_loss = 0.
     start_time = time.time()
@@ -168,6 +178,7 @@ def train():
     if args.model != 'Transformer':
         hidden = model.init_hidden(args.batch_size)
     for batch, i in enumerate(range(0, train_data.size(0) - 1, args.bptt)):
+        meta_vars['step'] += 1
         data, targets = get_batch(train_data, i)
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
@@ -196,7 +207,7 @@ def train():
         if args.dry_run:
             break
         
-        if i == 50:
+        if batch == 10:
             break
 
 
@@ -236,6 +247,7 @@ except KeyboardInterrupt:
     print('Exiting from training early')
 
 # Load the best saved model.
+annotate_stage("checkpointing")
 with open(args.save, 'rb') as f:
     model = torch.load(f)
     # after load the rnn params are not a continuous chunk of memory
