@@ -1,0 +1,6 @@
+setups:
+  - inputs:
+    - word_language_model-RNN_TANH-1epo
+  - inputs:
+    - word_language_model-RNN_TANH-3epo
+trace_collection_parallelism: -1
