@@ -1,0 +1,1 @@
+python3 main.py --model LSTM --cuda --epochs 1
