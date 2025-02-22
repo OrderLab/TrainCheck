@@ -1,14 +1,8 @@
 setups:
   - inputs:
-    - MNIST-1epo
+    - language-modeling-gpt2-88m-1epo
   - inputs:
-    - MNIST-3epo
+    - language-modeling-gpt2-88m-3epo
   - inputs:
-    - MNIST-3epo-larger-model
-  - inputs:
-    - MNIST-3epo-CIFAR10
-  - inputs:
-    - MNIST-3epo
-    - MNIST-3epo-larger-model
-    - MNIST-3epo-CIFAR10
+    - language-modeling-gpt2-88m-3epo-accelerate-naive
 trace_collection_parallelism: 1
