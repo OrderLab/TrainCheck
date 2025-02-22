@@ -1,5 +1,4 @@
-python run_clm_no_trainer.py \
-    --dataset_name wikitext \
+accelerate launch --config_file accelerate_config.yaml run_clm_no_trainer.py --dataset_name wikitext \
     --dataset_config_name wikitext-2-raw-v1 \
     --model_name_or_path openai-community/gpt2 \
     --output_dir /tmp/test-clm \
