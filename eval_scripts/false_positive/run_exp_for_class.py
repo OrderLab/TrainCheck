@@ -5,8 +5,7 @@ import time
 
 import yaml
 
-EXPS = os.listdir(".")
-EXPS = [exp for exp in EXPS if os.path.isdir(exp)]
+EXPS = ["CNN", "RNN", "Transformers"]
 
 # get the current time (just date and HH:MM)
 READY_TRACES: list[str] = []

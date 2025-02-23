@@ -69,7 +69,7 @@ def load_function_obj(func_name: str) -> Any:
         return func_obj
     except Exception as e:
         logger = logging.getLogger(__name__)
-        logger.warning(
+        logger.debug(
             f"Failed to load the object for the function: {func_name}, error: {e}"
         )
         return None
@@ -89,7 +89,7 @@ def load_function_signature(func_name: str) -> inspect.Signature | None:
         return FUNC_SIGNATURE_OBJS[func_name]
     except Exception as e:
         logger = logging.getLogger(__name__)
-        logger.warning(
+        logger.debug(
             f"Failed to load the signature for the function: {func_name}, error: {e}"
         )
         FUNC_SIGNATURE_OBJS[func_name] = (
@@ -129,7 +129,7 @@ class Arguments:
         self.signature = load_function_signature(func_name)
         if self.signature is None:
             logger = logging.getLogger(__name__)
-            logger.warning(
+            logger.debug(
                 f"Failed to load the signature for the function: {func_name}, can only work on kwargs."
             )
             self.arguments = kwargs.copy()

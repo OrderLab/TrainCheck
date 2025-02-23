@@ -13,6 +13,23 @@ from mldaikon.utils import register_custom_excepthook
 register_custom_excepthook()
 
 
+def parse_checker_results(file_name: str):
+    with open(file_name, "r") as f:
+        lines = f.readlines()
+
+    all_results: list[dict] = []
+    current_res_str = ""
+    for line in lines:
+        if line.startswith("{") and current_res_str:
+            all_results.append(json.loads(current_res_str))
+            current_res_str = ""
+        current_res_str += line
+
+    if current_res_str:
+        all_results.append(json.loads(current_res_str))
+    return all_results
+
+
 def check_engine(
     traces: list[Trace], invariants: list[Invariant], check_relation_first: bool
 ) -> list[CheckerResult]:
