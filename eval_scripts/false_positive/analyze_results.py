@@ -134,6 +134,8 @@ if __name__ == "__main__":
                             "relation": inv.relation.__name__,
                             "status": "passed",
                             "have_precondition": not inv.precondition.is_unconditional(),
+                            "num_pos_examples": inv.num_positive_examples,
+                            "num_neg_examples": inv.num_negative_examples,
                         }
                     )
                 else:
@@ -143,6 +145,8 @@ if __name__ == "__main__":
                             "relation": inv.relation.__name__,
                             "status": "violated",
                             "have_precondition": not inv.precondition.is_unconditional(),
+                            "num_pos_examples": inv.num_positive_examples,
+                            "num_neg_examples": inv.num_negative_examples,
                         }
                     )
             df = pd.DataFrame(fp_row_data)
@@ -168,6 +172,57 @@ if __name__ == "__main__":
             )
             print("\tPrecentage of Invariants that are false positives:")
             print(df[df["status"] == "violated"].shape[0] / df.shape[0] * 100)
+            print("\tTrue Invariants avg number of positive examples:")
+            print(df[df["status"] == "passed"]["num_pos_examples"].mean())
+            print("\tTrue Invariants avg number of negative examples:")
+            print(df[df["status"] == "passed"]["num_neg_examples"].mean())
+            print("\tTrue Invariants avg number of examples:")
+            print(
+                (
+                    df[df["status"] == "passed"]["num_pos_examples"]
+                    + df[df["status"] == "passed"]["num_neg_examples"]
+                ).mean()
+            )
+            print("\tFalse Invariants avg number of positive examples:")
+            print(df[df["status"] == "violated"]["num_pos_examples"].mean())
+            print("\tFalse Invariants avg number of negative examples:")
+            print(df[df["status"] == "violated"]["num_neg_examples"].mean())
+            print("\tFalse Invariants avg number of examples:")
+            print(
+                (
+                    df[df["status"] == "violated"]["num_pos_examples"]
+                    + df[df["status"] == "violated"]["num_neg_examples"]
+                ).mean()
+            )
+            print("\tFalse Invariants with only 1 positive example:")
+            print(
+                df[(df["status"] == "violated") & (df["num_pos_examples"] == 1)].shape[
+                    0
+                ]
+            )
+            print(
+                "\tFalse Invariants with only 1 positive example precentage among all false positive invs:"
+            )
+            print(
+                df[(df["status"] == "violated") & (df["num_pos_examples"] == 1)].shape[
+                    0
+                ]
+                / df[df["status"] == "violated"].shape[0]
+                * 100
+            )
+            print(
+                "\tFalse Invariants with only 1 positive example precentage among all invariants with only 1 positive example:"
+            )
+            if df[df["num_pos_examples"] == 1].shape[0] == 0:
+                print(0)
+            else:
+                print(
+                    df[
+                        (df["status"] == "violated") & (df["num_pos_examples"] == 1)
+                    ].shape[0]
+                    / df[df["num_pos_examples"] == 1].shape[0]
+                    * 100
+                )
 
             print("\n")
 
@@ -189,6 +244,8 @@ if __name__ == "__main__":
                             "relation": inv.relation.__name__,
                             "status": "passed",
                             "have_precondition": not inv.precondition.is_unconditional(),
+                            "num_pos_examples": inv.num_positive_examples,
+                            "num_neg_examples": inv.num_negative_examples,
                         }
                     )
                 else:
@@ -198,6 +255,8 @@ if __name__ == "__main__":
                             "relation": inv.relation.__name__,
                             "status": "violated",
                             "have_precondition": not inv.precondition.is_unconditional(),
+                            "num_pos_examples": inv.num_positive_examples,
+                            "num_neg_examples": inv.num_negative_examples,
                         }
                     )
         df = pd.DataFrame(fp_row_data)
