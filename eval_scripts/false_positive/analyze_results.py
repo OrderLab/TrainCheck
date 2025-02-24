@@ -36,6 +36,68 @@ def discover_checker_results() -> dict:
     return results
 
 
+def emit_fp_metrics(df: pd.DataFrame):
+    metrics = {}
+    metrics["relation_distribution"] = (
+        df["relation"].value_counts(normalize=True).to_dict()
+    )
+    metrics["conditional_invariants_percentage"] = (
+        df[df["have_precondition"]].shape[0] / df.shape[0] * 100
+    )
+    metrics["unconditional_false_positives_percentage"] = (
+        df[(not df["have_precondition"]) & (df["status"] == "violated")].shape[0]
+        / df[not df["have_precondition"]].shape[0]
+        * 100
+    )
+    metrics["conditional_false_positives_percentage"] = (
+        df[(df["have_precondition"]) & (df["status"] == "violated")].shape[0]
+        / df[df["have_precondition"]].shape[0]
+        * 100
+    )
+    metrics["false_positives_percentage_for_unconditional"] = (
+        df[(not df["have_precondition"]) & (df["status"] == "violated")].shape[0]
+        / df[df["status"] == "violated"].shape[0]
+        * 100
+    )
+    metrics["false_positives_rate"] = (
+        df[df["status"] == "violated"].shape[0] / df.shape[0] * 100
+    )
+    metrics["true_invariants_avg_pos_examples"] = df[df["status"] == "passed"][
+        "num_pos_examples"
+    ].mean()
+    metrics["true_invariants_avg_neg_examples"] = df[df["status"] == "passed"][
+        "num_neg_examples"
+    ].mean()
+    metrics["true_invariants_avg_examples"] = (
+        df[df["status"] == "passed"]["num_pos_examples"]
+        + df[df["status"] == "passed"]["num_neg_examples"]
+    ).mean()
+    metrics["false_invariants_avg_pos_examples"] = df[df["status"] == "violated"][
+        "num_pos_examples"
+    ].mean()
+    metrics["false_invariants_avg_neg_examples"] = df[df["status"] == "violated"][
+        "num_neg_examples"
+    ].mean()
+    metrics["false_invariants_avg_examples"] = (
+        df[df["status"] == "violated"]["num_pos_examples"]
+        + df[df["status"] == "violated"]["num_neg_examples"]
+    ).mean()
+    metrics["false_invariants_with_one_pos_example_percentage"] = (
+        df[(df["status"] == "violated") & (df["num_pos_examples"] == 1)].shape[0]
+        / df[df["status"] == "violated"].shape[0]
+        * 100
+    )
+    if df[df["num_pos_examples"] == 1].shape[0] == 0:
+        metrics["false_invariants_with_one_pos_example_among_all_percentage"] = 0
+    else:
+        metrics["false_invariants_with_one_pos_example_among_all_percentage"] = (
+            df[(df["status"] == "violated") & (df["num_pos_examples"] == 1)].shape[0]
+            / df[df["num_pos_examples"] == 1].shape[0]
+            * 100
+        )
+    return metrics
+
+
 if __name__ == "__main__":
     all_results = {}
     for bench in EXPS:
@@ -44,6 +106,8 @@ if __name__ == "__main__":
         if results:
             all_results[bench] = results
         os.chdir("..")
+
+    all_stats = []
 
     # for each bench, for each setup, for each program, parse the results
     global_violated_invs = {}
@@ -105,25 +169,6 @@ if __name__ == "__main__":
                         (Invariant.from_dict(res["invariant"]))
                     ] += 1
             print(f"[{bench}] {setup} statistics:\n", end="")
-            print(
-                f"\tTotal invariants: \t{len(global_all_invs[bench][setup])}\n", end=""
-            )
-            print(
-                f"\tViolated invariants: \t{len(global_violated_invs[bench][setup])} ({len(global_violated_invs[bench][setup]) / len(global_all_invs[bench][setup]) * 100:.2f}%)\n",
-                end="",
-            )
-            print(
-                f"\tPassed invariants: \t{len(global_passed_invs[bench][setup])} ({len(global_passed_invs[bench][setup]) / len(global_all_invs[bench][setup])*100:.2f}%)\n",
-                end="",
-            )
-            print(
-                f"\tNot triggered invariants: \t{len(global_not_triggered_invs[bench][setup])} ({len(global_not_triggered_invs[bench][setup]) / len(global_all_invs[bench][setup])*100:.2f}%)\n",
-            )
-            # for each setup, compute unique invariants being violated, passed, not triggered
-            print(
-                f"\tUnique violated invariants: \t{len(global_violated_invs[bench][setup])}\n",
-                end="",
-            )
             # compute the statistics as well, similar to what is done below, but for each setup separately
             fp_row_data = []
             for inv in global_all_invs[bench][setup]:
@@ -152,77 +197,17 @@ if __name__ == "__main__":
             df = pd.DataFrame(fp_row_data)
             df.to_csv(f"{bench}_{setup}_fp_stats.csv")
 
-            print("\tDistribution of relation types:")
-            print(df["relation"].value_counts(normalize=True) * 100)
-            print("\tPrecentage of Conditional Invariants:")
-            print(df[df["have_precondition"]].shape[0] / df.shape[0] * 100)
-            print("\tPrecentage of Unconditional Invariants that are false positives:")
-            print(
-                df[(not df["have_precondition"]) & (df["status"] == "violated")].shape[
-                    0
-                ]
-                / df[not df["have_precondition"]].shape[0]
-                * 100
-            )
-            print("\tPrecentage of Conditional Invariants that are false positives:")
-            print(
-                df[(df["have_precondition"]) & (df["status"] == "violated")].shape[0]
-                / df[df["have_precondition"]].shape[0]
-                * 100
-            )
-            print("\tPrecentage of Invariants that are false positives:")
-            print(df[df["status"] == "violated"].shape[0] / df.shape[0] * 100)
-            print("\tTrue Invariants avg number of positive examples:")
-            print(df[df["status"] == "passed"]["num_pos_examples"].mean())
-            print("\tTrue Invariants avg number of negative examples:")
-            print(df[df["status"] == "passed"]["num_neg_examples"].mean())
-            print("\tTrue Invariants avg number of examples:")
-            print(
-                (
-                    df[df["status"] == "passed"]["num_pos_examples"]
-                    + df[df["status"] == "passed"]["num_neg_examples"]
-                ).mean()
-            )
-            print("\tFalse Invariants avg number of positive examples:")
-            print(df[df["status"] == "violated"]["num_pos_examples"].mean())
-            print("\tFalse Invariants avg number of negative examples:")
-            print(df[df["status"] == "violated"]["num_neg_examples"].mean())
-            print("\tFalse Invariants avg number of examples:")
-            print(
-                (
-                    df[df["status"] == "violated"]["num_pos_examples"]
-                    + df[df["status"] == "violated"]["num_neg_examples"]
-                ).mean()
-            )
-            print("\tFalse Invariants with only 1 positive example:")
-            print(
-                df[(df["status"] == "violated") & (df["num_pos_examples"] == 1)].shape[
-                    0
-                ]
-            )
-            print(
-                "\tFalse Invariants with only 1 positive example precentage among all false positive invs:"
-            )
-            print(
-                df[(df["status"] == "violated") & (df["num_pos_examples"] == 1)].shape[
-                    0
-                ]
-                / df[df["status"] == "violated"].shape[0]
-                * 100
-            )
-            print(
-                "\tFalse Invariants with only 1 positive example precentage among all invariants with only 1 positive example:"
-            )
-            if df[df["num_pos_examples"] == 1].shape[0] == 0:
-                print(0)
-            else:
-                print(
-                    df[
-                        (df["status"] == "violated") & (df["num_pos_examples"] == 1)
-                    ].shape[0]
-                    / df[df["num_pos_examples"] == 1].shape[0]
-                    * 100
-                )
+            # step 2, compute the statistics
+            stats = emit_fp_metrics(df)
+            stats_no_1_example = emit_fp_metrics(df[df["num_pos_examples"] != 1])
+            stats["bench"] = bench
+            stats["setup"] = setup
+            stats["has_1_example"] = True
+            stats_no_1_example["bench"] = bench
+            stats_no_1_example["setup"] = setup
+            stats_no_1_example["has_1_example"] = False
+            all_stats.append(stats)
+            all_stats.append(stats_no_1_example)
 
             print("\n")
 
@@ -281,3 +266,7 @@ if __name__ == "__main__":
         )
         print("\tPrecentage of Invariants that are false positives:")
         print(df[df["status"] == "violated"].shape[0] / df.shape[0] * 100)
+
+# write all stats to csv
+df = pd.DataFrame(all_stats)
+df.to_csv("all_fp_stats.csv")
