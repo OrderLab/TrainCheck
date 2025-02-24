@@ -69,3 +69,4 @@ eval_scripts/perf_benchmark/overhead-e2e/*/traincheck*
 eval_scripts/**/*.png
 traincheck
 mldaikon_run*
+trace_*
