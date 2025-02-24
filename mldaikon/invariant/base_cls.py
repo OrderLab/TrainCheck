@@ -1330,7 +1330,16 @@ class Invariant:
             Param.from_dict(param_dict) for param_dict in invariant_dict["params"]
         ]
         precondition = GroupedPreconditions.from_dict(invariant_dict["precondition"])
-        return Invariant(relation, params, precondition, text_description)
+        num_positive_examples = invariant_dict["num_positive_examples"]
+        num_negative_examples = invariant_dict["num_negative_examples"]
+        return Invariant(
+            relation,
+            params,
+            precondition,
+            text_description,
+            num_positive_examples,
+            num_negative_examples,
+        )
 
     def check(self, trace: Trace, check_relation_first: bool) -> CheckerResult:
         assert (
