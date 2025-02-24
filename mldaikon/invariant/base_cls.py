@@ -1248,6 +1248,14 @@ class GroupedPreconditions:
         assert group_name in self.grouped_preconditions, f"Group {group_name} not found"
         return self.grouped_preconditions[group_name].is_unconditional()
 
+    def is_unconditional(self) -> bool:
+        return all(
+            [
+                precondition.is_unconditional()
+                for precondition in self.grouped_preconditions.values()
+            ]
+        )
+
 
 class Invariant:
     def __init__(
