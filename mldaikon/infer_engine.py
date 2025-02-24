@@ -9,14 +9,14 @@ import time
 from tqdm import tqdm
 
 import mldaikon.config.config as config
-from mldaikon.invariant.base_cls import (
+from mldaikon.invariant import (
     FailedHypothesis,
     Hypothesis,
     Invariant,
     Relation,
+    find_precondition,
+    relation_pool,
 )
-from mldaikon.invariant.precondition import find_precondition
-from mldaikon.invariant.relation_pool import relation_pool
 from mldaikon.trace import MDNONEJSONEncoder, select_trace_implementation
 from mldaikon.utils import register_custom_excepthook
 

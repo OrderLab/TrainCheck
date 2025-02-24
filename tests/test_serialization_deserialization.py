@@ -1,6 +1,6 @@
 import json
 
-from mldaikon.invariant.base_cls import Invariant
+from mldaikon.invariant import Invariant
 
 invariants_json_str = """{"text_description": "torch.optim.adam.Adam.step contains torch.is_grad_enabled of type mldaikon.trace.types.FuncCallEvent", "relation": "APIContainRelation", "params": [{"param_type": "APIParam", "api_full_name": "torch.optim.adam.Adam.step"}, {"param_type": "APIParam", "api_full_name": "torch.is_grad_enabled"}], "precondition": {"parent_func_call_pre": [{"clauses": "Unconditional"}]}}
 {"text_description": "torch.optim.adam.Adam.step contains torch.autograd.grad_mode.set_grad_enabled.__init__ of type mldaikon.trace.types.FuncCallEvent", "relation": "APIContainRelation", "params": [{"param_type": "APIParam", "api_full_name": "torch.optim.adam.Adam.step"}, {"param_type": "APIParam", "api_full_name": "torch.autograd.grad_mode.set_grad_enabled.__init__"}], "precondition": {"parent_func_call_pre": [{"clauses": "Unconditional"}]}}
