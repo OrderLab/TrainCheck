@@ -95,7 +95,7 @@ class Proxy:
     var_dict: Dict[str, typing.Any] = {}
     loglevel = logging.INFO
     jsondumper = dumper(
-        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR"), "proxy_log.json")  # type: ignore
+        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR", "."), "proxy_log.json")  # type: ignore
     )
 
     @staticmethod
@@ -105,9 +105,14 @@ class Proxy:
             + f"Proxying all parameters of '{parent_name + module.__class__.__name__}'"
         )
         for name, parameter in module.named_parameters():
-            print("logger_proxy: " + f"Proxying parameter '{parent_name+name}'")
+            time_now = get_timestamp_ns()
             parameter = Proxy(
                 parameter, var_name=parent_name + name, from_iter=from_iter
+            )
+            time_end = get_timestamp_ns()
+            print(
+                "logger_proxy: "
+                + f"Proxying parameter '{parent_name+name}', took {(time_end - time_now) / 1e9} seconds"
             )
             module._parameters[name] = parameter
 
