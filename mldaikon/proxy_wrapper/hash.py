@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import torch
 from numba import cuda
@@ -22,7 +24,7 @@ def cuda_hash_kernel(data, hash_values, multiplier, increment):
 
 
 def hash_tensor_cuda(x):
-
+    time_start = time.perf_counter()
     # if x is more than 2D, flatten it to 2D
     if x.ndim > 2:
         x = x.flatten(start_dim=0, end_dim=-2)
@@ -42,26 +44,30 @@ def hash_tensor_cuda(x):
 
     x = hash_values.copy_to_host()
 
+    time_end = time.perf_counter()
+    print(f"Time taken for hashing: {time_end - time_start} seconds")
     return int(x[0])
 
 
-def hash_tensor_cpu(x):
-    # if x is more than 2D, flatten it to 2D
+def hash_tensor_cpu(x: torch.Tensor) -> int:
+    """Optimized CPU hash for PyTorch tensors using NumPy with correct iterative hashing."""
     if x.ndim > 2:
         x = x.reshape(-1, x.shape[-1])
     elif x.ndim == 1:
-        # if x is 1D, add a dimension to make it 2D (n x 1)
         x = x.reshape(1, -1)
 
-    (rows, cols) = x.shape
-    hash_values = np.zeros(rows, dtype=np.int64)
+    x_np = x.cpu().numpy().astype(np.int64)  # Ensure conversion to NumPy int64
 
-    for idx in range(rows):
-        hash_value = 0
-        for i in range(cols):
-            hash_value = hash_value * MULTIPLIER + x[idx, i] + INCREMENT
-        hash_values[idx] = hash_value
-    return int(hash_values[0])
+    # Compute cumulative multiplication just like in the loop version
+    hash_values = np.zeros(x_np.shape[0], dtype=np.int64)  # Hash storage per row
+
+    # Accumulate the hash row-wise, matching the loop behavior
+    for i in range(x_np.shape[1]):
+        hash_values = (
+            hash_values * MULTIPLIER + x_np[:, i] + INCREMENT
+        )  # Mimic loop logic
+
+    return int(hash_values[0])  # Return hash for the first row
 
 
 def efficient_hash_tensor_cpu(x):
