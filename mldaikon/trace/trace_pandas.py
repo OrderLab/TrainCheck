@@ -849,9 +849,7 @@ class TracePandas(Trace):
                                 )
                             ]
                         else:
-                            if attr_values[attr_name][-1].value != state_change[
-                                col
-                            ] and not (
+                            if attr_values[attr_name][-1].value != curr_value and not (
                                 safe_isnan(attr_values[attr_name][-1].value)
                                 and safe_isnan(curr_value)
                             ):
