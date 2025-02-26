@@ -4,6 +4,7 @@ import os
 import threading
 import time
 from queue import Empty, Queue
+from typing import Hashable
 
 import orjson
 import torch
@@ -33,7 +34,7 @@ monitoring_thread = None
 instrumentation_loggers: dict[int, logging.Logger] = {}
 
 # this is a global variable to store the attributes that cannot be accessed due to errors, so that we don't try to access them again and waste time.
-skip_attrs_due_to_errs: dict[str, set[str]] = {}
+skip_attrs_due_to_errs: dict[str, set[str | Hashable]] = {}
 
 logger = logging.getLogger(__name__)
 
@@ -267,6 +268,21 @@ def dump_tensor(value):
     return param_list
 
 
+class NOT_FOUND:
+    pass
+
+
+def safe_getattr(obj, attr_name):
+    try:
+        attr = getattr(obj, attr_name, NOT_FOUND)
+        if attr is NOT_FOUND:
+            if issubclass(type(obj), dict):
+                attr = dict.get(obj, attr_name, NOT_FOUND)
+        return attr
+    except Exception:
+        return NOT_FOUND
+
+
 def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict:
     """
     TODO: variables can be nested and thus this should be a recursive function (dump_config supports this).
@@ -282,9 +298,11 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
     # currently only dump primitive types, tensors and nn.Module
     if dump_config is None:
         try:
-            attr_names = [
+            attr_names: list[str | Hashable] = [
                 name for name in dir(var) if not name.startswith("__")
             ]  # dir() won't get called on primitive vars (look at the logic below checking for primitive types) whose dump_config is always None, so no need to check for primitive types here.
+            if issubclass(type(var), dict):
+                attr_names += list(var.keys())  # hashable keys
         except Exception as e:
             get_instrumentation_logger_for_process().debug(
                 f"Failed to get attributes of object type {type(var)}, skipping it. Error: {e}."
@@ -297,8 +315,11 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
     var_type = str(type(var))
 
     for attr_name in attr_names:
-        # don't track the attr_name starts with a _ (private variable)
-        if attr_name.startswith("_") and not attr_name.startswith("_ML_DAIKON"):
+        if (
+            isinstance(attr_name, str)
+            and attr_name.startswith("_")
+            and not attr_name.startswith("_ML_DAIKON")
+        ):
             continue
 
         if attr_name in attribute_black_list:
@@ -310,54 +331,72 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
         ):
             continue
 
-        try:
-            attr = getattr(var, attr_name)
-            if type(attr) in primitive_types:
-                result[attr_name] = attr
-
-            elif isinstance(attr, torch.Tensor):
-                result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
-                if include_tensor_data:
-                    result[attr_name] = dump_tensor(attr)
-
-            elif isinstance(attr, torch.nn.parameter.Parameter):
-                result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
-                if include_tensor_data:
-                    result[attr_name] = dump_tensor(attr.data)
-
-            elif include_tensor_data and isinstance(attr, torch.nn.Module):
-                # dump out all tensors inside the nn.Module
-                for name, param in attr.named_parameters():
-                    result[attr_name] += f"\n{name}: {dump_tensor(param)}"  # type: ignore
-
-            # if attr_name == "grad_fn":  # FIXME: ad-hoc
-            #     assert attr is None or callable(
-            #         attr
-            #     ), f"grad_fn should be None or callable, but got {attr}"
-            # result[attr_name] = typename(attr) if attr is not None else None
-
-            elif isinstance(attr, torch.dtype):
-                # result[attr_name] = typename(attr)
-                result[attr_name] = str(attr)
-            elif isinstance(attr, torch.Size):
-                result[attr_name] = tuple(attr)
-            elif "_ML_DAIKON" in attr_name:
-                # should always be serializable, so blindly assign here.
-                result[attr_name] = attr
-
-        except Exception as e:  # noqa
+        attr = safe_getattr(var, attr_name)
+        if attr is NOT_FOUND:
             logger.warning(
-                f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it for all following dumps of variables of the same type. Error: {e}."
+                f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it for all following dumps for this attribute."
             )
             if var_type not in skip_attrs_due_to_errs:
                 skip_attrs_due_to_errs[var_type] = set()
             skip_attrs_due_to_errs[var_type].add(attr_name)
             continue
+
+        attr_name = str(attr_name)
+        if type(attr) in primitive_types:
+            result[attr_name] = attr
+
+        elif isinstance(attr, torch.Tensor):
+            result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
+            if include_tensor_data:
+                result[attr_name] = dump_tensor(attr)
+
+        elif isinstance(attr, torch.nn.parameter.Parameter):
+            result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
+            if include_tensor_data:
+                result[attr_name] = dump_tensor(attr.data)
+
+        elif include_tensor_data and isinstance(attr, torch.nn.Module):
+            # dump out all tensors inside the nn.Module
+            for name, param in attr.named_parameters():
+                result[attr_name] += f"\n{name}: {dump_tensor(param)}"  # type: ignore
+
+        # if attr_name == "grad_fn":  # FIXME: ad-hoc
+        #     assert attr is None or callable(
+        #         attr
+        #     ), f"grad_fn should be None or callable, but got {attr}"
+        # result[attr_name] = typename(attr) if attr is not None else None
+
+        elif isinstance(attr, torch.dtype):
+            # result[attr_name] = typename(attr)
+            result[attr_name] = str(attr)
+        elif isinstance(attr, torch.Size):
+            result[attr_name] = tuple(attr)
+        elif "_ML_DAIKON" in attr_name:
+            # should always be serializable, so blindly assign here.
+            result[attr_name] = attr
+
     if include_tensor_data and "data" not in result and isinstance(var, torch.Tensor):
         raise ValueError(
             f"Failed to dump tensor data of tensor {var}, please turn on debugging mode and see the debugging log."
         )
     return result
+
+
+def obj_to_serializable(obj, dump_config=None) -> dict[str, object]:
+    if isinstance(obj, torch.dtype):
+        return {typename(obj): str(obj)}
+    elif isinstance(obj, torch.Size):
+        return {typename(obj): tuple(obj)}
+    try:
+        var_dict = convert_var_to_dict(
+            obj, include_tensor_data=False, dump_config=dump_config
+        )
+        return {typename(obj): var_dict}
+    except RecursionError:
+        logger.warning(
+            f"Recursion detected when converting object to dict. Probably due to a issue in the __getattr__ method of the object. Object type: {type(obj)}."
+        )
+        return {str(type(obj)): None}
 
 
 def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
@@ -368,24 +407,14 @@ def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
     If you want to dump the `data` attribute of a tensor, use `convert_var_to_dict` and set `include_tensor_data=True`.
     """
 
+    if issubclass(type(obj), dict) and type(obj) != dict:  # noqa E721
+        return obj_to_serializable(obj, dump_config=dump_config)
+
     try:
         json.dumps(
-            {"foo": obj}
+            obj
         )  # HACK: using json instead of to check if obj is serializable as it always raises an exception if obj is not serializable, orjson may or may not raise an exception for unknown reasons.
         return {typename(obj): obj}
     except TypeError:
-        if isinstance(obj, torch.dtype):
-            return {typename(obj): str(obj)}
-        elif isinstance(obj, torch.Size):
-            return {typename(obj): tuple(obj)}
-        try:
-            var_dict = convert_var_to_dict(
-                obj, include_tensor_data=False, dump_config=dump_config
-            )
-            return {typename(obj): var_dict}
-        except RecursionError:
-            logger.warning(
-                f"Recursion detected when converting object to dict. Probably due to a issue in the __getattr__ method of the object. Object type: {type(obj)}."
-            )
-            return {str(type(obj)): None}
+        return obj_to_serializable(obj, dump_config=dump_config)
         # assert var_dict, f"Failed to convert object {obj} to dict."
