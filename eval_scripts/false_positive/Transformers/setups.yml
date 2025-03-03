@@ -5,4 +5,10 @@ setups:
     - language-modeling-gpt2-88m-3epo
   - inputs:
     - language-modeling-gpt2-88m-3epo-accelerate-naive
+  - inputs:
+    - language-modeling-gpt2-88m-3epo-fp16
+  - inputs:
+    - language-modeling-gpt2-88m-3epo
+    - language-modeling-gpt2-88m-3epo-accelerate-naive
+    - language-modeling-gpt2-88m-3epo-fp16
 trace_collection_parallelism: 1
