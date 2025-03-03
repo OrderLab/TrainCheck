@@ -3,4 +3,7 @@ setups:
     - word_language_model-RNN_TANH-1epo
   - inputs:
     - word_language_model-RNN_TANH-3epo
+  - inputs:
+    - word_language_model-RNN_TANH-3epo
+    - word_language_model-LSTM-3epo
 trace_collection_parallelism: -1
