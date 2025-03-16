@@ -29,50 +29,34 @@ random.seed(0)
 
 
 class InferEngine:
-    def __init__(self, traces: list):
+    def __init__(self, traces: list, disabled_relations: list[Relation] = []):
         self.traces = traces
         self.all_stages = set()
         for trace in traces:
             # FIXME: we don't fully support multi-stage traces with inconsistent stage annotations yet, not sure about the impact to invariant correctness.
             if trace.is_stage_annotated():
                 self.all_stages.update(trace.get_all_stages())
+        self.disabled_relations = disabled_relations
 
-    def infer(self, disabled_relations: list[Relation]):
-        all_invs = []
-        all_failed_hypos = []
-        for trace in self.traces:
-            for relation in relation_pool:
-                if disabled_relations is not None and relation in disabled_relations:
-                    logger.info(
-                        f"Skipping relation {relation.__name__} as it is disabled"
-                    )
-                    continue
-                logger.info(f"Infering invariants for relation: {relation.__name__}")
-                invs, failed_hypos = relation.infer(trace)
-                logger.info(
-                    f"Found {len(invs)} invariants for relation: {relation.__name__}"
-                )
-                all_invs.extend(invs)
-                all_failed_hypos.extend(failed_hypos)
-        logger.info(
-            f"Found {len(all_invs)} invariants, {len(all_failed_hypos)} failed hypotheses due to precondition inference"
-        )
-        return all_invs, all_failed_hypos
-
-    def infer_multi_trace(self, disabled_relations: list[Relation]):
-        hypotheses = self.generate_hypothesis(disabled_relations)
+    def infer_multi_trace(self):
+        hypotheses = self.generate_hypothesis()
+        hypotheses = self.prune_incorrect_hypos(hypotheses)
         self.collect_examples(hypotheses)
         invariants, failed_hypos = self.infer_precondition(hypotheses)
         return invariants, failed_hypos
 
-    def generate_hypothesis(
-        self, disabled_relations: list[Relation]
-    ) -> dict[Hypothesis, list[int]]:
+    def generate_hypothesis(self) -> dict[Hypothesis, list[int]]:
+        """Generate hypotheses for all traces using all relations in the relation pool, excluding disabled relations
+
+        Returns:
+            dict[Hypothesis, list[int]]: A dictionary mapping hypotheses to the indices of traces that support them
+        """
+
         logger.info("Generating hypotheses")
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]] = {}
         for trace_idx, trace in enumerate(tqdm(self.traces, desc="Scanning Traces")):
             for relation in relation_pool:
-                if disabled_relations is not None and relation in disabled_relations:
+                if self.disabled_relations and relation in self.disabled_relations:
                     logger.info(
                         f"Skipping relation {relation.__name__} as it is disabled"
                     )
@@ -138,6 +122,18 @@ class InferEngine:
                     continue
                 logger.info(f"Collecting examples for hypothesis: {hypo}")
                 hypo.invariant.relation.collect_examples(trace, hypo)
+
+    def prune_incorrect_hypos(self, hypotheses: dict[Hypothesis, list[int]]):
+        """Prune incorrect hypotheses based on the collected examples"""
+
+        # rule 1: remove hypotheses with only one positive example
+        hypotheses = {
+            hypo: trace_idxs
+            for hypo, trace_idxs in hypotheses.items()
+            if len(hypo.positive_examples) > 1
+        }
+
+        return hypotheses
 
     def infer_precondition(self, hypotheses: dict[Hypothesis, list[int]]):
         """TODO: move the precondition inference driving code into Hypothesis.get_invariant()"""
@@ -301,8 +297,8 @@ if __name__ == "__main__":
     logger.info(f"Traces read successfully in {time_end - time_start} seconds.")
 
     time_start = time.time()
-    engine = InferEngine(traces)
-    invs, failed_hypos = engine.infer_multi_trace(disabled_relations=disabled_relations)
+    engine = InferEngine(traces, disabled_relations)
+    invs, failed_hypos = engine.infer_multi_trace()
 
     # sort the invariants by the text description
     invs = sorted(invs, key=lambda x: x.text_description)
