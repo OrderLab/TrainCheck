@@ -1,25 +1,33 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class RNNModel(nn.Module):
     """Container module with an encoder, a recurrent module, and a decoder."""
 
-    def __init__(self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False):
+    def __init__(
+        self, rnn_type, ntoken, ninp, nhid, nlayers, dropout=0.5, tie_weights=False
+    ):
         super(RNNModel, self).__init__()
         self.ntoken = ntoken
         self.drop = nn.Dropout(dropout)
         self.encoder = nn.Embedding(ntoken, ninp)
-        if rnn_type in ['LSTM', 'GRU']:
+        if rnn_type in ["LSTM", "GRU"]:
             self.rnn = getattr(nn, rnn_type)(ninp, nhid, nlayers, dropout=dropout)
         else:
             try:
-                nonlinearity = {'RNN_TANH': 'tanh', 'RNN_RELU': 'relu'}[rnn_type]
+                nonlinearity = {"RNN_TANH": "tanh", "RNN_RELU": "relu"}[rnn_type]
             except KeyError as e:
-                raise ValueError( """An invalid option for `--model` was supplied,
-                                 options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']""") from e
-            self.rnn = nn.RNN(ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout)
+                raise ValueError(
+                    """An invalid option for `--model` was supplied,
+                                 options are ['LSTM', 'GRU', 'RNN_TANH' or 'RNN_RELU']"""
+                ) from e
+            self.rnn = nn.RNN(
+                ninp, nhid, nlayers, nonlinearity=nonlinearity, dropout=dropout
+            )
         self.decoder = nn.Linear(nhid, ntoken)
 
         # Optionally tie weights as in:
@@ -30,7 +38,9 @@ class RNNModel(nn.Module):
         # https://arxiv.org/abs/1611.01462
         if tie_weights:
             if nhid != ninp:
-                raise ValueError('When using the tied flag, nhid must be equal to emsize')
+                raise ValueError(
+                    "When using the tied flag, nhid must be equal to emsize"
+                )
             self.decoder.weight = self.encoder.weight
 
         self.init_weights()
@@ -55,11 +65,14 @@ class RNNModel(nn.Module):
 
     def init_hidden(self, bsz):
         weight = next(self.parameters())
-        if self.rnn_type == 'LSTM':
-            return (weight.new_zeros(self.nlayers, bsz, self.nhid),
-                    weight.new_zeros(self.nlayers, bsz, self.nhid))
+        if self.rnn_type == "LSTM":
+            return (
+                weight.new_zeros(self.nlayers, bsz, self.nhid),
+                weight.new_zeros(self.nlayers, bsz, self.nhid),
+            )
         else:
             return weight.new_zeros(self.nlayers, bsz, self.nhid)
+
 
 # Temporarily leave PositionalEncoding module here. Will be moved somewhere else.
 class PositionalEncoding(nn.Module):
@@ -84,11 +97,13 @@ class PositionalEncoding(nn.Module):
 
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        div_term = torch.exp(
+            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
+        )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
         pe = pe.unsqueeze(0).transpose(0, 1)
-        self.register_buffer('pe', pe)
+        self.register_buffer("pe", pe)
 
     def forward(self, x):
         r"""Inputs of forward function
@@ -101,15 +116,18 @@ class PositionalEncoding(nn.Module):
             >>> output = pos_encoder(x)
         """
 
-        x = x + self.pe[:x.size(0), :]
+        x = x + self.pe[: x.size(0), :]
         return self.dropout(x)
+
 
 class TransformerModel(nn.Transformer):
     """Container module with an encoder, a recurrent or transformer module, and a decoder."""
 
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5):
-        super(TransformerModel, self).__init__(d_model=ninp, nhead=nhead, dim_feedforward=nhid, num_encoder_layers=nlayers)
-        self.model_type = 'Transformer'
+        super(TransformerModel, self).__init__(
+            d_model=ninp, nhead=nhead, dim_feedforward=nhid, num_encoder_layers=nlayers
+        )
+        self.model_type = "Transformer"
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, dropout)
 
@@ -120,7 +138,7 @@ class TransformerModel(nn.Transformer):
         self.init_weights()
 
     def _generate_square_subsequent_mask(self, sz):
-        return torch.log(torch.tril(torch.ones(sz,sz)))
+        return torch.log(torch.tril(torch.ones(sz, sz)))
 
     def init_weights(self):
         initrange = 0.1
