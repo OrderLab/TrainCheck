@@ -11,4 +11,13 @@ setups:
     - MNIST-3epo
     - MNIST-3epo-larger-model
     - MNIST-3epo-CIFAR10
+validation:
+  CC:
+    - MNIST-FashionMNIST
+    - MNIST-HighRes-CIFAR10
+    - MNIST-Longer
+  CP:
+    - pytorch-cifar-EfficientNet
+    - pytorch-cifar-ResNet18
+    - pytorch-cifar-VGG11
 trace_collection_parallelism: -1
