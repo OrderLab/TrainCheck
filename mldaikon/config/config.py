@@ -14,6 +14,7 @@ INSTR_OPTS_FILE = "instr_opts.json"
 INSTR_MODULES_TO_INSTR = ["torch"]
 INSTR_MODULES_TO_SKIP = [
     "torch.fx",
+    "torch._dynamo",
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
     # "torch.autocast",
     # "torch.amp",
