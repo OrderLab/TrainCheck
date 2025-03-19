@@ -119,6 +119,131 @@ def instrument_library(
     return source
 
 
+def instrument_model(source_code: str, model_name: str, mode: str) -> str:
+    """
+    Finds the first assignment to `model`, finds its closest parent `if` statement,
+    and instruments all model assignments within other branches of that `if`.
+
+    If no "if" statement is found, only the first assignment to `model` is instrumented.
+    """
+    root = ast.parse(source_code)
+    parent_map = {}  # Maps child nodes to their parent nodes
+
+    # Build parent relationships for all AST nodes
+    for node in ast.walk(root):
+        for child in ast.iter_child_nodes(node):
+            parent_map[child] = node
+
+    # Step 1: Find the first assignment to `model`
+    first_model_assign = None
+    for node in ast.walk(root):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == model_name
+            for target in node.targets
+        ):
+            first_model_assign = node
+            break
+
+    if not first_model_assign:
+        raise ValueError(
+            f"Model {model_name} not found in the source code. Please check the model name and try again."
+        )
+
+    # Step 2: Find the closest parent `if` statement
+    closest_if = None
+    current: ast.AST = first_model_assign
+    while current in parent_map:
+        current = parent_map[current]
+        if isinstance(current, ast.If):
+            closest_if = current
+            break
+    """The above code is sound with the assumption that the first assignment to `model` must be in the body of the if-statement.
+        If a model is only assigned in the else branch, the definition of "the closest if statement" may not be correct.
+    """
+
+    # Step 3: Find `model` assignments in all branches of the `if`
+    class ModelInstrumenter(ast.NodeTransformer):
+        def __init__(self):
+            self.model_name = model_name
+
+        def visit_Assign(self, node):
+            # Check if the assignment targets `model`
+            if any(
+                isinstance(target, ast.Name) and target.id == model_name
+                for target in node.targets
+            ):
+                # Wrap the right-hand side in Proxy
+                if mode == "proxy":
+                    node.value = ast.Call(
+                        func=ast.Name(id="Proxy", ctx=ast.Load()),
+                        args=[node.value],
+                        keywords=[
+                            ast.keyword(arg="is_root", value=ast.Constant(value=True)),
+                            ast.keyword(
+                                arg="logdir",
+                                value=ast.Attribute(
+                                    value=ast.Name(id="proxy_config", ctx=ast.Load()),
+                                    attr="proxy_log_dir",
+                                    ctx=ast.Load(),
+                                ),
+                            ),
+                        ],
+                    )
+            return node
+
+    if not closest_if:
+        # Instrument the first assignment to `model`
+        if mode == "proxy":
+            ModelInstrumenter().visit(first_model_assign)
+        elif mode == "sampler":
+            # insert another new node after the model assignment
+            var_sampler_node = ast.parse(
+                f"{model_name}_sampler = VarSampler({model_name})"
+            ).body[0]
+            root.body.insert(root.body.index(first_model_assign) + 1, var_sampler_node)
+        else:
+            raise ValueError(
+                f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler']"
+            )
+        ast.fix_missing_locations(root)
+        return ast.unparse(root)
+
+    else:
+        all_branches = [closest_if.body, closest_if.orelse]
+
+        while all_branches:  # Handle multiple elif cases
+            branch = all_branches.pop(0)
+            for stmt in branch:
+                if isinstance(
+                    stmt, ast.If
+                ):  # If an `elif` is found, process it as a new "if"
+                    all_branches.append(stmt.body)  # Add elif's body
+                    all_branches.append(stmt.orelse)  # Add elif's else
+                else:
+                    for node in ast.walk(stmt):
+                        if isinstance(node, ast.Assign) and any(
+                            isinstance(target, ast.Name) and target.id == model_name
+                            for target in node.targets
+                        ):
+                            if mode == "proxy":
+                                ModelInstrumenter().visit(node)
+                            elif mode == "sampler":
+                                # insert another new node after the model assignment
+                                var_sampler_node = ast.parse(
+                                    f"{model_name}_sampler = VarSampler({model_name})"
+                                ).body[0]
+                                stmt_idx = branch.index(stmt)
+                                branch.insert(stmt_idx + 1, var_sampler_node)
+                            else:
+                                raise ValueError(
+                                    f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler']"
+                                )
+                            break
+
+        ast.fix_missing_locations(root)
+        return ast.unparse(root)
+
+
 def instrument_model_tracker_proxy(
     source: str,
     models_to_track: list[str],
@@ -213,34 +338,9 @@ for log_file in log_files:
     instrumented_source = ast.unparse(root)
 
     for model in models_to_track:
-        # find where the module is constructed and insert the proxy
-        root_for_proxy = ast.parse(instrumented_source)
-        for node in ast.walk(root_for_proxy):
-            if (
-                isinstance(node, ast.Assign)
-                and isinstance(node.targets[0], ast.Name)
-                and node.targets[0].id == model
-            ):
-                node.value = ast.Call(
-                    func=ast.Name(id="Proxy", ctx=ast.Load()),
-                    args=[node.value],
-                    keywords=[
-                        ast.keyword(arg="is_root", value=ast.Constant(value=True)),
-                        ast.keyword(
-                            arg="logdir",
-                            value=ast.Constant(
-                                value=proxy_basic_config["proxy_log_dir"]
-                            ),
-                        ),
-                    ],
-                )
-                print(
-                    f"Proxy inserted for module {model} at line {node.lineno}, content: {ast.unparse(node)}"
-                )
-                break
-        instrumented_source = ast.unparse(root_for_proxy)
-    code_head, code_tail = get_code_head_and_tail(instrumented_source)
+        instrumented_source = instrument_model(instrumented_source, model, "proxy")
 
+    code_head, code_tail = get_code_head_and_tail(instrumented_source)
     instrumented_source = code_head + proxy_start_code + auto_observer_code + code_tail
 
     return instrumented_source
@@ -269,13 +369,7 @@ def instrument_model_tracker_sampler(
         sampler_name = f"{model}_sampler"
         samplers.append(sampler_name)
 
-        identation = len(line) - len(line.lstrip())
-        sampler_code = line[:identation] + f"{sampler_name} = VarSampler({model})"
-        source = "\n".join(
-            source.split("\n")[: line_idx + 1]
-            + [sampler_code]
-            + source.split("\n")[line_idx + 1 :]
-        )
+        source = instrument_model(source, model, "sampler")
 
     # iterate again, find all optimizers definitions
     for model, sampler_name in zip(models_to_track, samplers):
