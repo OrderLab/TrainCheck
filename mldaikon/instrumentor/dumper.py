@@ -35,6 +35,8 @@ instrumentation_loggers: dict[int, logging.Logger] = {}
 
 # this is a global variable to store the attributes that cannot be accessed due to errors, so that we don't try to access them again and waste time.
 skip_attrs_due_to_errs: dict[str, set[str | Hashable]] = {}
+skip_type_due_to_errs: dict[type, int] = {}
+TYPE_ERR_THRESHOLD = 3
 
 logger = logging.getLogger(__name__)
 
@@ -297,13 +299,21 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
     result: dict[str, object | str] = {}
     # currently only dump primitive types, tensors and nn.Module
     if dump_config is None:
+        if (
+            type(var) in skip_type_due_to_errs
+            and skip_type_due_to_errs[type(var)] > TYPE_ERR_THRESHOLD
+        ):
+            return result
         try:
-            attr_names: list[str | Hashable] = [
+            attr_names: list[str] = [
                 name for name in dir(var) if not name.startswith("__")
             ]  # dir() won't get called on primitive vars (look at the logic below checking for primitive types) whose dump_config is always None, so no need to check for primitive types here.
             if issubclass(type(var), dict):
-                attr_names += list(var.keys())  # hashable keys
+                attr_names += [k for k in var.keys() if isinstance(k, str)]
         except Exception as e:
+            if type(var) not in skip_type_due_to_errs:
+                skip_type_due_to_errs[type(var)] = 0
+            skip_type_due_to_errs[type(var)] += 1
             get_instrumentation_logger_for_process().debug(
                 f"Failed to get attributes of object type {type(var)}, skipping it. Error: {e}."
             )
@@ -415,6 +425,6 @@ def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
             obj
         )  # HACK: using json instead of to check if obj is serializable as it always raises an exception if obj is not serializable, orjson may or may not raise an exception for unknown reasons.
         return {typename(obj): obj}
-    except TypeError:
+    except (TypeError, AttributeError):
         return obj_to_serializable(obj, dump_config=dump_config)
         # assert var_dict, f"Failed to convert object {obj} to dict."
