@@ -1,5 +1,3 @@
-import time
-
 import numpy as np
 import torch
 from numba import cuda
@@ -24,7 +22,6 @@ def cuda_hash_kernel(data, hash_values, multiplier, increment):
 
 
 def hash_tensor_cuda(x):
-    time_start = time.perf_counter()
     # if x is more than 2D, flatten it to 2D
     if x.ndim > 2:
         x = x.flatten(start_dim=0, end_dim=-2)
@@ -43,9 +40,6 @@ def hash_tensor_cuda(x):
     )
 
     x = hash_values.copy_to_host()
-
-    time_end = time.perf_counter()
-    print(f"Time taken for hashing: {time_end - time_start} seconds")
     return int(x[0])
 
 

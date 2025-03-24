@@ -25,7 +25,8 @@ from mldaikon.utils import get_timestamp_ns, typename
 from .dumper import json_dumper as dumper
 from .proxy_basics import unproxy_arg, unproxy_args_kwargs
 from .proxy_handler import PROXY_SUPPORT_OBJ_TYPES
-from .proxy_registry import get_global_registry
+
+# from .proxy_registry import get_global_registry
 from .utils import print_debug
 
 
@@ -105,15 +106,15 @@ class Proxy:
             + f"Proxying all parameters of '{parent_name + module.__class__.__name__}'"
         )
         for name, parameter in module.named_parameters():
-            time_now = get_timestamp_ns()
+            # time_now = get_timestamp_ns()
             parameter = Proxy(
                 parameter, var_name=parent_name + name, from_iter=from_iter
             )
-            time_end = get_timestamp_ns()
-            print(
-                "logger_proxy: "
-                + f"Proxying parameter '{parent_name+name}', took {(time_end - time_now) / 1e9} seconds"
-            )
+            # time_end = get_timestamp_ns()
+            # print(
+            #     "logger_proxy: "
+            #     + f"Proxying parameter '{parent_name+name}', took {(time_end - time_now) / 1e9} seconds"
+            # )
             module._parameters[name] = parameter
 
     @staticmethod
@@ -136,7 +137,8 @@ class Proxy:
         return frame_array
 
     def register_object(self):
-        get_global_registry().add_var(self, self.__dict__["var_name"])
+        # get_global_registry().add_var(self, self.__dict__["var_name"])
+        pass
 
     def dump_trace(
         self,
