@@ -66,7 +66,9 @@ class InferEngine:
                 logger.info(
                     f"Found {len(inferred_hypos)} hypotheses for relation: {relation.__name__}"
                 )
-                for hypo in inferred_hypos:
+                for hypo in tqdm(
+                    inferred_hypos, desc="Merging Hypotheses with existing ones"
+                ):
                     if hypo not in hypotheses_and_trace_idxs:
                         hypotheses_and_trace_idxs[hypo] = [trace_idx]
                         # print("Already new one")
