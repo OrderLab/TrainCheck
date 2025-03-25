@@ -54,6 +54,7 @@ class InferEngine:
 
         logger.info("Generating hypotheses")
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]] = {}
+        hypo_lookup = {}  # Dictionary for O(1) lookup of hypotheses
         for trace_idx, trace in enumerate(tqdm(self.traces, desc="Scanning Traces")):
             for relation in relation_pool:
                 if self.disabled_relations and relation in self.disabled_relations:
@@ -71,22 +72,12 @@ class InferEngine:
                 ):
                     if hypo not in hypotheses_and_trace_idxs:
                         hypotheses_and_trace_idxs[hypo] = [trace_idx]
-                        # print("Already new one")
+                        hypo_lookup[hypo] = hypo  # Add to lookup dictionary
                     else:
-                        # print("Already inside")
                         hypotheses_and_trace_idxs[hypo].append(trace_idx)
-                        # get the key in the dictionary
-                        original_hypos = [
-                            original_hypo
-                            for original_hypo in hypotheses_and_trace_idxs.keys()
-                            if original_hypo == hypo
-                        ]
-                        assert len(original_hypos) == 1
-
-                        original_hypo = original_hypos[0]
-                        orig_pos_num = len(original_hypo.positive_examples)
-                        orig_neg_num = len(original_hypo.negative_examples)
-
+                        original_hypo = hypo_lookup[hypo]  # O(1) lookup
+                        orig_num_pos_exps = len(original_hypo.positive_examples)
+                        orig_num_neg_exps = len(original_hypo.negative_examples)
                         original_hypo.positive_examples.examples.extend(
                             hypo.positive_examples.examples
                         )
@@ -94,25 +85,16 @@ class InferEngine:
                             hypo.negative_examples.examples
                         )
 
-                        # sanity check for modification correctness
-                        original_hypos = [
-                            original_hypo
-                            for original_hypo in hypotheses_and_trace_idxs.keys()
-                            if original_hypo == hypo
-                        ]
-                        assert len(original_hypos) == 1
-
-                        original_hypo = original_hypos[0]
                         assert len(
-                            original_hypo.positive_examples
-                        ) == orig_pos_num + len(
+                            hypo_lookup[hypo].positive_examples
+                        ) == orig_num_pos_exps + len(
                             hypo.positive_examples
-                        ), f"{len(original_hypo.positive_examples)} != {orig_pos_num} + {len(hypo.positive_examples)}"
+                        ), f"Expected {orig_num_pos_exps} + {len(hypo.positive_examples)} positive examples, got {len(hypo_lookup[hypo].positive_examples)}"
                         assert len(
-                            original_hypo.negative_examples
-                        ) == orig_neg_num + len(
+                            hypo_lookup[hypo].negative_examples
+                        ) == orig_num_neg_exps + len(
                             hypo.negative_examples
-                        ), f"{len(original_hypo.negative_examples)} != {orig_neg_num} + {len(hypo.negative_examples)}"
+                        ), f"Expected {orig_num_neg_exps} + {len(hypo.negative_examples)} negative examples, got {len(hypo_lookup[hypo].negative_examples)}"
 
         return hypotheses_and_trace_idxs
 
