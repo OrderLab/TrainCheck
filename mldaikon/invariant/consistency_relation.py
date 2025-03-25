@@ -305,6 +305,11 @@ class ConsistencyRelation(Relation):
                     continue
                 if var_inst1 == var_inst2:
                     continue
+                if (
+                    attr1 not in var_insts[var_inst1]
+                    or attr2 not in var_insts[var_inst2]
+                ):
+                    continue
                 for _, value1 in enumerate(
                     var_insts[var_inst1][attr1][int(is_skipping_init_values) :]
                 ):
