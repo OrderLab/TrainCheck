@@ -551,6 +551,11 @@ disabling model tracking."""
         print(f"An error occurred: {e}")
 
     if return_code != 0:
-        logging.error(f"Program exited with code {return_code}, skipping analysis.")
+        # exit with error code
+        logger.error(
+            "The program exited with error code %d, please check the logs for more details",
+            return_code,
+        )
+        exit(return_code)
 
     logger.info("Trace collection done.")
