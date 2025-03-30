@@ -6,6 +6,7 @@ import linecache
 import logging
 import os
 import threading
+import time
 import types
 import typing
 from typing import Dict
@@ -101,12 +102,10 @@ class Proxy:
 
     @staticmethod
     def proxy_parameters(module, parent_name="", from_iter=False):
-        print(
-            "logger_proxy: "
-            + f"Proxying all parameters of '{parent_name + module.__class__.__name__}'"
-        )
+        start_time = time.perf_counter()
+        num_params = 0
         for name, parameter in module.named_parameters():
-            # time_now = get_timestamp_ns()
+            num_params += 1
             parameter = Proxy(
                 parameter, var_name=parent_name + name, from_iter=from_iter
             )
@@ -116,6 +115,11 @@ class Proxy:
             #     + f"Proxying parameter '{parent_name+name}', took {(time_end - time_now) / 1e9} seconds"
             # )
             module._parameters[name] = parameter
+        time_end = time.perf_counter()
+        print(
+            "logger_proxy: "
+            + f"Proxied {num_params} parameters of '{parent_name + module.__class__.__name__}', duration: {time_end - start_time} seconds"
+        )
 
     @staticmethod
     def get_frame_array(frame):
