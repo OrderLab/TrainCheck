@@ -31,28 +31,22 @@ def parse_checker_results(file_name: str):
 
 
 def check_engine(
-    traces: list[Trace], invariants: list[Invariant], check_relation_first: bool
+    trace: Trace, invariants: list[Invariant], check_relation_first: bool
 ) -> list[CheckerResult]:
     logger = logging.getLogger(__name__)
-    results: list[CheckerResult] = []
-    for trace in tqdm(
-        traces, desc="Checking invariants on traces", unit="trace", leave=False
+    results = []
+    for inv in tqdm(
+        invariants, desc="Checking invariants", unit="invariant", leave=False
     ):
-        for inv in tqdm(
-            invariants, desc="Checking invariants", unit="invariant", leave=False
-        ):
-            assert (
-                inv.precondition is not None
-            ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
-            logger.info("=====================================")
-            # logger.debug("Checking invariant %s on trace %s", inv, trace)
-            res = inv.check(trace, check_relation_first)
-            res.calc_and_set_time_precentage(
-                trace.get_start_time(), trace.get_end_time()
-            )
-            logger.info("Invariant %s on trace %s: %s", inv, trace, res)
-            results.append(res)
-
+        assert (
+            inv.precondition is not None
+        ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
+        logger.info("=====================================")
+        # logger.debug("Checking invariant %s on trace %s", inv, trace)
+        res = inv.check(trace, check_relation_first)
+        res.calc_and_set_time_precentage(trace.get_start_time(), trace.get_end_time())
+        logger.info("Invariant %s on trace %s: %s", inv, trace, res)
+        results.append(res)
     return results
 
 
@@ -157,8 +151,10 @@ if __name__ == "__main__":
     invs = read_inv_file(args.invariants)
 
     traces = []
+    trace_parent_folders = []
     if args.traces is not None:
         logger.info("Reading traces from %s", "\n".join(args.traces))
+        trace_parent_folders = [os.path.basename(os.path.commonpath(args.traces[0]))]
         traces.append(read_trace_file(args.traces))
     if args.trace_folders is not None:
         for trace_folder in args.trace_folders:
@@ -168,57 +164,77 @@ if __name__ == "__main__":
                 for file in os.listdir(trace_folder)
                 if file.startswith("trace_") or file.startswith("proxy_log.json")
             ]
+            trace_parent_folder = os.path.basename(trace_folder)
+            if trace_parent_folder in trace_parent_folders:
+                logger.warning(
+                    f"Found duplicate trace folder name {trace_folder}, breaking tie by adding _1 to the name"
+                )
+                while trace_parent_folder in trace_parent_folders:
+                    trace_parent_folder += "_1"
+            trace_parent_folders.append(trace_parent_folder)
             logger.info("Reading traces from %s", "\n".join(trace_files))
             traces.append(read_trace_file(trace_files))
 
-    results = check_engine(traces, invs, args.check_relation_first)
-    results_failed = [res for res in results if not res.check_passed]
-    results_not_triggered = [res for res in results if res.triggered is False]
-
     logger.addHandler(logging.StreamHandler())
+    for trace, trace_parent_folder in zip(traces, trace_parent_folders):
+        results_per_trace = check_engine(trace, invs, args.check_relation_first)
+        results_per_trace_failed = [
+            res for res in results_per_trace if not res.check_passed
+        ]
+        results_per_trace_not_triggered = [
+            res for res in results_per_trace if res.triggered is False
+        ]
 
-    logger.info("Checking finished. %d invariants checked", len(results))
-    logger.info(
-        "Total failed invariants: %d/%d",
-        len(results_failed),
-        len(results),
-    )
-    logger.info(
-        "Total passed invariants: %d/%d",
-        len(results) - len(results_failed),
-        len(results),
-    )
-    # TODO:
-    logger.info(
-        "Total invariants that's not triggered: %d/%d",
-        len(results_not_triggered),
-        len(results),
-    )
+        logger.info("Checking finished. %d invariants checked", len(results_per_trace))
+        logger.info(
+            "Total failed invariants: %d/%d",
+            len(results_per_trace_failed),
+            len(results_per_trace),
+        )
+        logger.info(
+            "Total passed invariants: %d/%d",
+            len(results_per_trace) - len(results_per_trace_failed),
+            len(results_per_trace),
+        )
+        logger.info(
+            "Total invariants that's not triggered: %d/%d",
+            len(results_per_trace_not_triggered),
+            len(results_per_trace),
+        )
 
-    # dump the results to a file
-    with open(
-        os.path.join(args.output_dir, f"failed_{time_now}.log"),
-        "w",
-    ) as f:
-        for res in results:
-            if not res.check_passed:
-                json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                f.write("\n")
+        # mkdir for the trace parent folder in the output folder
+        os.makedirs(os.path.join(args.output_dir, trace_parent_folder), exist_ok=True)
 
-    with open(
-        os.path.join(args.output_dir, f"not_triggered_{time_now}.log"),
-        "w",
-    ) as f:
-        for res in results:
-            if not res.triggered:
-                json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                f.write("\n")
+        # dump the results to a file
+        with open(
+            os.path.join(
+                args.output_dir, trace_parent_folder, f"failed_{time_now}.log"
+            ),
+            "w",
+        ) as f:
+            for res in results_per_trace:
+                if not res.check_passed:
+                    json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                    f.write("\n")
 
-    with open(
-        os.path.join(args.output_dir, f"passed_{time_now}.log"),
-        "w",
-    ) as f:
-        for res in results:
-            if res.check_passed and res.triggered:
-                json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                f.write("\n")
+        with open(
+            os.path.join(
+                args.output_dir, trace_parent_folder, f"not_triggered_{time_now}.log"
+            ),
+            "w",
+        ) as f:
+            for res in results_per_trace:
+                if not res.triggered:
+                    json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                    f.write("\n")
+
+        with open(
+            os.path.join(
+                args.output_dir, trace_parent_folder, f"passed_{time_now}.log"
+            ),
+            "w",
+        ) as f:
+            for res in results_per_trace:
+                if res.check_passed and res.triggered:
+                    json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                    f.write("\n")
