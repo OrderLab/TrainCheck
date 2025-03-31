@@ -101,19 +101,14 @@ class Proxy:
     )
 
     @staticmethod
-    def proxy_parameters(module, parent_name="", from_iter=False):
+    def proxy_parameters(module: torch.nn.Module, parent_name="", from_iter=False):
         start_time = time.perf_counter()
         num_params = 0
-        for name, parameter in module.named_parameters():
+        for name, parameter in module.named_parameters(recurse=False):
             num_params += 1
             parameter = Proxy(
                 parameter, var_name=parent_name + name, from_iter=from_iter
             )
-            # time_end = get_timestamp_ns()
-            # print(
-            #     "logger_proxy: "
-            #     + f"Proxying parameter '{parent_name+name}', took {(time_end - time_now) / 1e9} seconds"
-            # )
             module._parameters[name] = parameter
         time_end = time.perf_counter()
         print(
