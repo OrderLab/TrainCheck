@@ -442,6 +442,13 @@ import os
 os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
 """
 
+    debug_hook_code = """
+from mldaikon.utils import register_custom_excepthook
+if os.environ.get("ML_DAIKON_DEBUG") == "1":
+    print("ML_DAIKON_DEBUG is set to 1, registering custom excepthook")
+    register_custom_excepthook(True)
+"""
+
     # general config update
     general_config_update = f"""
 import mldaikon.config.config as general_config
@@ -469,7 +476,11 @@ general_config.INSTR_DESCRIPTORS = {instr_descriptors}
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
     code_head, code_tail = get_code_head_and_tail(instrumented_source)
     instrumented_source = (
-        code_head + logging_start_code + general_config_update + code_tail
+        code_head
+        + logging_start_code
+        + debug_hook_code
+        + general_config_update
+        + code_tail
     )
 
     return instrumented_source

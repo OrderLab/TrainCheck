@@ -103,7 +103,17 @@ def thread_excepthook(args):
     raise exc_type(exc_value) from None
 
 
-def register_custom_excepthook():
+def register_custom_excepthook(add_file_handler=False):
+    if add_file_handler:
+        file_handler = logging.FileHandler("debug.log")
+        file_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        file_handler.setFormatter(formatter)
+        # add to the "mldaikon" logger and the "threading" logger
+        logging.getLogger("mldaikon").addHandler(file_handler)
+        logging.getLogger("threading").addHandler(file_handler)
     sys.excepthook = handle_excepthook
     threading.excepthook = thread_excepthook
 

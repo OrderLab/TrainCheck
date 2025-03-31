@@ -306,7 +306,7 @@ if __name__ == "__main__":
         "-d",
         "--debug-mode",
         action="store_true",
-        help="Enable debug mode for the program",
+        help="Enable debug mode for the program, insert an exception hook into the program to log the entire stack trace",
     )
 
     ## instrumentor configs
