@@ -110,6 +110,12 @@ class Proxy:
                 parameter, var_name=parent_name + name, from_iter=from_iter
             )
             module._parameters[name] = parameter
+
+        for name, submodule in module.named_children():
+            Proxy.proxy_parameters(
+                submodule, parent_name=parent_name + "." + name, from_iter=from_iter
+            )
+
         time_end = time.perf_counter()
         print(
             "logger_proxy: "
