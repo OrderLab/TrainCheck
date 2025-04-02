@@ -63,7 +63,6 @@ class json_dumper(metaclass=Singleton):
             "var_type": var_type,
             "mode": change_type,  # "new", "update"
             "dump_loc": dump_loc,
-            # "stack_trace": stack_trace,
             "process_id": process_id,
             "thread_id": thread_id,
             "time": time,
