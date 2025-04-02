@@ -469,6 +469,11 @@ class Proxy:
             return Proxy.__torch_function__
         attr = getattr(self._obj, name)
 
+        if isinstance(self._obj, torch.Tensor) and isinstance(attr, torch.Tensor):
+            # we should not proxy sub-tensor fields for a tensor, this can cause circular reference and memory leak
+            # one caveat with this is that if the code wants to operate on the sub-tensor separately, we will lose track of their updates when they are not proxied
+            return attr
+
         if self.__dict__["var_name"] == "":
             var_name = name
         else:
