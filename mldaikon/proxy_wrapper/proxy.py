@@ -396,6 +396,7 @@ class Proxy:
                         logdir=self.logdir,
                         log_level=self.log_level,
                         var_name=global_name,
+                        should_dump_trace=False,
                     ),
                 )
 
@@ -425,6 +426,7 @@ class Proxy:
                 logdir=self.logdir,
                 log_level=self.log_level,
                 var_name=self.__dict__["var_name"],
+                should_dump_trace=False,
                 from_iter=True,
             )
 
