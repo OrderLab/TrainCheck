@@ -300,7 +300,6 @@ def global_wrapper(
                 "obj_id": None if not is_bound_method else id(args[0]),
             },
         )
-        logger.error(f"Error in {original_function_name}: {type(e)} {e}")
 
         if COLLECT_OVERHEAD_METRICS:
             EXIT_PERF_TIME = time.perf_counter()
