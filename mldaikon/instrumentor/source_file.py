@@ -178,7 +178,7 @@ def instrument_model(source_code: str, model_name: str, mode: str) -> str:
                         func=ast.Name(id="Proxy", ctx=ast.Load()),
                         args=[node.value],
                         keywords=[
-                            ast.keyword(arg="is_root", value=ast.Constant(value=True)),
+                            ast.keyword(arg="recurse", value=ast.Constant(value=True)),
                             ast.keyword(
                                 arg="logdir",
                                 value=ast.Attribute(
@@ -186,6 +186,10 @@ def instrument_model(source_code: str, model_name: str, mode: str) -> str:
                                     attr="proxy_log_dir",
                                     ctx=ast.Load(),
                                 ),
+                            ),
+                            ast.keyword(
+                                arg="var_name",
+                                value=ast.Constant(value=self.model_name),
                             ),
                         ],
                     )

@@ -6,19 +6,19 @@
 
 `import src.proxy_wrapper.proxy as Proxy`
 
-- wrap the machine learning model with `is_root = True`
+- wrap the machine learning model with `recurse = True`
 
-`model = Proxy(model, is_root = True)`
+`model = Proxy(model, recurse = True)`
 
 - Examples:
 
 As shown in line 140 in `./proxyclass_tracer_result/instrumented_mnist.py`
 
-`model=Proxy.Proxy(model, is_root = True, logdir='log-model-proxy-example.log', log_level=logging.INFO)`
+`model=Proxy.Proxy(model, recurse = True, logdir='log-model-proxy-example.log', log_level=logging.INFO)`
 
 line 99 in `./proxyclass_tracer_result/instrumented_84911.py`
 
-`model_transfer=Proxy.Proxy(model_transfer, is_root = True, "model_transfer-example.log", log_level = logging.INFO)`
+`model_transfer=Proxy.Proxy(model_transfer, recurse = True, "model_transfer-example.log", log_level = logging.INFO)`
 
 Note: Initially, we want to achieve automatic instrumentation via `__new__ wrapper`, wrapping all `torch.nn` modules and add a proxy to the targeted modules inherently. However, it is discovered that this instrumentation would interfere with inherent torch functionality, such as `torch.autograd` behavior.
 
