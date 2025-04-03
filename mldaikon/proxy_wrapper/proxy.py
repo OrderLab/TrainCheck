@@ -48,7 +48,7 @@ def proxy_handler(
     logdir,
     log_level,
     var_name,
-    no_init_dump=False,
+    should_dump_trace,
     from_call=False,
     from_iter=False,
 ):
@@ -60,7 +60,7 @@ def proxy_handler(
                 logdir,
                 log_level,
                 var_name,
-                no_init_dump=no_init_dump,
+                should_dump_trace=should_dump_trace,
                 from_call=from_call,
                 from_iter=from_iter,
             )
@@ -73,7 +73,7 @@ def proxy_handler(
                     logdir,
                     log_level,
                     var_name,
-                    no_init_dump=no_init_dump,
+                    should_dump_trace=should_dump_trace,
                     from_call=from_call,
                     from_iter=from_iter,
                 )
@@ -88,7 +88,7 @@ def proxy_handler(
                 logdir=logdir,
                 log_level=log_level,
                 var_name=var_name,
-                should_dump_trace=not no_init_dump,
+                should_dump_trace=should_dump_trace,
                 from_call=from_call,
                 from_iter=from_iter,
             )
@@ -172,7 +172,7 @@ class Proxy:
 
         last_update_timestamp = self.__dict__["last_update_timestamp"]
 
-        if not issubclass(type(obj), torch.nn.Module):
+        if not isinstance(obj, torch.nn.Module):
             self.jsondumper.dump_json(
                 process_id=self.process_id,
                 thread_id=self.thread_id,
@@ -322,13 +322,17 @@ class Proxy:
             lambda: f"logger_proxy: Result type of __call__ is '{typename(result)}'"
         )
 
-        return proxy_handler(
-            result,
-            self.logdir,
-            self.log_level,
-            self.__dict__["var_name"],
-            from_call=True,
-        )
+        # deprecated, since we only want to keep track of the model itself, we can for-feit coverage of function invocation results
+        # disable dumping for function call results as return values are dumped through API instrumentation
+        # return proxy_handler(
+        #     result,
+        #     self.logdir,
+        #     self.log_level,
+        #     self.__dict__["var_name"] + "_call_result",
+        #     should_dump_trace=False,
+        #     from_call=True,
+        # )
+        return result
 
     def __getattr__(self, name):
         print_debug(lambda: f"logger_proxy: Accessing attribute '{name}'")
@@ -351,7 +355,7 @@ class Proxy:
         else:
             var_name = self.__dict__["var_name"] + "." + name
         return proxy_handler(
-            attr, self.logdir, self.log_level, var_name, no_init_dump=True
+            attr, self.logdir, self.log_level, var_name, should_dump_trace=True
         )
 
     def __setattr__(self, name, value):
