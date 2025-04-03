@@ -1,3 +1,5 @@
+import types
+
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 debug_mode = False
 
@@ -31,6 +33,7 @@ auto_observer_config = {
 enable_C_level_observer = False  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
 
 primitive_types = {
+    types.NoneType,
     int,
     float,
     str,
