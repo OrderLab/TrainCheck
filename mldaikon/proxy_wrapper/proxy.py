@@ -116,7 +116,7 @@ class Proxy:
         for name, parameter in module.named_parameters(recurse=False):
             num_params += 1
             parameter = Proxy(
-                parameter, var_name=parent_name + name, from_iter=from_iter
+                parameter, var_name=parent_name + "." + name, from_iter=from_iter
             )
             module._parameters[name] = parameter
 
