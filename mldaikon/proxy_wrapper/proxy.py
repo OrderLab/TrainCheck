@@ -120,11 +120,6 @@ class Proxy:
             )
             module._parameters[name] = parameter
 
-        for name, submodule in module.named_children():
-            Proxy.proxy_parameters(
-                submodule, parent_name=parent_name + "." + name, from_iter=from_iter
-            )
-
         time_end = time.perf_counter()
         print(
             "logger_proxy: "
@@ -234,9 +229,6 @@ class Proxy:
             status = "update"
 
         var_name = self.__dict__["var_name"]
-        assert (
-            var_name == self.__dict__["dumped_varname_list"]
-        ), f"var_name {var_name} is not consistent with dumped_varname_list {self.__dict__['dumped_varname_list']}"
         assert var_name is not None  # '' is allowed as a var_name (root object)
         filter_by_tensor_version = proxy_config.dump_info_config[
             "filter_by_tensor_version"
@@ -252,7 +244,7 @@ class Proxy:
                 thread_id=self.thread_id,
                 time=current_time,
                 meta_vars=get_meta_vars(self),
-                var_name=self.__dict__["dumped_varname_list"],
+                var_name=var_name,
                 var_type=typename(obj),
                 change_type=status,
                 var_attributes=dump_attributes(self, obj),
@@ -264,7 +256,7 @@ class Proxy:
         obj,
         logdir="proxy_log.log",
         log_level=logging.INFO,
-        is_root=False,
+        recurse=False,
         var_name="",
         dump_trace_info=True,
         from_call=False,
@@ -282,7 +274,7 @@ class Proxy:
         self.__dict__["meta_vars"] = {}
         self.__dict__["last_update_timestamp"] = 0
         self.__dict__["is_ml_daikon_proxied_obj"] = True
-        self.__dict__["is_root"] = is_root
+        self.__dict__["recurse"] = recurse
         self.__dict__["var_name"] = var_name
         self.__dict__["old_value"] = None
         self.__dict__["old_meta_vars"] = None
@@ -295,14 +287,13 @@ class Proxy:
 
             # create a shallow copy of the object
             self._obj = obj._obj
-            self.__dict__["dumped_varname_list"] = obj.__dict__["dumped_varname_list"]
             self.__dict__["last_update_timestamp"] = obj.__dict__[
                 "last_update_timestamp"
             ]
             self.__dict__["is_ml_daikon_proxied_obj"] = obj.__dict__[
                 "is_ml_daikon_proxied_obj"
             ]
-            self.__dict__["is_root"] = obj.__dict__["is_root"]
+            self.__dict__["recurse"] = obj.__dict__["recurse"]
             self.__dict__["var_name"] = obj.__dict__["var_name"]
             self.__dict__["logdir"] = obj.__dict__["logdir"]
             self.__dict__["log_level"] = obj.__dict__["log_level"]
@@ -311,65 +302,31 @@ class Proxy:
             self.__dict__["old_meta_vars"] = obj.__dict__["old_meta_vars"]
             return
 
-        # inherit the var_name from the parent object
-        if self.__dict__["var_name"] is not None:
-            current_var_name_list = self.__dict__["var_name"]
-        else:
-            current_var_name_list = ""
-        self.__dict__["dumped_varname_list"] = current_var_name_list
-
-        if self.__dict__["is_root"]:
-            print(
-                lambda: f"logger_proxy: ROOT proxy object for '{obj.__class__.__name__}'"
-            )
-        # Ziming: here we still seperate the handling of tensor and other objects
-        # however, despite the dumping logic these two are identical and could be merged
-
         if isinstance(obj, torch.nn.Module):  # special handling for nn.Module
+            if self.__dict__["recurse"]:
+                print(
+                    lambda: f"logger_proxy: ROOT proxy object for '{obj.__class__.__name__}'"
+                )
 
-            if self.__dict__["is_root"]:
                 # proxy all of its parameters
                 assert not from_call
                 assert not from_iter
 
-                self.proxy_parameters(obj)
+                self.proxy_parameters(obj, parent_name=var_name)
                 for name, module in obj.named_children():
-                    # setattr(obj, name, Proxy(module, var_name=name))
-                    proxy_module = Proxy(module, var_name=name)
-
-                    obj._modules[name] = proxy_module
-                    self.proxy_parameters(proxy_module, name + ".")
-                    # TODO: improve the nn.Module tracing logic, currently we only trace two levels of submodules
-                    # We could try to enforce a blacklist of modules that we can't trace (contain low level functions)
-                    if isinstance(type(module), torch.nn.Module):
-                        for subname, submodule in module.named_children():
-                            proxy_submodule = Proxy(
-                                submodule, var_name=name + "." + subname
-                            )
-                            self.proxy_parameters(
-                                proxy_submodule, name + "." + subname + "."
-                            )
-                            module._modules[subname] = proxy_submodule
-
-            else:
-                if current_var_name_list == "":
-                    self.proxy_parameters(obj, from_iter=from_iter)
-                else:
-                    self.proxy_parameters(
-                        obj, current_var_name_list + ".", from_iter=from_iter
+                    proxy_module = Proxy(
+                        module, var_name=var_name + "." + name, recurse=True
                     )
+                    obj._modules[name] = proxy_module
+            else:
+                self.proxy_parameters(obj, parent_name=var_name, from_iter=from_iter)
 
-        current_var_name_list = current_var_name_list
         current_time = get_timestamp_ns()
-        if (
-            current_var_name_list not in Proxy.var_dict
-        ):  # if the object is not proxied yet
+        if var_name not in Proxy.var_dict:  # if the object is not proxied yet
             self.__dict__["_obj"] = obj
 
             self.__dict__["last_update_timestamp"] = current_time
-            Proxy.var_dict[current_var_name_list] = (
-                ProxyObjInfo.construct_from_proxy_obj(self)
-            )
+            Proxy.var_dict[var_name] = ProxyObjInfo.construct_from_proxy_obj(self)
 
             dump_call_return = proxy_config.dump_info_config["dump_call_return"]
             dump_iter = proxy_config.dump_info_config["dump_iter"]
@@ -399,12 +356,11 @@ class Proxy:
                 )
 
             print_debug(
-                lambda: f"Time elapse: {get_timestamp_ns() - Proxy.var_dict[current_var_name_list].last_update_timestamp}"
+                lambda: f"Time elapse: {get_timestamp_ns() - Proxy.var_dict[var_name].last_update_timestamp}"
             )
             self.__dict__["_obj"] = obj
             if (
-                get_timestamp_ns()
-                - Proxy.var_dict[current_var_name_list].last_update_timestamp
+                get_timestamp_ns() - Proxy.var_dict[var_name].last_update_timestamp
                 < proxy_config.proxy_update_limit
             ):
                 return
@@ -431,11 +387,8 @@ class Proxy:
 
                 self.dump_to_trace(obj, trace_info, "initing")
 
-            del Proxy.var_dict[current_var_name_list]
             self.__dict__["last_update_timestamp"] = current_time
-            Proxy.var_dict[current_var_name_list] = (
-                ProxyObjInfo.construct_from_proxy_obj(self)
-            )
+            Proxy.var_dict[var_name] = ProxyObjInfo.construct_from_proxy_obj(self)
 
     @property  # type: ignore
     def __class__(self):  # type: ignore[misc]

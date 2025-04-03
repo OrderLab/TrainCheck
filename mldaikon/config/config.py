@@ -198,7 +198,7 @@ META_VARS_FORBID_LIST = [
     "__doc__",
     "logdir",
     "log_level",
-    "is_root",
+    "recurse",
     "var_name",
     "mode",
     "process_id",

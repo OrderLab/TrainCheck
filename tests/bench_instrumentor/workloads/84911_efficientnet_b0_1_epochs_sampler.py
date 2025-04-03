@@ -115,9 +115,6 @@ for param in model_transfer._conv_stem.parameters():
 for param in model_transfer._fc.parameters():
     param.requires_grad = True
 
-# model_transfer = Proxy(
-#     model_transfer, is_root=True
-# )  # has to be after the requires_grad lines in order for the `new` traces to report _conv_stem have requires_grad=False`
 print(model_transfer._fc.in_features)
 
 nb_classes = num_classes
@@ -160,7 +157,6 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
                     "cuda", non_blocking=True
                 )
             optimizer.zero_grad()
-            # model = Proxy(model, is_root=True)
             output = model(data)
             loss = criterion(output, target)
 
@@ -276,9 +272,6 @@ optimizer_transfer.register_step_post_hook(
     lambda optimizer, *args, **kwargs: observer.observe()
 )
 
-# optimizer_transfer = Proxy(optimizer_transfer, is_root=True)
-
-# optimizer_transfer = optim.Adam(filter(lambda p : p.requires_grad, model_transfer.parameters()),lr=lr)
 model_transfer, res = train(
     num_epochs,
     data_transfer,
