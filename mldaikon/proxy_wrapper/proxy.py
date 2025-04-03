@@ -12,7 +12,6 @@ import mldaikon.config.config as general_config
 import mldaikon.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
 from mldaikon.proxy_wrapper.dumper import (
-    SkippedDumpingObj,
     dump_attributes,
     get_meta_vars,
 )
@@ -89,7 +88,7 @@ def proxy_handler(
                 logdir=logdir,
                 log_level=log_level,
                 var_name=var_name,
-                dump_trace_info=not no_init_dump,
+                should_dump_trace=not no_init_dump,
                 from_call=from_call,
                 from_iter=from_iter,
             )
@@ -126,72 +125,16 @@ class Proxy:
             + f"Proxied {num_params} parameters of '{parent_name + module.__class__.__name__}', duration: {time_end - start_time} seconds"
         )
 
+    def update_timestamp(self):
+        # Update the timestamp of the object, should be called when the object is updated, e.g. __setattr__ and observer
+        current_time = get_timestamp_ns()
+        self.__dict__["last_update_timestamp"] = current_time
+        Proxy.var_dict[self.__dict__["var_name"]].last_update_timestamp = current_time
+
     def register_object(self):
         # get_global_registry().add_var(self, self.__dict__["var_name"])
+        # TODO: implement the registry, we will need to make sure the registerred timestamp is updated and is consistent with the timestamp in the object
         pass
-
-    def dump_trace(
-        self,
-        status,
-        only_record=False,
-        prev_obj=None,  # DEPRECATED: this is necessary for delta dump, but we should do the compare using hashes instead of keeping references to the objects, which leads to memory leaks
-        prev_trace_info=None,
-        disable_sampling=False,
-        dump_loc=None,
-    ):
-
-        var_name = self.__dict__["var_name"]
-        assert (
-            var_name in Proxy.var_dict
-        ), f"var_name {var_name} is not in var_dict, it has not been proxied yet, check Proxy.__init__() for existence of assignment into Proxy.var_dict"
-        var_proxy_info = Proxy.var_dict[var_name]
-
-        if (
-            get_timestamp_ns() - var_proxy_info.last_update_timestamp
-            > proxy_config.proxy_update_limit
-            or disable_sampling
-        ):
-            dump_pre_and_post_trace = False
-            if (
-                only_record
-                and status == "post_observe"
-                and not isinstance(prev_obj, SkippedDumpingObj)
-            ):
-                assert (
-                    prev_obj is not None and prev_trace_info is not None
-                ), "prev_obj and prev_trace_info should not be None"
-                # only dump when the object is changed
-
-                if isinstance(prev_obj._obj, torch.Tensor) and isinstance(
-                    self._obj, torch.Tensor
-                ):
-                    # DEPRECATED: this is necessary for delta dump, but we should do the compare using hashes instead of keeping references to the objects, which leads to memory leaks
-                    if not torch.equal(prev_obj._obj, self._obj):
-                        dump_pre_and_post_trace = True
-                else:
-                    if prev_obj._obj != self._obj:
-                        dump_pre_and_post_trace = True
-
-                if not dump_pre_and_post_trace:
-                    return None
-                else:
-                    current_time = get_timestamp_ns()
-                    self.__dict__["last_update_timestamp"] = current_time
-                    self.dump_to_trace(prev_obj, prev_trace_info, dump_loc)
-
-            current_time = get_timestamp_ns()
-            trace_info = {
-                "time": current_time,
-                "status": status,
-            }
-
-            if only_record and status == "pre_observe":
-                return trace_info
-
-            self.dump_to_trace(self._obj, trace_info, dump_loc)
-            return None
-        else:
-            return SkippedDumpingObj(self._obj)
 
     def __deepcopy__(self, memo):
         # Create a new instance of the proxy object
@@ -215,38 +158,29 @@ class Proxy:
                 new_copy.__dict__[attr_name] = copy.deepcopy(attr_value, memo)
         return new_copy
 
-    def dump_to_trace(self, obj, trace_info, dump_loc=None):
-        if isinstance(trace_info, SkippedDumpingObj):
-            return
-        # version based filtering
-        if "time" in trace_info:
-            current_time = trace_info["time"]
-        else:
-            current_time = get_timestamp_ns()
-        if "status" in trace_info:
-            status = trace_info["status"]
-        else:
-            status = "update"
-
+    def dump_trace(self, phase, dump_loc):
+        obj = self._obj
         var_name = self.__dict__["var_name"]
         assert var_name is not None  # '' is allowed as a var_name (root object)
         filter_by_tensor_version = proxy_config.dump_info_config[
             "filter_by_tensor_version"
         ]
-        if filter_by_tensor_version and status == "update":
+        if filter_by_tensor_version and phase == "update":
             if hasattr(obj, "_version"):
                 if obj._version == Proxy.var_dict[self.__dict__["var_name"]].version:
                     return
+
+        last_update_timestamp = self.__dict__["last_update_timestamp"]
 
         if not issubclass(type(obj), torch.nn.Module):
             self.jsondumper.dump_json(
                 process_id=self.process_id,
                 thread_id=self.thread_id,
-                time=current_time,
+                time=last_update_timestamp,
                 meta_vars=get_meta_vars(self),
                 var_name=var_name,
                 var_type=typename(obj),
-                change_type=status,
+                change_type=phase,
                 var_attributes=dump_attributes(self, obj),
                 dump_loc=dump_loc,
             )
@@ -258,7 +192,7 @@ class Proxy:
         log_level=logging.INFO,
         recurse=False,
         var_name="",
-        dump_trace_info=True,
+        should_dump_trace=True,
         from_call=False,
         from_iter=False,
         from_copy=False,
@@ -272,7 +206,6 @@ class Proxy:
         self.__dict__["logdir"] = logdir
         self.__dict__["log_level"] = log_level
         self.__dict__["meta_vars"] = {}
-        self.__dict__["last_update_timestamp"] = 0
         self.__dict__["is_ml_daikon_proxied_obj"] = True
         self.__dict__["recurse"] = recurse
         self.__dict__["var_name"] = var_name
@@ -335,19 +268,16 @@ class Proxy:
             if not dump_iter and from_iter:
                 return
 
-            trace_info = {
-                "time": current_time,
-            }
-            if dump_trace_info:
+            if should_dump_trace:
                 if from_call:
-                    trace_info["status"] = "call"
+                    phase = "call"
 
                 if from_iter:
-                    trace_info["status"] = "iter"
+                    phase = "iter"
                 # if the object is generated from getattr, then do not dump it
                 else:
-                    trace_info["status"] = "update"
-                self.dump_to_trace(obj, trace_info, dump_loc="initing")
+                    phase = "update"
+                self.dump_trace(phase=phase, dump_loc="initing")
 
         else:  # if the object is proxied already
             if type(obj) not in [int, float, str, bool] and obj is not None:
@@ -359,33 +289,22 @@ class Proxy:
                 lambda: f"Time elapse: {get_timestamp_ns() - Proxy.var_dict[var_name].last_update_timestamp}"
             )
             self.__dict__["_obj"] = obj
-            if (
-                get_timestamp_ns() - Proxy.var_dict[var_name].last_update_timestamp
-                < proxy_config.proxy_update_limit
-            ):
-                return
             dump_call_return = proxy_config.dump_info_config["dump_call_return"]
             dump_iter = proxy_config.dump_info_config["dump_iter"]
             if not dump_call_return and from_call:
                 return
-
             if not dump_iter and from_iter:
                 return
 
-            current_time = get_timestamp_ns()
-
-            trace_info = {
-                "time": current_time,
-            }
-            if dump_trace_info:
+            if should_dump_trace:
                 if from_call:
-                    trace_info["status"] = "call"
+                    phase = "call"
                 elif from_iter:
-                    trace_info["status"] = "iter"
+                    phase = "iter"
                 else:
-                    trace_info["status"] = "update"
+                    phase = "update"
 
-                self.dump_to_trace(obj, trace_info, "initing")
+                self.dump_trace(phase, "initing")
 
             self.__dict__["last_update_timestamp"] = current_time
             Proxy.var_dict[var_name] = ProxyObjInfo.construct_from_proxy_obj(self)
@@ -444,14 +363,12 @@ class Proxy:
             assert (
                 var_name in Proxy.var_dict
             ), f"var_name {var_name} is not in var_dict, it has not been proxied yet, check Proxy.__init__() for existence of assignment into Proxy.var_dict"
-            current_time = get_timestamp_ns()
             print_debug(
                 lambda: f"Time elapse: {get_timestamp_ns() - self.__dict__['last_update_timestamp']}"
             )
-            self.__dict__["last_update_timestamp"] = current_time
-            Proxy.var_dict[var_name].last_update_timestamp = current_time
+            self.update_timestamp()
 
-            # update the timestamp of the current object
+            # register the current object into the registry, set `stale` to False
             self.register_object()
 
             if self.__dict__["var_name"] == "":
@@ -482,10 +399,10 @@ class Proxy:
                 # do not dump update traces
                 return None
 
-            if type(value) in proxy_config.primitive_types:
-                self.dump_trace("update", disable_sampling=True)
-            else:
-                self.dump_trace("update")
+            self.dump_trace(
+                phase="update",
+                dump_loc=f"__setattr__ (attribute '{name}')",
+            )
 
     def __getitem__(self, key):
         # Intercept item retrieval

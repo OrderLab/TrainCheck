@@ -353,12 +353,6 @@ if __name__ == "__main__":
         default="proxy",
     )
     parser.add_argument(
-        "--proxy-update-limit",
-        type=float,
-        default=proxy_config.proxy_update_limit,
-        help="The threshold for updating the proxy object",
-    )
-    parser.add_argument(
         "--tensor-dump-format",
         choices=["hash", "stats", "full"],
         type=str,
@@ -431,7 +425,6 @@ if __name__ == "__main__":
     # set up adjusted proxy_config
     proxy_basic_config: dict[str, int | bool | str] = {}
     for configs in [
-        "proxy_update_limit",
         "debug_mode",
         "enable_C_level_observer",
     ]:

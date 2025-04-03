@@ -40,7 +40,7 @@ class ProxyRegistry:
         with self.registry_lock:
             for var_name, entry in self.registry.items():
                 entry.stale = True
-                entry.proxy.dump_trace("sample", dump_loc=dump_loc)
+                entry.proxy.dump_trace(phase="sample", dump_loc=dump_loc)
 
     def dump_only_modified(self, dump_loc=None, dump_config=None):
         """Dump only the proxy variables that might be modified since last dump
@@ -74,7 +74,7 @@ class ProxyRegistry:
                     continue
 
                 entry.stale = True
-                entry.proxy.dump_trace("selective-sample", dump_loc=dump_loc)
+                entry.proxy.dump_trace(phase="selective-sample", dump_loc=dump_loc)
                 if not dump_config[var_type]["dump_unchanged"]:
                     # remove the var from to_dump_types so that we don't dump the same type twice
                     to_dump_types.remove(var_type)
