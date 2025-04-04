@@ -88,16 +88,25 @@ def tensor_hash(x: Tensor, with_parallel: bool = True, with_cuda: bool = True) -
     if hasattr(x, "_mldaikon_tensor_hash"):
         return x._mldaikon_tensor_hash
     if with_parallel:
-        assert x.dtype in [
+        if x.dtype in [
             torch.float32,
             torch.float64,
             torch.bfloat16,
             torch.float16,
             torch.float,
-        ]
-
-        # Convert the floating-point tensor to an integer representation
-        x = (x * 1e8).to(torch.int64)
+        ]:
+            # Convert the floating-point tensor to an integer representation
+            x = (x * 1e8).to(torch.int64)
+        else:
+            assert x.dtype in [
+                torch.int32,
+                torch.int64,
+                torch.uint8,
+                torch.int8,
+                torch.int16,
+            ], f"Unsupported tensor type for hashing, expected either int or float, got {x.dtype}"
+            # Ensure the tensor is of integer type
+            x = x.to(torch.int64)
 
         # Ensure the tensor is of integer type
         assert x.dtype == torch.int64
