@@ -255,59 +255,28 @@ class Proxy:
                 self.proxy_parameters(obj, parent_name=var_name, from_iter=from_iter)
 
         current_time = get_timestamp_ns()
-        if var_name not in Proxy.var_dict:  # if the object is not proxied yet
-            self.__dict__["_obj"] = obj
+        self.__dict__["_obj"] = obj
 
-            self.__dict__["last_update_timestamp"] = current_time
-            Proxy.var_dict[var_name] = ProxyObjInfo.construct_from_proxy_obj(self)
+        self.__dict__["last_update_timestamp"] = current_time
+        Proxy.var_dict[var_name] = ProxyObjInfo.construct_from_proxy_obj(self)
 
-            dump_call_return = proxy_config.dump_info_config["dump_call_return"]
-            dump_iter = proxy_config.dump_info_config["dump_iter"]
-            if not dump_call_return and from_call:
-                return
-            if not dump_iter and from_iter:
-                return
+        dump_call_return = proxy_config.dump_info_config["dump_call_return"]
+        dump_iter = proxy_config.dump_info_config["dump_iter"]
+        if not dump_call_return and from_call:
+            return
+        if not dump_iter and from_iter:
+            return
 
-            if should_dump_trace:
-                if from_call:
-                    phase = "call"
+        if should_dump_trace:
+            if from_call:
+                phase = "call"
 
-                if from_iter:
-                    phase = "iter"
-                # if the object is generated from getattr, then do not dump it
-                else:
-                    phase = "update"
-                self.dump_trace(phase=phase, dump_loc="initing")
-
-        else:  # if the object is proxied already
-            if type(obj) not in [int, float, str, bool] and obj is not None:
-                print_debug(
-                    lambda: f"logger_proxy: Object '{obj.__class__.__name__}' is already proxied"
-                )
-
-            print_debug(
-                lambda: f"Time elapse: {get_timestamp_ns() - Proxy.var_dict[var_name].last_update_timestamp}"
-            )
-            self.__dict__["_obj"] = obj
-            dump_call_return = proxy_config.dump_info_config["dump_call_return"]
-            dump_iter = proxy_config.dump_info_config["dump_iter"]
-            if not dump_call_return and from_call:
-                return
-            if not dump_iter and from_iter:
-                return
-
-            if should_dump_trace:
-                if from_call:
-                    phase = "call"
-                elif from_iter:
-                    phase = "iter"
-                else:
-                    phase = "update"
-
-                self.dump_trace(phase, "initing")
-
-            self.__dict__["last_update_timestamp"] = current_time
-            Proxy.var_dict[var_name] = ProxyObjInfo.construct_from_proxy_obj(self)
+            if from_iter:
+                phase = "iter"
+            # if the object is generated from getattr, then do not dump it
+            else:
+                phase = "update"
+            self.dump_trace(phase=phase, dump_loc="initing")
 
     @property  # type: ignore
     def __class__(self):  # type: ignore[misc]
