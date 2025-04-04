@@ -327,7 +327,6 @@ def instrument_model_tracker_proxy(
     auto_observer_config: dict[str, int | bool | str] = adjusted_proxy_config[0]
     proxy_basic_config: dict[str, int | bool | str] = adjusted_proxy_config[1]
     tensor_dump_format: dict[str, int | bool | str] = adjusted_proxy_config[2]
-    delta_dump_config: dict[str, int | bool | str] = adjusted_proxy_config[3]
 
     ## proxy configs
     proxy_start_code = ""
@@ -348,11 +347,7 @@ proxy_config.__dict__.update({proxy_basic_config})
 from mldaikon.proxy_wrapper.proxy_config import tensor_dump_format
 tensor_dump_format.update({tensor_dump_format})
 """
-    if delta_dump_config:
-        proxy_start_code += f"""
-from mldaikon.proxy_wrapper.proxy_config import delta_dump_config
-delta_dump_config.update({delta_dump_config})
-"""
+
     proxy_start_code += """
 from mldaikon.proxy_wrapper.proxy import Proxy
 """

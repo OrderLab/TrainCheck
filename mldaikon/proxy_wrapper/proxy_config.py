@@ -3,11 +3,6 @@ import types
 proxy_log_dir = "proxy_log.json"  # FIXME: ad-hoc
 debug_mode = False
 
-delta_dump_config = {
-    "delta_dump": False,  # only dump the changed part of the object (if this is set to be False, we would dump the whole object no matter what values delta_dump_meta_var and delta_dump_attribute are)
-    "delta_dump_meta_var": True,  # only dump the changed part of the meta_var
-    "delta_dump_attributes": True,  # only dump the changed part of the attribute
-}
 tensor_dump_format = {
     "dump_tensor_hash": True,  # dump the hash of the tensor
     "dump_tensor_stats": False,  # dump the statistics of tensor {min, max, mean, shape}

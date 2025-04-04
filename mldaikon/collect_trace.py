@@ -360,24 +360,6 @@ if __name__ == "__main__":
         help="The format for dumping tensors. Choose from 'hash'(default), 'stats' or 'full'.",
     )
     parser.add_argument(
-        "--delta-dump",
-        type=bool,
-        default=proxy_config.delta_dump_config["delta_dump"],
-        help="Only dump the changed part of the object",
-    )
-    parser.add_argument(
-        "--delta-dump-meta-var",
-        type=bool,
-        default=proxy_config.delta_dump_config["delta_dump_meta_var"],
-        help="Only dump the changed part of the meta_var",
-    )
-    parser.add_argument(
-        "--delta-dump-attributes",
-        type=bool,
-        default=proxy_config.delta_dump_config["delta_dump_attributes"],
-        help="Only dump the changed part of the attribute",
-    )
-    parser.add_argument(
         "--enable-C-level-observer",
         type=bool,
         default=proxy_config.enable_C_level_observer,
@@ -444,20 +426,12 @@ if __name__ == "__main__":
         # set the chosen one to True
         tensor_dump_format[f"dump_tensor_{args.tensor_dump_format}"] = True
 
-    # set up delta_dump_config
-    delta_dump_config: dict[str, int | bool] = {}
-    for configs in ["delta_dump", "delta_dump_meta_var", "delta_dump_attributes"]:
-        if proxy_config.delta_dump_config[configs] != getattr(args, configs):
-            delta_dump_config[configs] = getattr(args, configs)
-            print(f"Setting {configs} to {getattr(args, configs)}")
-
     auto_observer_config = proxy_config.auto_observer_config
     # call into the instrumentor
     adjusted_proxy_config: list[dict] = [
         auto_observer_config,  # Ziming: add auto_observer_config for proxy_wrapper
         proxy_basic_config,  # Ziming: add proxy_basic_config for proxy_wrapper
         tensor_dump_format,  # Ziming: add tensor_dump_format for proxy_wrapper
-        delta_dump_config,  # Ziming: add delta_dump_config for proxy_wrapper
     ]
 
     # if args.disable_scan_proxy_in_args:
