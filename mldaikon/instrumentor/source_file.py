@@ -119,7 +119,7 @@ def instrument_library(
     return source
 
 
-def instrument_model(source_code: str, model_name: str, mode: str) -> str:
+def instrument_model_once(source_code: str, model_name: str, mode: str) -> str:
     """
     Finds the first assignment to `model`, finds its closest parent `if` statement,
     and instruments all model assignments within other branches of that `if`.
@@ -202,7 +202,7 @@ def instrument_model(source_code: str, model_name: str, mode: str) -> str:
         elif mode == "sampler":
             # insert another new node after the model assignment
             var_sampler_node = ast.parse(
-                f"{model_name}_sampler = VarSampler({model_name})"
+                f"{model_name}_sampler = VarSampler({model_name}, var_name='{model_name}')"
             ).body[0]
             root.body.insert(root.body.index(first_model_assign) + 1, var_sampler_node)
         else:
@@ -234,7 +234,7 @@ def instrument_model(source_code: str, model_name: str, mode: str) -> str:
                             elif mode == "sampler":
                                 # insert another new node after the model assignment
                                 var_sampler_node = ast.parse(
-                                    f"{model_name}_sampler = VarSampler({model_name})"
+                                    f"{model_name}_sampler = VarSampler({model_name}, var_name='{model_name}')"
                                 ).body[0]
                                 stmt_idx = branch.index(stmt)
                                 branch.insert(stmt_idx + 1, var_sampler_node)
@@ -246,6 +246,77 @@ def instrument_model(source_code: str, model_name: str, mode: str) -> str:
 
         ast.fix_missing_locations(root)
         return ast.unparse(root)
+
+
+def get_child_parent_map(root) -> dict[ast.AST, ast.AST]:
+    """
+    Annotate each node with its parent node in the AST.
+    This is useful for traversing the tree and modifying it later.
+    """
+    parent_map: dict[ast.AST, ast.AST] = {}
+
+    for node in ast.walk(root):
+        for child in ast.iter_child_nodes(node):
+            if child in parent_map and not ast.unparse(child).strip() == "":
+                print(
+                    f"Node {ast.unparse(child)} already has a parent, {ast.unparse(parent_map[child])}"
+                )
+            parent_map[child] = node
+
+    return parent_map
+
+
+def instrument_all_model_assignments(
+    source_code: str, model_name: str, mode: str
+) -> str:
+    """
+    Finds all assignment statements to `model` and inserts a Proxy statement or a VarSampler statement
+    after each assignment, depending on the mode.
+    """
+    root = ast.parse(source_code)
+    parent_map = get_child_parent_map(root)
+
+    if mode == "proxy":
+        instr_statement = ast.parse(
+            f"{model_name} = Proxy({model_name}, recurse=True, logdir=proxy_config.proxy_log_dir, var_name='{model_name}')"
+        )
+    elif mode == "sampler":
+        instr_statement = ast.parse(f"{model_name}_sampler = VarSampler({model_name})")
+    else:
+        raise ValueError(f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler']")
+
+    # find all assignment statements to `model`
+    assignments = []
+    for node in ast.walk(root):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == model_name
+            for target in node.targets
+        ):
+            assignments.append(node)
+            # insert the instrument statement right after the assignment
+            instr_node = instr_statement.body[0]
+            if node in parent_map:
+                parent = parent_map[node]
+                # print(f"Parent node: {ast.unparse(parent)}")
+                print(f"Parent node: {parent}")
+                print("Node to instrument: ", ast.unparse(node))
+                if node in parent.body:  # type: ignore
+                    idx = parent.body.index(node)  # type: ignore
+                    parent.body.insert(idx + 1, instr_node)  # type: ignore
+                elif isinstance(parent, ast.If) and node in parent.orelse:
+                    # If the assignment is inside an else statement, insert after the assignment
+                    idx = parent.orelse.index(node)
+                    parent.orelse.insert(idx + 1, instr_node)
+                else:
+                    raise ValueError(
+                        f"Node {ast.unparse(node)} not found in parent body."
+                    )
+                print("Inserted instrument statement after assignment.")
+            else:
+                root.body.insert(root.body.index(node) + 1, instr_node)
+    # Fix missing locations
+    ast.fix_missing_locations(root)
+    return ast.unparse(root)
 
 
 def instrument_model_tracker_proxy(
@@ -342,7 +413,9 @@ for log_file in log_files:
     instrumented_source = ast.unparse(root)
 
     for model in models_to_track:
-        instrumented_source = instrument_model(instrumented_source, model, "proxy")
+        instrumented_source = instrument_all_model_assignments(
+            instrumented_source, model, "proxy"
+        )
 
     code_head, code_tail = get_code_head_and_tail(instrumented_source)
     instrumented_source = code_head + proxy_start_code + auto_observer_code + code_tail
@@ -373,7 +446,7 @@ def instrument_model_tracker_sampler(
         sampler_name = f"{model}_sampler"
         samplers.append(sampler_name)
 
-        source = instrument_model(source, model, "sampler")
+        source = instrument_all_model_assignments(source, model, "sampler")
 
     # iterate again, find all optimizers definitions
     for model, sampler_name in zip(models_to_track, samplers):

@@ -1032,7 +1032,7 @@ class VarSampler:
     Only the current state is dumped during each observation, regardless of whether the state has changed or not.
     """
 
-    def __init__(self, var, dump_tensor_hash: bool = True):
+    def __init__(self, var, var_name: str):
         # Get the current thread object
         if isinstance(var, list):
             assert (
@@ -1041,6 +1041,7 @@ class VarSampler:
             var = var[0]
         assert isinstance(var, torch.nn.Module), "Currently only supports torch models."
         self.var = var
+        self.var_name = var_name
 
         """DANGEROUS: This param_version tracking is used to track the version of the parameters, so that we can skip the parameters that have not changed.
             However, the `_version` attribute is only bumped when inplace ops (ones with a `_` suffix) like `add_` are called. This means this trick only
@@ -1057,12 +1058,6 @@ class VarSampler:
         curr_meta_vars = get_meta_vars()
         for param in self._get_state_copy():
             attributes = param["attributes"]
-            if dump_tensor_hash:
-                from mldaikon.proxy_wrapper.hash import tensor_hash
-
-                for attr_name, attr in attributes.items():
-                    if isinstance(attr, torch.Tensor):
-                        attributes[f"{attr_name}_hash"] = tensor_hash(attr)
 
             dump_trace_VAR(
                 {
@@ -1080,10 +1075,11 @@ class VarSampler:
     def _get_state_copy(self):
         state_copy = []
         for name, param in self.var.named_parameters():
-            self.param_versions[name] = param._version
+            param_global_name = self.var_name + "." + name
+            self.param_versions[param_global_name] = param._version
             state_copy.append(
                 {
-                    "name": name,
+                    "name": param_global_name,
                     "type": typename(param),
                     "attributes": convert_var_to_dict(param),
                 }
