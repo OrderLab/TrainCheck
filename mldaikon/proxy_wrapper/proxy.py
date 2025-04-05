@@ -120,10 +120,11 @@ class Proxy:
             module._parameters[name] = parameter
 
         time_end = time.perf_counter()
-        print(
-            "logger_proxy: "
-            + f"Proxied {num_params} parameters of '{parent_name + module.__class__.__name__}', duration: {time_end - start_time} seconds"
-        )
+        if num_params != 0:
+            print(
+                "logger_proxy: "
+                + f"Proxied {num_params} parameters of '{parent_name + module.__class__.__name__}', duration: {time_end - start_time} seconds"
+            )
 
     def update_timestamp(self):
         # Update the timestamp of the object, should be called when the object is updated, e.g. __setattr__ and observer
