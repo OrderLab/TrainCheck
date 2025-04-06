@@ -273,6 +273,10 @@ def instrument_all_model_assignments(
     Finds all assignment statements to `model` and inserts a Proxy statement or a VarSampler statement
     after each assignment, depending on the mode.
     """
+    print(
+        f"Instrumenting model: {model_name}, mode: {mode}, scanning for assignments to {model_name}"
+    )
+
     root = ast.parse(source_code)
     parent_map = get_child_parent_map(root)
 
@@ -288,9 +292,20 @@ def instrument_all_model_assignments(
     # find all assignment statements to `model`
     assignments = []
     for node in ast.walk(root):
-        if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == model_name
-            for target in node.targets
+        if (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == model_name
+                for target in node.targets
+            )
+            or (
+                isinstance(node, ast.Assign)
+                and isinstance(node.targets[0], ast.Tuple)
+                and any(
+                    isinstance(target, ast.Name) and target.id == model_name
+                    for target in node.targets[0].elts
+                )
+            )
         ):
             assignments.append(node)
             # insert the instrument statement right after the assignment
@@ -298,8 +313,12 @@ def instrument_all_model_assignments(
             if node in parent_map:
                 parent = parent_map[node]
                 # print(f"Parent node: {ast.unparse(parent)}")
-                print(f"Parent node: {parent}")
-                print("Node to instrument: ", ast.unparse(node))
+                print("\tInstrumenting: ", ast.unparse(node))
+                if isinstance(parent, ast.For):
+                    print(
+                        "\t\t⬆️ Parent is a for loop, cowardly skipping instrumentation in fear of multiple models with the same 'var_name'"
+                    )
+                    continue
                 if node in parent.body:  # type: ignore
                     idx = parent.body.index(node)  # type: ignore
                     parent.body.insert(idx + 1, instr_node)  # type: ignore
@@ -311,7 +330,6 @@ def instrument_all_model_assignments(
                     raise ValueError(
                         f"Node {ast.unparse(node)} not found in parent body."
                     )
-                print("Inserted instrument statement after assignment.")
             else:
                 root.body.insert(root.body.index(node) + 1, instr_node)
     # Fix missing locations

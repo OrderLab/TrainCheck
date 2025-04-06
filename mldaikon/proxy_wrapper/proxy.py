@@ -11,10 +11,7 @@ import torch
 import mldaikon.config.config as general_config
 import mldaikon.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
 import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
-from mldaikon.proxy_wrapper.dumper import (
-    dump_attributes,
-    get_meta_vars,
-)
+from mldaikon.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from mldaikon.utils import get_timestamp_ns, typename
 
 from .dumper import json_dumper as dumper
@@ -238,10 +235,6 @@ class Proxy:
 
         if isinstance(obj, torch.nn.Module):  # special handling for nn.Module
             if self.__dict__["recurse"]:
-                print(
-                    lambda: f"logger_proxy: ROOT proxy object for '{obj.__class__.__name__}'"
-                )
-
                 # proxy all of its parameters
                 assert not from_call
                 assert not from_iter
