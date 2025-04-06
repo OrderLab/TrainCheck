@@ -365,6 +365,11 @@ if __name__ == "__main__":
         default=proxy_config.enable_C_level_observer,
         help="Enable the observer at the C level",
     )
+    parser.add_argument(
+        "--no-auto-var-instr",
+        action="store_true",
+        help="Disable automatic variable instrumentation, necessary when the default behavior of the instrumentor is not desired (e.g. cause segmentation fault)",
+    )
 
     args = parser.parse_args()
 
@@ -474,6 +479,7 @@ disabling model tracking."""
             API_dump_stack_trace=args.API_dump_stack_trace,
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
+            no_auto_var_instr=args.no_auto_var_instr,
         )
     else:
         source_code = instrumentor.instrument_file(
@@ -488,6 +494,7 @@ disabling model tracking."""
             API_dump_stack_trace=args.API_dump_stack_trace,
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
+            no_auto_var_instr=args.no_auto_var_instr,
         )
 
     if args.copy_all_files:

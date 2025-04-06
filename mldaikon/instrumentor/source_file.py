@@ -341,6 +341,7 @@ def instrument_model_tracker_proxy(
     source: str,
     models_to_track: list[str],
     adjusted_proxy_config: list[dict[str, int | bool | str]],
+    no_auto_var_instr: bool,
 ):
     auto_observer_config: dict[str, int | bool | str] = adjusted_proxy_config[0]
     proxy_basic_config: dict[str, int | bool | str] = adjusted_proxy_config[1]
@@ -425,10 +426,11 @@ for log_file in log_files:
 
     instrumented_source = ast.unparse(root)
 
-    for model in models_to_track:
-        instrumented_source = instrument_all_model_assignments(
-            instrumented_source, model, "proxy"
-        )
+    if not no_auto_var_instr:
+        for model in models_to_track:
+            instrumented_source = instrument_all_model_assignments(
+                instrumented_source, model, "proxy"
+            )
 
     code_head, code_tail = get_code_head_and_tail(instrumented_source)
     instrumented_source = code_head + proxy_start_code + auto_observer_code + code_tail
@@ -439,57 +441,59 @@ for log_file in log_files:
 def instrument_model_tracker_sampler(
     source: str,
     models_to_track: list[str],
+    no_auto_var_instr: bool,
 ):
-    samplers = []
-    for model in models_to_track:
-        # find where the module is constructed and insert the proxy
-        pattern = r"\s*" + f"{model}" + r"\s*=\s*"
-        pattern_re = re.compile(pattern)
+    if not no_auto_var_instr:
+        samplers = []
+        for model in models_to_track:
+            # find where the module is constructed and insert the proxy
+            pattern = r"\s*" + f"{model}" + r"\s*=\s*"
+            pattern_re = re.compile(pattern)
 
-        for line_idx, line in enumerate(source.split("\n")):
-            match = pattern_re.search(line)
-            if match and match.start() == 0:
-                break
-        else:
-            raise ValueError(
-                f"Model {model} not found in the source code. Please check the model name and try again."
+            for line_idx, line in enumerate(source.split("\n")):
+                match = pattern_re.search(line)
+                if match and match.start() == 0:
+                    break
+            else:
+                raise ValueError(
+                    f"Model {model} not found in the source code. Please check the model name and try again."
+                )
+
+            # insert the sampler after line_idx
+            sampler_name = f"{model}_sampler"
+            samplers.append(sampler_name)
+
+            source = instrument_all_model_assignments(source, model, "sampler")
+
+        # iterate again, find all optimizers definitions
+        for model, sampler_name in zip(models_to_track, samplers):
+            # find the optimizer definition for the model
+            keys = [model, "=", "optimizer"]
+            for line_idx, line in enumerate(source.split("\n")):
+                if all(key in line for key in keys):
+                    break
+            else:
+                raise ValueError(
+                    f"""Optimizer for model {model} not found in the source code.
+                Please manually initialize a sampler for the model and call sampler.register_hook(optimizer) 
+                for the corresponding optimizer."""
+                )
+
+            # NOTE: ideally we want to ensure that the place where we register the hook is after the optimizer is defined
+            # but for now, we will just insert the hook after the optimizer definition due to our pattern to find the optimizer (see the keys variable above)
+            optimizer_name = line.split("=")[0].strip()
+            identation = len(line) - len(line.lstrip())
+            hook_code = (
+                line[:identation] + f"{sampler_name}.register_hook({optimizer_name})"
+            )
+            # find the identation level of the optimizer definition
+            source = "\n".join(
+                source.split("\n")[: line_idx + 1]
+                + [hook_code]
+                + source.split("\n")[line_idx + 1 :]
             )
 
-        # insert the sampler after line_idx
-        sampler_name = f"{model}_sampler"
-        samplers.append(sampler_name)
-
-        source = instrument_all_model_assignments(source, model, "sampler")
-
-    # iterate again, find all optimizers definitions
-    for model, sampler_name in zip(models_to_track, samplers):
-        # find the optimizer definition for the model
-        keys = [model, "=", "optimizer"]
-        for line_idx, line in enumerate(source.split("\n")):
-            if all(key in line for key in keys):
-                break
-        else:
-            raise ValueError(
-                f"""Optimizer for model {model} not found in the source code.
-            Please manually initialize a sampler for the model and call sampler.register_hook(optimizer) 
-            for the corresponding optimizer."""
-            )
-
-        # NOTE: ideally we want to ensure that the place where we register the hook is after the optimizer is defined
-        # but for now, we will just insert the hook after the optimizer definition due to our pattern to find the optimizer (see the keys variable above)
-        optimizer_name = line.split("=")[0].strip()
-        identation = len(line) - len(line.lstrip())
-        hook_code = (
-            line[:identation] + f"{sampler_name}.register_hook({optimizer_name})"
-        )
-        # find the identation level of the optimizer definition
-        source = "\n".join(
-            source.split("\n")[: line_idx + 1]
-            + [hook_code]
-            + source.split("\n")[line_idx + 1 :]
-        )
     code_head, code_tail = get_code_head_and_tail(source)
-
     sampler_import_code = "from mldaikon.instrumentor import VarSampler"
     source = code_head + "\n" + sampler_import_code + "\n" + code_tail
 
@@ -508,6 +512,7 @@ def instrument_file(
     API_dump_stack_trace: bool,
     output_dir: str,
     instr_descriptors: bool,
+    no_auto_var_instr: bool,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -556,11 +561,13 @@ general_config.INSTR_DESCRIPTORS = {instr_descriptors}
                 instrumented_source,
                 models_to_track,
                 adjusted_proxy_config,
+                no_auto_var_instr,
             )
         else:
             instrumented_source = instrument_model_tracker_sampler(
                 instrumented_source,
                 models_to_track,
+                no_auto_var_instr,
             )
 
     # HACK: this is a hack to attach the logging code to the instrumented source after the __future__ imports
