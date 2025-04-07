@@ -719,13 +719,13 @@ class InputOutputParam(Param):
         assert (
             self.name is not None
         ), "Name should be when calling get_value_from_arguments"
-        assert (
-            self.additional_path is None
-        ), "Additional path should be None when calling get_value_from_arguments"
+        assert self.additional_path is None or isinstance(
+            self.additional_path, MD_NONE
+        ), f"Additional path should be None when calling get_value_from_arguments, got {self.additional_path}"
 
         if self.name in arguments.arguments:
             arg = arguments.arguments[self.name]
-            if self.additional_path:
+            if self.additional_path and not isinstance(self.additional_path, MD_NONE):
                 for path in self.additional_path:
                     if path not in arg:
                         raise ValueError("Arg cannot be found.")
