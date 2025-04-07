@@ -9,7 +9,12 @@ from typing import Hashable
 import orjson
 import torch
 
-from mldaikon.config.config import BUFFER_SIZE, FLUSH_INTERVAL
+from mldaikon.config.config import (
+    BUFFER_SIZE,
+    FLUSH_INTERVAL,
+    RECURSION_ERR_THRESHOLD,
+    TYPE_ERR_THRESHOLD,
+)
 from mldaikon.proxy_wrapper.proxy_config import (
     attribute_black_list,
     primitive_types,
@@ -36,7 +41,7 @@ instrumentation_loggers: dict[int, logging.Logger] = {}
 # this is a global variable to store the attributes that cannot be accessed due to errors, so that we don't try to access them again and waste time.
 skip_attrs_due_to_errs: dict[str, set[str | Hashable]] = {}
 skip_type_due_to_errs: dict[type, int] = {}
-TYPE_ERR_THRESHOLD = 3
+skip_type_due_to_recursion: dict[type, int] = {}
 
 logger = logging.getLogger(__name__)
 
@@ -393,6 +398,12 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
 
 
 def obj_to_serializable(obj, dump_config=None) -> dict[str, object]:
+    if (
+        type(obj) in skip_type_due_to_recursion
+        and skip_type_due_to_recursion[type(obj)] > RECURSION_ERR_THRESHOLD
+    ):
+        return {str(type(obj)): None}
+
     if isinstance(obj, torch.dtype):
         return {typename(obj): str(obj)}
     elif isinstance(obj, torch.Size):
@@ -403,6 +414,9 @@ def obj_to_serializable(obj, dump_config=None) -> dict[str, object]:
         )
         return {typename(obj): var_dict}
     except RecursionError:
+        skip_type_due_to_recursion[type(obj)] = (
+            skip_type_due_to_recursion.get(type(obj), 0) + 1
+        )
         logger.warning(
             f"Recursion detected when converting object to dict. Probably due to a issue in the __getattr__ method of the object. Object type: {type(obj)}."
         )

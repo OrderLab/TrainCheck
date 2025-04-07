@@ -86,6 +86,10 @@ ANALYSIS_SKIP_FUNC_NAMES = [
 
 INSTR_OPTS = None  # TODO: set defaults for this variable
 
+# var dumper related error-backoff configs
+TYPE_ERR_THRESHOLD = 3
+RECURSION_ERR_THRESHOLD = 5
+
 
 class InstrOpt:
     def __init__(
