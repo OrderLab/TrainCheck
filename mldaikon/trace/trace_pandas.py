@@ -191,7 +191,7 @@ class TracePandas(Trace):
         ):
             assert (
                 row["type"] == TraceLineType.FUNC_CALL_PRE
-            ), "Incomplete function call is not a pre-call event."
+            ), f"Incomplete function call is not a pre-call event, got {row['type']}, id {row['func_call_id']}"
             logger.warning(f"Incomplete function call detected: {row}")
             process_id = row["process_id"]
             thread_id = row["thread_id"]
