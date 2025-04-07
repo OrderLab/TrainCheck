@@ -4,7 +4,7 @@ import signal
 import subprocess
 import sys
 
-from mldaikon.config.config import TMP_FILE_PREFIX
+from mldaikon.config.config import RUNNER_DEFAULT_ENV, TMP_FILE_PREFIX
 
 
 def program_print(program_output: str):
@@ -178,11 +178,15 @@ class ProgramRunner(object):
             os.chdir(os.path.dirname(self._tmp_sh_script_path))
         else:
             os.chdir(os.path.dirname(self._tmp_py_script_path))
+
+        env_vars = RUNNER_DEFAULT_ENV.copy()
+        env_vars.update(os.environ)
+
         process = subprocess.Popen(
             self.cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            env=os.environ,
+            env=env_vars,
         )
         # change back to the original directory
         os.chdir(current_dir)
