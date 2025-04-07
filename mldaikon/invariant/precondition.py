@@ -325,7 +325,7 @@ def find_precondition(
             and len(negative_examples) > 0
         ):
             # try doing inverted precondition inference
-            logger.warning(
+            logger.debug(
                 f"Empty preconditions found for group {group_name}, trying to infer the preconditions by inverting the negative examples."
             )
             # i.e. use negative examples to infer the preconditions, and then invert the final precondition
@@ -336,11 +336,6 @@ def find_precondition(
                 ),
                 inverted=True,
             )
-
-            # TODO: add wrapper indicating that the precondition is inverted!!!
-
-        if len(grouped_preconditions[group_name]) == 0:
-            logger.warning(f"No preconditions found for group {group_name}")
 
     # if any group's precondition is of length 0, return None
     if all(
@@ -460,9 +455,7 @@ def find_precondition_from_single_group(
         assert (
             len(positive_examples) > 0
         ), "No negative examples found, but no positive examples found either"
-        logger.warning(
-            "No negative examples found, assigning unconditional precondition"
-        )
+        logger.debug("No negative examples found, assigning unconditional precondition")
         return [UnconditionalPrecondition()]
 
     # if (

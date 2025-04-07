@@ -52,11 +52,15 @@ class InferEngine:
             dict[Hypothesis, list[int]]: A dictionary mapping hypotheses to the indices of traces that support them
         """
 
-        logger.info("Generating hypotheses")
+        logger.info("============= GENERATING HYPOTHESIS =============")
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]] = {}
         hypo_lookup = {}  # Dictionary for O(1) lookup of hypotheses
-        for trace_idx, trace in enumerate(tqdm(self.traces, desc="Scanning Traces")):
-            for relation in relation_pool:
+        for trace_idx, trace in enumerate(self.traces):
+            logger.info(f"Processing trace {trace_idx + 1}/{len(self.traces)}")
+            for relation_idx, relation in enumerate(relation_pool):
+                logger.info(
+                    f"Processing relation {relation_idx + 1}/{len(relation_pool)}: {relation.__name__}"
+                )
                 if self.disabled_relations and relation in self.disabled_relations:
                     logger.info(
                         f"Skipping relation {relation.__name__} as it is disabled"
@@ -65,7 +69,10 @@ class InferEngine:
                 logger.info(f"Generating hypotheses for relation: {relation.__name__}")
                 inferred_hypos = relation.generate_hypothesis(trace)
                 logger.info(
-                    f"Found {len(inferred_hypos)} hypotheses for relation: {relation.__name__}"
+                    f"Found {len(inferred_hypos)} hypotheses for relation: {relation.__name__} on trace {trace_idx + 1}/{len(self.traces)}"
+                )
+                logger.info(
+                    f"Merging hypotheses with existing ones, number of existing ones: {len(hypotheses_and_trace_idxs)}"
                 )
                 for hypo in tqdm(
                     inferred_hypos, desc="Merging Hypotheses with existing ones"
@@ -95,16 +102,25 @@ class InferEngine:
                         ) == orig_num_neg_exps + len(
                             hypo.negative_examples
                         ), f"Expected {orig_num_neg_exps} + {len(hypo.negative_examples)} negative examples, got {len(hypo_lookup[hypo].negative_examples)}"
-
+            logger.info(f"Finished processing trace {trace_idx + 1}/{len(self.traces)}")
+        logger.info(
+            f"Finished generating hypotheses, found {len(hypotheses_and_trace_idxs)} hypotheses"
+        )
         return hypotheses_and_trace_idxs
 
     def collect_examples(self, hypotheses: dict[Hypothesis, list[int]]):
-        logger.info("Collecting examples")
+        logger.info("============= COLLECTING EXAMPLES =============")
+        logger.info(f"Start collecting examples for {len(hypotheses)} hypotheses")
         for hypo, trace_idxs in hypotheses.items():
+            logger.info(
+                f"Collecting examples for hypothesis: {hypo.invariant.text_description}"
+            )
             for trace_idx, trace in enumerate(self.traces):
                 if trace_idx in trace_idxs:
                     continue
-                logger.info(f"Collecting examples for hypothesis: {hypo}")
+                logger.info(
+                    f"Collecting examples for hypothesis: {hypo} on trace {trace_idx + 1}/{len(self.traces)}"
+                )
                 hypo.invariant.relation.collect_examples(trace, hypo)
 
     def prune_incorrect_hypos(self, hypotheses: dict[Hypothesis, list[int]]):
@@ -121,14 +137,18 @@ class InferEngine:
 
     def infer_precondition(self, hypotheses: dict[Hypothesis, list[int]]):
         """TODO: move the precondition inference driving code into Hypothesis.get_invariant()"""
-
+        logger.info("============= INFERING PRECONDITIONS =============")
+        logger.info(f"Inferring preconditions for {len(hypotheses)} hypotheses")
         all_hypotheses: list[Hypothesis] = []
         for hypo in hypotheses:
             all_hypotheses.append(hypo)
 
         invariants = []
         failed_hypos = []
-        for hypothesis in all_hypotheses:
+        for hypo_idx, hypothesis in enumerate(all_hypotheses):
+            logger.info(
+                f"Inferring precondition for hypothesis {hypo_idx + 1}/{len(all_hypotheses)}: {hypothesis.invariant.text_description}"
+            )
             precondition = find_precondition(hypothesis, self.traces)
             if precondition is None:
                 failed_hypos.append(FailedHypothesis(hypothesis))
