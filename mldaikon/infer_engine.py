@@ -247,9 +247,11 @@ if __name__ == "__main__":
     else:
         log_level = logging.INFO
 
+    # get current process ID
+    pid = os.getpid()
     # set logging to a file
     logging.basicConfig(
-        filename=f'mldaikon_infer_engine_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.log',
+        filename=f'mldaikon_infer_engine_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{pid}.log',
         level=log_level,
         format="%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)s - %(funcName)20s()] - %(message)s",
     )
