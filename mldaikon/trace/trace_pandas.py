@@ -102,6 +102,7 @@ class TracePandas(Trace):
             )
 
         self.column_dtypes_cached = {}
+        self.stage_traces: dict[str, "TracePandas"] = {}
 
         # HACK: init might not be present at the beginning of the trace due to presence of import-time logs
         self._fill_missing_stage_init()
@@ -113,12 +114,17 @@ class TracePandas(Trace):
         if not self.is_stage_annotated():
             raise ValueError("Trace is not annotated with stages.")
 
+        if self.stage_traces:
+            return self.stage_traces
+
         traces = {}
         for stage in self.events[STAGE_KEY].unique():
             traces[stage] = TracePandas(
                 self.events[self.events[STAGE_KEY] == stage],
                 truncate_incomplete_func_calls=False,
             )
+
+        self.stage_traces = traces
 
         return traces
 
