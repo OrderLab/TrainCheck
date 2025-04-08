@@ -246,6 +246,18 @@ def get_events_of_funcs_with_tensors(
         func_name: trace.get_func_call_ids(func_name) for func_name in all_func_names
     }
 
+    # sampling 1000 if more than 1000
+    import random
+
+    all_func_call_ids = {
+        func_name: (
+            random.sample(func_call_ids, 1000)
+            if len(func_call_ids) > 1000
+            else func_call_ids
+        )
+        for func_name, func_call_ids in all_func_call_ids.items()
+    }
+
     all_func_call_events = {
         func_name: {
             func_call_id: trace.query_func_call_event(func_call_id)
@@ -397,6 +409,12 @@ class ConsistentOutputRelation(Relation):
         func_name = inv.params[0].api_full_name
         # get all the function calls for the function
         func_call_ids = trace.get_func_call_ids(func_name)
+
+        # down sample to 1000
+        import random
+
+        if len(func_call_ids) > 1000:
+            func_call_ids = random.sample(func_call_ids, 1000)
 
         for func_call_id in tqdm(
             func_call_ids, desc=f"Adding examples for {inv.text_description}"
@@ -709,6 +727,11 @@ class ConsistentInputOutputRelation(Relation):
         # get all the function calls
         func_name = api_param.api_full_name
         func_call_ids = trace.get_func_call_ids(func_name)
+
+        import random
+
+        if len(func_call_ids) > 1000:
+            func_call_ids = random.sample(func_call_ids, 1000)
 
         for func_call_id in tqdm(
             func_call_ids, desc=f"Checking invariant {inv.text_description}"
@@ -1067,6 +1090,12 @@ class ThresholdRelation(Relation):
         func_name = api_param.api_full_name
         # get all function calls for the function
         func_call_ids = trace.get_func_call_ids(func_name)
+
+        import random
+
+        if len(func_call_ids) > 1000:
+            func_call_ids = random.sample(func_call_ids, 1000)
+
         for func_call_id in tqdm(
             func_call_ids, desc=f"Checking invariant {inv.text_description}"
         ):

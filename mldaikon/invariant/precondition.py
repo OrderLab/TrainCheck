@@ -302,16 +302,16 @@ def find_precondition(
         import random
 
         random.seed(42)
-        if len(positive_examples) > 100000:
+        if len(positive_examples) > 5000:
             logger.warning(
                 f"Too many positive examples found for group {group_name}, downsampling to 100000"
             )
-            positive_examples = random.sample(positive_examples, 100000)
-        if len(negative_examples) > 100000:
+            positive_examples = random.sample(positive_examples, 5000)
+        if len(negative_examples) > 5000:
             logger.warning(
                 f"Too many negative examples found for group {group_name}, downsampling to 100000"
             )
-            negative_examples = random.sample(negative_examples, 100000)
+            negative_examples = random.sample(negative_examples, 5000)
 
         grouped_preconditions[group_name] = Preconditions(
             find_precondition_from_single_group(

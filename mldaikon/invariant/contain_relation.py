@@ -381,10 +381,24 @@ class APIContainRelation(Relation):
             if VAR_GROUP_NAME in hypothesis.negative_examples.get_group_names():
                 check_for_unchanged_vars = True
 
-        for parent_func_call_id in tqdm(
-            parent_func_call_ids, desc=f"Collecting examples for {inv.text_description}"
+        nums_contained_events = []
+        kind_of_parent_events = []
+        for i, parent_func_call_id in tqdm(
+            enumerate(parent_func_call_ids), desc="Collecting examples"
         ):
+            parent_event_type = _get_parent_type(trace, parent_func_call_id)
+            if not (i < 10 or i > len(parent_func_call_ids) - 10) and prune_func_call(
+                len(parent_func_call_ids),
+                parent_event_type,
+                nums_contained_events,
+                kind_of_parent_events,
+            ):
+                continue
+
             contained_events = events_scanner(trace, parent_func_call_id)
+            nums_contained_events.append(len(contained_events))
+            kind_of_parent_events.append(parent_event_type)
+
             grouped_events = _group_events_by_type(contained_events)
             if isinstance(child_param, APIParam):
                 contained_events = (
@@ -570,6 +584,16 @@ class APIContainRelation(Relation):
             logger.debug(
                 f"Found {len(parent_func_call_ids)} invocations for the function: {parent}"
             )
+
+            # down sampling the function calls
+            if len(parent_func_call_ids) > 1000:
+                # down sample the function calls, keep the first 10, last 10, and randomly sample 100 from the rest
+                parent_func_call_ids = (
+                    parent_func_call_ids[:10]
+                    + random.sample(parent_func_call_ids[10:-10], 100)  # type: ignore
+                    + parent_func_call_ids[-10:]
+                )
+
             all_contained_events: dict[
                 str, list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
             ] = {}
@@ -578,8 +602,18 @@ class APIContainRelation(Relation):
             kind_of_parent_events: list[
                 Type[FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent]
             ] = []
-            for parent_func_call_id in parent_func_call_ids:
+            for i, parent_func_call_id in enumerate(parent_func_call_ids):
                 parent_event_type = _get_parent_type(trace, parent_func_call_id)
+
+                if not (
+                    i < 10 or i > len(parent_func_call_ids) - 10
+                ) and prune_func_call(
+                    len(parent_func_call_ids),
+                    parent_event_type,
+                    nums_contained_events,
+                    kind_of_parent_events,
+                ):
+                    continue
                 contained_events = events_scanner(
                     trace=trace, func_call_id=parent_func_call_id
                 )
