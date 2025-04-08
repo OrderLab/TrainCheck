@@ -34,11 +34,14 @@ def run_cmd(cmd):
     largest_window_id += 1
     tmux new-window -t @(TMUX_SESSION_NAME) -n @(largest_window_id)
 
-    command = f"conda activate ml-daikon-torch222; python3 -m mldaikon.infer_engine "
+    command = f"conda activate fp_torch222; python3 -m mldaikon.infer_engine "
     command += " ".join(cmd)
     tmux send-keys -t @(TMUX_SESSION_NAME):@(largest_window_id) @(command) Enter
 
 create_tmux_session()
-for relation in relation_names:
-    run_cmd(args + ["-o", f"inv_{relation}.json", "--enable-relation", relation])
+# for relation in relation_names:
+#     run_cmd(args + ["-o", f"inv_{relation}.json", "--enable-relation", relation])
 
+run_cmd(args + ["-o", f"inv_FunctionCoverRelation.json", "--enable-relation", "FunctionCoverRelation"])
+run_cmd(args + ["-o", f"inv_FunctionLeadRelation.json", "--enable-relation", "FunctionLeadRelation"])
+run_cmd(args + ["-o", f"inv_other_relation.json", "--disable-relation", "FunctionCoverRelation", "FunctionLeadRelation"])
