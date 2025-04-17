@@ -8,6 +8,7 @@ from typing import Hashable
 
 import orjson
 import torch
+
 from traincheck.config.config import (
     BUFFER_SIZE,
     FLUSH_INTERVAL,

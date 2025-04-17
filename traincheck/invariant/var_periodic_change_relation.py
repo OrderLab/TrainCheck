@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 
 import numpy as np
+
 import traincheck.config.config as config
 from traincheck.invariant.base_cls import (
     CheckerResult,

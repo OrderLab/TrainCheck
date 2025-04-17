@@ -5,11 +5,11 @@ from typing import Any
 import pandas as pd
 from tqdm import tqdm
 
-from mldaikon.config import config
-from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.instrumentor.types import PTID
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.types import (
+from traincheck.config import config
+from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.instrumentor.types import PTID
+from traincheck.trace.trace import Trace
+from traincheck.trace.types import (
     MD_NONE,
     AttrState,
     ContextManagerState,
@@ -19,14 +19,14 @@ from mldaikon.trace.types import (
     VarChangeEvent,
     VarInstId,
 )
-from mldaikon.trace.utils import (
+from traincheck.trace.utils import (
     BindedFuncInput,
     bind_args_kwargs_to_signature,
     flatten_dict,
     load_signature_from_class_method_name,
     read_jsonlines_flattened_with_md_none,
 )
-from mldaikon.utils import safe_isnan
+from traincheck.utils import safe_isnan
 
 logger = logging.getLogger(__name__)
 
@@ -835,7 +835,7 @@ class TracePandas(Trace):
                         continue
 
                     if col.startswith(config.VAR_ATTR_PREFIX):
-                        from mldaikon.invariant.base_cls import make_hashable
+                        from traincheck.invariant.base_cls import make_hashable
 
                         curr_value = make_hashable(state_change[col])
                         attr_name = get_attr_name(col)

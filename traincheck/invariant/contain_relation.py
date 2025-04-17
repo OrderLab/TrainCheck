@@ -5,6 +5,7 @@ from typing import Type
 
 import numpy as np
 from tqdm import tqdm
+
 from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (

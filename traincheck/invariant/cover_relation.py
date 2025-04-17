@@ -3,6 +3,7 @@ from itertools import permutations
 from typing import Any, Dict, List, Set, Tuple
 
 from tqdm import tqdm
+
 from traincheck.invariant.base_cls import (
     APIParam,
     CheckerResult,

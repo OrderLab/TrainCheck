@@ -2,6 +2,7 @@ from itertools import combinations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from tqdm import tqdm
+
 from traincheck.invariant.base_cls import (  # GroupedPreconditions,
     APIParam,
     CheckerResult,

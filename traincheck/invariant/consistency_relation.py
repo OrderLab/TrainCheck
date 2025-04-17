@@ -3,6 +3,7 @@ import time
 from itertools import combinations
 
 from tqdm import tqdm
+
 from traincheck.config import config
 from traincheck.invariant.base_cls import (
     CheckerResult,

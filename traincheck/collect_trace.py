@@ -3,11 +3,12 @@ import datetime
 import logging
 import os
 
+import yaml
+
 import traincheck.config.config as config
 import traincheck.instrumentor as instrumentor
 import traincheck.proxy_wrapper.proxy_config as proxy_config
 import traincheck.runner as runner
-import yaml
 from traincheck.config.config import InstrOpt
 from traincheck.invariant.base_cls import (
     APIParam,
@@ -42,7 +43,7 @@ def get_per_func_instr_opts(
     """
 
     # TODO: for APIContainRelation that describes a variable, if the precondition is not unconditional on the variable and the API belongs to a class, then all class methods should be instrumented with `scan_proxy_in_args` set to True
-
+    logger = logging.getLogger(__name__)
     func_instr_opts: dict[str, dict[str, bool | dict]] = {}
     for inv in invariants:
         for param in inv.params:
@@ -169,7 +170,7 @@ def get_disable_proxy_dumping(invariants: list[Invariant]) -> bool:
     return True
 
 
-def dump_env(output_dir: str):
+def dump_env(args, output_dir: str):
     with open(os.path.join(output_dir, "env_dump.txt"), "w") as f:
         f.write("Arguments:\n")
         for arg in vars(args):
@@ -188,10 +189,11 @@ def dump_env(output_dir: str):
         )  # FIXME: conda list here doesn't work in OSX, >>> import os; >>> os.popen('conda list').read(); /bin/sh: conda: command not found
 
 
-def get_default_output_folder(args: argparse.Namespace) -> str:
+def get_default_output_folder(args: argparse.Namespace, start_time) -> str:
     """Get the default output directory for the trace collection
     Note that the output is only the folder name, not an absolute path
     """
+    logger = logging.getLogger(__name__)
     pyfile_basename = os.path.basename(args.pyscript).split(".")[0]
     # get also the versions of the modules specified in `-t`
     modules = args.modules_to_instr
@@ -211,7 +213,7 @@ def get_default_output_folder(args: argparse.Namespace) -> str:
         modules_and_versions.append(f"{module}_{version}")
     # sort the modules and versions
     modules_and_versions.sort()
-    output_folder = f"traincheck_run_{pyfile_basename}_{'_'.join(modules_and_versions)}_{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}"
+    output_folder = f"traincheck_run_{pyfile_basename}_{'_'.join(modules_and_versions)}_{start_time.strftime('%Y-%m-%d_%H-%M-%S')}"
     return output_folder
 
 
@@ -229,7 +231,7 @@ def is_path_md_output_dir(output_dir: str) -> bool:
     return False
 
 
-if __name__ == "__main__":
+def main():
     # First parse the deciding arguments.
     use_config_args_parser = argparse.ArgumentParser(add_help=False)
     use_config_args_parser.add_argument(
@@ -402,11 +404,11 @@ if __name__ == "__main__":
 
     output_dir = args.output_dir
     if not output_dir:
-        output_dir = get_default_output_folder(args)
+        output_dir = get_default_output_folder(args, START_TIME)
     output_dir = os.path.abspath(output_dir)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    dump_env(output_dir)
+    dump_env(args, output_dir)
 
     # set up adjusted proxy_config
     proxy_basic_config: dict[str, int | bool | str] = {}
@@ -532,3 +534,7 @@ disabling model tracking."""
         exit(return_code)
 
     logger.info("Trace collection done.")
+
+
+if __name__ == "__main__":
+    main()

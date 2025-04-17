@@ -6,8 +6,9 @@ import os
 import random
 import time
 
-import traincheck.config.config as config
 from tqdm import tqdm
+
+import traincheck.config.config as config
 from traincheck.invariant import (
     FailedHypothesis,
     Hypothesis,
@@ -171,7 +172,7 @@ def save_failed_hypos(failed_hypos: list[FailedHypothesis], output_file: str):
             f.write("\n")
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(
         description="Invariant Finder for ML Pipelines in Python"
     )
@@ -313,3 +314,7 @@ if __name__ == "__main__":
 
     save_invs(invs, args.output)
     save_failed_hypos(failed_hypos, args.output + ".failed")
+
+
+if __name__ == "__main__":
+    main()

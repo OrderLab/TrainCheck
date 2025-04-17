@@ -5,8 +5,8 @@ import pandas as pd
 import yaml
 from run_exp_for_class import EXPS, get_checker_output_dir, get_setup_key
 
-from mldaikon.checker import parse_checker_results
-from mldaikon.invariant.base_cls import Invariant, read_inv_file
+from traincheck.checker import parse_checker_results
+from traincheck.invariant.base_cls import Invariant, read_inv_file
 
 
 def discover_checker_results() -> dict:

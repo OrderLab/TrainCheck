@@ -1,6 +1,7 @@
 import logging
 
 import polars as pl
+
 from traincheck.config import config
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.trace.types import (

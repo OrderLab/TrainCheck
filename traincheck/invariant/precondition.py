@@ -2,8 +2,9 @@ import logging
 from itertools import combinations
 from typing import Hashable
 
-import traincheck.config.config as config
 from tqdm import tqdm
+
+import traincheck.config.config as config
 from traincheck.invariant.base_cls import (
     PT,
     GroupedPreconditions,

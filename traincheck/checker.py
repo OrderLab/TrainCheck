@@ -5,6 +5,7 @@ import logging
 import os
 
 from tqdm import tqdm
+
 from traincheck.invariant import CheckerResult, Invariant, read_inv_file
 from traincheck.trace import MDNONEJSONEncoder, Trace, select_trace_implementation
 from traincheck.utils import register_custom_excepthook
@@ -49,7 +50,7 @@ def check_engine(
     return results
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(
         description="(Offline) Invariant Checker for ML Pipelines in Python"
     )
@@ -237,3 +238,7 @@ if __name__ == "__main__":
                 if res.check_passed and res.triggered:
                     json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
                     f.write("\n")
+
+
+if __name__ == "__main__":
+    main()

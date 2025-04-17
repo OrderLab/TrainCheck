@@ -10,6 +10,7 @@ import types
 from typing import Callable, Optional
 
 import torch
+
 import traincheck.config.config as config  # needed to allow for change of values after import
 from traincheck.config.config import (
     INSTR_MODULES_TO_SKIP,

@@ -4,10 +4,10 @@ import re
 import polars as pl
 from tqdm import tqdm
 
-from mldaikon.config import config
-from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.types import (
+from traincheck.config import config
+from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.trace.trace import Trace
+from traincheck.trace.types import (
     AttrState,
     FuncCallEvent,
     FuncCallExceptionEvent,

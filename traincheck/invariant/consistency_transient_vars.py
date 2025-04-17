@@ -3,6 +3,7 @@ import re
 from typing import Hashable
 
 from tqdm import tqdm
+
 from traincheck.invariant.base_cls import (
     APIParam,
     Arguments,
