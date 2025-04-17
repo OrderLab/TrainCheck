@@ -4,9 +4,9 @@ import json
 import logging
 from collections.abc import MutableMapping
 
-from mldaikon.instrumentor.dumper import var_to_serializable
-from mldaikon.trace.types import MD_NONE, BindedFuncInput
-from mldaikon.utils import typename
+from traincheck.instrumentor.dumper import var_to_serializable
+from traincheck.trace.types import MD_NONE, BindedFuncInput
+from traincheck.utils import typename
 
 
 def _flatten_dict_gen(d, parent_key, sep, skip_fields=None):

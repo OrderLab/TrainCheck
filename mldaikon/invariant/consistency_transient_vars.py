@@ -3,8 +3,7 @@ import re
 from typing import Hashable
 
 from tqdm import tqdm
-
-from mldaikon.invariant.base_cls import (
+from traincheck.invariant.base_cls import (
     APIParam,
     Arguments,
     CheckerResult,
@@ -18,14 +17,14 @@ from mldaikon.invariant.base_cls import (
     VarTypeParam,
     make_hashable,
 )
-from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.types import (
+from traincheck.invariant.precondition import find_precondition
+from traincheck.trace.trace import Trace
+from traincheck.trace.types import (
     FuncCallEvent,
     FuncCallExceptionEvent,
     IncompleteFuncCallEvent,
 )
-from mldaikon.utils import safe_isnan
+from traincheck.utils import safe_isnan
 
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"

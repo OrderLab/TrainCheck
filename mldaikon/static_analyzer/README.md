@@ -13,20 +13,20 @@ Edit the `config.py` or add compile flags to modify the behavior of the static a
 ## To run the internal pytorch library: 
 ```bash
 # Output all functions in torch.nn
-python -m mldaikon.static_analyzer.graph_generator.main --lib nn
+python -m traincheck.static_analyzer.graph_generator.main --lib nn
 # Or equivalently
-python -m mldaikon.static_analyzer.graph_generator.main --lib torch.nn
+python -m traincheck.static_analyzer.graph_generator.main --lib torch.nn
 
 # Only output functions with namespace torch.nn.modules.padding
-python -m mldaikon.static_analyzer.graph_generator.main --lib nn --namespace torch.nn.modules.padding
+python -m traincheck.static_analyzer.graph_generator.main --lib nn --namespace torch.nn.modules.padding
 
 # Only output functions with namespace torch.nn.modules.padding and used in torch.nn.modules.padding
-python -m mldaikon.static_analyzer.graph_generator.main --lib nn --namespace torch.nn.modules.padding --function torch.nn.modules.padding.ConstantPad3d
+python -m traincheck.static_analyzer.graph_generator.main --lib nn --namespace torch.nn.modules.padding --function torch.nn.modules.padding.ConstantPad3d
 ```
 
 ## To run the external library:
 ```bash
-python -m mldaikon.static_analyzer.graph_generator.main --ext ../../../example_pipelines/bug_84911_ml_daikon.py
+python -m traincheck.static_analyzer.graph_generator.main --ext ../../../example_pipelines/bug_84911_traincheck.py
 ```
 
 # Thoughts

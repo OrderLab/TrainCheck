@@ -7,12 +7,11 @@ import types
 from typing import Dict
 
 import torch
-
-import mldaikon.config.config as general_config
-import mldaikon.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
-import mldaikon.proxy_wrapper.proxy_methods as proxy_methods
-from mldaikon.proxy_wrapper.dumper import dump_attributes, get_meta_vars
-from mldaikon.utils import get_timestamp_ns, typename
+import traincheck.config.config as general_config
+import traincheck.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
+import traincheck.proxy_wrapper.proxy_methods as proxy_methods
+from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
+from traincheck.utils import get_timestamp_ns, typename
 
 from .dumper import json_dumper as dumper
 from .proxy_basics import unproxy_arg, unproxy_args_kwargs
@@ -204,7 +203,7 @@ class Proxy:
         self.__dict__["logdir"] = logdir
         self.__dict__["log_level"] = log_level
         self.__dict__["meta_vars"] = {}
-        self.__dict__["is_ml_daikon_proxied_obj"] = True
+        self.__dict__["is_traincheck_proxied_obj"] = True
         self.__dict__["recurse"] = recurse
         self.__dict__["var_name"] = var_name
         self.__dict__["old_value"] = None
@@ -221,8 +220,8 @@ class Proxy:
             self.__dict__["last_update_timestamp"] = obj.__dict__[
                 "last_update_timestamp"
             ]
-            self.__dict__["is_ml_daikon_proxied_obj"] = obj.__dict__[
-                "is_ml_daikon_proxied_obj"
+            self.__dict__["is_traincheck_proxied_obj"] = obj.__dict__[
+                "is_traincheck_proxied_obj"
             ]
             self.__dict__["recurse"] = obj.__dict__["recurse"]
             self.__dict__["var_name"] = obj.__dict__["var_name"]

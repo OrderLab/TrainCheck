@@ -3,9 +3,8 @@ import time
 from itertools import combinations
 
 from tqdm import tqdm
-
-from mldaikon.config import config
-from mldaikon.invariant.base_cls import (
+from traincheck.config import config
+from traincheck.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
@@ -15,9 +14,9 @@ from mldaikon.invariant.base_cls import (
     Relation,
     VarTypeParam,
 )
-from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.types import Liveness
+from traincheck.invariant.precondition import find_precondition
+from traincheck.trace.trace import Trace
+from traincheck.trace.types import Liveness
 
 tracker_var_field_prefix = "attributes."
 

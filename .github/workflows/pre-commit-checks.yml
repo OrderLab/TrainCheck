@@ -6,12 +6,12 @@ on:
       - main
     paths:
       - '.github/workflows/**'
-      - 'mldaikon/**'
+      - 'traincheck/**'
       - 'tests/**'
   pull_request:
     paths:
       - '.github/workflows/**'
-      - 'mldaikon/**'
+      - 'traincheck/**'
       - 'tests/**'
 
 jobs:
@@ -42,19 +42,19 @@ jobs:
 
       - name: Run black
         id: black
-        run: black --check mldaikon --exclude tests
+        run: black --check traincheck --exclude tests
 
       - name: Run mypy on main source code folder
         id: mypy
-        run: mypy mldaikon --install-types --non-interactive --ignore-missing-imports
+        run: mypy traincheck --install-types --non-interactive --ignore-missing-imports
 
       - name: Run isort
         id: isort
-        run: isort --check --profile=black mldaikon --skip tests
+        run: isort --check --profile=black traincheck --skip tests
 
       - name: Run ruff
         id: ruff
-        run: ruff check mldaikon
+        run: ruff check traincheck
 
       - name: Check if any checks failed
         if: failure()

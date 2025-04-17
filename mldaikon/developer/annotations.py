@@ -1,6 +1,6 @@
-import mldaikon.instrumentor.tracer as tracer
-from mldaikon.config.config import ALL_STAGE_NAMES
-from mldaikon.instrumentor import meta_vars
+import traincheck.instrumentor.tracer as tracer
+from traincheck.config.config import ALL_STAGE_NAMES
+from traincheck.instrumentor import meta_vars
 
 
 def annotate_stage(stage_name: str):

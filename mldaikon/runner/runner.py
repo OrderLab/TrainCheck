@@ -4,7 +4,7 @@ import signal
 import subprocess
 import sys
 
-from mldaikon.config.config import RUNNER_DEFAULT_ENV, TMP_FILE_PREFIX
+from traincheck.config.config import RUNNER_DEFAULT_ENV, TMP_FILE_PREFIX
 
 
 def program_print(program_output: str):

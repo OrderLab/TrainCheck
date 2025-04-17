@@ -1,10 +1,10 @@
 from typing import Callable, Type
 
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.trace_dict import TraceDict, read_trace_file_dict
-from mldaikon.trace.trace_pandas import TracePandas, read_trace_file_Pandas
-from mldaikon.trace.trace_polars import TracePolars, read_trace_file_polars
-from mldaikon.trace.types import MDNONEJSONDecoder, MDNONEJSONEncoder
+from traincheck.trace.trace import Trace
+from traincheck.trace.trace_dict import TraceDict, read_trace_file_dict
+from traincheck.trace.trace_pandas import TracePandas, read_trace_file_Pandas
+from traincheck.trace.trace_polars import TracePolars, read_trace_file_polars
+from traincheck.trace.types import MDNONEJSONDecoder, MDNONEJSONEncoder
 
 __all__ = ["select_trace_implementation", "MDNONEJSONDecoder", "MDNONEJSONEncoder"]
 

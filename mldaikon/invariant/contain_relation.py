@@ -5,10 +5,9 @@ from typing import Type
 
 import numpy as np
 from tqdm import tqdm
-
-from mldaikon.config.config import ANALYSIS_SKIP_FUNC_NAMES
-from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.invariant.base_cls import (
+from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
+from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.invariant.base_cls import (
     APIParam,
     Arguments,
     CheckerResult,
@@ -26,17 +25,17 @@ from mldaikon.invariant.base_cls import (
     construct_var_param_from_var_change,
     is_signature_empty,
 )
-from mldaikon.invariant.precondition import find_precondition
-from mldaikon.invariant.symbolic_value import generalize_values
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.types import (
+from traincheck.invariant.precondition import find_precondition
+from traincheck.invariant.symbolic_value import generalize_values
+from traincheck.trace.trace import Trace
+from traincheck.trace.types import (
     ALL_EVENT_TYPES,
     FuncCallEvent,
     FuncCallExceptionEvent,
     IncompleteFuncCallEvent,
     VarChangeEvent,
 )
-from mldaikon.utils import typename
+from traincheck.utils import typename
 
 PARENT_GROUP_NAME = "parent_func_call_pre"
 VAR_GROUP_NAME = "var_events"

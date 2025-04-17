@@ -3,7 +3,7 @@ import functools
 
 def is_proxied(obj):
     try:
-        if obj is not None and "is_ml_daikon_proxied_obj" in obj.__dict__:
+        if obj is not None and "is_traincheck_proxied_obj" in obj.__dict__:
             return True
     except Exception:
         return False

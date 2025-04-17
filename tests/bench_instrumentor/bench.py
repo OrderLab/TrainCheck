@@ -24,7 +24,7 @@ def run_naive_instrumented():
         [
             "python",
             "-m",
-            "mldaikon.collect_trace",
+            "traincheck.collect_trace",
             "-p",
             f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_naive.py",
             "--use-full-instr",
@@ -38,7 +38,7 @@ def run_naive_instrumented_with_jit_and_c_tracing_disabled():
         [
             "python",
             "-m",
-            "mldaikon.collect_trace",
+            "traincheck.collect_trace",
             "-p",
             f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_naive.py",
         ]
@@ -51,7 +51,7 @@ def run_naive_instrumented_with_cond_dump_jit_and_c_tracing_disabled():
         [
             "python",
             "-m",
-            "mldaikon.collect_trace",
+            "traincheck.collect_trace",
             "-p",
             f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_naive.py",
             "--cond-dump",
@@ -65,7 +65,7 @@ def run_sampler_instrumented():
         [
             "python",
             "-m",
-            "mldaikon.collect_trace",
+            "traincheck.collect_trace",
             "-p",
             f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_sampler.py",
         ]
@@ -78,7 +78,7 @@ def run_proxy_instrumented():
         [
             "python",
             "-m",
-            "mldaikon.collect_trace",
+            "traincheck.collect_trace",
             "-p",
             f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_proxy.py",
             "--proxy-module",
@@ -93,7 +93,7 @@ def run_proxy_instrumented():
 #         [
 #             "python",
 #             "-m",
-#             "mldaikon.collect_trace",
+#             "traincheck.collect_trace",
 #             "-p",
 #             f"{get_file_parent_dir()}/workloads/84911_efficientnet_b0_1_epochs_proxy.py",
 #             "--scan_proxy_in_args",
@@ -107,7 +107,7 @@ def cleanup():
     subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/*.log"])
     subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/*.csv"])
     subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/*.pt"])
-    subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/_ml_daikon*.py"])
+    subprocess.run(["rm", "-rf", f"{get_file_parent_dir()}/workloads/_traincheck*.py"])
 
     subprocess.run(["rm", "-rf", "*.json"])
     subprocess.run(["rm", "-rf", "*.log"])

@@ -1,6 +1,5 @@
 import torch
-
-from mldaikon.proxy_wrapper.hash import tensor_hash
+from traincheck.proxy_wrapper.hash import tensor_hash
 
 
 def test_model_hash(device):

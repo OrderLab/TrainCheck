@@ -2,8 +2,8 @@ import json
 from abc import abstractmethod
 from typing import NamedTuple
 
-from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.instrumentor.types import PTID
+from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.instrumentor.types import PTID
 
 
 class MD_NONE:

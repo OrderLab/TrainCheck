@@ -10,29 +10,28 @@ import types
 from typing import Callable, Optional
 
 import torch
-
-import mldaikon.config.config as config  # needed to allow for change of values after import
-from mldaikon.config.config import (
+import traincheck.config.config as config  # needed to allow for change of values after import
+from traincheck.config.config import (
     INSTR_MODULES_TO_SKIP,
     SKIP_INSTR_APIS,
     WRAP_WITHOUT_DUMP,
 )
-from mldaikon.instrumentor.caches import meta_vars
-from mldaikon.instrumentor.dumper import (
+from traincheck.instrumentor.caches import meta_vars
+from traincheck.instrumentor.dumper import (
     convert_var_to_dict,
     dump_trace_API,
     dump_trace_VAR,
     get_instrumentation_logger_for_process,
     var_to_serializable,
 )
-from mldaikon.instrumentor.replace_functions import (
+from traincheck.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
-from mldaikon.proxy_wrapper.proxy_config import enable_C_level_observer
-from mldaikon.proxy_wrapper.proxy_registry import get_global_registry
-from mldaikon.utils import get_timestamp_ns, get_unique_id, typename
+from traincheck.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
+from traincheck.proxy_wrapper.proxy_config import enable_C_level_observer
+from traincheck.proxy_wrapper.proxy_registry import get_global_registry
+from traincheck.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
 
@@ -42,7 +41,7 @@ IS_INSTRUMENTING = False
 
 DISABLE_WRAPPER = False
 
-# for prompt generation tasks using the transformers library (see mldaikon/developer/instr_stage_annotation.py:annotate_answer_start_token_ids)
+# for prompt generation tasks using the transformers library (see traincheck/developer/instr_stage_annotation.py:annotate_answer_start_token_ids)
 GENERATE_START_TOKEN_ID: None | int = None
 GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
 
@@ -51,7 +50,7 @@ COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1
 
 THREAD_DATA = threading.local()
 
-logger = logging.getLogger("mldaikon.instrumentor.tracer")
+logger = logging.getLogger("traincheck.instrumentor.tracer")
 
 
 class TraceLineType:
@@ -257,7 +256,7 @@ def global_wrapper(
 
     if handle_proxy:
         if enable_C_level_observer and is_builtin:
-            from mldaikon.proxy_wrapper.proxy_observer import (
+            from traincheck.proxy_wrapper.proxy_observer import (
                 add_observer_to_func,  # import here to avoid circular import
             )
 
@@ -465,8 +464,8 @@ def wrapper(
         else:
             return original_function
 
-    wrapped._ml_daikon_original_function = original_function
-    wrapped._ml_daikon_instrumented = True
+    wrapped._traincheck_original_function = original_function
+    wrapped._traincheck_instrumented = True
     return wrapped
 
 
@@ -514,7 +513,7 @@ def is_API_instrumented(obj: Callable) -> bool:
     # APIs has to be marked with a flag as ids will be changed after instrumentation, and also having the same id would mean that the object is not instrumented (e.g. multiple references to the same object)
     try:
         # we cannot use hasattr as it would trigger the __getattr__ method of the object, and can lead to exceptions at https://github.com/pytorch/pytorch/blob/main/torch/_ops.py#L1029-L1031
-        return obj.__dict__.get("_ml_daikon_instrumented", False)
+        return obj.__dict__.get("_traincheck_instrumented", False)
     except Exception:
         # a wrapped API would have __dict__ and have the flag
         return False

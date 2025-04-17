@@ -1,8 +1,7 @@
 from typing import Any
 
 import pandas as pd
-
-from mldaikon.trace.types import MD_NONE
+from traincheck.trace.types import MD_NONE
 
 ABOVE_ZERO = "above_zero"
 BELOW_ZERO = "below_zero"

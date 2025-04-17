@@ -8,11 +8,11 @@ import model
 import torch
 import torch.nn as nn
 import torch.onnx
+import traincheck.instrumentor.tracer as md_tracer
+from traincheck import annotate_stage
+from traincheck.instrumentor import meta_vars
 
 import data
-import mldaikon.instrumentor.tracer as md_tracer
-from mldaikon import annotate_stage
-from mldaikon.instrumentor import meta_vars
 
 annotate_stage("init")
 

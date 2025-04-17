@@ -2,10 +2,9 @@ import logging
 from itertools import combinations
 from typing import Hashable
 
+import traincheck.config.config as config
 from tqdm import tqdm
-
-import mldaikon.config.config as config
-from mldaikon.invariant.base_cls import (
+from traincheck.invariant.base_cls import (
     PT,
     GroupedPreconditions,
     Hypothesis,
@@ -14,9 +13,9 @@ from mldaikon.invariant.base_cls import (
     Preconditions,
     UnconditionalPrecondition,
 )
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.types import MD_NONE
-from mldaikon.utils import safe_isnan
+from traincheck.trace.trace import Trace
+from traincheck.trace.types import MD_NONE
+from traincheck.utils import safe_isnan
 
 logger = logging.getLogger("Precondition")
 

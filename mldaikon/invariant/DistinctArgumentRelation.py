@@ -2,8 +2,7 @@ from itertools import combinations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from tqdm import tqdm
-
-from mldaikon.invariant.base_cls import (  # GroupedPreconditions,
+from traincheck.invariant.base_cls import (  # GroupedPreconditions,
     APIParam,
     CheckerResult,
     Example,
@@ -13,9 +12,9 @@ from mldaikon.invariant.base_cls import (  # GroupedPreconditions,
     Invariant,
     Relation,
 )
-from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Trace
-from mldaikon.utils import safe_isnan
+from traincheck.invariant.precondition import find_precondition
+from traincheck.trace.trace import Trace
+from traincheck.utils import safe_isnan
 
 EXP_GROUP_NAME = "distinct_arg"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 6

@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning].
 
 ### Added
 
-- Maintain global registry to proxied objects (to access the vars, use `from mldaikon.proxy_wrapper.proxy import get_registered_object`)
+- Maintain global registry to proxied objects (to access the vars, use `from traincheck.proxy_wrapper.proxy import get_registered_object`)
 - Bypass tensor stats/hash computation if it has already been calculated
 
 ### Fixed
@@ -56,7 +56,7 @@ and this project adheres to [Semantic Versioning].
 ### Added
 
 - support automated function observing based on function call graph level
-- add function depth info of `torch/optim` library into `mldaikon/static_analyzer/func_level` (file generated from modified pyan lib)
+- add function depth info of `torch/optim` library into `traincheck/static_analyzer/func_level` (file generated from modified pyan lib)
 - add the following switches to control the behavior of automated function observer
 
     ```python
@@ -80,7 +80,7 @@ and this project adheres to [Semantic Versioning].
 
 - get rid of rubbish trace info due to flawed dumping logic handling
 
-- fix type(Proxy) object handling by replacing with type_handle_mldaikon_proxy(..) function using ast
+- fix type(Proxy) object handling by replacing with type_handle_traincheck_proxy(..) function using ast
 
 ## [0.3.4] - 2024-06-19
 
@@ -138,7 +138,7 @@ Solves: #22
 
 ### Removed
 
-- remove the deprecated torch.Tensor handling logic from `mldaikon/proxy_wrapper/proxy.py:#L231-L295`, since the handling logic for Tensor type is basically the same compared with other types after redesign
+- remove the deprecated torch.Tensor handling logic from `traincheck/proxy_wrapper/proxy.py:#L231-L295`, since the handling logic for Tensor type is basically the same compared with other types after redesign
 
 
 ## [0.3.2] - 2024-06-09
@@ -180,7 +180,7 @@ The `DS-1801` precondition inference is fully supported in this version.
  
  - dump whole tensor instead of {`min`, `max`, `shape`} attributes
 
- - update meta_var dumper to filter out files inside the ml-daikon folder
+ - update meta_var dumper to filter out files inside the traincheck folder
 
 ### Fixed
 
@@ -229,12 +229,12 @@ by iterating through `module.named_parameters()`
 
 ### Changed
 
-- move the proxy_wrapper configurations from `mldaikon.config.config` to `mldaikon.proxywrapper.config`
+- move the proxy_wrapper configurations from `traincheck.config.config` to `traincheck.proxywrapper.config`
 
 ### Deprecated
 
 - Remove the argument unproxying functionality in `tracer.global_wrapper`, make proxy_wrapper transparent
-to the ml-daikon code
+to the traincheck code
 
 ### Fixed
 

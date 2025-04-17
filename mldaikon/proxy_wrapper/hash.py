@@ -85,8 +85,8 @@ def _reduce_last_axis(x: Tensor) -> Tensor:
 
 
 def tensor_hash(x: Tensor, with_parallel: bool = True, with_cuda: bool = True) -> int:
-    if hasattr(x, "_mldaikon_tensor_hash"):
-        return x._mldaikon_tensor_hash
+    if hasattr(x, "_traincheck_tensor_hash"):
+        return x._traincheck_tensor_hash
     if with_parallel:
         if x.dtype in [
             torch.float32,

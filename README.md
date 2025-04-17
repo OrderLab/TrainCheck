@@ -1,23 +1,23 @@
 
 # ML-DAIKON
-[![Pre-commit checks](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml)
+[![Pre-commit checks](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml)
 
-Instrumentor Performance Benchmark Results: http://orderlab.io/ml-daikon/dev/bench/
+Instrumentor Performance Benchmark Results: http://orderlab.io/traincheck/dev/bench/
 
 ## Instrumentator Usage
-ML-Daikon performs automatic instrumentation of programs and supports out-of-tree execution. To use the instrumentor, please install mldaikon as a pip package in the desired python environment where the example pipeline should be run in.
+ML-Daikon performs automatic instrumentation of programs and supports out-of-tree execution. To use the instrumentor, please install traincheck as a pip package in the desired python environment where the example pipeline should be run in.
 
 To install the instrumentor:
 ```shell
-git clone git@github.com:OrderLab/ml-daikon.git
-cd ml-daikon
+git clone git@github.com:OrderLab/traincheck.git
+cd traincheck
 pip3 install -e .
 conda install cudatoolkit
 ```
 
 A typical instrumentor invocation looks like
 ```bash
-python3 -m mldaikon.collect_trace \
+python3 -m traincheck.collect_trace \
   -p <path to your python script> \
   -s <optional path to sh script that invokes the python script> \
   -t [names of the module to be instrumented, e.g. torch, megatron] \ # `torch` is the default value here so you probably don't need to set it
@@ -28,14 +28,14 @@ python3 -m mldaikon.collect_trace \
 
 The instrumentor will dump the collected trace to the folder where you invoked the command. There should be one trace per thread and the names of trace files follow the pattern:
 ```bash
-_ml_daikon_<pyscript-file-name>_mldaikon_trace_API_<time-of-instrumentor-invocation>_<process-id>_<thread-id>.log
+_traincheck_<pyscript-file-name>_traincheck_trace_API_<time-of-instrumentor-invocation>_<process-id>_<thread-id>.log
 ```
 After execution completion, you can also look at `program_output.txt` for the stdout and stderr of the pipeline being executed.
 
 ## Infer Engine Usage
 
 ```bash
-python3 -m mldaikon.infer_engine \
+python3 -m traincheck.infer_engine \
   -t <path to your trace files> \
   -d \ # enable debug logging 
   -o invariant.json \ # name of the file to dump the inferred invariants to

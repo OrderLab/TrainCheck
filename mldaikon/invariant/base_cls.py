@@ -9,14 +9,14 @@ import math
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
-import mldaikon.config.config as config
-from mldaikon.instrumentor.dumper import var_to_serializable
-from mldaikon.invariant.symbolic_value import (
+import traincheck.config.config as config
+from traincheck.instrumentor.dumper import var_to_serializable
+from traincheck.invariant.symbolic_value import (
     GENERALIZED_TYPES,
     check_generalized_value_match,
 )
-from mldaikon.trace.trace import Trace, VarInstId
-from mldaikon.trace.types import (
+from traincheck.trace.trace import Trace, VarInstId
+from traincheck.trace.types import (
     MD_NONE,
     FuncCallEvent,
     FuncCallExceptionEvent,
@@ -25,7 +25,7 @@ from mldaikon.trace.types import (
     MDNONEJSONDecoder,
     VarChangeEvent,
 )
-from mldaikon.utils import safe_isnan
+from traincheck.utils import safe_isnan
 
 
 class Meta_NOT_SET(type):

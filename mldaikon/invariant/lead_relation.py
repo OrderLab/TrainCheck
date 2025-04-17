@@ -3,8 +3,7 @@ from itertools import permutations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from tqdm import tqdm
-
-from mldaikon.invariant.base_cls import (
+from traincheck.invariant.base_cls import (
     APIParam,
     CheckerResult,
     Example,
@@ -15,9 +14,9 @@ from mldaikon.invariant.base_cls import (
     Invariant,
     Relation,
 )
-from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.trace_pandas import TracePandas
+from traincheck.invariant.precondition import find_precondition
+from traincheck.trace.trace import Trace
+from traincheck.trace.trace_pandas import TracePandas
 
 EXP_GROUP_NAME = "func_lead"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 4  # ideally this should be proportional to the number of training and testing iterations in the trace

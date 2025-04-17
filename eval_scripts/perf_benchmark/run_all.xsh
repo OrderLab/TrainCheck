@@ -75,8 +75,8 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
     SETTRACE_PY = "main_settrace.py"
     RUN_SH = "run.sh"
     MD_CONFIG_YML = "md-config.yml" if not use_proxy else "md-config-var.yml"
-    CMD_TRAINCHECK = f"python -m mldaikon.collect_trace --use-config --config {MD_CONFIG_YML} --output-dir traincheck"
-    CMD_TRAINCHECK_SELECTIVE = f"python -m mldaikon.collect_trace --use-config --config {MD_CONFIG_YML} --output-dir traincheck-selective -i ../{SELC_INV_FILE}"
+    CMD_TRAINCHECK = f"python -m traincheck.collect_trace --use-config --config {MD_CONFIG_YML} --output-dir traincheck"
+    CMD_TRAINCHECK_SELECTIVE = f"python -m traincheck.collect_trace --use-config --config {MD_CONFIG_YML} --output-dir traincheck-selective -i ../{SELC_INV_FILE}"
 
     if not os.path.exists(f"{E2E_FOLDER}/{workload}/{RUN_SH}"):
         cmd = "python3 main.py"

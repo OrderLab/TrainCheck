@@ -1,6 +1,6 @@
 import argparse
 
-from mldaikon.invariant import read_inv_file
+from traincheck.invariant import read_inv_file
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

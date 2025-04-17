@@ -9,9 +9,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch.optim import Adam
-
-from mldaikon import annotate_stage
-from mldaikon.instrumentor import meta_vars
+from traincheck import annotate_stage
+from traincheck.instrumentor import meta_vars
 
 meta_vars["step"] = 0
 annotate_stage("init")

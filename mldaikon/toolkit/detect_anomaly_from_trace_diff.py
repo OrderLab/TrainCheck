@@ -13,7 +13,7 @@ import argparse
 import json
 import re
 
-from mldaikon.toolkit.analyze_trace import diff_dicts
+from traincheck.toolkit.analyze_trace import diff_dicts
 
 
 def read_diff_file(diff_file):

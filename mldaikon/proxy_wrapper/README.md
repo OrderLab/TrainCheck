@@ -98,7 +98,7 @@ The `_try_get_data` function is responsible for fetching data from the DataLoade
 For now, turn on debug_mode in config.py to see full proxy_trace debug output.
 
 Tracing log for DS-1801:
-run `PYTORCH_JIT=0 python -m mldaikon.collect_trace -p Megatron-DeepSpeed/pretrain_gpt.py -s ./pretrain_gpt2_codeparrot_short.sh -t megatron deepspeed torch`
+run `PYTORCH_JIT=0 python -m traincheck.collect_trace -p Megatron-DeepSpeed/pretrain_gpt.py -s ./pretrain_gpt2_codeparrot_short.sh -t megatron deepspeed torch`
 
 ```
 found the root object

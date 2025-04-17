@@ -33,6 +33,8 @@ from pathlib import Path
 
 import datasets
 import torch
+import traincheck.instrumentor.tracer as md_tracer
+import transformers
 from accelerate import Accelerator, DistributedType
 from accelerate.logging import get_logger
 from accelerate.utils import set_seed
@@ -40,8 +42,7 @@ from datasets import load_dataset
 from huggingface_hub import HfApi
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-
-import transformers
+from traincheck import annotate_stage
 from transformers import (
     CONFIG_MAPPING,
     MODEL_MAPPING,
@@ -54,9 +55,6 @@ from transformers import (
 )
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
-
-import mldaikon.instrumentor.tracer as md_tracer
-from mldaikon import annotate_stage
 
 annotate_stage("init")
 
@@ -600,7 +598,7 @@ def main():
                 load_from_cache_file=not args.overwrite_cache,
                 desc=f"Grouping texts in chunks of {max_seq_length}",
             )
-            
+
     md_tracer.DISABLE_WRAPPER = False
     train_dataset = tokenized_datasets["train"]
     eval_dataset = tokenized_datasets["validation"]

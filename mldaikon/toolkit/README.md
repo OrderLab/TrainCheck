@@ -23,9 +23,9 @@ This would help us to:
 To use this trace analysis tool, simply go with the folllowing bash script:
 
 ### generate bug<->fix diff file
-python -m mldaikon.toolkit.analyze_trace -f <trace file 1> <trace file 2> -o <bug-fix-diff-file>
+python -m traincheck.toolkit.analyze_trace -f <trace file 1> <trace file 2> -o <bug-fix-diff-file>
 ### generate pre-bug<->fix diff file 
-python -m mldaikon.toolkit.analyze_trace -f <trace file 1> <trace file 2> -o <pre-fix-diff-file>
+python -m traincheck.toolkit.analyze_trace -f <trace file 1> <trace file 2> -o <pre-fix-diff-file>
 ### get rid of false positives
-python -m mldaikon.toolkit.detect_anomaly_from_trace_diff <bug-fix-diff-file> <pre-fix-diff-file> -o <trace_anomalies.json>
+python -m traincheck.toolkit.detect_anomaly_from_trace_diff <bug-fix-diff-file> <pre-fix-diff-file> -o <trace_anomalies.json>
 I'm currently using this tool to analyze the feasibility to infer bug LT-725 by simply using the API trace. I may further extend it to support VAR traces if needed.

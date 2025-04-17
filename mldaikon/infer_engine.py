@@ -6,10 +6,9 @@ import os
 import random
 import time
 
+import traincheck.config.config as config
 from tqdm import tqdm
-
-import mldaikon.config.config as config
-from mldaikon.invariant import (
+from traincheck.invariant import (
     FailedHypothesis,
     Hypothesis,
     Invariant,
@@ -17,8 +16,8 @@ from mldaikon.invariant import (
     find_precondition,
     relation_pool,
 )
-from mldaikon.trace import MDNONEJSONEncoder, select_trace_implementation
-from mldaikon.utils import register_custom_excepthook
+from traincheck.trace import MDNONEJSONEncoder, select_trace_implementation
+from traincheck.utils import register_custom_excepthook
 
 register_custom_excepthook()
 
@@ -251,7 +250,7 @@ if __name__ == "__main__":
     pid = os.getpid()
     # set logging to a file
     logging.basicConfig(
-        filename=f'mldaikon_infer_engine_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{pid}.log',
+        filename=f'traincheck_infer_engine_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{pid}.log',
         level=log_level,
         format="%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)s - %(funcName)20s()] - %(message)s",
     )

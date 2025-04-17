@@ -2,9 +2,8 @@ import logging
 from collections import defaultdict
 
 import numpy as np
-
-import mldaikon.config.config as config
-from mldaikon.invariant.base_cls import (
+import traincheck.config.config as config
+from traincheck.invariant.base_cls import (
     CheckerResult,
     Example,
     ExampleList,
@@ -16,8 +15,8 @@ from mldaikon.invariant.base_cls import (
     VarTypeParam,
     make_hashable,
 )
-from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Trace, VarInstId
+from traincheck.invariant.precondition import find_precondition
+from traincheck.trace.trace import Trace, VarInstId
 
 
 def count_num_justification(count: int):

@@ -3,8 +3,7 @@ from itertools import permutations
 from typing import Any, Dict, List, Set, Tuple
 
 from tqdm import tqdm
-
-from mldaikon.invariant.base_cls import (
+from traincheck.invariant.base_cls import (
     APIParam,
     CheckerResult,
     Example,
@@ -15,14 +14,14 @@ from mldaikon.invariant.base_cls import (
     Invariant,
     Relation,
 )
-from mldaikon.invariant.lead_relation import (
+from traincheck.invariant.lead_relation import (
     check_same_level,
     get_func_data_per_PT,
     get_func_names_to_deal_with,
 )
-from mldaikon.invariant.precondition import find_precondition
-from mldaikon.trace.trace import Trace
-from mldaikon.trace.trace_pandas import TracePandas
+from traincheck.invariant.precondition import find_precondition
+from traincheck.trace.trace import Trace
+from traincheck.trace.trace_pandas import TracePandas
 
 EXP_GROUP_NAME = "func_cover"
 

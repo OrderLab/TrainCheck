@@ -3,7 +3,7 @@
 INTERNAL_LIBS = None
 
 # traverse the user script. Change to the target path.
-EXTERNAL_LIBS = "example_pipelines/bug_84911_ml_daikon.py"
+EXTERNAL_LIBS = "example_pipelines/bug_84911_traincheck.py"
 
 # ============================== USED IN INTERNAL ==============================
 

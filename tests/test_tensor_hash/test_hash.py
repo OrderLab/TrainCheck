@@ -6,9 +6,8 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.parallel import DistributedDataParallel as DDP
-
-from mldaikon import annotate_stage
-from mldaikon.instrumentor import meta_vars
+from traincheck import annotate_stage
+from traincheck.instrumentor import meta_vars
 
 
 class ToyModel(nn.Module):
@@ -17,7 +16,7 @@ class ToyModel(nn.Module):
         self.net1 = torch.nn.Linear(10, 10)
         self.relu = torch.nn.ReLU()
         self.net2 = torch.nn.Linear(10, 5)
-        from mldaikon.proxy_wrapper.hash import tensor_hash
+        from traincheck.proxy_wrapper.hash import tensor_hash
 
         print("Perform tensor hash in init")
         result = tensor_hash(self.net1.weight)
@@ -25,7 +24,7 @@ class ToyModel(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.relu(self.net1(x))
-        # from mldaikon.proxy_wrapper.hash import tensor_hash
+        # from traincheck.proxy_wrapper.hash import tensor_hash
         # print("Perform tensor hash in forward pass")
         # result  = tensor_hash(x)
         # print("Tensor hash result: ", result)
@@ -58,7 +57,7 @@ def _ddp_run_single_step(
 
     # create model and move it to GPU with id rank
     model = ToyModel()
-    from mldaikon.proxy_wrapper.hash import tensor_hash
+    from traincheck.proxy_wrapper.hash import tensor_hash
 
     print("1. Perform tensor hash in init (before moving to GPU)")
     result = tensor_hash(model.net1.weight)
@@ -66,7 +65,7 @@ def _ddp_run_single_step(
 
     model.to(rank)
     # dump hash of the model
-    from mldaikon.proxy_wrapper.hash import tensor_hash
+    from traincheck.proxy_wrapper.hash import tensor_hash
 
     print("2. Perform tensor hash in init (after moving to GPU)")
     result = tensor_hash(model.net1.weight)

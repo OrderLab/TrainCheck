@@ -8,24 +8,23 @@ from typing import Hashable
 
 import orjson
 import torch
-
-from mldaikon.config.config import (
+from traincheck.config.config import (
     BUFFER_SIZE,
     FLUSH_INTERVAL,
     RECURSION_ERR_THRESHOLD,
     TYPE_ERR_THRESHOLD,
 )
-from mldaikon.proxy_wrapper.proxy_config import (
+from traincheck.proxy_wrapper.proxy_config import (
     attribute_black_list,
     primitive_types,
     tensor_dump_format,
 )
 
 if torch.cuda.is_available():
-    from mldaikon.proxy_wrapper.hash import tensor_hash
+    from traincheck.proxy_wrapper.hash import tensor_hash
 
-from mldaikon.proxy_wrapper.utils import print_debug
-from mldaikon.utils import get_timestamp_ns, typename
+from traincheck.proxy_wrapper.utils import print_debug
+from traincheck.utils import get_timestamp_ns, typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 THREAD_DATA = threading.local()
@@ -229,8 +228,8 @@ def get_instrumentation_logger_for_process():
 
 
 def tensor_stats(tensor: torch.Tensor):
-    if hasattr(tensor, "mldaikon_tensor_stats"):
-        return tensor.mldaikon_tensor_stats
+    if hasattr(tensor, "traincheck_tensor_stats"):
+        return tensor.traincheck_tensor_stats
     min = float(tensor.min().item())
     max = float(tensor.max().item())
     mean = float(tensor.mean().item())
@@ -243,7 +242,7 @@ def tensor_stats(tensor: torch.Tensor):
         "std": std,
         "shape": shape,
     }
-    tensor.mldaikon_tensor_stats = result  # type: ignore
+    tensor.traincheck_tensor_stats = result  # type: ignore
     return result
 
 

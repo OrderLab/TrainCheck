@@ -14,7 +14,7 @@ RUNNER_DEFAULT_ENV = {
 }
 
 # tracer + instrumentor configs
-TMP_FILE_PREFIX = "_ml_daikon_"
+TMP_FILE_PREFIX = "_traincheck_"
 INSTR_OPTS_FILE = "instr_opts.json"
 INSTR_MODULES_TO_INSTR = ["torch"]
 INSTR_MODULES_TO_SKIP = [
@@ -214,7 +214,7 @@ META_VARS_FORBID_LIST = [
     "thread_id",
     "dumped_frame_array",
     "func_call_id",
-    "mldaikon_folder",
+    "traincheck_folder",
     "enable_auto_observer_depth",
     "neglect_hidden_func",
     "neglect_hidden_module",

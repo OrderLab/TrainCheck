@@ -46,9 +46,9 @@ def run_e2e(
     input_config: dict[str, str],
     input_env: dict[str, str],
 ) -> int:
-    # this is the end to end invariant generation pipeline for mldaikon project
+    # this is the end to end invariant generation pipeline for traincheck project
     # input_program: the path to the python script to be run (should be uninstrumented user's script)
-    # input_config: the configuration for the mldaikon project
+    # input_config: the configuration for the traincheck project
     # input_env: the environment variables for the script
     input_program: str = input_config["input_program"]  # with -p flag
     modules_to_instrument: str = input_config["modules_to_instrument"]  # with -t flag
@@ -59,7 +59,7 @@ def run_e2e(
     # run the script with the given arguments and environment variables
     trace_collector_script_args: list[str] = [
         "-m",
-        "mldaikon.collect_trace",
+        "traincheck.collect_trace",
         "-p",
         input_program,
         "-t",
@@ -107,7 +107,7 @@ def run_e2e(
         return return_code
 
     ## Activate the Infer Engine
-    # example: python -m mldaikon.infer_engine -t <proxy_folder>/proxy_trace_processed_* <trace_folder>/<path_to_API_trace>
+    # example: python -m traincheck.infer_engine -t <proxy_folder>/proxy_trace_processed_* <trace_folder>/<path_to_API_trace>
     # trace_folder = os.path.join(output_dir, "trace_log")
     proxy_folder = os.path.join(output_dir, "processed_proxy_traces")
 
@@ -120,7 +120,7 @@ def run_e2e(
 
     infer_engine_script_args: list[str] = [
         "-m",
-        "mldaikon.infer_engine",
+        "traincheck.infer_engine",
         "-o",
         f"{output_dir}/invariants.json",
         "-t",

@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 # print(find_packages())
 
 setup(
-    name="mldaikon",
+    name="traincheck",
     version="0.1",
     python_requires=">=3.8",
     packages=find_packages(),

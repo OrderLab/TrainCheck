@@ -2,7 +2,7 @@ import ast
 import logging
 import re
 
-from mldaikon.config.config import INSTR_MODULES_TO_INSTR
+from traincheck.config.config import INSTR_MODULES_TO_INSTR
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class InsertTracerVisitor(ast.NodeTransformer):
 
     def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from mldaikon.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_to_instr={str(self.funcs_to_instr)}, API_dump_stack_trace={self.API_dump_stack_trace}).instrument()"
+            f"from traincheck.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_to_instr={str(self.funcs_to_instr)}, API_dump_stack_trace={self.API_dump_stack_trace}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -353,35 +353,35 @@ def instrument_model_tracker_proxy(
 
     if proxy_basic_config:
         if "proxy_log_dir" not in proxy_basic_config:
-            from mldaikon.proxy_wrapper.proxy_config import proxy_log_dir
+            from traincheck.proxy_wrapper.proxy_config import proxy_log_dir
 
             proxy_basic_config["proxy_log_dir"] = proxy_log_dir
 
         proxy_start_code += f"""
-import mldaikon.proxy_wrapper.proxy_config as proxy_config
+import traincheck.proxy_wrapper.proxy_config as proxy_config
 proxy_config.__dict__.update({proxy_basic_config})
 """
     if tensor_dump_format:
         proxy_start_code += f"""
-from mldaikon.proxy_wrapper.proxy_config import tensor_dump_format
+from traincheck.proxy_wrapper.proxy_config import tensor_dump_format
 tensor_dump_format.update({tensor_dump_format})
 """
 
     proxy_start_code += """
-from mldaikon.proxy_wrapper.proxy import Proxy
+from traincheck.proxy_wrapper.proxy import Proxy
 """
 
     if auto_observer_config["enable_auto_observer"]:
         auto_observer_code = """
 import glob
 import importlib
-from mldaikon.proxy_wrapper.proxy_config import auto_observer_config
-spec = importlib.util.find_spec('mldaikon')
+from traincheck.proxy_wrapper.proxy_config import auto_observer_config
+spec = importlib.util.find_spec('traincheck')
 if spec and spec.origin:
-    mldaikon_folder = os.path.dirname(spec.origin)
-    print("mldaikon folder: ", mldaikon_folder)
+    traincheck_folder = os.path.dirname(spec.origin)
+    print("traincheck folder: ", traincheck_folder)
 else:
-    raise Exception("mldaikon is not installed properly")
+    raise Exception("traincheck is not installed properly")
 print("auto observer enabled with observing depth: ", auto_observer_config["enable_auto_observer_depth"])
 enable_auto_observer_depth = auto_observer_config["enable_auto_observer_depth"]
 neglect_hidden_func = auto_observer_config["neglect_hidden_func"]
@@ -392,10 +392,10 @@ if observe_up_to_depth:
     print("observe up to the depth of the function call")
 else:
     print("observe only the function call at the depth")
-from mldaikon.static_analyzer.graph_generator.call_graph_parser import add_observer_given_call_graph
+from traincheck.static_analyzer.graph_generator.call_graph_parser import add_observer_given_call_graph
 
 log_files = glob.glob(
-    os.path.join(mldaikon_folder, "static_analyzer", "func_level", "*.log")
+    os.path.join(traincheck_folder, "static_analyzer", "func_level", "*.log")
 )
 print("log_files: ", log_files)
 for log_file in log_files:
@@ -494,7 +494,7 @@ def instrument_model_tracker_sampler(
             )
 
     code_head, code_tail = get_code_head_and_tail(source)
-    sampler_import_code = "from mldaikon.instrumentor import VarSampler"
+    sampler_import_code = "from traincheck.instrumentor import VarSampler"
     source = code_head + "\n" + sampler_import_code + "\n" + code_tail
 
     return source
@@ -538,7 +538,7 @@ os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
 """
 
     debug_hook_code = """
-from mldaikon.utils import register_custom_excepthook
+from traincheck.utils import register_custom_excepthook
 if os.environ.get("ML_DAIKON_DEBUG") == "1":
     print("ML_DAIKON_DEBUG is set to 1, registering custom excepthook")
     register_custom_excepthook(True)
@@ -546,7 +546,7 @@ if os.environ.get("ML_DAIKON_DEBUG") == "1":
 
     # general config update
     general_config_update = f"""
-import mldaikon.config.config as general_config
+import traincheck.config.config as general_config
 general_config.INSTR_DESCRIPTORS = {instr_descriptors}
 """
     # TODO: move the INSTR_DESCRIPTORS to the instr_opts file

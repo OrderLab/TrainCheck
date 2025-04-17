@@ -5,10 +5,9 @@ import logging
 import os
 
 from tqdm import tqdm
-
-from mldaikon.invariant import CheckerResult, Invariant, read_inv_file
-from mldaikon.trace import MDNONEJSONEncoder, Trace, select_trace_implementation
-from mldaikon.utils import register_custom_excepthook
+from traincheck.invariant import CheckerResult, Invariant, read_inv_file
+from traincheck.trace import MDNONEJSONEncoder, Trace, select_trace_implementation
+from traincheck.utils import register_custom_excepthook
 
 register_custom_excepthook()
 
@@ -101,7 +100,7 @@ if __name__ == "__main__":
         "-o",
         "--output-dir",
         type=str,
-        help="Output folder to store the results, defaulted to mldaikon_checker_results_{timestamp}/",
+        help="Output folder to store the results, defaulted to traincheck_checker_results_{timestamp}/",
     )
 
     args = parser.parse_args()
@@ -127,7 +126,7 @@ if __name__ == "__main__":
     time_now = f"{time_now}_relation_first_{args.check_relation_first}"
     # set logging to a file
     logging.basicConfig(
-        filename=f"mldaikon_checker_{time_now}.log",
+        filename=f"traincheck_checker_{time_now}.log",
         level=log_level,
     )
 
@@ -140,7 +139,7 @@ if __name__ == "__main__":
 
     # create the output folder if not exists
     if not args.output_dir:
-        args.output_dir = f"mldaikon_checker_results_{time_now}"
+        args.output_dir = f"traincheck_checker_results_{time_now}"
     os.makedirs(args.output_dir, exist_ok=True)
 
     # copy the invariants to the output folder

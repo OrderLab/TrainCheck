@@ -1,10 +1,9 @@
 import logging
 
 import polars as pl
-
-from mldaikon.config import config
-from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.trace.types import (
+from traincheck.config import config
+from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.trace.types import (
     AttrState,
     ContextManagerState,
     FuncCallEvent,
@@ -84,7 +83,7 @@ class Trace:
         raise NotImplementedError("This class should not be instantiated directly.")
 
     def _rm_incomplete_trailing_func_calls(self):
-        """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/ml-daikon/issues/31
+        """Remove incomplete trailing function calls from the trace. For why incomplete function calls exist, refer to https://github.com/OrderLab/traincheck/issues/31
 
         This function would group the function calls by `func_call_id` which is unique for each function call. Thus, each `func_call_id` should
         exactly correspond to two trace records (one pre-call and one post-call/exception). If there is only one record for a `func_call_id`,

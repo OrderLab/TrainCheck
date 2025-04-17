@@ -15,7 +15,7 @@ if "-o" in args or "--output" in args:
     idx = args.index("-o") if "-o" in args else args.index("--output")
     del args[idx:idx+2]
 
-from mldaikon.invariant import relation_pool
+from traincheck.invariant import relation_pool
 relation_names = [c.__name__ for c in relation_pool]
 
 TMUX_SESSION_NAME = "run_infer_parallel"
@@ -34,7 +34,7 @@ def run_cmd(cmd):
     largest_window_id += 1
     tmux new-window -t @(TMUX_SESSION_NAME) -n @(largest_window_id)
 
-    command = f"conda activate fp_torch222; python3 -m mldaikon.infer_engine "
+    command = f"conda activate fp_torch222; python3 -m traincheck.infer_engine "
     command += " ".join(cmd)
     tmux send-keys -t @(TMUX_SESSION_NAME):@(largest_window_id) @(command) Enter
 

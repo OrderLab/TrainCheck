@@ -63,7 +63,7 @@ def handle_excepthook(typ, message, stack):
 
     Print detailed stack information with local variables
     """
-    logger = logging.getLogger("mldaikon")
+    logger = logging.getLogger("traincheck")
 
     if issubclass(typ, KeyboardInterrupt):
         sys.__excepthook__(typ, message, stack)
@@ -111,8 +111,8 @@ def register_custom_excepthook(add_file_handler=False):
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         file_handler.setFormatter(formatter)
-        # add to the "mldaikon" logger and the "threading" logger
-        logging.getLogger("mldaikon").addHandler(file_handler)
+        # add to the "traincheck" logger and the "threading" logger
+        logging.getLogger("traincheck").addHandler(file_handler)
         logging.getLogger("threading").addHandler(file_handler)
     sys.excepthook = handle_excepthook
     threading.excepthook = thread_excepthook

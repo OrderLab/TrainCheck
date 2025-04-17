@@ -1,11 +1,11 @@
 import json
 from typing import Dict
 
-from mldaikon.instrumentor.dumper import convert_var_to_dict
-from mldaikon.instrumentor.tracer import TraceLineType
-from mldaikon.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
-from mldaikon.proxy_wrapper.proxy_basics import is_proxied
-from mldaikon.proxy_wrapper.proxy_config import primitive_types
+from traincheck.instrumentor.dumper import convert_var_to_dict
+from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
+from traincheck.proxy_wrapper.proxy_basics import is_proxied
+from traincheck.proxy_wrapper.proxy_config import primitive_types
 
 
 class Singleton(type):

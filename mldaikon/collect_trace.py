@@ -3,14 +3,13 @@ import datetime
 import logging
 import os
 
+import traincheck.config.config as config
+import traincheck.instrumentor as instrumentor
+import traincheck.proxy_wrapper.proxy_config as proxy_config
+import traincheck.runner as runner
 import yaml
-
-import mldaikon.config.config as config
-import mldaikon.instrumentor as instrumentor
-import mldaikon.proxy_wrapper.proxy_config as proxy_config
-import mldaikon.runner as runner
-from mldaikon.config.config import InstrOpt
-from mldaikon.invariant.base_cls import (
+from traincheck.config.config import InstrOpt
+from traincheck.invariant.base_cls import (
     APIParam,
     Arguments,
     InputOutputParam,
@@ -19,8 +18,8 @@ from mldaikon.invariant.base_cls import (
     VarTypeParam,
     read_inv_file,
 )
-from mldaikon.invariant.consistency_relation import ConsistencyRelation
-from mldaikon.invariant.contain_relation import VAR_GROUP_NAME, APIContainRelation
+from traincheck.invariant.consistency_relation import ConsistencyRelation
+from traincheck.invariant.contain_relation import VAR_GROUP_NAME, APIContainRelation
 
 
 def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
@@ -212,7 +211,7 @@ def get_default_output_folder(args: argparse.Namespace) -> str:
         modules_and_versions.append(f"{module}_{version}")
     # sort the modules and versions
     modules_and_versions.sort()
-    output_folder = f"mldaikon_run_{pyfile_basename}_{'_'.join(modules_and_versions)}_{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}"
+    output_folder = f"traincheck_run_{pyfile_basename}_{'_'.join(modules_and_versions)}_{START_TIME.strftime('%Y-%m-%d_%H-%M-%S')}"
     return output_folder
 
 
@@ -282,7 +281,7 @@ if __name__ == "__main__":
         type=str,
         default="",
         help="""Directory to store the output files, if not provided, it will be 
-        defaulted to mldaikon_run_{pyscript_name}_{timestamp}""",
+        defaulted to traincheck_run_{pyscript_name}_{timestamp}""",
     )
     parser.add_argument(
         "--only-instr",

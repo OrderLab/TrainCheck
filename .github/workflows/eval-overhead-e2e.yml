@@ -6,16 +6,16 @@ on:
     paths:
       - '.github/workflows/**'
       - 'eval_scripts/perf_benchmark/**'
-      - 'mldaikon/instrumentor/**'
-      - 'mldaikon/proxy_wrapper/**'
-      - 'mldaikon/collect_trace.py'
+      - 'traincheck/instrumentor/**'
+      - 'traincheck/proxy_wrapper/**'
+      - 'traincheck/collect_trace.py'
   pull_request:
     paths:
       - '.github/workflows/**'
       - 'eval_scripts/perf_benchmark/**'
-      - 'mldaikon/instrumentor/**'
-      - 'mldaikon/proxy_wrapper/**'
-      - 'mldaikon/collect_trace.py'
+      - 'traincheck/instrumentor/**'
+      - 'traincheck/proxy_wrapper/**'
+      - 'traincheck/collect_trace.py'
     
 
 permissions:

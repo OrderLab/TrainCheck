@@ -1,11 +1,11 @@
 import functools
 import typing
 
-from mldaikon.config.config import should_disable_proxy_dumping
-from mldaikon.utils import typename
+from traincheck.config.config import should_disable_proxy_dumping
+from traincheck.utils import typename
 
 if typing.TYPE_CHECKING:
-    from mldaikon.proxy_wrapper.proxy import Proxy
+    from traincheck.proxy_wrapper.proxy import Proxy
 from .proxy_basics import is_proxied, unproxy_func
 
 

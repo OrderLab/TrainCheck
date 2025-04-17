@@ -1,7 +1,7 @@
 import threading
 import typing
 
-from mldaikon.utils import typename
+from traincheck.utils import typename
 
 if typing.TYPE_CHECKING:
     from .proxy import Proxy

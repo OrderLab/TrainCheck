@@ -1,9 +1,8 @@
 import logging
 
 import torch.optim.optimizer as optimizer_
-
-from mldaikon.proxy_wrapper.proxy_basics import adapt_func_for_proxy
-from mldaikon.utils import typename
+from traincheck.proxy_wrapper.proxy_basics import adapt_func_for_proxy
+from traincheck.utils import typename
 
 
 def is_funcs_to_be_unproxied(original_func):

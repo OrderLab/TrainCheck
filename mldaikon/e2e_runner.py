@@ -3,8 +3,8 @@ import json
 import os
 import sys
 
-import mldaikon.e2e.config as e2e_config
-from mldaikon.e2e.runner import find_files, run_e2e
+import traincheck.e2e.config as e2e_config
+from traincheck.e2e.runner import find_files, run_e2e
 
 
 def read_config(config_path: str) -> dict[str, str]:
@@ -99,12 +99,12 @@ if __name__ == "__main__":
     if not os.path.isfile(input_program):
         input_program_dir = os.path.join(example_pipelines_dir, script_name)
         input_program_list = find_files(input_program_dir, prefix="", suffix=".py")
-        # input program should not include _ml_daikon at the beginning of the name
-        # e.g. '../../example_pipelines/LT-725/_ml_daikon_LT725.py' is not a valid input program
+        # input program should not include _traincheck at the beginning of the name
+        # e.g. '../../example_pipelines/LT-725/_traincheck_LT725.py' is not a valid input program
         input_program_list = [
             file
             for file in input_program_list
-            if not os.path.basename(file).startswith("_ml_daikon")
+            if not os.path.basename(file).startswith("_traincheck")
         ]
         input_bash_script_list = find_files(input_program_dir, prefix="", suffix=".sh")
         input_bash_script_list = [
