@@ -26,10 +26,10 @@ TrainCheck is under active development. Features may be incomplete and the docum
 ## Try TrainCheck
 
 1. **Install**  
-   Follow the [Installation Guide](installation-guide.md) to get TrainCheck set up on your machine.
+   Follow the [Installation Guide](./docs/installation-guide.md) to get TrainCheck set up on your machine.
 
 2. **Explore**  
-   Work through our “[5‑Minute Experience with TrainCheck](5-minute-experience-with-TrainCheck.md)” tutorial. You’ll learn how to:
+   Work through our "[5‑Minute Experience with TrainCheck](./docs/5-min-tutorial.md)" tutorial. You’ll learn how to:
    - Instrument a training script and collect a trace  
    - Automatically infer low‑level invariants  
    - Run the Checker in semi‑online mode to uncover silent bugs
@@ -37,7 +37,7 @@ TrainCheck is under active development. Features may be incomplete and the docum
 In under five minutes, you’ll complete the full cycle—from trace collection to silent issue detection.
 
 ## Documentation
-TODO
+Please visit [TrainCheck Technical Doc](./docs/technical-doc.md).
 
 ## Instrumentator Usage
 ML-Daikon performs automatic instrumentation of programs and supports out-of-tree execution. To use the instrumentor, please install traincheck as a pip package in the desired python environment where the example pipeline should be run in.
