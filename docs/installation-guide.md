@@ -36,6 +36,12 @@
     pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cu118
     ```
 
+    If you don't have a CUDA-enabled GPU, just install the CPU version and skip step 4.
+
+    ```bash
+    pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https://download.pytorch.org/whl/cpu
+    ```
+
 4. **(CUDA platforms only) Install cudatoolkit**
     ```bash
     conda install cudatoolkit
