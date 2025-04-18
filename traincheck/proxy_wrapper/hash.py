@@ -10,15 +10,16 @@ MODULUS = 2**64
 # Define a fixed constant tensor
 FIXED_CONSTANT = torch.tensor([42], dtype=torch.int64)  # Example fixed constant
 
+if torch.cuda.is_available():
 
-@cuda.jit("void(int64[:, :], int64[:], int64, int64)")
-def cuda_hash_kernel(data, hash_values, multiplier, increment):
-    idx = cuda.grid(1)
-    if idx < data.shape[0]:
-        hash_value = 0
-        for i in range(data.shape[1]):
-            hash_value = hash_value * multiplier + data[idx, i] + increment
-        hash_values[idx] = hash_value
+    @cuda.jit("void(int64[:, :], int64[:], int64, int64)")
+    def cuda_hash_kernel(data, hash_values, multiplier, increment):
+        idx = cuda.grid(1)
+        if idx < data.shape[0]:
+            hash_value = 0
+            for i in range(data.shape[1]):
+                hash_value = hash_value * multiplier + data[idx, i] + increment
+            hash_values[idx] = hash_value
 
 
 def hash_tensor_cuda(x):

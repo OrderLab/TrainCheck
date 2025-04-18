@@ -15,16 +15,14 @@ from traincheck.config.config import (
     RECURSION_ERR_THRESHOLD,
     TYPE_ERR_THRESHOLD,
 )
+
+# if torch.cuda.is_available():
+from traincheck.proxy_wrapper.hash import tensor_hash
 from traincheck.proxy_wrapper.proxy_config import (
     attribute_black_list,
     primitive_types,
     tensor_dump_format,
 )
-
-if torch.cuda.is_available():
-    from traincheck.proxy_wrapper.hash import tensor_hash
-
-from traincheck.proxy_wrapper.utils import print_debug
 from traincheck.utils import get_timestamp_ns, typename
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
@@ -253,18 +251,12 @@ def dump_tensor(value):
         if tensor_dump_format["dump_tensor_stats"]:
             param_list = tensor_stats(value)
         elif tensor_dump_format["dump_tensor_hash"]:
-            if not IS_CUDA_AVAILABLE:
-                raise Exception(
-                    "CUDA is not available, cannot dump tensor hash, please set '--tensor-dump-format' to 'full' or 'stats'."
-                )
-            try:
-                # perform tensor hash a deep copy of the tensor
+            if value.is_cuda:
                 param_list = tensor_hash(value, with_parallel=True, with_cuda=True)
-            except Exception as e:
-                print_debug(
-                    f"Failed to dump tensor hash, error: {e}, fullback to cpu hashing."
-                )
+            else:
+                # TODO: support quick hashing methods for MPS tensors
                 param_list = tensor_hash(value, with_parallel=True, with_cuda=False)
+
         elif tensor_dump_format["dump_tensor_full"]:
             param_list = value.detach().flatten().tolist()
         else:
