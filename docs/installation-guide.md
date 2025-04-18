@@ -1,7 +1,7 @@
 ## Compatibility
 
 - **Python**: 3.10+ (due to reliance on type annotations)
-- **PyTorch**: 1.7.0–2.5.0  
+- **PyTorch**: 1.7.0–2.5.0 (other versions have not been tested.)
 - **CUDA**: 11.2–12.1 (also supports MPS on macOS; see Performance note below)  
 - **Operating Systems**: Ubuntu 20.04+, macOS. Windows is untested but may work—please file an issue if you hit a problem.
 
@@ -49,18 +49,14 @@
 
 5. **Clone & install TrainCheck**
     ```bash
-    conda activate traincheck
-
     git clone https://github.com/OrderLab/TrainCheck.git
-    cd traincheck
+    cd TrainCheck
     pip3 install .
     ```
 
 6. **Verify Installation**
     You should now have three clis installed in your system. Do a quick test to see of these commands are available and functional.
     ```bash
-    conda activate traincheck
-
     traincheck-collect --help
     traincheck-infer --help
     traincheck-check --help
