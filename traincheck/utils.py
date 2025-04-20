@@ -29,6 +29,8 @@ def safe_getattr(obj, attr, default=None):
                 in "RuntimeError: Tried to instantiate class '__qualname__.__qualname__', but it does not exist! Ensure that it is registered via torch::class_"
             ):
                 return default
+        if isinstance(e, ModuleNotFoundError):
+            return default
         raise
 
 
