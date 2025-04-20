@@ -2,6 +2,7 @@ import logging
 import re
 from typing import Hashable
 
+import pandas as pd
 from tqdm import tqdm
 
 from traincheck.invariant.base_cls import (
@@ -32,6 +33,19 @@ PARAMETER_KEYWORD = "Parameter"
 ATTR_SKIP = "_ML_DAIKON_data_ID"
 
 # _CACHE_PATH = "func_with_tensors.pkl"
+
+
+def safe_equality(obj1: object, obj2: object) -> bool:
+    """
+    Check if two objects are equal, handling NaN values.
+    """
+    if safe_isnan(obj1) and safe_isnan(obj2):
+        return True
+
+    if safe_isnan(obj1) or safe_isnan(obj2):
+        return False
+
+    return obj1 == obj2
 
 
 # for each value observed, form a dict of {value: path to access the value}
@@ -341,6 +355,16 @@ class ConsistentOutputRelation(Relation):
                             func_call_event
                         )
 
+                    for prop in properties_occur_num:
+                        if prop not in returned_tensor:
+                            if pd.NA not in properties_occur_num[prop]:
+                                properties_occur_num[prop][pd.NA] = 0
+                                properties_corresponding_func_call[prop][pd.NA] = []
+                            properties_occur_num[prop][pd.NA] += 1
+                            properties_corresponding_func_call[prop][pd.NA].append(
+                                func_call_event
+                            )
+
             hypotheses_for_func: list[Hypothesis] = []
             # generate a hypothesis for each property
             for prop, prop_values in properties_occur_num.items():
@@ -375,8 +399,14 @@ class ConsistentOutputRelation(Relation):
                         hypothesis.positive_examples.add_example(example)
 
                     for prop_val_other, prop_val_count_other in prop_values.items():
-                        if prop_val_other == prop_val:
-                            continue
+                        try:
+                            if safe_equality(prop_val, prop_val_other):
+                                continue
+                        except TypeError:
+                            print(
+                                f"TypeError: {prop_val} {safe_isnan(prop_val)} {type(prop_val)} and {prop_val_other} {safe_isnan(prop_val_other)} are not comparable, skipping this property."
+                            )
+                            raise
                         for func_call_event in properties_corresponding_func_call[prop][
                             prop_val_other
                         ]:

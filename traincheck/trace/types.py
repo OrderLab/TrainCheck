@@ -11,8 +11,13 @@ class MD_NONE:
         return hash(None)
 
     def __eq__(self, o: object) -> bool:
-
         return type(o) == MD_NONE or o is None
+
+    def __repr__(self):
+        return "None"
+
+    def __str__(self):
+        return "None"
 
     def to_dict(self):
         """Return a serializable dictionary representation of the object."""

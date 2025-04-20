@@ -133,4 +133,7 @@ def get_unique_id():
 
 
 def safe_isnan(value: Any) -> bool:
+    if value is pd.NA:
+        return True
+
     return isinstance(value, float) and pd.isna(value)
