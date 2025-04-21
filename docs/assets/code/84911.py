@@ -85,10 +85,9 @@ num_classes = 100
 model_transfer._fc = nn.Linear(n_inputs, num_classes)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 criterion_transfer = nn.CrossEntropyLoss()
-optimizer_transfer = optim.Adam(model_transfer._fc.parameters(), lr=0.001)
+optimizer_transfer = optim.Adadelta(model_transfer._fc.parameters(), lr=1)
 model_transfer.to(device)
 
 for name, param in model_transfer.named_parameters():
@@ -141,6 +140,8 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
             loss.backward()
             optimizer.step()
             train_loss += (1 / (batch_idx + 1)) * (float(loss) - train_loss)
+            if batch_idx == 10:
+                break
 
         ######################
         # validate the model #
@@ -162,6 +163,9 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
                 np.squeeze(pred.eq(target.data.view_as(pred))).cpu().numpy()
             )
             total += data.size(0)
+
+            if batch_idx == 5:
+                break
 
         # print training/validation statistics
         print(
@@ -195,7 +199,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
 
 
 model_transfer = train(
-    10,
+    2,
     data_transfer,
     model_transfer,
     optimizer_transfer,
