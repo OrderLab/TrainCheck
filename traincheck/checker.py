@@ -197,7 +197,7 @@ def main():
             len(results_per_trace),
         )
         logger.info(
-            "Total invariants that's not triggered: %d/%d",
+            "Total invariants that are not triggered: %d/%d",
             len(results_per_trace_not_triggered),
             len(results_per_trace),
         )
