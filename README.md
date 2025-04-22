@@ -36,3 +36,5 @@ TrainCheck is under active development. Features may be incomplete and the docum
 
 ## Documentation
 Please visit [TrainCheck Technical Doc](./docs/technical-doc.md).
+
+🕵️‍♀️ OSDI AE members, please see [TrainCheck AE Guide](./docs/ae.md).
