@@ -9,8 +9,8 @@ We provide pre-collected traces and pre-inferred invariants to simplify and spee
 - [ ] Environment set up (Python, dependencies, 2 CUDA GPUs with ≥ 12GiB memory each)
 - [ ] (*Optional*) Downloaded pre-collected / pre-computed data
 - [ ] Ran **[Silent Issue Detection](#eval-silent-issue-detection)** experiment
+- [ ] Ran **[Invariant Transferability](#eval-transferability)** evaluation
 - [ ] Ran **[False Positive Rate](#false-positive-rate)** evaluation
-- [ ] Ran **[Transferability](#eval-transferability)** evaluation
 - [ ] Ran **[Performance Overhead](#eval-performance-overhead)** measurement
 - [ ] Verified outputs match expected results (tolerances noted per experiment)
 
@@ -21,8 +21,8 @@ We provide pre-collected traces and pre-inferred invariants to simplify and spee
 This artifact allows you to reproduce the major 4 evaluation results presented in the paper.
 
 - [ ] Ran **[Silent Issue Detection (Section 5.1 and 5.2)](#eval-silent-issue-detection)** experiment
-- [ ] Ran **[False Positive Rate (Section 5.3)](#false-positive-rate)** evaluation
-- [ ] Ran **[Transferability (Section 5.4)](#eval-transferability)** evaluation
+- [ ] Ran **[Invariant Transferability (Section 5.3)](#eval-transferability)** evaluation
+- [ ] Ran **[False Positive Rate (Section 5.4)](#false-positive-rate)** evaluation
 - [ ] Ran **[Performance Overhead (Section 5.5)](#eval-performance-overhead)** measurement
 
 ### ⏱️ Recommended Evaluation Order
@@ -96,7 +96,36 @@ It will help you get familiar with the workflow and also verify that your instal
 
 ## Eval: False Positive Rate
 
+⏳ Estimated Completion Time: TBD hour.
+- Trace Collection: x hours
+- Invariant Inference: x hours
+- Invariant Checking: x hours
+
+### 🎯 Goal
+
+This evaluation measures the false positive rate of alarms from TrainCheck's invariants.
+
+### 📂 Resources & Scripts
+
+- Automation Scripts:
+    1. TBD
+    2. TBD
+    3. TBD
+- Workloads: PyTorch official pipelines, accessible at TBD FP WORKLOAD
+
+### 🛠 How to Run
+xxx
+
 ## Eval: Transferability
+
+⏳ Estimated Completion Time: TBD hour.
+- Trace Collection: x hours
+- Invariant Inference: x hours
+- Invariant Checking: x hours
+
+### 🎯 Goal
+
+This evaluation measures the transferability of invariants inferred by TrainCheck. 
 
 ## Eval: Performance Overhead
 
@@ -104,12 +133,12 @@ It will help you get familiar with the workflow and also verify that your instal
 
 ### 🎯 Goal
 
-This evaluation measures the runtime overhead introduced by TrainCheck’s instrumentation compared to uninstrumented runs across a set of representative ML workloads, during the invariant checking stage. The results correspond to Section 5.5 of the paper.
+This evaluation measures the runtime overhead introduced by TrainCheck’s instrumentation compared to un-instrumented runs across a set of representative ML workloads, during the invariant checking stage. The results correspond to Section 5.5 of the paper.
 
 
 ### 📂 Resources & Scripts
 
-- Automation Script: 
+- Automation Scripts: 
   - `eval_scripts/perf_benchmark/run_all.xsh`: run the experiments and collect data.
   - `eval_scripts/perf_benchmark/analysis.xsh`: analyze raw data and produce input for the plot script.
   - `eval_scripts/perf_benchmark/plot_e2e.py` and `eval_scripts/perf_benchmark/plot_micro.py`: plot the figures in Section 5.5.

@@ -1,6 +1,7 @@
 # Invariant Inference & Representation
 
 `traincheck-infer` is part of the **inference stage** of the TrainCheck workflow. It consumes trace files collected from correct training runs and infers behavioral invariants that describe expected runtime behavior. These invariants are later used by `traincheck-check` to detect violations in other training pipelines.
+
 ## 📚 Table of Contents
 - [🔧 Basic Usage](#-basic-usage)
 - [⚙️ Advanced Usage](#️-advanced-usage)
