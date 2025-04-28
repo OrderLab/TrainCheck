@@ -54,7 +54,14 @@ def hash_tensor_cpu(x: torch.Tensor) -> int:
     x_np = x.cpu().numpy().astype(np.int64)  # Ensure conversion to NumPy int64
 
     # Compute cumulative multiplication just like in the loop version
-    hash_values = np.zeros(x_np.shape[0], dtype=np.int64)  # Hash storage per row
+    if x_np.shape == ():  # Handle scalar case
+        hash_values = np.zeros(1, dtype=np.int64)
+        x_np = np.expand_dims(x_np, axis=(0, 1))  # Convert scalar to 2D array
+    elif x_np.ndim == 1:  # Handle vector case
+        hash_values = np.zeros(1, dtype=np.int64)  # Single hash value for the vector
+        x_np = np.expand_dims(x_np, axis=0)  # Convert vector to 2D array with one row
+    else:
+        hash_values = np.zeros(x_np.shape[0], dtype=np.int64)  # Hash storage per row
 
     # Accumulate the hash row-wise, matching the loop behavior
     for i in range(x_np.shape[1]):
