@@ -3,7 +3,7 @@ import os
 import torch
 
 os.environ["ML_DAIKON_OUTPUT_DIR"] = "."
-from mldaikon.instrumentor.tracer import Instrumentor  # noqa
+from traincheck.instrumentor.tracer import Instrumentor  # noqa
 
 Instrumentor(
     torch,

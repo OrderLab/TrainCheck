@@ -9,8 +9,7 @@ from torch import nn, optim
 from torch.nn import functional as F
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-
-from mldaikon import annotate_stage
+from traincheck import annotate_stage
 
 MD_BATCH_FILE_NAME = "iteration_times.txt"
 with open(MD_BATCH_FILE_NAME, "w") as f:

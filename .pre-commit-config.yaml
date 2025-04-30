@@ -10,7 +10,7 @@ repos:
     rev: v1.9.0
     hooks:
       - id: mypy
-        files: ^mldaikon/
+        files: ^traincheck/
         types: [python]
         args: [--install-types, --non-interactive, --ignore-missing-imports] 
         # args: [--strict]

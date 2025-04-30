@@ -1,4 +1,4 @@
-from mldaikon.toolkit.analyze_trace import diff_lists_of_dicts
+from traincheck.toolkit.analyze_trace import diff_lists_of_dicts
 
 # Example usage:
 list1 = [

@@ -1,48 +1,40 @@
 
-# ML-DAIKON
-[![Pre-commit checks](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/ml-daikon/actions/workflows/pre-commit-checks.yml)
+[![format and types](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml)
+[![Chat on Discord](https://img.shields.io/discord/1362661016760090736?label=Discord&logo=discord&style=flat)](https://discord.gg/DPEd7Xeg)
 
-Instrumentor Performance Benchmark Results: http://orderlab.io/ml-daikon/dev/bench/
+# TrainCheck
 
-## Instrumentator Usage
-ML-Daikon performs automatic instrumentation of programs and supports out-of-tree execution. To use the instrumentor, please install mldaikon as a pip package in the desired python environment where the example pipeline should be run in.
+TrainCheck is a lightweight, extensible tool for runtime monitoring of “silent” bugs in deep‑learning training pipelines. Instead of waiting for a crash or a bad model, TrainCheck:
+1. **Automatically instruments** your existing training scripts (e.g., from [pytorch/examples](https://github.com/pytorch/examples) or [huggingface/transformers/examples](https://github.com/huggingface/transformers/tree/main/examples)), inserting tracing hooks with minimal code changes.
+2. **Learns precise invariants**–precise properties that should hold during training across API calls and model updates-by analyzing executions of known-good runs.
+3. **Catches silent issues early**–by checking invariants on new or modified training jobs, alerting you immediately if something didn't happen as expected (e.g., model weight inconsistency, mixed precision not applied successfully, unexpected tensor shapes). On violation, TrainCheck flags the point of divergence—so users can diagnose silent issues before they derail your model.
 
-To install the instrumentor:
-```shell
-git clone git@github.com:OrderLab/ml-daikon.git
-cd ml-daikon
-pip3 install -e .
-conda install cudatoolkit
-```
+![Workflow](docs/assets/images/workflow.png)
 
-A typical instrumentor invocation looks like
-```bash
-python3 -m mldaikon.collect_trace \
-  -p <path to your python script> \
-  -s <optional path to sh script that invokes the python script> \
-  -t [names of the module to be instrumented, e.g. torch, megatron] \ # `torch` is the default value here so you probably don't need to set it
-  --scan_proxy_in_args \ # dynamic analysis for APIContainRelation in 84911, keep it on
-  --allow_disable_dump \ # skip instrumentation for functions in modules specified in config.WRAP_WITHOUT_DUMP, keep it on for instrumentor overhead, inform @Essoz if you need those functions for invariant inference
-  -d # enabling debug logging, if you are not debugging the trace collector, you probably don't need it
-```
+Under the hood, TrainCheck decomposes into three CLI tools:
+- **Instrumentor** (`traincheck-collect`)
+  Wraps target training programs with lightweight tracing logic. It produces an instrumented version of the target program that logs API calls and model states without altering training semantics.
+- **Inference Engine** (`traincheck-infer`)
+  Consumes one or more trace logs from successful runs to infer low‑level invariants.
+- **Checker** (`traincheck-check`)
+  Runs alongside or after new training jobs to verify that each recorded event satisfies the inferred invariants.
 
-The instrumentor will dump the collected trace to the folder where you invoked the command. There should be one trace per thread and the names of trace files follow the pattern:
-```bash
-_ml_daikon_<pyscript-file-name>_mldaikon_trace_API_<time-of-instrumentor-invocation>_<process-id>_<thread-id>.log
-```
-After execution completion, you can also look at `program_output.txt` for the stdout and stderr of the pipeline being executed.
+## Status
 
-## Infer Engine Usage
+TrainCheck is under active development. Features may be incomplete and the documentation is evolving—if you give it a try, please join our 💬 [Discord server](https://discord.gg/DPEd7Xeg) or file a GitHub issue for support. Currently, the **Checker** operates in a semi‑online mode: you invoke it against the live, growing trace output to catch silent bugs as they appear. Fully automatic monitoring is on the roadmap, and we welcome feedback and contributions from early adopters.
 
-```bash
-python3 -m mldaikon.infer_engine \
-  -t <path to your trace files> \
-  -d \ # enable debug logging 
-  -o invariant.json \ # name of the file to dump the inferred invariants to
-```
+## Try TrainCheck
 
-There are two other arguments that you might need.
-```bash
---disable_precond_sampling \ # by default we enable sampling of examples to be used in precondition inference when the number of examples exceeds 10000. Sampling might cause us to lose information and you can disable this behavior by setting this flag.
---precond_sampling_threshold \ # the default threshold to sample examples is 10000, change this if you need to
-```
+1. **Install**  
+   Follow the [Installation Guide](./docs/installation-guide.md) to get TrainCheck set up on your machine.
+
+2. **Explore**  
+   Work through our "[5‑Minute Experience with TrainCheck](./docs/5-min-tutorial.md)" tutorial. You’ll learn how to:
+   - Instrument a training script and collect a trace  
+   - Automatically infer low‑level invariants  
+   - Run the Checker in semi‑online mode to uncover silent bugs
+
+## Documentation
+Please visit [TrainCheck Technical Doc](./docs/technical-doc.md).
+
+🕵️‍♀️ OSDI AE members, please see [TrainCheck AE Guide](./docs/ae.md).

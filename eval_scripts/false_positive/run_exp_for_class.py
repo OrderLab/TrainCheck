@@ -38,7 +38,7 @@ def get_trace_collection_command(program) -> list[str]:
     return [
         "python",
         "-m",
-        "mldaikon.collect_trace",
+        "traincheck.collect_trace",
         "--use-config",
         "--config",
         f"{PROGRAM_TO_PATH[program]}/md-config-var.yml",
@@ -48,7 +48,7 @@ def get_trace_collection_command(program) -> list[str]:
 
 
 def get_inv_inference_command(setup) -> list[str]:
-    cmd = ["python", "-m", "mldaikon.infer_engine", "-f"]
+    cmd = ["python", "-m", "traincheck.infer_engine", "-f"]
     for program in setup["inputs"]:
         cmd.append(get_trace_collection_dir(program))
     cmd.append("-o")
@@ -57,7 +57,7 @@ def get_inv_inference_command(setup) -> list[str]:
 
 
 def get_inv_checking_command(setup, program) -> list[str]:
-    cmd = ["python", "-m", "mldaikon.checker", "-f"]
+    cmd = ["python", "-m", "traincheck.checker", "-f"]
     cmd.append(get_trace_collection_dir(program))
     cmd.append("-i")
     cmd.append(get_inv_file_name(setup))
@@ -211,10 +211,10 @@ def cleanup_trace_files():
         print(f"Removing {trace_dir}")
         os.system(f"rm -rf {trace_dir}")
 
-    # remove all mldaikon logs
+    # remove all traincheck logs
     files = os.listdir(".")
-    mldaikon_logs = [file for file in files if file.startswith("mldaikon_")]
-    for log in mldaikon_logs:
+    traincheck_logs = [file for file in files if file.startswith("traincheck_")]
+    for log in traincheck_logs:
         print(f"Removing {log}")
         os.system(f"rm {log}")
 

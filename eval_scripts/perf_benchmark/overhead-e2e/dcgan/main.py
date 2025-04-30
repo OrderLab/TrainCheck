@@ -14,8 +14,7 @@ import torch.utils.data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
-
-from mldaikon import annotate_stage
+from traincheck import annotate_stage
 
 MD_BATCH_FILE_NAME = "iteration_times.txt"
 

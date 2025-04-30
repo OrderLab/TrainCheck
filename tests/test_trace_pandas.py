@@ -3,8 +3,8 @@ import timeit
 import unittest
 
 # Import the module to test
-from mldaikon.trace.trace_pandas import TracePandas, read_trace_file_Pandas
-from mldaikon.trace.trace_polars import TracePolars, read_trace_file_polars
+from traincheck.trace.trace_pandas import TracePandas, read_trace_file_Pandas
+from traincheck.trace.trace_polars import TracePolars, read_trace_file_polars
 
 # import modin.pandas as pd
 # import polars

@@ -18,10 +18,9 @@ import torch.utils.data.distributed
 import torchvision.datasets as datasets
 import torchvision.models as models
 import torchvision.transforms as transforms
+import traincheck.instrumentor.tracer as tc_tracer
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Subset
-
-import mldaikon.instrumentor.tracer as tc_tracer
 
 tc_tracer.DISABLE_WRAPPER = True
 

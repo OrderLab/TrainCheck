@@ -1,1 +1,1 @@
-Adapted from ml-daikon-input-programs/accelerate/complete_nlp_example
+Adapted from traincheck-input-programs/accelerate/complete_nlp_example

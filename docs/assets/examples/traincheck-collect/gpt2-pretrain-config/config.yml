@@ -1,0 +1,10 @@
+modules_to_instr:
+- torch
+- transformers
+- accelerate
+pyscript: run_clm_no_trainer.py
+shscript: run.sh
+copy_all_files: true
+models_to_track:
+- model
+model_tracker_style: proxy

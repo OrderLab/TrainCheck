@@ -54,7 +54,7 @@ from transformers import (
 from transformers.utils import check_min_version, send_example_telemetry
 from transformers.utils.versions import require_version
 
-# import mldaikon.instrumentor.tracer as tc_tracer
+# import traincheck.instrumentor.tracer as tc_tracer
 
 MD_BATCH_FILE_NAME = "iteration_times.txt"
 with open(MD_BATCH_FILE_NAME, "w") as f:

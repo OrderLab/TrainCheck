@@ -15,8 +15,7 @@ from efficientnet_pytorch import EfficientNet
 from PIL import ImageFile
 from torchvision import datasets
 from tqdm import tqdm
-
-from mldaikon.instrumentor.tracer import StatelessVarObserver
+from traincheck.instrumentor.tracer import StatelessVarObserver
 
 shape = (224, 224)
 log_dir = f"runs/{shape[0]}"

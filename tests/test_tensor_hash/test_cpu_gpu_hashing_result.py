@@ -1,6 +1,5 @@
 import torch
-
-from mldaikon.proxy_wrapper.hash import (
+from traincheck.proxy_wrapper.hash import (
     _reduce_last_axis,
     hash_tensor_cpu,
     hash_tensor_cuda,

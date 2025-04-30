@@ -12,8 +12,7 @@ import torchvision
 from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import Dataset
 from torchvision import datasets
-
-from mldaikon import annotate_stage
+from traincheck import annotate_stage
 
 MD_BATCH_FILE_NAME = "iteration_times.txt"
 

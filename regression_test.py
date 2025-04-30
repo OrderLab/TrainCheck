@@ -4,9 +4,8 @@ import re
 import subprocess
 
 import torch.cuda
-
-import mldaikon.instrumentor as instrumentor
-import mldaikon.runner as runner
+import traincheck.instrumentor as instrumentor
+import traincheck.runner as runner
 
 """
 Run default mnist.py and instrumented mnist.py, compare the accuracy of the two.

@@ -4,8 +4,8 @@ import inspect
 import astor
 
 
-def type_handle_mldaikon_proxy(x):
-    if hasattr(x, "is_ml_daikon_proxied_obj"):
+def type_handle_traincheck_proxy(x):
+    if hasattr(x, "is_traincheck_proxied_obj"):
         return type(x._obj)
     return type(x)
 
@@ -20,9 +20,9 @@ class TypeToIsInstanceTransformer(ast.NodeTransformer):
             and node.func.id == "type"
             and len(node.args) == 1
         ):
-            # Replace type(xxx) with type_handle_mldaikon_proxy(xxx)
+            # Replace type(xxx) with type_handle_traincheck_proxy(xxx)
             new_node = ast.Call(
-                func=ast.Name(id="type_handle_mldaikon_proxy", ctx=ast.Load()),
+                func=ast.Name(id="type_handle_traincheck_proxy", ctx=ast.Load()),
                 args=node.args,
                 keywords=[],
             )
