@@ -36,17 +36,15 @@ This artifact enables reproduction of the four main evaluation results from the 
 
 To get familiar with TrainCheck, we recommend starting with the [**5-Minute Tutorial**](./5-min-tutorial.md), which walks you through detecting a real-world bug from Section 5.1.
 
-
 ### ⏱️ Recommended Evaluation Order
 
 We suggest running the evaluations in the following order, based on automation level and runtime requirements:
-1. Performance Overhead (~10 minutes)
 
-2. False Positive Rate (~1.5 hours)
-3. Transferability (~30 minutes)
-3. Silent Issue Detection (~ variate, should be able to finish within a day)
-
-Before starting the evaluation, we encourage you to go through the [**5 min tutorial with TrainCheck**](./5-min-tutorial.md) that provides some basic concepts about TrainCheck and walks you through using TrainCheck workflows, making you more familiar with our artifact as well.
+1. Kick the tires – [5 min tutorial with TrainCheck](./5-min-tutorial.md)
+2. Performance Overhead (~10 minutes)
+3. False Positive Rate (~1.5 hours)
+4. Transferability (~30 minutes)
+5. Silent Issue Detection (~ variate, should be able to finish within one day)
 
 ## 2. Environment Requirements
 
