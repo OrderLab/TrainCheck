@@ -96,14 +96,18 @@ If you finish all other experiments before then, please let us know—we’ll pr
 
 ### 🎯 Goal
 
-This evaluation measures the false positive rate of alarms from TrainCheck's invariants.
+This evaluation measures the false positive rate of alarms reported by TrainCheck's invariants.  
+The target results are discussed in the main text of **Section 5.4** of the paper.
 
 ### 📂 Resources & Scripts
 
-- Automation Scripts:
-    1. `traincheck-ae-resources/fp_rate/ae_fp.py`
-- Workloads:
-    1. The PyTorch official pipelines that will be used has been prepared at `traincheck-ae-resource/fp_rate/workloads`. We have shortened training for these scripts such that the experiments run fast without . For AE purposes, you won't need to know the details as the automation scripts will automatically handle the running of these scripts.
+- **Automation Script**:
+  - `traincheck-ae-resources/fp_rate/ae_fp.py`
+
+- **Workloads**:
+  - The evaluation uses official PyTorch training pipelines located at `traincheck-ae-resources/fp_rate/workloads`.  
+    We have shortened the training runs for faster execution.  
+    For AE purposes, you do not need to modify or understand the workload code—`ae_fp.py` will automatically handle the entire process.
 
 ### 🛠 How to Run
 
@@ -159,21 +163,85 @@ setup,fp_rate
 
 These values correspond to the results reported in Section 5.4 of the paper.
 You should verify that the false positive rates are similar (within a 5% margin of error) or lower.
-
 ## Eval: Transferability
 
-⏳ Estimated Completion Time: TBD hour.
-- Trace Collection: x hours
-- Invariant Inference: x hours
-- Invariant Checking: x hours
+⏳ **Estimated Completion Time**: 40 minutes
+- Environment Setup: ~10 minutes  
+- Trace Collection: ~10 minutes  
+- Invariant Inference: ~20 minutes
 
 ### 🎯 Goal
 
-This evaluation measures the transferability of invariants inferred by TrainCheck. 
+This evaluation measures the **transferability** of invariants inferred by TrainCheck across library versions and training environments.  
+The results to be reproduced correspond to the final paragraph of **Section 5.3** of the paper.
+
+Other claims in Section 5.3—specifically, that invariants inferred from reference pipelines can detect all known bugs—are validated as part of the [Silent Issue Detection Evaluation](#eval-silent-issue-detection).
+
+### 📂 Resources & Scripts
+
+- **Automation Script**:  
+  `traincheck-ae-resources/transferability/ae_transferability.py`
+
+This evaluation uses the **GCN** training pipeline from PyTorch's official examples, tested across different PyTorch versions.  
+The pipeline is included in the artifact repository and will be automatically handled by the script—no manual setup is required.
+
+### 🛠 How to Run
+
+1. Install PyTorch 2.5.1 and TrainCheck in a separate conda environment named `traincheck-torch251`.
+   TODO: provide an automated script for managing the environments.
+
+2. Execute `ae_transferability.py`
+
+```bash
+cd transferability;
+python3 ae_transferability.py
+```
+
+This script infers invariants from **GCN** when executed with **PyTorch 2.2.2** and applies them to **GCN** with **Pytorch 2.5.1**.
+
+### How to verify the results?
+
+`ae_transferability.py` saves its stdout to `output.txt`. 
+
+TODO – Show an example of the actual output.
+
+The last 3 lines will contain the results for both "failed", "passed" and "not triggered" invariants. Verify that the ratio of "passed" invariants among all invariants is no lower than the transferability data reported in the paper (94.2%).
+
+Here’s a polished version of your section with improved clarity, consistency, and a slightly more professional tone:
+
+### 🛠 How to Run
+
+1. Create a new conda environment named `traincheck-torch251`, and install **PyTorch 2.5.1** along with TrainCheck.  
+   *(TODO: We will provide an automated script to manage multiple environments.)*
+
+2. Run the transferability evaluation script:
+
+```bash
+cd transferability
+python3 ae_transferability.py
+```
+This script infers invariants from the GCN pipeline using PyTorch 2.2.2, and then applies those invariants to the same pipeline running on PyTorch 2.5.1.
+
+### ✅ How to Verify the Results
+
+The script writes its stdout to a file named `output.txt`.
+
+*(TODO: Include a sample output snippet here.)*
+
+At the end of the file, the last three lines will report the number of invariants that passed, failed, or were not triggered.
+You should verify that the pass rate (passed / total) is no lower than the transferability value reported in the paper: 94.2%.
+
+### ⚠️ Notes & Troubleshooting
+
+If invariant inference or checking fails, please first verify that the environment is correctly set up (e.g., correct PyTorch version, dependencies installed).  
+Then try re-running `ae_transferability.py`.
+
+If the issue persists, please contact us for assistance。
+
 
 ## Eval: Performance Overhead
 
-⏳ Estimated Completion Time: 1.5 hour.
+⏳ Estimated Completion Time: 30 minutes.
 
 ### 🎯 Goal
 
