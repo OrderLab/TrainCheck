@@ -285,7 +285,9 @@ def instrument_all_model_assignments(
             f"{model_name} = Proxy({model_name}, recurse=True, logdir=proxy_config.proxy_log_dir, var_name='{model_name}')"
         )
     elif mode == "sampler":
-        instr_statement = ast.parse(f"{model_name}_sampler = VarSampler({model_name})")
+        instr_statement = ast.parse(
+            f"{model_name}_sampler = VarSampler({model_name}, var_name='{model_name}')"
+        )
     else:
         raise ValueError(f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler']")
 
