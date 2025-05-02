@@ -120,7 +120,8 @@ cd fp_rate
 pip3 install -r requirements.txt
 ```
 
-2. Execute `ae_fp.py`
+2. Execute `ae_fp.py` to collect traces, perform invariant inference, and check the invariants on validation programs.
+
 The workload `ddp-multigpu` will need 2 GPUs. We have provided the trace for `ddp-multigpu` in case you do not have two GPUs.
 
 If you need to use our pre-computed trace for `ddp-multigpu`, remove the `--overwrite-existing-results` argument.
@@ -133,9 +134,15 @@ Or, if you have a machine with 2 GPUs, execute the below command, such that the 
 python3 ae_fp.py --bench workloads --overwrite-existing-results
 ```
 
+3. Execute `compute_fp_rates.py` to compute the false positive rates.
+
+```bash
+python3 compute_fp_rates.py
+```
+
 ### What to Expect During Execution
 
-The script is long running. It performs three tasks at same time. 
+The `ae_fp.py` script is long running. It performs three tasks at same time. 
 1. It collects trace for all the workloads.
 2. It infers invariants for three setups in Section 5.4.
 3. It checks inferred invariants on the validation workloads.
@@ -152,7 +159,7 @@ If you see persistent issues, it will likely be a environment issue or software 
 
 ### How to verify the results?
 
-The `ae_fp.py` script generates a file called `fp.csv` under the current directory. Looking like this
+The `compute_fp_rates.py` script generates a file called `fp_rates.csv` under the current directory. Looking like this
 
 ```csv
 setup,fp_rate
@@ -162,7 +169,8 @@ setup,fp_rate
 ```
 
 These values correspond to the results reported in Section 5.4 of the paper.
-You should verify that the false positive rates are similar (within a 5% margin of error) or lower.
+You should verify that the false positive rates are similar or lower. Since the OSDI submission, we have fixed multiple bugs in TrainCheck, so the false positive rates are expected to be significantly lower in most cases.
+
 ## Eval: Transferability
 
 ⏳ **Estimated Completion Time**: 40 minutes
