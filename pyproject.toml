@@ -32,6 +32,7 @@ dependencies = [
   "pandas",
   "pyyaml",
   "orjson",
+  "numpy<2"
 ]
 readme = "README.md"
 classifiers = [
