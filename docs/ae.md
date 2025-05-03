@@ -14,14 +14,14 @@ Welcome to the artifact evaluation guide for **TrainCheck** (OSDI'25). This docu
 - [ ] Ran **[Performance Overhead](#eval-performance-overhead)** measurement
 - [ ] Verified outputs match expected results (tolerances noted per experiment)
 
-## 📎 Additional Resources
+## 📎 Resources You Need
 
 In addition to this guide, you will need the following resources throughout the evaluation process:
 
 1. [**5-Minute Tutorial**](./5-min-tutorial.md) — A quick walkthrough that introduces TrainCheck’s workflow using a real-world bug.
 2. [**TrainCheck Installation Guide**](./installation-guide.md) — Step-by-step instructions for setting up TrainCheck.
 3. [**Technical Usage Guide**](./technical-doc.md) — Detailed documentation on how to use TrainCheck, configure instrumentation, and interpret outputs.
-4. [**Evaluation Workloads Repository**](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads) — Contains all evaluation workloads used in the experiments.
+4. [**Evaluation Workloads Repository**](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads) — Contains all evaluation workloads and automation scripts used in the experiments.
 
 ## 1. Overview
 
@@ -47,6 +47,14 @@ We suggest running the evaluations in the following order, based on automation l
 5. Silent Issue Detection (~ variate, should be able to finish within one day)
 
 ## 2. Environment Requirements
+
+Many of our experiment scripts are written in xonsh, a shell that combines Python and Bash.
+Please install it with:
+
+```bash
+conda activate traincheck
+pip3 install 'xonsh[full]'
+```
 
 For a full and efficient AE experience, we recommend the following setup:
 - 🖥 1 machine with 2× CUDA-enabled GPUs
@@ -101,44 +109,51 @@ The target results are discussed in the main text of **Section 5.4** of the pape
 
 ### 📂 Resources & Scripts
 
-- **Automation Script**:
-  - `traincheck-ae-resources/fp_rate/ae_fp.py`
+- **Automation Scripts**:
+  - [`TrainCheck-Evaluation-Workloads/fp_rate/ae_fp.py`](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/blob/main/fp_rate/ae_fp.py): The script to collect traces, perform invariant inference, and check invariants on supposedly-correct programs to see if there are any false alarms.
+  - [`TrainCheck-Evaluation-Workloads/fp_rate/compute_fp_rate.py`](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/blob/main/fp_rate/compute_fp_rate.py): The script to compute false positive rates from the invariant checking results.
 
 - **Workloads**:
-  - The evaluation uses official PyTorch training pipelines located at `traincheck-ae-resources/fp_rate/workloads`.  
-    We have shortened the training runs for faster execution.  
+  - The evaluation uses official PyTorch training pipelines located at [`TrainCheck-Evaluation-Workloads/fp_rate/workloads`](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/tree/main/fp_rate/workloads).
+    We have shortened the training runs for faster execution.
     For AE purposes, you do not need to modify or understand the workload code—`ae_fp.py` will automatically handle the entire process.
 
 ### 🛠 How to Run
 
-0. Make sure you have a working TrainCheck installation by following [TrainCheck Installation Guide](./installation-guide.md).
+1. Make sure you have a working TrainCheck installation by following [TrainCheck Installation Guide](./installation-guide.md).
 
-1. Install necessary dependencies for the false positive evaluation workloads.
-```bash
-conda activate traincheck # change this if you installed TrainCheck in a different environment.
-cd fp_rate
-pip3 install -r requirements.txt
-```
+> All steps described below assumes you are already in the `TrainCheck-Evaluation-Workloads` repo. If not, clone the repository and go to it.
+> ```bash
+> git clone https://github.com/OrderLab/TrainCheck-Evaluation-Workloads.git
+> cd TrainCheck-Evaluation-Workloads
+> ```
 
-2. Execute `ae_fp.py` to collect traces, perform invariant inference, and check the invariants on validation programs.
+2. Install necessary dependencies for the false positive evaluation workloads.
+    ```bash
+    conda activate traincheck # change this if you installed TrainCheck in a different environment.
+    cd fp_rate
+    pip3 install -r requirements.txt
+    ```
 
-The workload `ddp-multigpu` will need 2 GPUs. We have provided the trace for `ddp-multigpu` in case you do not have two GPUs.
+3. Execute `ae_fp.py` to collect traces, perform invariant inference, and check the invariants on validation programs.
 
-If you need to use our pre-computed trace for `ddp-multigpu`, remove the `--overwrite-existing-results` argument.
-```bash
-python3 ae_fp.py --bench workloads
-```
+    The workload `ddp-multigpu` will need 2 GPUs. We have provided the trace for `ddp-multigpu` in case you do not have two GPUs.
 
-Or, if you have a machine with 2 GPUs, execute the below command, such that the original results will be re-computed.
-```bash
-python3 ae_fp.py --bench workloads --overwrite-existing-results
-```
+    If you need to use our pre-computed trace for `ddp-multigpu`, remove the `--overwrite-existing-results` argument.
+    ```bash
+    python3 ae_fp.py --bench workloads
+    ```
 
-3. Execute `compute_fp_rates.py` to compute the false positive rates.
+    Or, if you have a machine with 2 GPUs, execute the below command, such that the original results will be re-computed.
+    ```bash
+    python3 ae_fp.py --bench workloads --overwrite-existing-results
+    ```
 
-```bash
-python3 compute_fp_rates.py
-```
+4. Execute `compute_fp_rates.py` to compute the false positive rates.
+
+    ```bash
+    python3 compute_fp_rates.py
+    ```
 
 ### What to Expect During Execution
 
@@ -249,65 +264,59 @@ If the issue persists, please contact us for assistance。
 
 ## Eval: Performance Overhead
 
-⏳ Estimated Completion Time: 30 minutes.
+⏳ Estimated Completion Time: 10 minutes.
 
 ### 🎯 Goal
 
 This evaluation measures the runtime overhead introduced by TrainCheck’s instrumentation compared to un-instrumented runs across a set of representative ML workloads, during the invariant checking stage. The results correspond to Section 5.5 of the paper.
 
-
 ### 📂 Resources & Scripts
 
-- Automation Scripts: 
-  - `eval_scripts/perf_benchmark/run_all.xsh`: run the experiments and collect data.
-  - `eval_scripts/perf_benchmark/analysis.xsh`: analyze raw data and produce input for the plot script.
-  - `eval_scripts/perf_benchmark/plot_e2e.py` and `eval_scripts/perf_benchmark/plot_micro.py`: plot the figures in Section 5.5.
-  
-- Workloads (You probably won't need to touch this):
-    - Located in [overhead-e2e](../eval_scripts/perf_benchmark/overhead-e2e) and [overhead-micro](../eval_scripts/perf_benchmark/overhead-micro)
-	- No pre-collected data is required—this evaluation runs end-to-end automatically and is pretty light weight
+> Files described below are all in the [TrainCheck-Evaluation-Workloads](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/) repo.
 
-- Deployed 100 invariants:
+- Automation Scripts:
+  - [`performance_overhead/ae_perf.sh`](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/blob/main/performance_overhead/ae_perf.sh): End-to-end script for running the performance overhead benchmarks (Section 5.5) and generating Figure 7. It internally calls:
+    - `run_all.xsh`: Runs the experiments and collects raw data (per-iteration duration).
+    - `analysis.xsh`: Analyzes the raw data and prepares input for plotting.
+    - `plot_e2e.py`: Plots the final results.
+  
+- Workloads (You won't need to touch this):
+    - Located in [overhead-e2e](../eval_scripts/perf_benchmark/overhead-e2e)
+
+- The deployed 100 invariants:
     [eval_scripts/perf_benchmark/overhead-e2e/sampled_100_invariants.json](../eval_scripts/perf_benchmark/overhead-e2e/sampled_100_invariants.json)
 
 
 ### 🛠 How to Run
 
-1. Navigate to the performance benchmark directory:
+1. Make sure you have a working TrainCheck installation by following [TrainCheck Installation Guide](./installation-guide.md).
+
+> All steps described below assumes you are already in the `TrainCheck-Evaluation-Workloads` repo. If not, clone the repository and go to it.
+> ```bash
+> git clone https://github.com/OrderLab/TrainCheck-Evaluation-Workloads.git
+> cd TrainCheck-Evaluation-Workloads
+> ```
+
+2. Execute `ae_perf.sh`.
+
     ```bash
-    cd eval_scripts/perf_benchmark/
+    conda activate traincheck
+    cd performance_overhead
+
+    bash ae_perf.sh
     ```
-
-2. Run the full benchmark suite using:
-    ```bash
-    xonsh eval_scripts/perf_benchmark/run_all.xsh
-    ```
-This script will:
-- Execute each workload in three modes:
-    - No instrumentation
-	- TrainCheck selective instrumentation with 100 invariants deployed
-	- Python settrace baseline (a lightweight instrumentation baseline)
-- Measure per-iteration training time.
-- Save raw results in a folder named: `perf_eval_res_<commit_hash>`
-
-You should then execute the below commands that analyze the data and produce plots.
-```bash
-xonsh analysis.xsh --res_folder perf_eval_res_<commit_hash>
-
-python3 plot_e2e.py -o perf_eval_res_<commit_hash>/macro.pdf -i perf_eval_res_<commit_hash>/overhead_e2e.csv -t <commit_hash>
-
-python3 plot_micro.py -o perf_eval_res_<commit_hash>/micro.pdf -i perf_eval_res_<commit_hash>/wrapper_overhead_micro.csv -t <commit_hash>
-```
 
 ### Expected Output
-Key files in `perf_eval_res_<commit_hash>`:
-- `overhead_e2e.csv` and `marco.pdf` data and plot for benchmarks presented in Section 5.5.
-- `wrapper_overhead_micro.csv` and `micro.pdf`: data and plot for the pure wrapper overhead on individual APIs.
+
+After execution completes, a plot will be generated at `performance_ae.pdf`. All the raw data are stored at a folder named `perf_res_ae`.
 
 ### ✅ How to Verify
-	•	Check that the overhead percentages in overhead_results.csv are consistent with those reported in Section 5.5.
-	•	Variations (within ±15% TODO confirm) are expected due to runtime and hardware differences.
 
+- Open the generated file performance_ae.pdf and compare it against Figure 7 in the paper.
+- Small differences in the overhead numbers (within ±20%) are expected.
+TrainCheck’s overhead is sensitive to CPU performance, since trace serialization is blocking and CPU-bound.
+- Despite minor variations, the key takeaway should remain clear:
+TrainCheck’s selective instrumentation incurs significantly lower overhead compared to other methods.
 
 ### ⚠️ Notes & Troubleshooting
 1. **Do Not Run Other GPU Tasks in Parallel**

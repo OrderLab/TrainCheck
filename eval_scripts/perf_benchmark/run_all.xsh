@@ -75,7 +75,7 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
     SETTRACE_PY = "main_settrace.py"
     RUN_SH = "run.sh"
     MD_CONFIG_YML = "md-config.yml" if not use_proxy else "md-config-var.yml"
-    CMD_TRAINCHECK = f"python -m traincheck.collect_trace --use-config --config {MD_CONFIG_YML} --output-dir traincheck"
+    CMD_TRAINCHECK = f"python -m traincheck.collect_trace --use-config --config {MD_CONFIG_YML} --output-dir traincheck-all"
     CMD_TRAINCHECK_SELECTIVE = f"python -m traincheck.collect_trace --use-config --config {MD_CONFIG_YML} --output-dir traincheck-selective -i ../{SELC_INV_FILE}"
 
     if not os.path.exists(f"{E2E_FOLDER}/{workload}/{RUN_SH}"):
@@ -111,12 +111,8 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
         # 3. traincheck proxy instrumentation
         print("Running traincheck instrumentation")
         run_cmd(CMD_TRAINCHECK, kill_sec)
-        print("Trying to copy")
-        print(os.listdir("traincheck"))
-        # shutil.copy("traincheck/iteration_times.txt", f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
-        cp traincheck/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
-        print("Copied")
-        rm -rf traincheck
+        cp traincheck-all/iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_monkey-patch.txt")
+        rm -rf traincheck-all
 
         # 4. traincheck selective instrumentation
         print("Running traincheck selective instrumentation")
