@@ -55,6 +55,7 @@ def serialize(obj_dict: dict[str, object | str]) -> str:
 def monitor_main_thread(main_thread, stop_event):
     main_thread.join()  # Wait for the main thread to finish
     print("Main thread has finished or encountered an exception")
+    print("Flushing all buffers to the trace log file")
     stop_event.set()  # Signal the logging threads to stop
 
 
@@ -62,13 +63,17 @@ def trace_dumper(task_queue: Queue, trace_file_name: str, stop_event: threading.
     with open(trace_file_name, "w") as f:
         while True:
             try:
-                trace = task_queue.get(timeout=0.5)
+                trace = task_queue.get(
+                    timeout=FLUSH_INTERVAL * 2
+                )  # wait for 2x the flush interval, this is an arbitrary number, as long as it is larger than the flush interval, it should be fine.
             except Empty:
                 if stop_event.is_set():
+                    print("Trace dumper thread has stopped.")
                     break
                 continue
             f.write(f"{trace}\n")
             task_queue.task_done()
+    print("Trace dumper thread has finished normally...")
 
 
 def get_trace_API_dumper_queue():
@@ -178,6 +183,7 @@ class TraceBuffer:
         while not stop_event.is_set():
             time.sleep(self.flush_interval)
             self._flush()
+        self._flush()  # flush any remaining traces before exiting
 
 
 # THREAD_DATA.api_trace_buffer = TraceBuffer(get_trace_API_dumper_queue)

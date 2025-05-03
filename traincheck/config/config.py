@@ -6,7 +6,7 @@ import yaml
 
 # trace dumper configs:
 BUFFER_SIZE = 1000  # number of events to buffer before dumping
-FLUSH_INTERVAL = 5  # seconds
+FLUSH_INTERVAL = 0.5  # seconds
 
 # runner configs
 RUNNER_DEFAULT_ENV = {
