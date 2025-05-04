@@ -212,56 +212,47 @@ Other claims in Section 5.3—specifically, that invariants inferred from refere
 ### 📂 Resources & Scripts
 
 - **Automation Script**:  
-  `traincheck-ae-resources/transferability/ae_transferability.py`
+  - [`transferability/ae_transferability.sh`](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/blob/main/transferability/ae_transferability.sh) Runs the full transferability evaluation pipeline described in Section 5.3 of the paper. It executes invariant inference, applies inferred invariants to other pipelines, and collects applicability (invariant should be checked and not cause false alarms) statistics.
+  - [`transferability/install-traincheck-torch251-cu121.sh`](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/blob/main/transferability/install-traincheck-torch251-cu121.sh) Creates a conda environment named traincheck-torch251 with Python 3.10 and installs TrainCheck from the latest GitHub version.
+  - [`transferability/install-traincheck-torch251-cu118.sh`](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/blob/main/transferability/install-traincheck-torch251-cu118.sh) Same as above but installs the CUDA 118 version of PyTorch 2.5.1.
 
 This evaluation uses the **GCN** training pipeline from PyTorch's official examples, tested across different PyTorch versions.  
 The pipeline is included in the artifact repository and will be automatically handled by the script—no manual setup is required.
 
 ### 🛠 How to Run
 
-1. Install PyTorch 2.5.1 and TrainCheck in a separate conda environment named `traincheck-torch251`.
-   TODO: provide an automated script for managing the environments.
+1. Go to [TrainCheck-Evaluation-Workloads/transferability](`https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/tree/main/transferability`). Clone the repo if you do not have it.
+    ```bash
+    git clone https://github.com/OrderLab/TrainCheck-Evaluation-Workloads.git
+    cd TrainCheck-Evaluation-Workloads/transferability
+    ```
 
-2. Execute `ae_transferability.py`
+2. Create a new conda environment named `traincheck-torch251`, and install **PyTorch 2.5.1** along with TrainCheck.  
 
-```bash
-cd transferability;
-python3 ae_transferability.py
-```
+    Run the appropriate script based on your GPU's CUDA compatibility (likely executing either will be fine):
+    ```bash
+    bash install-traincheck-torch251-cu121.sh  # for CUDA 12.1
+    ```
+    or
+    ```bash
+    bash install-traincheck-torch251-cu118.sh  # for CUDA 11.8
+    ```
 
-This script infers invariants from **GCN** when executed with **PyTorch 2.2.2** and applies them to **GCN** with **Pytorch 2.5.1**.
+3. Run the transferability evaluation script:
+    ```bash
+    bash ae_transferability.sh
+    ```
 
-### How to verify the results?
-
-`ae_transferability.py` saves its stdout to `output.txt`. 
-
-TODO – Show an example of the actual output.
-
-The last 3 lines will contain the results for both "failed", "passed" and "not triggered" invariants. Verify that the ratio of "passed" invariants among all invariants is no lower than the transferability data reported in the paper (94.2%).
-
-Here’s a polished version of your section with improved clarity, consistency, and a slightly more professional tone:
-
-### 🛠 How to Run
-
-1. Create a new conda environment named `traincheck-torch251`, and install **PyTorch 2.5.1** along with TrainCheck.  
-   *(TODO: We will provide an automated script to manage multiple environments.)*
-
-2. Run the transferability evaluation script:
-
-```bash
-cd transferability
-python3 ae_transferability.py
-```
-This script infers invariants from the GCN pipeline using PyTorch 2.2.2, and then applies those invariants to the same pipeline running on PyTorch 2.5.1.
+    This script will:
+	  - Collect traces from the GCN training pipeline using both PyTorch 2.2.2 and 2.5.1.
+	  - Infer invariants from the 2.2.2 version.
+	  - Apply them to the 2.5.1 trace to assess transferability.
 
 ### ✅ How to Verify the Results
 
-The script writes its stdout to a file named `output.txt`.
+After the script finishes, it generates a file named `applied_rates.csv` that reports the percentage of applicable invariants. You should verify that the rate is no lower than the paper’s reported value:
 
-*(TODO: Include a sample output snippet here.)*
-
-At the end of the file, the last three lines will report the number of invariants that passed, failed, or were not triggered.
-You should verify that the pass rate (passed / total) is no lower than the transferability value reported in the paper: 94.2%.
+> 🟢 "94.2% remain valid and applicable up to PyTorch 2.5.1" (Section 5.3)
 
 ### ⚠️ Notes & Troubleshooting
 
@@ -269,7 +260,6 @@ If invariant inference or checking fails, please first verify that the environme
 Then try re-running `ae_transferability.py`.
 
 If the issue persists, please contact us for assistance。
-
 
 ## Eval: Performance Overhead
 
