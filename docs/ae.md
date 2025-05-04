@@ -186,6 +186,14 @@ setup,fp_rate
 These values correspond to the results reported in Section 5.4 of the paper.
 You should verify that the false positive rates are similar or lower. Since the OSDI submission, we have fixed multiple bugs in TrainCheck, so the false positive rates are expected to be significantly lower in most cases.
 
+In our run of the script, we obtained the following results:
+```csv
+setup,fp_rate
+1-input,0.0387
+4-input,0.0143
+6-input,0.0119
+```
+
 ## Eval: Transferability
 
 ⏳ **Estimated Completion Time**: 40 minutes
