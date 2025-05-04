@@ -248,6 +248,12 @@ The pipeline is included in the artifact repository and will be automatically ha
 	  - Infer invariants from the 2.2.2 version.
 	  - Apply them to the 2.5.1 trace to assess transferability.
 
+> ⚠️ Note:
+> The scripts above assume that Conda is installed at `~/miniconda3`.
+> If your installation is located elsewhere (e.g., `~/anaconda3`), please modify the first line of the scripts to reflect your actual Conda path.
+>
+> We also assume that you have already installed TrainCheck in an environment named `traincheck` prior to running these scripts.
+
 ### ✅ How to Verify the Results
 
 After the script finishes, it generates a file named `applied_rates.csv` that reports the percentage of applicable invariants. You should verify that the rate is no lower than the paper’s reported value:
@@ -263,7 +269,7 @@ If the issue persists, please contact us for assistance。
 
 ## Eval: Performance Overhead
 
-⏳ Estimated Completion Time: 10 minutes.
+⏳ Estimated Completion Time: 15 minutes.
 
 ### 🎯 Goal
 
