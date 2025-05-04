@@ -8,6 +8,7 @@ Welcome to the artifact evaluation guide for **TrainCheck** (OSDI'25). This docu
 ## ✅ Checklist
 
 - [ ] Environment set up (Python, dependencies, 2 CUDA GPUs with ≥ 12GiB memory each)
+- [ ] Installed `xonsh` via `pip3 install 'xonsh[full]'` in the conda environment
 - [ ] Ran **[Silent Issue Detection](#eval-silent-issue-detection)** experiment
 - [ ] Ran **[Invariant Transferability](#eval-transferability)** evaluation
 - [ ] Ran **[False Positive Rate](#false-positive-rate)** evaluation
