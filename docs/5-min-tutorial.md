@@ -131,7 +131,7 @@ Ready to play detective? 🔍 TrainCheck flagged **25 invariant violations** rig
   2. `Adadelta.step` did **not** update `.data` of any parameters.  
      - Indicates the optimizer had **no trainable parameters** to touch.  
 
-**🧩 Putting it all together: The optimizer wasn’t updating anything because… the parameters it received had requires_grad=False. Go to [Background: What’s wrong in 84911?](#background-whats-wrong-in-84911) to see the full root cause confirmed and explained.**
+**🧩 Putting it all together: The optimizer wasn’t updating anything because… the parameters it received had requires_grad=False. Go to [Background: What’s wrong in 84911?](#background-whats-wrong-with-84911) to see the full root cause confirmed and explained.**
 
 <details>
 <summary>🙋 Click here to learn how to inspect the raw results</summary><br>
