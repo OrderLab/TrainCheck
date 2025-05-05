@@ -82,7 +82,7 @@ Please consult the estimated runtimes in each evaluation section before making r
 
 1. If you’re using Chameleon instances:
     - Please start your machine with an Ubuntu 22.04 image that includes recent GPU drivers.
-    - (TBD: we will provide the specific image ID or setup instructions once finalized.)
+    - We recommend using the `CC-Ubuntu22.04-CUDA` OS image.
 
 2. Follow [Installation Guide](./installation-guide.md) to install TrainCheck.
 
