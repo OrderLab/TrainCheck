@@ -928,7 +928,9 @@ class APIContainRelation(Relation):
                     successful_hypotheses.append(hypo)
                 else:
                     logger.debug(f"Precondition not found for the hypotheses: {hypo}")
-                    failed_hypotheses.append(FailedHypothesis(hypo))
+                    failed_hypotheses.append(
+                        FailedHypothesis(hypo, "Precondition not found")
+                    )
 
         return all_invariants, failed_hypotheses, successful_hypotheses
 

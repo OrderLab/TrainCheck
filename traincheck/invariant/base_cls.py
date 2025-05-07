@@ -1604,11 +1604,13 @@ class Hypothesis:
 
 
 class FailedHypothesis:
-    def __init__(self, hypothesis: Hypothesis):
+    def __init__(self, hypothesis: Hypothesis, failed_reason: str):
+        self.failed_reason = failed_reason
         self.hypothesis = hypothesis
 
     def to_dict(self):
         return {
+            "failed_reason": self.failed_reason,
             "invariant": self.hypothesis.invariant.to_dict(
                 _dumping_for_failed_cases=True
             ),

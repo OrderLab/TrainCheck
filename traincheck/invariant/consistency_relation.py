@@ -138,7 +138,9 @@ class ConsistencyRelation(Relation):
                 logger.debug(
                     f"Precondition not found for {hypo.invariant.text_description}"
                 )
-                failed_hypothesis.append(FailedHypothesis(hypo))
+                failed_hypothesis.append(
+                    FailedHypothesis(hypo, "Precondition not found")
+                )
 
         return (
             list([hypothesis.invariant for hypothesis in passed_hypothesis]),

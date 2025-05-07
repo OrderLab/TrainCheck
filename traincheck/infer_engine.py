@@ -40,10 +40,10 @@ class InferEngine:
 
     def infer_multi_trace(self):
         hypotheses = self.generate_hypothesis()
-        hypotheses = self.prune_incorrect_hypos(hypotheses)
+        hypotheses, incorrect_hypos = self.prune_incorrect_hypos(hypotheses)
         self.collect_examples(hypotheses)
         invariants, failed_hypos = self.infer_precondition(hypotheses)
-        return invariants, failed_hypos
+        return invariants, failed_hypos + incorrect_hypos
 
     def generate_hypothesis(self) -> dict[Hypothesis, list[int]]:
         """Generate hypotheses for all traces using all relations in the relation pool, excluding disabled relations
@@ -126,14 +126,16 @@ class InferEngine:
     def prune_incorrect_hypos(self, hypotheses: dict[Hypothesis, list[int]]):
         """Prune incorrect hypotheses based on the collected examples"""
 
-        # rule 1: remove hypotheses with only one positive example
-        hypotheses = {
-            hypo: trace_idxs
-            for hypo, trace_idxs in hypotheses.items()
-            if len(hypo.positive_examples) > 1
-        }
-
-        return hypotheses
+        incorrect_hypos = []
+        correct_hypos = {}
+        for hypo, trace_idxs in hypotheses.items():
+            if len(hypo.positive_examples) > 1:
+                correct_hypos[hypo] = trace_idxs
+            else:
+                incorrect_hypos.append(
+                    FailedHypothesis(hypo, "only one positive example")
+                )
+        return correct_hypos, incorrect_hypos
 
     def infer_precondition(self, hypotheses: dict[Hypothesis, list[int]]):
         """TODO: move the precondition inference driving code into Hypothesis.get_invariant()"""
@@ -151,7 +153,9 @@ class InferEngine:
             )
             precondition = find_precondition(hypothesis, self.traces)
             if precondition is None:
-                failed_hypos.append(FailedHypothesis(hypothesis))
+                failed_hypos.append(
+                    FailedHypothesis(hypothesis, "Precondition not found")
+                )
             else:
                 hypothesis.invariant.precondition = precondition
                 invariants.append(hypothesis.get_invariant(self.all_stages))

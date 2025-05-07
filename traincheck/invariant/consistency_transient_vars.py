@@ -496,7 +496,9 @@ class ConsistentOutputRelation(Relation):
                 invariants.append(hypothesis.invariant)
             else:
                 print(f"Could not find precondition for {hypothesis}")
-                failed_hypotheses.append(FailedHypothesis(hypothesis))
+                failed_hypotheses.append(
+                    FailedHypothesis(hypothesis, "Precondition not found")
+                )
 
         print("done")
 
@@ -807,7 +809,9 @@ class ConsistentInputOutputRelation(Relation):
                 hypothesis.invariant.precondition = precondition
                 invariants.append(hypothesis.invariant)
             else:
-                failed_hypotheses.append(FailedHypothesis(hypothesis))
+                failed_hypotheses.append(
+                    FailedHypothesis(hypothesis, "Precondition not found")
+                )
 
         return invariants, failed_hypotheses
 
@@ -1177,7 +1181,9 @@ class ThresholdRelation(Relation):
                 hypothesis.invariant.precondition = precondition
                 invariants.append(hypothesis.invariant)
             else:
-                failed_hypotheses.append(FailedHypothesis(hypothesis))
+                failed_hypotheses.append(
+                    FailedHypothesis(hypothesis, "Precondition not found")
+                )
 
         return invariants, failed_hypotheses
 

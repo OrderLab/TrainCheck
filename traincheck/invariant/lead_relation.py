@@ -579,7 +579,9 @@ class FunctionLeadRelation(Relation):
             if preconditions is not None:
                 hypothesis.invariant.precondition = preconditions
             else:
-                failed_hypothesis.append(FailedHypothesis(hypothesis))
+                failed_hypothesis.append(
+                    FailedHypothesis(hypothesis, "Precondition not found")
+                )
                 all_hypotheses.remove(hypothesis)
         print("End precondition inference")
 

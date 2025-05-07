@@ -209,7 +209,9 @@ class VarPeriodicChangeRelation(Relation):
                 logger.debug(
                     f"Skip the invariant {hypothesis.invariant.text_description} due to failed precondition inference."
                 )
-                failed_hypothesis.append(FailedHypothesis(hypothesis))
+                failed_hypothesis.append(
+                    FailedHypothesis(hypothesis, "Precondition not found")
+                )
 
         return valid_invariants, failed_hypothesis
 
