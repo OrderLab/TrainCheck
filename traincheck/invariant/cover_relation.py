@@ -603,41 +603,29 @@ class FunctionCoverRelation(Relation):
                     continue
 
                 # check
-                flag_B = None
-                pre_recordB = None
+                unmatched_A_exist = False
                 for event in events_list:
                     if event["type"] != "function_call (pre)":
                         continue
 
                     if funcA == event["function"]:
-                        flag_B = None
-                        pre_recordB = None
+                        unmatched_A_exist = True
 
                     if funcB == event["function"]:
                         if not inv.precondition.verify([event], EXP_GROUP_NAME, trace):
                             continue
 
                         inv_triggered = True
-
-                        if flag_B is not None:
-
+                        if unmatched_A_exist is False:
                             inv_triggered = True
-                            print(
-                                "The relation "
-                                + funcA
-                                + " covers "
-                                + funcB
-                                + " is violated!\n"
-                            )
                             return CheckerResult(
-                                trace=[pre_recordB, event],
+                                trace=[event],
                                 invariant=inv,
                                 check_passed=False,
                                 triggered=True,
                             )
-
-                        flag_B = event["time"]
-                        pre_recordB = event
+                        else:
+                            unmatched_A_exist = False  # consumed the last A, a new A should be found before the next B
 
         # FIXME: triggered is always False for passing invariants
         return CheckerResult(

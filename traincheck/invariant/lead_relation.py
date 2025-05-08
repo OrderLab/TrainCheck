@@ -32,7 +32,7 @@ def check_same_level(
     function_times,
 ):
     """Check if funcA and funcB are at the same level in the call stack.
-    By "same level", funcA and funcB are not nested within each other (no caller-callee relationships).
+    By "same level", funcA and funcB are not always nested within each other (no caller-callee relationships).
     The nested functions are filtered out in the preprocessing step.
 
     Args:
@@ -64,16 +64,13 @@ def check_same_level(
             postA = function_times[(process_id, thread_id)][idA]["end"]
             preB = function_times[(process_id, thread_id)][idB]["start"]
             postB = function_times[(process_id, thread_id)][idB]["end"]
-            if preB >= postA:
-                # no need to check further
-                break
-            if postB <= preA:
-                # too early, check the next B
-                continue
+            if preA > postB or preB > postA:
+                # if preA < postB, it means that A is called before B is finished
+                # if preB < postA, it means that B is called before A is finished
+                # in both cases, A and B are not always nested within each other
+                return True
 
-            # anything other than the above two cases means that A and B have some overlap
-            return False
-    return True
+    return False
 
 
 def get_func_names_to_deal_with(trace: Trace) -> List[str]:
@@ -785,8 +782,8 @@ class FunctionLeadRelation(Relation):
                     continue
 
                 # check
-                time_last_unmatched_A = None
-                pre_recordA = None
+                has_B_showup_for_last_A = True  # initialize the flag to True
+                last_A_pre_record = None
                 for event in events_list:
 
                     if event["type"] != "function_call (pre)":
@@ -798,28 +795,22 @@ class FunctionLeadRelation(Relation):
 
                         inv_triggered = True
 
-                        if time_last_unmatched_A is None:
-                            time_last_unmatched_A = event["time"]
-                            pre_recordA = event
+                        if has_B_showup_for_last_A:
+                            # check passed for the last A, reset the flag
+                            has_B_showup_for_last_A = False
+                            last_A_pre_record = event
                             continue
-
-                        print(
-                            "The relation "
-                            + funcA
-                            + " leads "
-                            + funcB
-                            + " is violated!\n"
-                        )
-
-                        return CheckerResult(
-                            trace=[pre_recordA, event],
-                            invariant=inv,
-                            check_passed=False,
-                            triggered=True,
-                        )
+                        else:
+                            # we encountered an new A, but the last A has not been followed by a B
+                            assert last_A_pre_record is not None
+                            return CheckerResult(
+                                trace=[last_A_pre_record],
+                                invariant=inv,
+                                check_passed=False,
+                                triggered=True,
+                            )
                     if funcB == event["function"]:
-                        time_last_unmatched_A = None
-                        pre_recordA = None
+                        has_B_showup_for_last_A = True
 
         return CheckerResult(
             trace=None,
