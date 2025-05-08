@@ -1,7 +1,6 @@
 import functools
 import importlib
 import inspect
-import logging
 import os
 import threading
 import time
@@ -16,6 +15,7 @@ from traincheck.config.config import (
     INSTR_MODULES_TO_SKIP,
     SKIP_INSTR_APIS,
     WRAP_WITHOUT_DUMP,
+    WRAP_WITHOUT_DUMP_WHITELIST,
 )
 from traincheck.instrumentor.caches import meta_vars
 from traincheck.instrumentor.dumper import (
@@ -50,8 +50,6 @@ COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1
 
 
 THREAD_DATA = threading.local()
-
-logger = logging.getLogger("traincheck.instrumentor.tracer")
 
 
 class TraceLineType:
@@ -97,10 +95,6 @@ def increment_step_if_needed(func_obj, func_name, is_bound_method, args):
                 "step"
             ] += 1  # TODO: what if the users have annotated their own step function?
             return True
-        else:
-            logger.debug(
-                f"Function {func_name} is not a bound method of torch.optim.Optimizer, got {func_obj}"
-            )
 
 
 def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
@@ -453,7 +447,6 @@ def wrapper(
 
     else:
         METRIC_INSTRUMENTED_FUNC_LIST["no_dump"].append(original_function_name)
-
         if handle_proxy:
 
             @functools.wraps(original_function)
@@ -467,6 +460,7 @@ def wrapper(
 
     wrapped._traincheck_original_function = original_function
     wrapped._traincheck_instrumented = True
+    wrapped._traincheck_dump_disabled = disable_dump
     return wrapped
 
 
@@ -522,8 +516,9 @@ def is_API_instrumented(obj: Callable) -> bool:
 
 def is_API_bound_method(obj: Callable) -> bool:
     """We will see if the object will be a bound method or not. If the object is a bound method, we will return True, else False"""
-    signature = None
+    logger = get_instrumentation_logger_for_process()
 
+    signature = None
     # handle the case where the object is already a bound method, theoretically, this should not happen
     if inspect.ismethod(obj):
         logger.warning(f"Object is already a bound method: {obj}")
@@ -816,6 +811,8 @@ class Instrumentor:
         If the attribute is in WRAP_WITHOUT_DUMP, then the dump will be disabled. Otherwise, the dump will not be disabled.
         """
 
+        logger = get_instrumentation_logger_for_process()
+
         if self.use_full_instr:
             return False
 
@@ -826,7 +823,14 @@ class Instrumentor:
 
         attr_name = typename(attr)
         for wrap_without_dump_module in WRAP_WITHOUT_DUMP:
-            if attr_name.startswith(wrap_without_dump_module):
+            whitelist_modules = [
+                w
+                for w in WRAP_WITHOUT_DUMP_WHITELIST
+                if w.startswith(wrap_without_dump_module)
+            ]
+            if attr_name.startswith(wrap_without_dump_module) and not any(
+                attr_name.startswith(w) for w in whitelist_modules
+            ):
                 logger.debug(
                     f"Skipping dump for {attr_name} as it is in WRAP_WITHOUT_DUMP {wrap_without_dump_module}"
                 )
@@ -1008,9 +1012,13 @@ class Instrumentor:
                     depth + 1,
                 )
             else:
-                log_instrumentation_progress(
-                    depth, "Not instrumenting", attr, attr_name, pymodule
-                )
+                msg = "Not instrumenting"
+                if (
+                    "method_descriptor" in str(type(attr))
+                    and not config.INSTR_DESCRIPTORS
+                ):
+                    msg = "Not instrumenting because it is a method descriptor and config.INSTR_DESCRIPTORS is False"
+                log_instrumentation_progress(depth, msg, attr, attr_name, pymodule)
 
         log_instrumentation_progress(
             depth,

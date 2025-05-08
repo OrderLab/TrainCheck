@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 import threading
 import time
@@ -54,6 +55,11 @@ def typename(o):
         class_name = safe_getattr(o, "__name__", "")
     if not class_name:
         class_name = safe_getattr(o, "__class__", type(o)).__name__
+    # if not module, try falling back by checking if str(o) matches the pattern of <method 'to' of 'torch._C.TensorBase' objects>
+    if not module:
+        match = re.match(r"<method '(\w+)' of '([\w\.]+)' objects>", str(o))
+        if match:
+            class_name, module = match.groups()
     assert isinstance(module, str) and isinstance(
         class_name, str
     ), f"module and class_name should be str, but got {module} and {class_name} for {o}"

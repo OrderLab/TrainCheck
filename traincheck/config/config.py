@@ -59,6 +59,10 @@ WRAP_WITHOUT_DUMP = [
     # "torch._VariableFunctionsClass",
     # "torch.get_default_dtype",
 ]
+WRAP_WITHOUT_DUMP_WHITELIST = [
+    "torch._C.TensorBase",
+]
+
 ANALYSIS_SKIP_FUNC_NAMES = [
     "cuda.is_available",
     "torch.get_default_dtype",
