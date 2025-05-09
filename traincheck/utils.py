@@ -35,35 +35,41 @@ def safe_getattr(obj, attr, default=None):
         raise
 
 
-def typename(o):
+def typename(o, is_runtime=False):
     if isinstance(o, torch.nn.Parameter):
         return "torch.nn.Parameter"
     if isinstance(o, torch.Tensor):
         return o.type()
-    module = safe_getattr(o, "__module__", "")
-    if isinstance(module, ModuleSpec):
-        # handle the case when module is a ModuleSpec object
-        module = module.name
-    if module in ["buitins", "__builtin__", None]:
-        module = ""
-    class_name = safe_getattr(o, "__qualname__", "")
+    prefix = safe_getattr(o, "__module__", "")
+    if isinstance(prefix, ModuleSpec):
+        # handle the case when prefix is a ModuleSpec object
+        prefix = prefix.name
+    if prefix in ["buitins", "__builtin__", None]:
+        prefix = ""
+    is_class_name_qualname = True
+    last_name = safe_getattr(o, "__qualname__", "")
     if not isinstance(
-        class_name, str
+        last_name, str
     ):  # the instance here is for the case when __qualname__ is _ClassNamespace
-        class_name = ""
-    if not class_name:
-        class_name = safe_getattr(o, "__name__", "")
-    if not class_name:
-        class_name = safe_getattr(o, "__class__", type(o)).__name__
-    # if not module, try falling back by checking if str(o) matches the pattern of <method 'to' of 'torch._C.TensorBase' objects>
-    if not module:
+        last_name = ""
+        is_class_name_qualname = False
+    if not last_name:
+        last_name = safe_getattr(o, "__name__", "")
+        is_class_name_qualname = False
+    if not last_name:
+        last_name = safe_getattr(o, "__class__", type(o)).__name__
+        is_class_name_qualname = False
+    # Handle the typename logic for method descriptors. The `is_class_name_qualname` flag is used as a heuristic to determine if `o` is likely a method descriptor.
+    # During instrumentation (when `is_runtime` is False), we perform a `str(o)` check to identify the correct typename for method descriptors.
+    # At runtime (when `is_runtime` is True), this check is avoided as it is too expensive for argument/return value serialization.
+    if not is_runtime and not prefix and is_class_name_qualname:
         match = re.match(r"<method '(\w+)' of '([\w\.]+)' objects>", str(o))
         if match:
-            class_name, module = match.groups()
-    assert isinstance(module, str) and isinstance(
-        class_name, str
-    ), f"module and class_name should be str, but got {module} and {class_name} for {o}"
-    return f"{module}.{class_name}" if module else class_name
+            last_name, prefix = match.groups()
+    assert isinstance(prefix, str) and isinstance(
+        last_name, str
+    ), f"prefix and last_name should be str, but got {prefix} and {last_name} for {o}"
+    return f"{prefix}.{last_name}" if prefix else last_name
 
 
 def handle_excepthook(typ, message, stack):

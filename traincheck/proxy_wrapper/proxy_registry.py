@@ -66,7 +66,7 @@ class ProxyRegistry:
         to_dump_types = set(dump_config.keys())
         with self.registry_lock:
             for var_name, entry in self.registry.items():
-                var_type = typename(entry.proxy._obj)
+                var_type = typename(entry.proxy._obj, is_runtime=True)
                 if var_type not in to_dump_types:
                     continue
 

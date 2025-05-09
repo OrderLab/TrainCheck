@@ -403,14 +403,14 @@ def obj_to_serializable(obj, dump_config=None) -> dict[str, object]:
         return {str(type(obj)): None}
 
     if isinstance(obj, torch.dtype):
-        return {typename(obj): str(obj)}
+        return {typename(obj, is_runtime=True): str(obj)}
     elif isinstance(obj, torch.Size):
-        return {typename(obj): tuple(obj)}
+        return {typename(obj, is_runtime=True): tuple(obj)}
     try:
         var_dict = convert_var_to_dict(
             obj, include_tensor_data=False, dump_config=dump_config
         )
-        return {typename(obj): var_dict}
+        return {typename(obj, is_runtime=True): var_dict}
     except RecursionError:
         skip_type_due_to_recursion[type(obj)] = (
             skip_type_due_to_recursion.get(type(obj), 0) + 1
@@ -436,7 +436,7 @@ def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
         json.dumps(
             obj
         )  # HACK: using json instead of to check if obj is serializable as it always raises an exception if obj is not serializable, orjson may or may not raise an exception for unknown reasons.
-        return {typename(obj): obj}
+        return {typename(obj, is_runtime=True): obj}
     except (TypeError, AttributeError):
         return obj_to_serializable(obj, dump_config=dump_config)
         # assert var_dict, f"Failed to convert object {obj} to dict."

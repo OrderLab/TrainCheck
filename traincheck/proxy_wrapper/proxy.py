@@ -76,7 +76,7 @@ def proxy_handler(
                 )
 
         obj = generator_proxy_handler()
-    if typename(obj).startswith("torch.distributed"):
+    if typename(obj, is_runtime=True).startswith("torch.distributed"):
         return obj
     for obj_type in PROXY_SUPPORT_OBJ_TYPES:
         if issubclass(type(obj), obj_type):
@@ -177,7 +177,7 @@ class Proxy:
                 time=last_update_timestamp,
                 meta_vars=get_meta_vars(self),
                 var_name=var_name,
-                var_type=typename(obj),
+                var_type=typename(obj, is_runtime=True),
                 change_type=phase,
                 var_attributes=dump_attributes(self, obj),
                 dump_loc=dump_loc,
@@ -278,11 +278,11 @@ class Proxy:
 
     def __call__(self, *args, **kwargs):
         print_debug(
-            lambda: f"logger_proxy: Calling '{self.__class__.__name__}' for obj: '{self.__dict__['var_name']}' (type '{typename(self._obj)}')"
+            lambda: f"logger_proxy: Calling '{self.__class__.__name__}' for obj: '{self.__dict__['var_name']}' (type '{typename(self._obj, is_runtime=True)}')"
         )
         result = self._obj(*args, **kwargs)
         print_debug(
-            lambda: f"logger_proxy: Result type of __call__ is '{typename(result)}'"
+            lambda: f"logger_proxy: Result type of __call__ is '{typename(result, is_runtime=True)}'"
         )
 
         # deprecated, since we only want to keep track of the model itself, we can for-feit coverage of function invocation results

@@ -288,7 +288,7 @@ def global_wrapper(
                 "meta_vars": pre_meta_vars,
                 "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
                 "function": original_function_name,
-                "exception": typename(e),
+                "exception": typename(e, is_runtime=True),
                 "exception_msg": str(e),
                 "is_bound_method": is_bound_method,
                 "obj_id": None if not is_bound_method else id(args[0]),

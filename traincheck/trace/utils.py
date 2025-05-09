@@ -99,7 +99,9 @@ def bind_args_kwargs_to_signature(
         ), f"Argument {arg_name} is not binded and has no default value."
         default_val = signature.parameters[arg_name].default
         bind_args_and_kwargs[arg_name] = {
-            typename(default_val): var_to_serializable(default_val)
+            typename(default_val, is_runtime=True): var_to_serializable(
+                default_val
+            )  # the trace is dumped with is_runtime=True, so there is no need to set it to False and take some performance overhead.
         }
 
     assert len(bind_args_and_kwargs) == len(
