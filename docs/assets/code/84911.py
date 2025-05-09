@@ -12,6 +12,10 @@ from PIL import ImageFile
 from torchvision import datasets
 from tqdm import tqdm
 
+from traincheck import annotate_stage
+
+annotate_stage("init")
+
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 # Deterministic Behaviour
@@ -109,6 +113,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
     """returns trained model"""
     # initialize tracker for minimum validation loss
+    annotate_stage("training")
     _tc_stats = {  # collecting stats for TrainCheck
         "granularity": "epoch",
         "train_loss": [],
@@ -118,6 +123,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
 
     valid_loss_min = np.inf
     for epoch in tqdm(range(1, n_epochs + 1), desc="Epochs"):
+        annotate_stage("training")
         # initialize variables to monitor training and validation loss
         train_loss = 0.0
         valid_loss = 0.0
@@ -146,6 +152,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
         ######################
         # validate the model #
         ######################
+        annotate_stage("testing")
         model.eval()
         for batch_idx, (data, target) in enumerate(
             tqdm(loaders["valid"], desc="Validation")
@@ -188,6 +195,7 @@ def train(n_epochs, loaders, model, optimizer, criterion, use_cuda, save_path):
                     valid_loss_min, valid_loss
                 )
             )
+            annotate_stage("checkpointing")
             torch.save(model.state_dict(), "case_3_model.pt")
             valid_loss_min = valid_loss
 
