@@ -1,0 +1,10 @@
+modules_to_instr:  # Libraries to instrument. Defaults to ['torch'] if not specified.
+  - torch
+pyscript: mnist.py  # The Python entry point of your training program.
+shscript: run.sh  # [Optional] Shell script to launch the program with custom arguments or environment setup.
+models_to_track:  # [Optional] List of variable names for models you want to track. If omitted, model tracking is disabled.
+  - model
+model_tracker_style: proxy  # [Optional] Method for model tracking. Choose between "proxy" (default) or "sampler".
+copy_all_files: false  # [Optional] Set to true if your code uses relative paths (e.g., loading local datasets or configs). 
+                       # This ensures TrainCheck copies the entire working directory before execution.
+                       # Note: TrainCheck automatically handles PYTHONPATH. Default is false.

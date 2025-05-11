@@ -1,0 +1,5 @@
+modules_to_instr:
+- torch
+pyscript: main.py
+shscript: run.sh
+copy_all_files: true

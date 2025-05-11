@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["traincheck", "traincheck.*"]
+
+[project]
+requires-python = ">= 3.10"
+name = "traincheck"
+version = "0.1.0"
+description = "Training with Confidence: Catching Silent DL Training Bugs with Automated Proactive Checks"
+authors = [
+  { name = "Yuxuan Jiang", email = "jyuxuan@umich.edu" },
+  { name = "Ziming Zhou", email = "zimingzh@umich.edu" },
+  { name = "Boyu Xu", email = "xuboyu@umich.edu" },
+  { name = "Beijie Liu", email = "kekeliu@umich.edu" },
+  { name = "Yijun Wang", email = "yijunw@umich.edu" },
+  { name = "Ryan Huang", email = "ryanph@umich.edu" },
+]
+maintainers = [
+  {name = "Yuxuan Jiang", email = "jyuxuan@umich.edu" },
+]
+dependencies = [
+  "astor",
+  "deepdiff",
+  "polars>=1.0.0",
+  "torch",
+  "tqdm",
+  "numba",
+  "pandas",
+  "pyyaml",
+  "orjson",
+  "numpy<2"
+]
+readme = "README.md"
+classifiers = [
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Developers",
+  "Development Status :: 4 - Beta",
+]
+
+[project.urls]
+homepage = "https://github.com/OrderLab/TrainCheck"
+
+[project.scripts]
+traincheck-collect = "traincheck:collect_trace.main"
+traincheck-infer = "traincheck:infer_engine.main"
+traincheck-check = "traincheck:checker.main"

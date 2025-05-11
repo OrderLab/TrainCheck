@@ -1,0 +1,4 @@
+torch==2.2.2 # we tested 1.13.1 and aten::sparse_dim does not exist
+torchvision
+requests
+numpy

@@ -1,0 +1,9 @@
+modules_to_instr:
+- accelerate
+- torch
+- transformers
+pyscript: main.py
+shscript: run.sh
+model_tracker_style: proxy
+models_to_track:
+- model

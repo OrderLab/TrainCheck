@@ -1,0 +1,19 @@
+xonsh==0.19.0
+matplotlib
+seaborn
+pandas
+lmdb
+requests
+transformers==4.45.0
+accelerate==1.1.1
+evaluate
+datasets>=3.2.0
+schedulefree
+huggingface_hub>=0.20.0
+protobuf
+rouge-score
+nltk
+orjson
+py7zr
+sentencepiece != 0.1.92
+scikit-learn

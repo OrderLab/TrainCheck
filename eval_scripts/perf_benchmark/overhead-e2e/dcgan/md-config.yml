@@ -1,0 +1,5 @@
+pyscript: main.py
+shscript: run.sh
+modules_to_instr:
+  - torch
+

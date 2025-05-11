@@ -1,0 +1,9 @@
+pyscript: main.py
+shscript: run.sh
+modules_to_instr:
+  - torch
+models_to_track:
+  - netD
+  - netG
+model_tracker_style: proxy
+

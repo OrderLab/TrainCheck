@@ -1,0 +1,2 @@
+include traincheck/static_analyzer/func_level/optim_func_level.log
+include traincheck/static_analyzer/func_level/nn_func_level.log

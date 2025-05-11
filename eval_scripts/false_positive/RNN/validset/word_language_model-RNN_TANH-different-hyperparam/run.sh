@@ -1,0 +1,1 @@
+python3 main.py --model RNN_TANH --cuda --epochs 3 --tied --lr 15 --clip 1 --bptt 40 --dropout 0.1 --nlayers 3

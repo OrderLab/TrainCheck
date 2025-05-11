@@ -1,0 +1,23 @@
+setups:
+  - inputs:
+    - language-modeling-gpt2-88m-1epo
+  - inputs:
+    - language-modeling-gpt2-88m-3epo
+  - inputs:
+    - language-modeling-gpt2-88m-3epo-accelerate-naive
+  - inputs:
+    - language-modeling-gpt2-88m-3epo-fp16
+  - inputs:
+    - language-modeling-gpt2-88m-3epo
+    - language-modeling-gpt2-88m-3epo-accelerate-naive
+    - language-modeling-gpt2-88m-3epo-fp16
+validation:
+  CC:
+    - language-modeling-gpt2-88m-10epo
+    - language-modeling-gpt2-137m-3epo
+    - language-modeling-gpt2-137m-3epo-bf16
+    - language-modeling-gpt2-137m-3epo-distributed
+  CP:
+    - language-modeling-fim-gpt2-88m-3epo
+    - language-modeling-mlm-roberta-base-3epo
+trace_collection_parallelism: 1
