@@ -155,7 +155,7 @@ class FunctionCoverRelation(Relation):
                 listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
-                for funcA, funcB in tqdm(
+                for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
                     leave=True,
@@ -163,17 +163,17 @@ class FunctionCoverRelation(Relation):
                     total=len(function_pool) ** 2,
                 ):
                     if check_same_level(
-                        funcA,
-                        funcB,
+                        func_A,
+                        func_B,
                         process_id,
                         thread_id,
                         function_id_map,
                         function_times,
                     ):
-                        if funcA not in same_level_func[(process_id, thread_id)]:
-                            same_level_func[(process_id, thread_id)][funcA] = []
-                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
-                        valid_relations[(funcA, funcB)] = True
+                        if func_A not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][func_A] = []
+                        same_level_func[(process_id, thread_id)][func_A].append(func_B)
+                        valid_relations[(func_A, func_B)] = True
             trace.same_level_func_cover = same_level_func
             trace.valid_relations_cover = valid_relations
         print("End same level checking")
@@ -209,10 +209,21 @@ class FunctionCoverRelation(Relation):
                 desc="Function Pair",
             ):
 
-                if func_A not in same_level_func[(process_id, thread_id)]:
+                if func_B not in same_level_func[(process_id, thread_id)]:
                     continue
 
-                if func_B not in same_level_func[(process_id, thread_id)][func_A]:
+                if func_A not in same_level_func[(process_id, thread_id)][func_B]:
+                    # all B invocations are negative examples
+                    for event in events_list:
+                        if (
+                            event["type"] == "function_call (pre)"
+                            and event["function"] == func_B
+                        ):
+                            example = Example()
+                            example.add_group(EXP_GROUP_NAME, [event])
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].negative_examples.add_example(example)
                     continue
 
                 flag_A = None
@@ -298,7 +309,7 @@ class FunctionCoverRelation(Relation):
                 listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
-                for funcA, funcB in tqdm(
+                for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
                     leave=True,
@@ -306,17 +317,17 @@ class FunctionCoverRelation(Relation):
                     total=len(function_pool) ** 2,
                 ):
                     if check_same_level(
-                        funcA,
-                        funcB,
+                        func_A,
+                        func_B,
                         process_id,
                         thread_id,
                         function_id_map,
                         function_times,
                     ):
-                        if funcA not in same_level_func[(process_id, thread_id)]:
-                            same_level_func[(process_id, thread_id)][funcA] = []
-                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
-                        valid_relations[(funcA, funcB)] = True
+                        if func_A not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][func_A] = []
+                        same_level_func[(process_id, thread_id)][func_A].append(func_B)
+                        valid_relations[(func_A, func_B)] = True
             trace.same_level_func_cover = same_level_func
             trace.valid_relations_cover = valid_relations
         print("End same level checking")
@@ -343,21 +354,30 @@ class FunctionCoverRelation(Relation):
 
         print("Starting collecting iteration...")
         for i in tqdm(range(invariant_length - 1)):
-            func_A = inv.params[i]
-            func_B = inv.params[i + 1]
+            param_A = inv.params[i]
+            param_B = inv.params[i + 1]
 
-            assert isinstance(func_A, APIParam) and isinstance(
-                func_B, APIParam
+            assert isinstance(param_A, APIParam) and isinstance(
+                param_B, APIParam
             ), "Invariant parameters should be string."
+            func_A = param_A.api_full_name
+            func_B = param_B.api_full_name
 
             for (process_id, thread_id), events_list in listed_events.items():
-                funcA = func_A.api_full_name
-                funcB = func_B.api_full_name
 
-                if funcA not in same_level_func[(process_id, thread_id)]:
+                if func_B not in same_level_func[(process_id, thread_id)]:
                     continue
 
-                if funcB not in same_level_func[(process_id, thread_id)][funcA]:
+                if func_A not in same_level_func[(process_id, thread_id)][func_B]:
+                    # all B invocations are negative examples
+                    for event in events_list:
+                        if (
+                            event["type"] == "function_call (pre)"
+                            and event["function"] == func_B
+                        ):
+                            example = Example()
+                            example.add_group(EXP_GROUP_NAME, [event])
+                            hypothesis.negative_examples.add_example(example)
                     continue
 
                 # check
@@ -418,13 +438,13 @@ class FunctionCoverRelation(Relation):
         ] = {}
         # relation_pool contains all binary relations classified by GroupedPreconditions (key)
         for hypothesis in all_hypotheses:
-            param0 = hypothesis.invariant.params[0]
-            param1 = hypothesis.invariant.params[1]
+            param_A = hypothesis.invariant.params[0]
+            param_B = hypothesis.invariant.params[1]
 
-            assert isinstance(param0, APIParam) and isinstance(param1, APIParam)
+            assert isinstance(param_A, APIParam) and isinstance(param_B, APIParam)
             if hypothesis.invariant.precondition not in relation_pool:
                 relation_pool[hypothesis.invariant.precondition] = []
-            relation_pool[hypothesis.invariant.precondition].append((param0, param1))
+            relation_pool[hypothesis.invariant.precondition].append((param_A, param_B))
 
         merged_relations: Dict[GroupedPreconditions | None, List[List[APIParam]]] = {}
 
@@ -535,7 +555,7 @@ class FunctionCoverRelation(Relation):
                 listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
-                for funcA, funcB in tqdm(
+                for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
                     leave=True,
@@ -543,17 +563,17 @@ class FunctionCoverRelation(Relation):
                     total=len(function_pool) ** 2,
                 ):
                     if check_same_level(
-                        funcA,
-                        funcB,
+                        func_A,
+                        func_B,
                         process_id,
                         thread_id,
                         function_id_map,
                         function_times,
                     ):
-                        if funcA not in same_level_func[(process_id, thread_id)]:
-                            same_level_func[(process_id, thread_id)][funcA] = []
-                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
-                        valid_relations[(funcA, funcB)] = True
+                        if func_A not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][func_A] = []
+                        same_level_func[(process_id, thread_id)][func_A].append(func_B)
+                        valid_relations[(func_A, func_B)] = True
             trace.same_level_func_cover = same_level_func
             trace.valid_relations_cover = valid_relations
         print("End same level checking")
@@ -585,21 +605,39 @@ class FunctionCoverRelation(Relation):
 
         print("Starting checking iteration...")
         for i in tqdm(range(invariant_length - 1)):
-            func_A = inv.params[i]
-            func_B = inv.params[i + 1]
+            param_A = inv.params[i]
+            param_B = inv.params[i + 1]
 
-            assert isinstance(func_A, APIParam) and isinstance(
-                func_B, APIParam
+            assert isinstance(param_A, APIParam) and isinstance(
+                param_B, APIParam
             ), "Invariant parameters should be string."
 
-            for (process_id, thread_id), events_list in listed_events.items():
-                funcA = func_A.api_full_name
-                funcB = func_B.api_full_name
+            func_A = param_A.api_full_name
+            func_B = param_B.api_full_name
 
-                if funcA not in same_level_func[(process_id, thread_id)]:
+            for (process_id, thread_id), events_list in listed_events.items():
+                if func_B not in same_level_func[(process_id, thread_id)]:
                     continue
 
-                if funcB not in same_level_func[(process_id, thread_id)][funcA]:
+                if func_A not in same_level_func[(process_id, thread_id)][func_B]:
+                    # no A invoked, all B should be invalid
+                    for event in events_list:
+                        if (
+                            event["type"] == "function_call (pre)"
+                            and event["function"] == func_B
+                        ):
+                            if not inv.precondition.verify(
+                                [event], EXP_GROUP_NAME, trace
+                            ):
+                                continue
+
+                            inv_triggered = True
+                            return CheckerResult(
+                                trace=[event],
+                                invariant=inv,
+                                check_passed=False,
+                                triggered=True,
+                            )
                     continue
 
                 # check
@@ -608,10 +646,10 @@ class FunctionCoverRelation(Relation):
                     if event["type"] != "function_call (pre)":
                         continue
 
-                    if funcA == event["function"]:
+                    if func_A == event["function"]:
                         unmatched_A_exist = True
 
-                    if funcB == event["function"]:
+                    if func_B == event["function"]:
                         if not inv.precondition.verify([event], EXP_GROUP_NAME, trace):
                             continue
 
