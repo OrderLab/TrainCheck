@@ -1,4 +1,4 @@
-python3 main.py \
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
     --dataset_name cnn_dailymail \
     --model_name_or_path t5-base \
     --dataset_config 3.0.0 \

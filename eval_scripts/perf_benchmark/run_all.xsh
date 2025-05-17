@@ -103,7 +103,7 @@ def run_exp(kill_sec: int = 100, workload: str = "mnist", use_proxy: bool = Fals
 
         # 2. settrace running
         print("Running settrace setup")
-        run_cmd(cmd_settrace, kill_sec)
+        run_cmd(cmd_settrace, kill_sec * 2)
         rm api_calls.log
         cp iteration_times.txt @(f"../../{RES_FOLDER}/e2e_{workload}_systrace.txt")
         rm iteration_times.txt

@@ -1,4 +1,4 @@
-python main.py \
+CUDA_VISIBLE_DEVICES=0 python main.py \
     --dataset_name beans \
     --output_dir ./beans_outputs/ \
     --label_column_name labels \
