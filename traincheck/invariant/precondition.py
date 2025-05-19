@@ -136,10 +136,10 @@ def _find_local_clauses(
 
             clauses.append(
                 PreconditionClause(
-                    f"{context_manager_key}.{arg}",
+                    f"{context_manager_key}",
                     type(value),
                     PT.CONSTANT,
-                    [arg],
+                    (arg,),
                     {value},
                 )
             )
@@ -181,10 +181,12 @@ def _merge_clauses(
     """
 
     # step 1: Grouping the clauses by the target
-    clause_targets_and_exp_ids: dict[str, dict[PreconditionClause, list[int]]] = {}
+    clause_targets_and_exp_ids: dict[
+        tuple[str, tuple[str] | None], dict[PreconditionClause, list[int]]
+    ] = {}
     for exp_id, clauses in enumerate(clauses_lists):
         for clause in clauses:
-            clause_target = clause.prop_name
+            clause_target = (clause.prop_name, clause.additional_path)
             if clause_target not in clause_targets_and_exp_ids:
                 clause_targets_and_exp_ids[clause_target] = {clause: []}
             elif clause not in clause_targets_and_exp_ids[clause_target]:
@@ -248,7 +250,11 @@ def _merge_clauses(
             and field_dtype is not bool
         ):
             consistent_clause = PreconditionClause(
-                target, field_dtype, PT.CONSISTENT, None, seen_unique_constant_values
+                target[0],
+                field_dtype,
+                PT.CONSISTENT,
+                target[1],
+                seen_unique_constant_values,
             )
             merged_clauses_and_exp_ids[consistent_clause] = list(
                 seen_unique_constant_exp_ids
@@ -257,7 +263,7 @@ def _merge_clauses(
             # if the number of values seen is not too large, we should just keep the constant clauses
             for value in constant_value_to_exp_ids:
                 constant_clause = PreconditionClause(
-                    target, field_dtype, PT.CONSTANT, None, {value}
+                    target[0], field_dtype, PT.CONSTANT, target[1], {value}
                 )
                 merged_clauses_and_exp_ids[constant_clause] = list(
                     constant_value_to_exp_ids[value]

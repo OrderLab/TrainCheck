@@ -794,7 +794,7 @@ class PreconditionClause:
         prop_name: str,
         prop_dtype: type | None,
         _type: PT,
-        additional_path: list[str] | None,
+        additional_path: tuple[str] | None,
         values: set | None,
     ):
         """A class to represent a single clause in a precondition. A clause is a property that should hold for the hypothesis to be valid.
@@ -837,14 +837,14 @@ class PreconditionClause:
         return f"Prop: {self.prop_name}, Type: {self.type}"
 
     def to_dict(self) -> dict:
-        clause_dict: dict[str, str | list] = {
+        clause_dict: dict[str, str | tuple] = {
             "type": self.type.value,
             "prop_name": self.prop_name,
             "additional_path": self.additional_path if self.additional_path else "None",
             "prop_dtype": self.prop_dtype.__name__ if self.prop_dtype else "None",
         }
         if self.type in [PT.CONSTANT]:
-            clause_dict["values"] = list(self.values)
+            clause_dict["values"] = tuple(self.values)
         return clause_dict
 
     @staticmethod
@@ -853,7 +853,7 @@ class PreconditionClause:
         _type = PT(clause_dict["type"])
         prop_dtype = eval(clause_dict["prop_dtype"])
         additional_path = (
-            clause_dict["additional_path"]
+            tuple(clause_dict["additional_path"])
             if clause_dict["additional_path"] != "None"
             else None
         )
