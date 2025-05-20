@@ -76,4 +76,33 @@ For such cases—and for bugs that share the same root cause/manifest—we may p
 
 ## Expected Results
 
-The `diff -r` command should return without any output.
+The `diff -r` command should return no or very little output.
+
+You might see outputs like this
+```bash
+(traincheck) (base) yuxuan@ring18:~/TrainCheck-Evaluation-Workloads/silent-issue-detection$ diff -r checker_output reference_checker_output/
+diff -r checker_output/trace_pytorch-115607/failed.log reference_checker_output/trace_pytorch-115607/failed.log
+43,44c43,44
+<                                     "init",
+<                                     "testing"
+---
+>                                     "testing",
+>                                     "init"
+261,262c261,262
+<                                     "init",
+<                                     "testing"
+---
+>                                     "testing",
+>                                     "init"
+diff -r checker_output/trace_transformers-33844/failed.log reference_checker_output/trace_transformers-33844/failed.log
+247c247
+<                 "enabled": {
+---
+>                 "cache_enabled": {
+250c250
+<                 "cache_enabled": {
+---
+>                 "enabled": {
+```
+
+Such differences are expected and benign. TrainCheck do not enforce the ordering when serializing data structures like `set`, which might cause you to see diffs like this.
