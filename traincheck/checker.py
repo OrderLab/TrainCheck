@@ -207,9 +207,7 @@ def main():
 
         # dump the results to a file
         with open(
-            os.path.join(
-                args.output_dir, trace_parent_folder, f"failed_{time_now}.log"
-            ),
+            os.path.join(args.output_dir, trace_parent_folder, "failed.log"),
             "w",
         ) as f:
             for res in results_per_trace:
@@ -218,9 +216,7 @@ def main():
                     f.write("\n")
 
         with open(
-            os.path.join(
-                args.output_dir, trace_parent_folder, f"not_triggered_{time_now}.log"
-            ),
+            os.path.join(args.output_dir, trace_parent_folder, "not_triggered.log"),
             "w",
         ) as f:
             for res in results_per_trace:
@@ -229,9 +225,7 @@ def main():
                     f.write("\n")
 
         with open(
-            os.path.join(
-                args.output_dir, trace_parent_folder, f"passed_{time_now}.log"
-            ),
+            os.path.join(args.output_dir, trace_parent_folder, "passed.log"),
             "w",
         ) as f:
             for res in results_per_trace:

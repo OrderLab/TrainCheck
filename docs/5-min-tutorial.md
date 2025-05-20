@@ -112,7 +112,7 @@ Total invariants that are not triggered: 552/913
 
 361 invariants were checked on `84911.py`, and 25 got violated.
 
-The checker writes the full results to a folder named `traincheck_checker_results_<timestamp>`, containing the results (`failed_*.log`, `not_triggered_*.log`, `passed_*.log`, depending if an invariant is violated, not checked at all, or checked and passed.), and a copy of `invariants.json`.
+The checker writes the full results to a folder named `traincheck_checker_results_<timestamp>`, containing the results (`failed.log`, `not_triggered.log`, `passed.log`, depending if an invariant is violated, not checked at all, or checked and passed.), and a copy of `invariants.json`.
 
 ### 5. Detection & Diagnosis
 

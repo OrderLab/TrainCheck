@@ -67,7 +67,7 @@ For such cases—and for bugs that share the same root cause—we may provide a 
 
 1. Make sure you have a working TrainCheck installation by following [TrainCheck Installation Guide](./installation-guide.md).
 
-2. Execute `ae_detection.py` to automatically apply invariants to the pre-collected trace. This script generates results into a folder named `checker_output`.
+2. Execute `ae_detection.sh` to automatically apply invariants to the pre-collected trace. This script generates results into a folder named `checker_output`.
 
 3. Compare the detection result folder with our claimed checker results, to verify that the checking process makes sense.
     ```bash
