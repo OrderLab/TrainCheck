@@ -24,20 +24,20 @@ MAX_FUNC_NUM_CONSECUTIVE_CALL = 4  # ideally this should be proportional to the 
 
 
 def check_same_level(
-    funcA: str,
-    funcB: str,
+    func_A: str,
+    func_B: str,
     process_id: str,
     thread_id: str,
     function_id_map,
     function_times,
 ):
-    """Check if funcA and funcB are at the same level in the call stack.
-    By "same level", funcA and funcB are not always nested within each other (no caller-callee relationships).
+    """Check if func_A and func_B are at the same level in the call stack.
+    By "same level", func_A and func_B are not always nested within each other (no caller-callee relationships).
     The nested functions are filtered out in the preprocessing step.
 
     Args:
-        funcA (str): function name A
-        funcB (str): function name B
+        func_A (str): function name A
+        func_B (str): function name B
         process_id (str): process id
         thread_id (str): thread id
         function_id_map: a map from (process_id, thread_id) to function name to all function call ids of that function,
@@ -46,20 +46,20 @@ def check_same_level(
             the times should be sorted by the time of the function call
 
     Returns:
-        bool: True if funcA and funcB are at the same level, False otherwise
+        bool: True if func_A and func_B are at the same level, False otherwise
     """
 
-    if funcA == funcB:
+    if func_A == func_B:
         return False
 
-    if funcB not in function_id_map[(process_id, thread_id)]:
+    if func_B not in function_id_map[(process_id, thread_id)]:
         return False
 
-    if funcA not in function_id_map[(process_id, thread_id)]:
+    if func_A not in function_id_map[(process_id, thread_id)]:
         return False
 
-    for idA in function_id_map[(process_id, thread_id)][funcA]:
-        for idB in function_id_map[(process_id, thread_id)][funcB]:
+    for idA in function_id_map[(process_id, thread_id)][func_A]:
+        for idB in function_id_map[(process_id, thread_id)][func_B]:
             preA = function_times[(process_id, thread_id)][idA]["start"]
             postA = function_times[(process_id, thread_id)][idA]["end"]
             preB = function_times[(process_id, thread_id)][idB]["start"]
@@ -296,7 +296,7 @@ class FunctionLeadRelation(Relation):
                 listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
-                for funcA, funcB in tqdm(
+                for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
                     leave=True,
@@ -304,17 +304,17 @@ class FunctionLeadRelation(Relation):
                     total=len(function_pool) ** 2,
                 ):
                     if check_same_level(
-                        funcA,
-                        funcB,
+                        func_A,
+                        func_B,
                         process_id,
                         thread_id,
                         function_id_map,
                         function_times,
                     ):
-                        if funcA not in same_level_func[(process_id, thread_id)]:
-                            same_level_func[(process_id, thread_id)][funcA] = []
-                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
-                        valid_relations[(funcA, funcB)] = True
+                        if func_A not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][func_A] = []
+                        same_level_func[(process_id, thread_id)][func_A].append(func_B)
+                        valid_relations[(func_A, func_B)] = True
             trace.same_level_func_lead = same_level_func
             trace.valid_relations_lead = valid_relations
         print("End same level checking")
@@ -354,49 +354,49 @@ class FunctionLeadRelation(Relation):
                     continue
 
                 if func_B not in same_level_func[(process_id, thread_id)][func_A]:
+                    # no B is invoked in this process and thread. All A invocations are negative examples
+                    for event in events_list:
+                        if (
+                            event["type"] == "function_call (pre)"
+                            and event["function"] == func_A
+                        ):
+                            example = Example()
+                            example.add_group(EXP_GROUP_NAME, [event])
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].negative_examples.add_example(example)
                     continue
 
                 time_last_unmatched_A = None
-                pre_record_A = []
+                last_pre_record_A = None
+                last_example = None
+                hypothesis = hypothesis_with_examples[(func_A, func_B)]
                 for event in events_list:
                     if event["type"] != "function_call (pre)":
                         continue
 
                     if func_A == event["function"]:
-                        if time_last_unmatched_A is None:
-                            time_last_unmatched_A = event["time"]
-                            pre_record_A = [event]
-                            continue
+                        if time_last_unmatched_A:
+                            # the last A has not been followed by a B, a negative example:
+                            assert last_example
+                            hypothesis.negative_examples.add_example(last_example)
 
-                        assert len(pre_record_A) > 0
-                        example = Example()
-                        example.add_group(EXP_GROUP_NAME, pre_record_A)
-                        hypothesis_with_examples[
-                            (func_A, func_B)
-                        ].negative_examples.add_example(example)
-                        pre_record_A = [event]
-                        continue
+                        time_last_unmatched_A = event["time"]
+                        last_pre_record_A = event
+                        last_example = Example()
+                        last_example.add_group(EXP_GROUP_NAME, [last_pre_record_A])
 
                     if func_B == event["function"]:
-                        if time_last_unmatched_A is None:
-                            continue
-
-                        assert len(pre_record_A) > 0
-                        example = Example()
-                        example.add_group(EXP_GROUP_NAME, pre_record_A)
-                        hypothesis_with_examples[
-                            (func_A, func_B)
-                        ].positive_examples.add_example(example)
-
-                        time_last_unmatched_A = None
+                        if time_last_unmatched_A:
+                            assert (
+                                last_example
+                            ), "Raising an alarm for an A without B, but A's record is None, likely a bug"
+                            hypothesis.positive_examples.add_example(last_example)
+                            time_last_unmatched_A = None
 
                 if time_last_unmatched_A is not None:
-                    time_last_unmatched_A = None
-                    example = Example()
-                    example.add_group(EXP_GROUP_NAME, pre_record_A)
-                    hypothesis_with_examples[
-                        (func_A, func_B)
-                    ].negative_examples.add_example(example)
+                    assert last_example
+                    hypothesis.negative_examples.add_example(last_example)
 
         print("End adding examples")
 
@@ -462,7 +462,7 @@ class FunctionLeadRelation(Relation):
                 listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
-                for funcA, funcB in tqdm(
+                for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
                     leave=True,
@@ -470,17 +470,17 @@ class FunctionLeadRelation(Relation):
                     total=len(function_pool) ** 2,
                 ):
                     if check_same_level(
-                        funcA,
-                        funcB,
+                        func_A,
+                        func_B,
                         process_id,
                         thread_id,
                         function_id_map,
                         function_times,
                     ):
-                        if funcA not in same_level_func[(process_id, thread_id)]:
-                            same_level_func[(process_id, thread_id)][funcA] = []
-                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
-                        valid_relations[(funcA, funcB)] = True
+                        if func_A not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][func_A] = []
+                        same_level_func[(process_id, thread_id)][func_A].append(func_B)
+                        valid_relations[(func_A, func_B)] = True
             trace.same_level_func_lead = same_level_func
             trace.valid_relations_lead = valid_relations
         print("End same level checking")
@@ -507,58 +507,61 @@ class FunctionLeadRelation(Relation):
 
         print("Starting collecting iteration...")
         for i in range(invariant_length - 1):
-            func_A = inv.params[i]
-            func_B = inv.params[i + 1]
+            param_A = inv.params[i]
+            param_B = inv.params[i + 1]
 
-            assert isinstance(func_A, APIParam) and isinstance(
-                func_B, APIParam
+            assert isinstance(param_A, APIParam) and isinstance(
+                param_B, APIParam
             ), "Invariant parameters should be string."
 
+            func_A = param_A.api_full_name
+            func_B = param_B.api_full_name
             for (process_id, thread_id), events_list in listed_events.items():
-                funcA = func_A.api_full_name
-                funcB = func_B.api_full_name
 
-                if funcA not in same_level_func[(process_id, thread_id)]:
+                if func_A not in same_level_func[(process_id, thread_id)]:
+                    # func_A is not invoked in this process and thread, no need to check
                     continue
 
-                if funcB not in same_level_func[(process_id, thread_id)][funcA]:
+                if func_B not in same_level_func[(process_id, thread_id)][func_A]:
+                    # no B is invoked in this process and thread. All A invocations are negative examples
+                    for event in events_list:
+                        if (
+                            event["type"] == "function_call (pre)"
+                            and event["function"] == func_A
+                        ):
+                            last_example = Example()
+                            last_example.add_group(EXP_GROUP_NAME, [event])
+                            hypothesis.negative_examples.add_example(last_example)
                     continue
 
                 time_last_unmatched_A = None
-                pre_record_A = []
+                last_pre_record_A = None
+                last_example = None
                 for event in events_list:
                     if event["type"] != "function_call (pre)":
                         continue
 
                     if func_A == event["function"]:
-                        if time_last_unmatched_A is None:
-                            time_last_unmatched_A = event["time"]
-                            pre_record_A = [event]
-                            continue
+                        if time_last_unmatched_A:
+                            # the last A has not been followed by a B, a negative example:
+                            assert last_example
+                            hypothesis.negative_examples.add_example(last_example)
 
-                        assert len(pre_record_A) > 0
-                        example = Example()
-                        example.add_group(EXP_GROUP_NAME, pre_record_A)
-                        hypothesis.negative_examples.add_example(example)
-                        pre_record_A = [event]
-                        continue
+                        time_last_unmatched_A = event["time"]
+                        last_pre_record_A = event
+                        last_example = Example()
+                        last_example.add_group(EXP_GROUP_NAME, [last_pre_record_A])
 
                     if func_B == event["function"]:
-                        if time_last_unmatched_A is None:
-                            continue
-
-                        assert len(pre_record_A) > 0
-                        example = Example()
-                        example.add_group(EXP_GROUP_NAME, pre_record_A)
-                        hypothesis.positive_examples.add_example(example)
-
-                        time_last_unmatched_A = None
+                        if time_last_unmatched_A:
+                            assert (
+                                last_example
+                            ), "Raising an alarm for an A without B, but A's record is None, likely a bug"
+                            hypothesis.positive_examples.add_example(last_example)
+                            time_last_unmatched_A = None
 
                 if time_last_unmatched_A is not None:
-                    time_last_unmatched_A = None
-                    example = Example()
-                    example.add_group(EXP_GROUP_NAME, pre_record_A)
-                    hypothesis.negative_examples.add_example(example)
+                    hypothesis.negative_examples.add_example(last_example)
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
@@ -596,14 +599,14 @@ class FunctionLeadRelation(Relation):
             GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
         ] = {}
         for hypothesis in all_hypotheses:
-            param0 = hypothesis.invariant.params[0]
-            param1 = hypothesis.invariant.params[1]
+            param_A = hypothesis.invariant.params[0]
+            param_B = hypothesis.invariant.params[1]
 
-            assert isinstance(param0, APIParam) and isinstance(param1, APIParam)
+            assert isinstance(param_A, APIParam) and isinstance(param_B, APIParam)
 
             if hypothesis.invariant.precondition not in relation_pool:
                 relation_pool[hypothesis.invariant.precondition] = []
-            relation_pool[hypothesis.invariant.precondition].append((param0, param1))
+            relation_pool[hypothesis.invariant.precondition].append((param_A, param_B))
 
         merged_relations: Dict[GroupedPreconditions | None, List[List[APIParam]]] = {}
 
@@ -714,7 +717,7 @@ class FunctionLeadRelation(Relation):
                 listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
-                for funcA, funcB in tqdm(
+                for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
                     leave=True,
@@ -722,17 +725,17 @@ class FunctionLeadRelation(Relation):
                     total=len(function_pool) ** 2,
                 ):
                     if check_same_level(
-                        funcA,
-                        funcB,
+                        func_A,
+                        func_B,
                         process_id,
                         thread_id,
                         function_id_map,
                         function_times,
                     ):
-                        if funcA not in same_level_func[(process_id, thread_id)]:
-                            same_level_func[(process_id, thread_id)][funcA] = []
-                        same_level_func[(process_id, thread_id)][funcA].append(funcB)
-                        valid_relations[(funcA, funcB)] = True
+                        if func_A not in same_level_func[(process_id, thread_id)]:
+                            same_level_func[(process_id, thread_id)][func_A] = []
+                        same_level_func[(process_id, thread_id)][func_A].append(func_B)
+                        valid_relations[(func_A, func_B)] = True
             trace.same_level_func_lead = same_level_func
             trace.valid_relations_lead = valid_relations
         print("End same level checking")
@@ -764,21 +767,42 @@ class FunctionLeadRelation(Relation):
 
         print("Starting checking iteration...")
         for i in range(invariant_length - 1):
-            func_A = inv.params[i]
-            func_B = inv.params[i + 1]
+            param_A = inv.params[i]
+            param_B = inv.params[i + 1]
 
-            assert isinstance(func_A, APIParam) and isinstance(
-                func_B, APIParam
+            assert isinstance(param_A, APIParam) and isinstance(
+                param_B, APIParam
             ), "Invariant parameters should be string."
 
+            func_A = param_A.api_full_name
+            func_B = param_B.api_full_name
             for (process_id, thread_id), events_list in listed_events.items():
-                funcA = func_A.api_full_name
-                funcB = func_B.api_full_name
 
-                if funcA not in same_level_func[(process_id, thread_id)]:
+                if func_A not in same_level_func[(process_id, thread_id)]:
+                    # func_A is not invoked in this process and thread, no need to check
                     continue
 
-                if funcB not in same_level_func[(process_id, thread_id)][funcA]:
+                if func_B not in same_level_func[(process_id, thread_id)][func_A]:
+                    # all A invocations in this process and thread are negative examples
+                    # directly find the first A and return the result
+                    for event in events_list:
+                        if event["type"] != "function_call (pre)":
+                            continue
+
+                        if func_A == event["function"]:
+                            if not inv.precondition.verify(
+                                [event], EXP_GROUP_NAME, trace
+                            ):
+                                continue
+
+                            inv_triggered = True
+                            return CheckerResult(
+                                trace=[event],
+                                invariant=inv,
+                                check_passed=False,
+                                triggered=True,
+                            )
+                    # if we have not returned in this branch, lets check the next process and thread
                     continue
 
                 # check
@@ -789,7 +813,7 @@ class FunctionLeadRelation(Relation):
                     if event["type"] != "function_call (pre)":
                         continue
 
-                    if funcA == event["function"]:
+                    if func_A == event["function"]:
                         if not inv.precondition.verify([event], EXP_GROUP_NAME, trace):
                             continue
 
@@ -809,7 +833,7 @@ class FunctionLeadRelation(Relation):
                                 check_passed=False,
                                 triggered=True,
                             )
-                    if funcB == event["function"]:
+                    if func_B == event["function"]:
                         has_B_showup_for_last_A = True
 
         return CheckerResult(

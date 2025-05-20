@@ -91,7 +91,7 @@ You should verify that the false positive rates are similar or lower. Since the 
 In our run of the script, we obtained the following results:
 ```csv
 setup,fp_rate
-1-input,0.0387
-4-input,0.0143
-6-input,0.0119
+1-input,0.039
+4-input,0.021
+6-input,0.015
 ```
