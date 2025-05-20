@@ -27,14 +27,14 @@ All files are located in the [`TrainCheck-Evaluation-Workloads`](https://github.
 
 | **Bug ID**                | **Failure Location** | **AE?** | **AE Limitation (if any)**                                     |
 |---------------------------|----------------------|--------|------------------------------------------------------------------|
-| `baichuan2-86`            | HW/Driver            | ✅ Yes | Reuses pytorch-84803 trace                                       |
+| `baichuan2-86`            | HW/Driver            | ✅ Yes | Similar root cause as pytorch-84803, reuses pytorch-104336 trace                     |
 | `deepspeed-1801`          | Framework            | ✅ Yes |                                                                  |
 | `deepspeed-5794`          | Framework            | ❌ No  | Invariant relation still under evaluation                        |
 | `lightning-thunder-725`   | Framework            | ✅ Yes |                                                                  |
 | `mmpretrain-702`          | Framework            | ✅ Yes |                                                                  |
 | `pytorch-51800`           | Framework            | ✅ Yes |                                                                  |
-| `pytorch-84803`           | HW/Driver            | ✅ Yes |                                                                  |
-| `pytorch-96600`           | HW/Driver            | ✅ Yes | Reuses pytorch-84803 trace                                       |
+| `pytorch-84803`           | HW/Driver            | ✅ Yes | Different root cause, but low-level manifest is similar, reuses pytorch-104336 trace |
+| `pytorch-96600`           | HW/Driver            | ✅ Yes | Similar root cause as pytorch-84803 reuses pytorch-104336 trace                      |
 | `pytorch-104336`          | Framework            | ✅ Yes |                                                                  |
 | `pytorch-115607`          | Compiler             | ✅ Yes |                                                                  |
 | `pytorch-forum-84911`     | User Code            | ✅ Yes |                                                                  |
@@ -44,7 +44,7 @@ All files are located in the [`TrainCheck-Evaluation-Workloads`](https://github.
 | `transformers-23723`      | Framework            | ✅ Yes |                                                                  |
 | `transformers-33844`      | Framework            | ✅ Yes |                                                                  |
 | `transformers-34204`      | Framework            | ❌ No  | Invariant support still in progress                              |
-| `x-jxmnop-ddp-out-of-sync`| User Code            | ✅ Yes |                                                                  |
+| `x-jxmnop-ddp-out-of-sync`| User Code            | ✅ Yes | Reuses pytorch-104336 trace                                      |
 
 We currently support **15 out of 18 bugs** for artifact evaluation.  
 You have already detected `pytorch-forum-84911` in our 5-min tutorial. You will need to detect the rest of the 14 bugs.
@@ -55,7 +55,7 @@ Bugs not included in this AE release typically depend on:
 - Invariant support still in development
 
 Additionally, a few bugs stem from very specific issues such as faulty hardware, which are inherently difficult to reproduce.
-For such cases—and for bugs that share the same root cause—we may provide a **shared/simulated trace** and a **shared invariant** that is reused across multiple bug IDs.
+For such cases—and for bugs that share the same root cause/manifest—we may provide a **shared/simulated trace** and a **shared invariant** that is reused across multiple bug IDs.
 
 ## 🧪 Reproducing Silent Issue Detection
 
