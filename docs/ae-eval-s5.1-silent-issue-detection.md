@@ -1,61 +1,79 @@
 # Eval: Silent Issue Detection
 
-⏳ **Estimated Completion Time**: ~5 hours (if running everything from scratch)
+⏳ **Estimated Completion Time**: ~30 minutes
 
 ## 🎯 Goal
 
-In our evaluation, **TrainCheck detects 18 silent issues**. Your goal is to reproduce and validate:
+TrainCheck detects **18 real-world silent issues** in our evaluation. Your goal in this artifact evaluation is to **verify detection for the subset of issues that are currently AE-supported** (see [bug table](#-bug-summary-table) below).
 
-1. ✅ TrainCheck successfully detects each issue.  
-2. ⏱️ Detection occurs within **at most 1 iteration** of the issue being triggered.  
-3. 🔍 The reported invariant violations are **close to the root cause**.
+For each supported bug, you should confirm:
 
-To accomplish this, a full evaluation involves:
-1. **Inferring invariants** from clean PyTorch example pipelines.
-2. **Running each buggy pipeline** to produce a trace.
-3. **Checking invariants** against these traces.
-4. **Manually verifying** that each violation corresponds to a silent issue, is timely, and aligns with the root cause.
+✅ **TrainCheck successfully detects the issue** by reporting one or more invariant violations on the provided trace.
 
-## 🛠️ Evaluation Adjustments for Reproducibility
+The artifact provides all necessary resources to automate this confirmation.  
+Additional insights—such as when the issue is triggered and how the violation aligns with the root cause—can be explored by examining the scripts, logs, or violation reports, though they are not required for core validation.
 
-To ease your evaluation effort, we’ve made the following simplifications:
+## 📂 Resources Provided
 
-### 1. 🧪 Pre-provided Bug-Detecting Invariants
-We provide a curated set of invariants that are known to catch the issues.  
-➡️ This eliminates the need to manually infer and filter a large number of candidate invariants.  
-(You may optionally rerun inference yourself to verify reproducibility.)
+All files are located in the [`TrainCheck-Evaluation-Workloads`](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads) repository.
 
-### 2. 📦 Pre-collected Buggy Traces
-Some bugs require:
-- Complex library setups (e.g., DS-1801 requires source builds of HuggingFace's own fork of `Megatron-DeepSpeed` and a DeepSpeed installation that needs you to manually modify a few lines of code.)
-- Large datasets (~100 GiB+)
+| Resource | Description |
+|---------|-------------|
+| **Curated Invariants** | Small set of known-effective invariants per bug. |
+| **Pre-collected Traces** | Captured execution traces from the buggy pipelines. |
+| **Silent Issue Reproduction Scripts and Descriptions** | https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/tree/main/silent-issue-detection/bug-reprod-scripts | 
 
-To avoid these barriers:
-- We **pre-collected traces** for all 18 bugs.
-- You can run TrainCheck directly on these traces without reproducing the full training environments.
+### 🐛 Silent Issue Summary Table
 
-> Note: We have setup instructions in the `README.md` doc within each bug's folder. Please let us know if you are following these instructions to collect the traces yourself and have encountered any issues.
+| **Bug ID**                | **Failure Location** | **AE?** | **AE Limitation (if any)**                                     |
+|---------------------------|----------------------|--------|------------------------------------------------------------------|
+| `baichuan2-86`            | HW/Driver            | ✅ Yes | Reuses pytorch-84803 trace                                       |
+| `deepspeed-1801`          | Framework            | ✅ Yes |                                                                  |
+| `deepspeed-5794`          | Framework            | ❌ No  | Invariant relation still under evaluation                        |
+| `lightning-thunder-725`   | Framework            | ✅ Yes |                                                                  |
+| `mmpretrain-702`          | Framework            | ✅ Yes |                                                                  |
+| `pytorch-51800`           | Framework            | ✅ Yes |                                                                  |
+| `pytorch-84803`           | HW/Driver            | ✅ Yes |                                                                  |
+| `pytorch-96600`           | HW/Driver            | ✅ Yes | Reuses pytorch-84803 trace                                       |
+| `pytorch-104336`          | Framework            | ✅ Yes |                                                                  |
+| `pytorch-115607`          | Compiler             | ✅ Yes |                                                                  |
+| `pytorch-forum-84911`     | User Code            | ✅ Yes |                                                                  |
+| `stackoverflow-60335387`  | User Code            | ✅ Yes |                                                                  |
+| `stackoverflow-67180955`  | Framework            | ❌ No  | Requires older Python version no longer supported                |
+| `transformers-17877`      | Framework            | ✅ Yes |                                                                  |
+| `transformers-23723`      | Framework            | ✅ Yes |                                                                  |
+| `transformers-33844`      | Framework            | ✅ Yes |                                                                  |
+| `transformers-34204`      | Framework            | ❌ No  | Invariant support still in progress                              |
+| `x-jxmnop-ddp-out-of-sync`| User Code            | ✅ Yes |                                                                  |
 
-### 3. ⏱️ Early Bug Triggering + Ground Truth Iterations
-We modified the buggy scripts to **trigger the silent issue as early as possible** and documented the **exact iteration** when each bug manifests.  
-You can verify the provided iteration number by inspecting the buggy code or logs as desired.
+We currently support **15 out of 18 bugs** for artifact evaluation.  
+You have already detected `pytorch-forum-84911` in our 5-min tutorial. You will need to detect the rest of the 14 bugs.
 
-## 📂 Resources & Scripts
+Bugs not included in this AE release typically depend on:
+- Unsupported or unstable library versions
+- Very old Python environments
+- Invariant support still in development
 
-> Files described below are all in the [TrainCheck-Evaluation-Workloads](https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/) repo.
+Additionally, a few bugs stem from very specific issues such as faulty hardware, which are inherently difficult to reproduce.
+For such cases—and for bugs that share the same root cause—we may provide a **shared/simulated trace** and a **shared invariant** that is reused across multiple bug IDs.
 
-- **Automation Scripts**  
-  Scripts for running TrainCheck to check invariants on buggy traces.
+## 🧪 Reproducing Silent Issue Detection
 
-- **Pre-collected Traces**  
-  Traces collected from buggy pipelines to avoid complex reproduction steps.
+> All steps described below assumes you are already in the `TrainCheck-Evaluation-Workloads` repo. If not, clone the repository and go to it.
+> ```bash
+> git clone https://github.com/OrderLab/TrainCheck-Evaluation-Workloads.git
+> cd TrainCheck-Evaluation-Workloads
+> ```
 
-- **Curated Invariants List**  
-  A small, hand-picked set of invariants that are known to detect each bug effectively.
+1. Make sure you have a working TrainCheck installation by following [TrainCheck Installation Guide](./installation-guide.md).
 
-- ***[Optional]* Reproduction Scripts & Environment Setup**
-  Provided for each bug (in its respective folder) in case you want to collect your own trace.  
-  This includes environment installation instructions and original buggy training scripts.
+2. Execute `ae_detection.py` to automatically apply invariants to the pre-collected trace. This script generates results into a folder named `checker_output`.
 
-- ***[Optional]* Example Pipelines for Invariant Inference**
-  Clean training pipelines used for inferring relevant invariants prior to checking.
+3. Compare the detection result folder with our claimed checker results, to verify that the checking process makes sense.
+    ```bash
+    diff -r checker_output reference_checker_output/
+    ```
+
+## Expected Results
+
+The `diff -r` command should return without any output.
