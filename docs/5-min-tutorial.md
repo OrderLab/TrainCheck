@@ -98,7 +98,7 @@ traincheck-collect \
 
 # run the checker (~2–6 minutes)
 traincheck-check \
-  --trace-dir traincheck_84911_trace \
+  --trace-folders traincheck_84911_trace \
   --invariants invariants.json
 ```
 
