@@ -68,41 +68,251 @@ For such cases—and for bugs that share the same root cause/manifest—we may p
 1. Make sure you have a working TrainCheck installation by following [TrainCheck Installation Guide](./installation-guide.md).
 
 2. Execute `ae_detection.sh` to automatically apply invariants to the pre-collected trace. This script generates results into a folder named `checker_output`.
-
-3. Compare the detection result folder with our claimed checker results, to verify that the checking process makes sense.
-    ```bash
-    diff -r checker_output reference_checker_output/
-    ```
+   ```bash
+   cd silent-issue-detection
+   bash ae_detection.sh
+   ```
 
 ## Expected Results
 
-The `diff -r` command should return no or very little output.
-
-You might see outputs like this
+The `checker_output` folder contains checkering results for each trace.
 ```bash
-(traincheck) (base) yuxuan@ring18:~/TrainCheck-Evaluation-Workloads/silent-issue-detection$ diff -r checker_output reference_checker_output/
-diff -r checker_output/trace_pytorch-115607/failed.log reference_checker_output/trace_pytorch-115607/failed.log
+(base) ➜  checker_output git:(main) tree .
+.
+├── invariants.json
+├── trace_deepspeed-1801
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_mmpretrain-702
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_pytorch-104336
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_pytorch-115607
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_pytorch-51800
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_stackoverflow-60335387
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_transformers-17877
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_transformers-23723
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_transformers-33844
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+└── trace_x-jxmnop-ddp-out-of-sync
+    ├── failed.log
+    ├── not_triggered.log
+    └── passed.log
+```
+You want to make sure **all `failed.log` files are non-empty**, indicating silent errors detected in these traces.
+
+---
+Optionally, we provided a `reference_checker_output` folder containing the expected detection results. You can compare the checking results you get versus our reference results.
+
+When you do this comparison, do keep in mind that your results and our reference results will not be exactly the same, as TrainCheck does not enforce (1) the order of checking when multiple checkable entities are available at the same time, which may lead to invariants violated on different processes or different pairs of variables, (2) the order of fields when serializing checker results. 
+
+Thus, if you do the comparison in a mechanical way (e.g. via `diff -r checker_output reference_checker_output`), you might see outputs like this. The differences are expected and benign.
+```bash
+(base) ➜  silent-issue-detection git:(main) diff -r checker_output reference_checker_output
+diff --color -r checker_output/trace_pytorch-104336/failed.log reference_checker_output/trace_pytorch-104336/failed.log
+75,76c75,76
+<     "detection_time": 2437523672783,
+<     "detection_time_percentage": 0.11841431018590723,
+---
+>     "detection_time": 2437539087694,
+>     "detection_time_percentage": 0.11851643004648255,
+81,82c81,82
+<             "process_id": 9539,
+<             "thread_id": 140711397648192,
+---
+>             "process_id": 9591,
+>             "thread_id": 140324043503424,
+86c86
+<             "attributes._ML_DAIKON_data_ID": 140704882109040,
+---
+>             "attributes._ML_DAIKON_data_ID": 140317529048544,
+116,117c116,117
+<             "time": 2437523672783,
+<             "meta_vars._DATA_PARALLEL_RANK": 4.0,
+---
+>             "time": 2437504805077,
+>             "meta_vars._DATA_PARALLEL_RANK": 5.0,
+123,124c123,124
+<             "process_id": 9429,
+<             "thread_id": 140050208577344,
+---
+>             "process_id": 9747,
+>             "thread_id": 140028492969792,
+128c128
+<             "attributes._ML_DAIKON_data_ID": 140043703504144,
+---
+>             "attributes._ML_DAIKON_data_ID": 140021978318304,
+158,159c158,159
+<             "time": 2437502499438,
+<             "meta_vars._DATA_PARALLEL_RANK": 2.0,
+---
+>             "time": 2437539087694,
+>             "meta_vars._DATA_PARALLEL_RANK": 7.0,
+diff --color -r checker_output/trace_pytorch-115607/failed.log reference_checker_output/trace_pytorch-115607/failed.log
 43,44c43,44
 <                                     "init",
 <                                     "testing"
 ---
 >                                     "testing",
 >                                     "init"
+78,80d77
+<             "exception": NaN,
+<             "exception_msg": NaN,
+<             "proxy_obj_names": NaN,
+113c110,113
+<             "attributes._ML_DAIKON_grad_ID": NaN
+---
+>             "attributes._ML_DAIKON_grad_ID": NaN,
+>             "exception": NaN,
+>             "exception_msg": NaN,
+>             "proxy_obj_names": NaN
+180,182d179
+<             "exception": NaN,
+<             "exception_msg": NaN,
+<             "proxy_obj_names": NaN,
+215c212,215
+<             "attributes._ML_DAIKON_grad_ID": NaN
+---
+>             "attributes._ML_DAIKON_grad_ID": NaN,
+>             "exception": NaN,
+>             "exception_msg": NaN,
+>             "proxy_obj_names": NaN
 261,262c261,262
 <                                     "init",
 <                                     "testing"
 ---
 >                                     "testing",
 >                                     "init"
-diff -r checker_output/trace_transformers-33844/failed.log reference_checker_output/trace_transformers-33844/failed.log
-247c247
+296,298d295
+<             "exception": NaN,
+<             "exception_msg": NaN,
+<             "proxy_obj_names": NaN,
+331c328,331
+<             "attributes._ML_DAIKON_grad_ID": NaN
+---
+>             "attributes._ML_DAIKON_grad_ID": NaN,
+>             "exception": NaN,
+>             "exception_msg": NaN,
+>             "proxy_obj_names": NaN
+diff --color -r checker_output/trace_pytorch-51800/failed.log reference_checker_output/trace_pytorch-51800/failed.log
+34,56d33
+<             "func_call_id": "b39a4a81b2c24473ba916ab1832fbf12_19876858668012869",
+<             "thread_id": 140254285555520,
+<             "process_id": 3499981,
+<             "meta_vars.step": 0,
+<             "type": "function_call (pre)",
+<             "function": "torch.nn.modules.module.Module.eval",
+<             "is_bound_method": true,
+<             "obj_id": 140250960790096,
+<             "args": {
+<                 "0": {
+<                     "__main__.SimpleCNN": {
+<                         "call_super_init": false,
+<                         "dump_patches": false,
+<                         "training": true
+<                     }
+<                 }
+<             },
+<             "kwargs": {},
+<             "time": 19876858668088743,
+<             "return_values": NaN,
+<             "exception": NaN,
+<             "exception_msg": NaN,
+<             "proxy_obj_names": NaN,
+60a38,41
+>             "process_id": 3499981,
+>             "thread_id": 140254285555520,
+>             "time": 19876858668088743,
+>             "meta_vars.step": 0,
+89c70,89
+<             "attributes._ML_DAIKON_grad_ID": NaN
+---
+>             "type": "function_call (pre)",
+>             "attributes._ML_DAIKON_grad_ID": NaN,
+>             "func_call_id": "b39a4a81b2c24473ba916ab1832fbf12_19876858668012869",
+>             "function": "torch.nn.modules.module.Module.eval",
+>             "is_bound_method": true,
+>             "obj_id": 140250960790096,
+>             "args": {
+>                 "0": {
+>                     "__main__.SimpleCNN": {
+>                         "call_super_init": false,
+>                         "dump_patches": false,
+>                         "training": true
+>                     }
+>                 }
+>             },
+>             "kwargs": {},
+>             "return_values": NaN,
+>             "exception": NaN,
+>             "exception_msg": NaN,
+>             "proxy_obj_names": NaN
+diff --color -r checker_output/trace_transformers-33844/failed.log reference_checker_output/trace_transformers-33844/failed.log
+244,246d243
 <                 "enabled": {
----
->                 "cache_enabled": {
-250c250
-<                 "cache_enabled": {
----
+<                     "bool": true
+<                 },
+250a248,250
+>                     "bool": true
+>                 },
 >                 "enabled": {
+diff --color -r checker_output/trace_x-jxmnop-ddp-out-of-sync/failed.log reference_checker_output/trace_x-jxmnop-ddp-out-of-sync/failed.log
+81,82c81,82
+<             "process_id": 89557,
+<             "thread_id": 140661207828288,
+---
+>             "process_id": 89558,
+>             "thread_id": 140625926412096,
+85c85
+<             "meta_vars._DATA_PARALLEL_RANK": "0",
+---
+>             "meta_vars._DATA_PARALLEL_RANK": "1",
+87c87
+<             "attributes._ML_DAIKON_data_ID": 140656561409856,
+---
+>             "attributes._ML_DAIKON_data_ID": 140621279056480,
+117c117
+<             "time": 123297988837864,
+---
+>             "time": 123299970638648,
+123,124c123,124
+<             "process_id": 89558,
+<             "thread_id": 140625926412096,
+---
+>             "process_id": 89557,
+>             "thread_id": 140661207828288,
+127c127
+<             "meta_vars._DATA_PARALLEL_RANK": "1",
+---
+>             "meta_vars._DATA_PARALLEL_RANK": "0",
+129c129
+<             "attributes._ML_DAIKON_data_ID": 140621279058160,
+---
+>             "attributes._ML_DAIKON_data_ID": 140656561411776,
+159c159
+<             "time": 123299970638648,
+---
+>             "time": 123297988837864,
 ```
-
-Such differences are expected and benign. TrainCheck do not enforce the ordering when serializing data structures like `set`, which might cause you to see diffs like this.
