@@ -6,9 +6,9 @@ import os
 import yaml
 
 import traincheck.config.config as config
-import traincheck.instrumentor as instrumentor
+from . import instrumentor as instrumentor
 import traincheck.proxy_wrapper.proxy_config as proxy_config
-import traincheck.runner as runner
+from . import runner as runner
 from traincheck.config.config import InstrOpt
 from traincheck.invariant.base_cls import (
     APIParam,

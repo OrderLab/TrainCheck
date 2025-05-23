@@ -17,7 +17,7 @@ from traincheck.invariant import (
     find_precondition,
     relation_pool,
 )
-from traincheck.trace import MDNONEJSONEncoder, select_trace_implementation
+from .trace import MDNONEJSONEncoder, select_trace_implementation
 from traincheck.utils import register_custom_excepthook
 
 register_custom_excepthook()

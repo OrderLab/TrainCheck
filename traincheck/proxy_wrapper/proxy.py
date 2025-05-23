@@ -240,7 +240,7 @@ class Proxy:
                 assert not from_iter
 
                 self.proxy_parameters(obj, parent_name=var_name)
-                for name, module in obj.named_children():
+                for name, module in obj.named_children():    # ! Question: why not directly use obj.named_parameters()?
                     proxy_module = Proxy(
                         module, var_name=var_name + "." + name, recurse=True
                     )

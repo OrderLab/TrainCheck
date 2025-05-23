@@ -68,4 +68,4 @@ eval_scripts/perf_benchmark/overhead-e2e/*/traincheck*
 *ubyte*
 eval_scripts/**/*.png
 traincheck_run*
-trace_*
+firsttest/*
