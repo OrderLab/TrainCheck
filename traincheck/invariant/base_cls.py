@@ -9,14 +9,14 @@ import math
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
-from ..config import config as config
-from ..instrumentor.dumper import var_to_serializable
-from ..invariant.symbolic_value import (
+import traincheck.config.config as config
+from traincheck.instrumentor.dumper import var_to_serializable
+from traincheck.invariant.symbolic_value import (
     GENERALIZED_TYPES,
     check_generalized_value_match,
 )
-from ..trace.trace import Trace, VarInstId
-from ..trace.types import (
+from traincheck.trace.trace import Trace, VarInstId
+from traincheck.trace.types import (
     MD_NONE,
     FuncCallEvent,
     FuncCallExceptionEvent,
@@ -25,8 +25,7 @@ from ..trace.types import (
     MDNONEJSONDecoder,
     VarChangeEvent,
 )
-from ..utils import safe_isnan
-
+from traincheck.utils import safe_isnan
 
 class Meta_NOT_SET(type):
     def __str__(cls):

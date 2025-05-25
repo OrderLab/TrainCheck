@@ -6,7 +6,7 @@ from traincheck.invariant.consistency_transient_vars import (
     ConsistentOutputRelation,
     ThresholdRelation,
 )
-from ..invariant.contain_relation import APIContainRelation
+from traincheck.invariant.contain_relation import APIContainRelation
 from traincheck.invariant.cover_relation import FunctionCoverRelation
 from traincheck.invariant.DistinctArgumentRelation import DistinctArgumentRelation
 from traincheck.invariant.lead_relation import FunctionLeadRelation

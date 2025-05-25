@@ -6,9 +6,9 @@ import os
 
 from tqdm import tqdm
 
-from .invariant import CheckerResult, Invariant, read_inv_file
-from .trace import MDNONEJSONEncoder, Trace, select_trace_implementation
-from .utils import register_custom_excepthook
+from traincheck.invariant import CheckerResult, Invariant, read_inv_file
+from traincheck.trace import MDNONEJSONEncoder, Trace, select_trace_implementation
+from traincheck.utils import register_custom_excepthook
 
 register_custom_excepthook()
 

@@ -10,6 +10,8 @@ from torchvision import datasets, transforms
 from traincheck import annotate_stage
 from traincheck.instrumentor import meta_vars
 
+import subprocess
+
 meta_vars["step"] = -1
 
 
@@ -208,6 +210,16 @@ def main():
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+
+    command = [
+        "python", "-m", "traincheck.checker_period",
+        "--trace-folders", "./firsttest/traincheck_84911_trace/",
+        "--invariants", "./firsttest/invariants_test.json",
+        "--output-dir", "./firsttest/"
+    ]
+
+    process = subprocess.Popen(command)
+
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
