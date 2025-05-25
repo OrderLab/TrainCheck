@@ -6,9 +6,9 @@ import os
 
 from tqdm import tqdm
 
-from traincheck.invariant import CheckerResult, Invariant, read_inv_file
-from traincheck.trace import MDNONEJSONEncoder, Trace, select_trace_implementation
-from traincheck.utils import register_custom_excepthook
+from .invariant import CheckerResult, Invariant, read_inv_file
+from .trace import MDNONEJSONEncoder, Trace, select_trace_implementation
+from .utils import register_custom_excepthook
 
 register_custom_excepthook()
 
@@ -43,7 +43,7 @@ def check_engine(
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         logger.info("=====================================")
         # logger.debug("Checking invariant %s on trace %s", inv, trace)
-        res = inv.check(trace, check_relation_first)
+        res = inv.period_check(trace, check_relation_first)
         res.calc_and_set_time_precentage(trace.get_start_time(), trace.get_end_time())
         logger.info("Invariant %s on trace %s: %s", inv, trace, res)
         results.append(res)
@@ -126,8 +126,12 @@ def main():
     ## DEBUG
     time_now = f"{time_now}_relation_first_{args.check_relation_first}"
     # set logging to a file
+    if args.output_dir:
+        log_file = os.path.join(args.output_dir, f"traincheck_checker_{time_now}.log")
+    else:
+        log_file = f"traincheck_checker_{time_now}.log"
     logging.basicConfig(
-        filename=f"traincheck_checker_{time_now}.log",
+        filename=log_file,
         level=log_level,
     )
 
@@ -141,6 +145,8 @@ def main():
     # create the output folder if not exists
     if not args.output_dir:
         args.output_dir = f"traincheck_checker_results_{time_now}"
+    else:
+        args.output_dir = os.path.join(args.output_dir, f"traincheck_checker_results_{time_now}")
     os.makedirs(args.output_dir, exist_ok=True)
 
     # copy the invariants to the output folder

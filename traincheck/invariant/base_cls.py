@@ -9,14 +9,14 @@ import math
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
-import traincheck.config.config as config
-from traincheck.instrumentor.dumper import var_to_serializable
-from traincheck.invariant.symbolic_value import (
+from ..config import config as config
+from ..instrumentor.dumper import var_to_serializable
+from ..invariant.symbolic_value import (
     GENERALIZED_TYPES,
     check_generalized_value_match,
 )
-from traincheck.trace.trace import Trace, VarInstId
-from traincheck.trace.types import (
+from ..trace.trace import Trace, VarInstId
+from ..trace.types import (
     MD_NONE,
     FuncCallEvent,
     FuncCallExceptionEvent,
@@ -25,7 +25,7 @@ from traincheck.trace.types import (
     MDNONEJSONDecoder,
     VarChangeEvent,
 )
-from traincheck.utils import safe_isnan
+from ..utils import safe_isnan
 
 
 class Meta_NOT_SET(type):
@@ -1353,6 +1353,19 @@ class Invariant:
             f"Checking invariant: {self.text_description} of relation {self.relation}"
         )
         return self.relation.static_check_all(trace, self, check_relation_first)
+    
+    def period_check(self, trace: Trace, check_relation_first: bool) -> CheckerResult:
+        assert (
+            self.precondition is not None
+        ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
+
+        logging.getLogger(__name__).info(
+            f"Checking invariant: {self.text_description} of relation {self.relation}"
+        )
+        print(
+            f"Checking invariant: {self.text_description} of relation {self.relation}"
+        )
+        return self.relation.period_check_all(trace, self, check_relation_first)
 
 
 class CheckerResult:
