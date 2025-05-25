@@ -1707,6 +1707,22 @@ class Relation(abc.ABC):
         """
         pass
 
+    @staticmethod
+    @abc.abstractmethod
+    def period_check_all(
+        trace: Trace, inv: Invariant, check_relation_first: bool
+    ) -> CheckerResult:
+        """Given a trace and an invariant, should return a boolean value
+        indicating whether the invariant holds on the trace.
+
+        args:
+            trace: Trace
+                A trace to check the invariant on.
+            inv: Invariant
+                The invariant to check on the trace.
+        """
+        pass
+
 
 def read_inv_file(file_path: str | list[str]) -> list[Invariant]:
     if isinstance(file_path, str):
