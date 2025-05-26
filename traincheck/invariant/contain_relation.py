@@ -1297,6 +1297,7 @@ Defaulting to skip the var preconditon check for now.
                 ), "Expected the invariant to be triggered, check internal logic correctness"
                 nums_failed += 1
                 print(f"nums_failed: {nums_failed}")
+                logger.info(f"nums_failed: {nums_failed}")
                 if nums_failed == 1:
                     result = CheckerResult(
                         trace=[parent_pre_record],

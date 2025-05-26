@@ -124,7 +124,7 @@ def main():
 
     checker_times = 0
 
-    while checker_times < 5:
+    while checker_times < 20:
         time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
         ## DEBUG
@@ -181,7 +181,16 @@ def main():
                         trace_parent_folder += "_1"
                 trace_parent_folders.append(trace_parent_folder)
                 logger.info("Reading traces from %s", "\n".join(trace_files))
-                traces.append(read_trace_file(trace_files))
+                for trace_file in trace_files:
+                    os.makedirs(os.path.join(output_dir, "tracefiles"), exist_ok=True)
+                    os.system(f"cp {trace_file} {output_dir}/tracefiles/")
+                try:
+                    traces.append(read_trace_file(trace_files))
+                except Exception as e:
+                    logger.error(
+                        "Error reading trace files from %s: %s", trace_files, e
+                    )
+                    continue
 
         logger.addHandler(logging.StreamHandler())
         for trace, trace_parent_folder in zip(traces, trace_parent_folders):
@@ -246,9 +255,11 @@ def main():
                     if res.check_passed and res.triggered:
                         json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
                         f.write("\n")
-    
-        checker_times += 1
-        time.sleep(5)
+        logger.info(time_now)
+        # checker_times += 1
+        logger.info("============================================================================")
+        logger.info("============================================================================")
+        time.sleep(30)
 
 
 if __name__ == "__main__":
