@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import time
 
 from tqdm import tqdm
 
@@ -121,129 +122,133 @@ def main():
     else:
         log_level = logging.INFO
 
-    time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    checker_times = 0
 
-    ## DEBUG
-    time_now = f"{time_now}_relation_first_{args.check_relation_first}"
-    # set logging to a file
-    if args.output_dir:
-        log_file = os.path.join(args.output_dir, f"traincheck_checker_{time_now}.log")
-    else:
+    while checker_times < 5:
+        time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        ## DEBUG
+        time_now = f"{time_now}_relation_first_{args.check_relation_first}"
+        # set logging to a file
+
         log_file = f"traincheck_checker_{time_now}.log"
-    logging.basicConfig(
-        filename=log_file,
-        level=log_level,
-    )
+        logging.basicConfig(
+            filename=log_file,
+            level=log_level,
+        )
 
-    logger = logging.getLogger(__name__)
+        logger = logging.getLogger(__name__)
 
-    # log all the arguments
-    logger.info("Checker started with Arguments:")
-    for arg, val in vars(args).items():
-        logger.info("%s: %s", arg, val)
+        # log all the arguments
+        logger.info("Checker started with Arguments:")
+        for arg, val in vars(args).items():
+            logger.info("%s: %s", arg, val)
 
-    # create the output folder if not exists
-    if not args.output_dir:
-        args.output_dir = f"traincheck_checker_results_{time_now}"
-    else:
-        args.output_dir = os.path.join(args.output_dir, f"traincheck_checker_results_{time_now}")
-    os.makedirs(args.output_dir, exist_ok=True)
+        # create the output folder if not exists
+        if not args.output_dir:
+            output_dir = f"traincheck_checker_results_{time_now}"
+        else:
+            output_dir = os.path.join(args.output_dir, f"traincheck_checker_results_{time_now}")
+        os.makedirs(output_dir, exist_ok=True)
 
-    # copy the invariants to the output folder
-    for inv_file in args.invariants:
-        os.system(f"cp {inv_file} {args.output_dir}/invariants.json")
+        # copy the invariants to the output folder
+        for inv_file in args.invariants:
+            os.system(f"cp {inv_file} {output_dir}/invariants.json")
 
-    logger.info("Reading invaraints from %s", "\n".join(args.invariants))
-    invs = read_inv_file(args.invariants)
+        logger.info("Reading invaraints from %s", "\n".join(args.invariants))
+        invs = read_inv_file(args.invariants)
 
-    traces = []
-    trace_parent_folders = []
-    if args.traces is not None:
-        logger.info("Reading traces from %s", "\n".join(args.traces))
-        trace_parent_folders = [os.path.basename(os.path.commonpath(args.traces[0]))]
-        traces.append(read_trace_file(args.traces))
-    if args.trace_folders is not None:
-        for trace_folder in args.trace_folders:
-            # file discovery
-            trace_files = [
-                f"{trace_folder}/{file}"
-                for file in os.listdir(trace_folder)
-                if file.startswith("trace_") or file.startswith("proxy_log.json")
+        traces = []
+        trace_parent_folders = []
+        if args.traces is not None:
+            logger.info("Reading traces from %s", "\n".join(args.traces))
+            trace_parent_folders = [os.path.basename(os.path.commonpath(args.traces[0]))]
+            traces.append(read_trace_file(args.traces))
+        if args.trace_folders is not None:
+            for trace_folder in args.trace_folders:
+                # file discovery
+                trace_files = [
+                    f"{trace_folder}/{file}"
+                    for file in os.listdir(trace_folder)
+                    if file.startswith("trace_") or file.startswith("proxy_log.json")
+                ]
+                trace_parent_folder = os.path.basename(trace_folder)
+                if trace_parent_folder in trace_parent_folders:
+                    logger.warning(
+                        f"Found duplicate trace folder name {trace_folder}, breaking tie by adding _1 to the name"
+                    )
+                    while trace_parent_folder in trace_parent_folders:
+                        trace_parent_folder += "_1"
+                trace_parent_folders.append(trace_parent_folder)
+                logger.info("Reading traces from %s", "\n".join(trace_files))
+                traces.append(read_trace_file(trace_files))
+
+        logger.addHandler(logging.StreamHandler())
+        for trace, trace_parent_folder in zip(traces, trace_parent_folders):
+            results_per_trace = check_engine(trace, invs, args.check_relation_first)
+            results_per_trace_failed = [
+                res for res in results_per_trace if not res.check_passed
             ]
-            trace_parent_folder = os.path.basename(trace_folder)
-            if trace_parent_folder in trace_parent_folders:
-                logger.warning(
-                    f"Found duplicate trace folder name {trace_folder}, breaking tie by adding _1 to the name"
-                )
-                while trace_parent_folder in trace_parent_folders:
-                    trace_parent_folder += "_1"
-            trace_parent_folders.append(trace_parent_folder)
-            logger.info("Reading traces from %s", "\n".join(trace_files))
-            traces.append(read_trace_file(trace_files))
+            results_per_trace_not_triggered = [
+                res for res in results_per_trace if res.triggered is False
+            ]
 
-    logger.addHandler(logging.StreamHandler())
-    for trace, trace_parent_folder in zip(traces, trace_parent_folders):
-        results_per_trace = check_engine(trace, invs, args.check_relation_first)
-        results_per_trace_failed = [
-            res for res in results_per_trace if not res.check_passed
-        ]
-        results_per_trace_not_triggered = [
-            res for res in results_per_trace if res.triggered is False
-        ]
+            logger.info("Checking finished. %d invariants checked", len(results_per_trace))
+            logger.info(
+                "Total failed invariants: %d/%d",
+                len(results_per_trace_failed),
+                len(results_per_trace),
+            )
+            logger.info(
+                "Total passed invariants: %d/%d",
+                len(results_per_trace) - len(results_per_trace_failed),
+                len(results_per_trace),
+            )
+            logger.info(
+                "Total invariants that are not triggered: %d/%d",
+                len(results_per_trace_not_triggered),
+                len(results_per_trace),
+            )
 
-        logger.info("Checking finished. %d invariants checked", len(results_per_trace))
-        logger.info(
-            "Total failed invariants: %d/%d",
-            len(results_per_trace_failed),
-            len(results_per_trace),
-        )
-        logger.info(
-            "Total passed invariants: %d/%d",
-            len(results_per_trace) - len(results_per_trace_failed),
-            len(results_per_trace),
-        )
-        logger.info(
-            "Total invariants that are not triggered: %d/%d",
-            len(results_per_trace_not_triggered),
-            len(results_per_trace),
-        )
+            # mkdir for the trace parent folder in the output folder
+            os.makedirs(os.path.join(output_dir, trace_parent_folder), exist_ok=True)
 
-        # mkdir for the trace parent folder in the output folder
-        os.makedirs(os.path.join(args.output_dir, trace_parent_folder), exist_ok=True)
+            # dump the results to a file
+            with open(
+                os.path.join(
+                    output_dir, trace_parent_folder, f"failed_{time_now}.log"
+                ),
+                "w",
+            ) as f:
+                for res in results_per_trace:
+                    if not res.check_passed:
+                        json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                        f.write("\n")
 
-        # dump the results to a file
-        with open(
-            os.path.join(
-                args.output_dir, trace_parent_folder, f"failed_{time_now}.log"
-            ),
-            "w",
-        ) as f:
-            for res in results_per_trace:
-                if not res.check_passed:
-                    json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                    f.write("\n")
+            with open(
+                os.path.join(
+                    output_dir, trace_parent_folder, f"not_triggered_{time_now}.log"
+                ),
+                "w",
+            ) as f:
+                for res in results_per_trace:
+                    if not res.triggered:
+                        json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                        f.write("\n")
 
-        with open(
-            os.path.join(
-                args.output_dir, trace_parent_folder, f"not_triggered_{time_now}.log"
-            ),
-            "w",
-        ) as f:
-            for res in results_per_trace:
-                if not res.triggered:
-                    json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                    f.write("\n")
-
-        with open(
-            os.path.join(
-                args.output_dir, trace_parent_folder, f"passed_{time_now}.log"
-            ),
-            "w",
-        ) as f:
-            for res in results_per_trace:
-                if res.check_passed and res.triggered:
-                    json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                    f.write("\n")
+            with open(
+                os.path.join(
+                    output_dir, trace_parent_folder, f"passed_{time_now}.log"
+                ),
+                "w",
+            ) as f:
+                for res in results_per_trace:
+                    if res.check_passed and res.triggered:
+                        json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                        f.write("\n")
+    
+        checker_times += 1
+        time.sleep(5)
 
 
 if __name__ == "__main__":
