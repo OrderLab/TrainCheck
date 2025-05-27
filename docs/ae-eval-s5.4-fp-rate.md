@@ -51,10 +51,10 @@ The target results are discussed in the main text of **Section 5.4** of the pape
     python3 ae_fp.py --bench workloads --overwrite-existing-results
     ```
 
-4. Execute `compute_fp_rates.py` to compute the false positive rates.
+4. Execute `compute_fp_rate.py` to compute the false positive rates.
 
     ```bash
-    python3 compute_fp_rates.py
+    python3 compute_fp_rate.py
     ```
 
 ## 👀 What to Expect During Execution
@@ -76,7 +76,7 @@ If you see persistent issues, it will likely be a environment issue or software 
 
 ## 🧐 How to verify the results?
 
-The `compute_fp_rates.py` script generates a file called `fp_rates.csv` under the current directory. Looking like this
+The `compute_fp_rate.py` script generates a file called `fp_rates.csv` under the current directory. Looking like this
 
 ```csv
 setup,fp_rate
