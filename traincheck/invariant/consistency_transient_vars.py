@@ -577,6 +577,11 @@ class ConsistentOutputRelation(Relation):
         # raise NotImplementedError
 
     @staticmethod
+    def get_mapping_key(inv: Invariant) -> list[APIParam]:
+        # TODO: check
+        return [inv.params[0]]
+
+    @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
         return []
 
@@ -883,6 +888,11 @@ class ConsistentInputOutputRelation(Relation):
             check_passed=True,
             triggered=triggered,
         )
+    
+    @staticmethod
+    def get_mapping_key(inv: Invariant) -> list[APIParam]:
+        # TODO: check
+        return [inv.params[1]]
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
@@ -1272,6 +1282,11 @@ class ThresholdRelation(Relation):
             check_passed=True,
             triggered=triggered,
         )
+    
+    @staticmethod
+    def get_mapping_key(inv: Invariant) -> list[APIParam]:
+        # TODO: check
+        return [inv.params[1]]
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:

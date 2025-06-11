@@ -526,6 +526,10 @@ class ConsistencyRelation(Relation):
         )
 
     @staticmethod
+    def get_mapping_key(inv: Invariant) -> list[VarTypeParam]:
+        return [inv.params[0], inv.params[1]]
+
+    @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
         assert (
             len(hypothesis.invariant.params) == 2

@@ -502,7 +502,7 @@ disabling model tracking."""
     source_code = instrumentor_checker(
         source_code,
         trace_folders=output_dir,
-        invariants= os.path.abspath("./invariants_test.json"),
+        invariants= os.path.abspath("./invariants.json"),
     )
 
     if args.copy_all_files:
