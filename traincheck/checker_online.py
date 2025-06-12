@@ -27,62 +27,34 @@ from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
 from watchdog.events import FileSystemEventHandler
 import os
-
-class StreamLogHandler(FileSystemEventHandler):
-    def __init__(self, file_path):
-        self.file_path = file_path
-        self.fp = open(file_path, 'r')
-
-        self._save_initial_content()
-
-        self.fp.seek(0, 2) 
-
-    def _save_initial_content(self):
-        self.fp.seek(0)
-        lines = self.fp.readlines()
-        if not lines:
-            return
-        
-        # TODO: remove, just for check correctness
-        time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        dir_name = "test_for_watch_dog"
-        os.makedirs(dir_name, exist_ok=True)
-        if self.file_path.endswith(".json"):
-            file_name = os.path.join(dir_name, f"log_init_proxy_{time_now}.txt")
-        else:
-            file_name = os.path.join(dir_name, f"log_init_api_{time_now}.txt")
-        with open(file_name, 'w') as f:
-            f.writelines(lines)
-
-    def on_modified(self, event):
-        if os.path.abspath(event.src_path) != os.path.abspath(self.file_path):
-            return
-
-        # TODO: remove, just for check correctness
-        time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        dir_name = "test_for_watch_dog"
-        os.makedirs(dir_name, exist_ok=True)
-        if self.file_path.endswith(".json"):
-            file_name = os.path.join("test_for_watch_dog", f"log_proxy_{time_now}.txt")
-        else:
-            file_name = os.path.join("test_for_watch_dog", f"log_api_{time_now}.txt")
-        with open(file_name, 'a') as f:
-            for line in self.fp:
-                f.write(line)
+from traincheck.trace.utils import flatten_dict, replace_none_with_md_none
+import queue
+from traincheck.trace.types import VarInstId
+from traincheck.config import config
+import re
+from traincheck.trace.types import Liveness
 
 def sort_inv_file(invariants: str):
     invs = read_inv_file(invariants)
     param_to_invs : dict[Param, list[Invariant]] = {}
-    print(len(invs))
+    vartype_to_invs : dict[str, dict[str, list[Invariant]]] = {}
     for inv in invs:
         assert (
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         params = inv.relation.get_mapping_key(inv)
         for param in params:
-            if param not in param_to_invs:
-                param_to_invs[param] = []
-            param_to_invs[param].append(inv)
+            if isinstance(param, VarTypeParam):
+                if param.var_type not in vartype_to_invs:
+                    vartype_to_invs[param.var_type] = {}
+                if param.attr_name not in vartype_to_invs[param.var_type]:
+                    vartype_to_invs[param.var_type][param.attr_name] = []
+                vartype_to_invs[param.var_type][param.attr_name].append(inv)
+            else:
+                if param not in param_to_invs:
+                    param_to_invs[param] = []
+                param_to_invs[param].append(inv)
+
 
     # with open("./test.txt", "w") as f:     
     #     for param, invs_ in param_to_invs.items():
@@ -95,7 +67,213 @@ def sort_inv_file(invariants: str):
     #         for inv in invs_:
     #             f.write(json.dumps(inv.to_dict(), cls=MDNONEJSONEncoder))
     #             f.write("\n")
-    return param_to_invs
+    return param_to_invs, vartype_to_invs
+
+
+class Trace_record:
+    def __init__(self, flat_dict=None):
+        self.func_call_id = None
+        self.thread_id = None
+        self.process_id = None
+        self.meta_vars_step = None
+        self.type = None
+        self.function = None
+        self.is_bound_method = None
+        self.obj_id = None
+        self.args = None
+        self.kwargs = None
+        self.time = None
+        self.return_values = None
+        self.exception = None
+        self.exception_msg = None
+        self.meta_vars_stage = None
+        self.proxy_obj_names = None
+        self.var_name = None
+        self.var_type = None
+        self.mode = None
+        self.dump_loc = None
+        self.attributes = {
+            "_ML_DAIKON_data_ID": None,
+            "data": None,
+            "dtype": None,
+            "grad": None,
+            "grad_fn": None,
+            "is_cpu": None,
+            "is_cuda": None,
+            "is_ipu": None,
+            "is_leaf": None,
+            "is_meta": None,
+            "is_mkldnn": None,
+            "is_mps": None,
+            "is_mtia": None,
+            "is_nested": None,
+            "is_ort": None,
+            "is_quantized": None,
+            "is_sparse": None,
+            "is_sparse_csr": None,
+            "is_vulkan": None,
+            "is_xla": None,
+            "is_xpu": None,
+            "itemsize": None,
+            "name": None,
+            "nbytes": None,
+            "ndim": None,
+            "requires_grad": None,
+            "retains_grad": None,
+            "shape": None,
+            "_ML_DAIKON_grad_ID": None
+        }
+        if flat_dict:
+            self._load_from_flat_dict(flat_dict)
+
+    def _load_from_flat_dict(self, flat_dict):
+        for key, value in flat_dict.items():
+            if key.startswith("attributes."):
+                attr_key = key[len("attributes."):]
+                if attr_key in self.attributes:
+                    self.attributes[attr_key] = value
+            elif hasattr(self, key):
+                setattr(self, key, value)
+            # TODO: else log
+
+# ! NOTE: this is different from the one in traincheck/trace/types.py
+class AttrState:
+    def __init__(self, value: type, liveness: Liveness, trace_record: Trace_record):
+        self.value: type = value
+        self.liveness: Liveness = liveness
+        self.trace_record = [trace_record]
+
+    def __str__(self):
+        return f"Value: {self.value}, Liveness: {self.liveness}"
+
+    def __eq__(self, other):
+        return self.value == other.value and self.liveness == other.liveness
+
+
+class StreamLogHandler(FileSystemEventHandler):
+    def __init__(self, file_path):
+        self.file_path = file_path
+        self.fp = open(file_path, 'r')
+
+        self.trace_records = []
+        self.queue = queue.Queue()
+
+        # TODO: these map should not belong to this class
+        self.varid_map = {}
+        self.type_map = {}
+
+        self._save_initial_content()
+
+        self.fp.seek(0, 2) 
+
+    def set_maps(self, trace_record):
+        if trace_record.var_type is not None or trace_record.var_name is not None:
+            varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
+            if varid not in self.varid_map:
+                self.varid_map[varid] = {}
+            
+            if trace_record.attributes is not None:
+                for attr_name, value in trace_record.attributes.items():
+                    if value is None:
+                        continue
+                    
+                    from traincheck.invariant.base_cls import make_hashable
+
+                    curr_value = make_hashable(value)
+                    if any(
+                        [
+                            re.match(pattern, attr_name) is not None
+                            for pattern in config.PROP_ATTR_PATTERNS
+                        ]
+                    ):
+                        continue
+
+                    if attr_name not in self.varid_map[varid]:
+                        self.varid_map[varid][attr_name] = [
+                            AttrState(
+                                curr_value,
+                                Liveness(trace_record.time, None),
+                                trace_record,
+                            )    
+                        ]
+                    else:
+                        if self.varid_map[varid][attr_name][-1].value != curr_value:
+                            self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record.time
+                            self.varid_map[varid][attr_name].append(
+                                AttrState(
+                                    curr_value,
+                                    Liveness(trace_record.time, None),
+                                    trace_record,
+                                )
+                            )
+                        else:
+                            self.varid_map[varid][attr_name][-1].trace_record.append(trace_record)
+
+            if trace_record.var_type is not None:
+                if trace_record.var_type not in self.type_map:
+                    self.type_map[trace_record.var_type] = set()
+                self.type_map[trace_record.var_type].add(varid)
+
+        self.queue.put(trace_record)
+
+
+    def _handle_line(self, lines):
+        for line in lines:
+            trace_record = None
+            try:
+                flat_dict = flatten_dict(
+                        json.loads(line, object_hook=replace_none_with_md_none),
+                        skip_fields=["args", "kwargs", "return_values"],
+                    )
+                trace_record = Trace_record(flat_dict)
+                self.trace_records.append(trace_record)
+                self.set_maps(trace_record)
+
+            except Exception as e:
+                # TODO: log
+                print(line)
+                raise e
+
+
+    def _save_initial_content(self):
+        self.fp.seek(0)
+        lines = self.fp.readlines()
+        if not lines:
+            return
+        
+        self._handle_line(lines)
+        print("ok")
+
+        # TODO: remove, just for check correctness
+        # time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # dir_name = "test_for_watch_dog"
+        # os.makedirs(dir_name, exist_ok=True)
+        # if self.file_path.endswith(".json"):
+        #     file_name = os.path.join(dir_name, f"log_init_proxy_{time_now}.txt")
+        # else:
+        #     file_name = os.path.join(dir_name, f"log_init_api_{time_now}.txt")
+        # with open(file_name, 'w') as f:
+        #     f.writelines(lines)
+
+    def on_modified(self, event):
+        if os.path.abspath(event.src_path) != os.path.abspath(self.file_path):
+            return
+
+        self._handle_line(self.fp)
+
+        # TODO: remove, just for check correctness
+        # time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        # dir_name = "test_for_watch_dog"
+        # os.makedirs(dir_name, exist_ok=True)
+        # if self.file_path.endswith(".json"):
+        #     file_name = os.path.join("test_for_watch_dog", f"log_proxy_{time_now}.txt")
+        # else:
+        #     file_name = os.path.join("test_for_watch_dog", f"log_api_{time_now}.txt")
+        # with open(file_name, 'a') as f:
+        #     for line in self.fp:
+        #         f.write(line)
+
+
 
 def run_stream_check(log_paths):
     observer = PollingObserver()
@@ -121,12 +299,13 @@ def run_stream_check(log_paths):
     observer.join()
 
 def check(invariants: str, log_paths: str):
-    param_to_invs = sort_inv_file(invariants)
+    param_to_invs, vartype_to_invs = sort_inv_file(invariants)
     run_stream_check(log_paths)
 
 def main():
     # print(aaaaa)
-    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "test")
+    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "test")
+    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_deepspeed-1801")
                 
 if __name__ == "__main__":
     main()
