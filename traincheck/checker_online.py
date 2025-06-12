@@ -150,17 +150,24 @@ class AttrState:
         return self.value == other.value and self.liveness == other.liveness
 
 
+class Checker_data:
+    def __init__(self):
+        self.trace_records = []
+        self.check_queue = queue.Queue()
+        self.varid_map = {}
+        self.type_map = {}
+
 class StreamLogHandler(FileSystemEventHandler):
-    def __init__(self, file_path):
+    def __init__(self, file_path, checker_data: Checker_data):
         self.file_path = file_path
         self.fp = open(file_path, 'r')
 
         self.trace_records = []
-        self.queue = queue.Queue()
+        self.queue = checker_data.check_queue
 
         # TODO: these map should not belong to this class
-        self.varid_map = {}
-        self.type_map = {}
+        self.varid_map = checker_data.varid_map
+        self.type_map = checker_data.type_map
 
         self._save_initial_content()
 
@@ -275,7 +282,7 @@ class StreamLogHandler(FileSystemEventHandler):
 
 
 
-def run_stream_check(log_paths):
+def run_stream_monitor(log_paths, checker_data: Checker_data):
     observer = PollingObserver()
     handlers = []
 
@@ -284,23 +291,45 @@ def run_stream_check(log_paths):
     for file in os.listdir(log_paths):
         if file.startswith("trace_") or file.endswith("proxy_log.json"):
             file_path = os.path.join(log_paths, file)
-            handler = StreamLogHandler(file_path)
+            handler = StreamLogHandler(file_path, checker_data)
             handlers.append(handler)
             watch_dir = os.path.dirname(file_path)
             observer.schedule(handler, path=watch_dir, recursive=False)
             print(f"Watching: {file_path}")
 
     observer.start()
+    return observer
+ 
+
+def check(invariants: str, log_paths: str):
+    param_to_invs, vartype_to_invs = sort_inv_file(invariants)
+    checker_data = Checker_data()
+    observer = run_stream_monitor(log_paths, checker_data)
+
     try:
         while True:
-            time.sleep(1)
+            trace_record = checker_data.check_queue.get()
+            if trace_record is None:
+                continue
+            print("check trace record")
+
+            varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
+            if varid.var_type in vartype_to_invs:
+                print(f"matched var_type: {varid.var_type}")
+                for attr_name, invs in vartype_to_invs[varid.var_type].items():
+                    if attr_name in trace_record.attributes and trace_record.attributes[attr_name] is not None:
+                        print(f"matched attr_name: {attr_name}")
+                        for inv in invs:
+                            print(inv.text_description)
+                            inv.relation.online_check(True, inv, trace_record, checker_data)
+
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
 
-def check(invariants: str, log_paths: str):
-    param_to_invs, vartype_to_invs = sort_inv_file(invariants)
-    run_stream_check(log_paths)
+
+        
+    
 
 def main():
     # print(aaaaa)

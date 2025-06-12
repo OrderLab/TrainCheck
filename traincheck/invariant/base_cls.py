@@ -1740,6 +1740,11 @@ class Relation(abc.ABC):
     def get_mapping_key(inv: Invariant) -> list[Param]:
         pass 
 
+    @staticmethod
+    @abc.abstractmethod
+    def online_check():
+        pass
+
 
 def read_inv_file(file_path: str | list[str]) -> list[Invariant]:
     if isinstance(file_path, str):

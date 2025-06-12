@@ -18,6 +18,7 @@ from traincheck.invariant.base_cls import (
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import Liveness
+from traincheck.checker_online import Trace_record, Checker_data
 
 tracker_var_field_prefix = "attributes."
 
@@ -527,7 +528,22 @@ class ConsistencyRelation(Relation):
 
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[VarTypeParam]:
+        if inv.params[0] == inv.params[1]:
+            return [inv.params[0]]
         return [inv.params[0], inv.params[1]]
+    
+    @staticmethod
+    def online_check(
+        check_relation_first: bool, 
+        inv: Invariant, 
+        trace_record: Trace_record, 
+        checker_data: Checker_data
+    ):
+        print("11111111111")
+        
+
+        # print(AAAa)
+
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
