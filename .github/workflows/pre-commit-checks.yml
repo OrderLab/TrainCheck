@@ -35,10 +35,8 @@ jobs:
           pip install isort
           pip install ruff==0.3.3
           pip install torch
-          pip install polars
           pip install tqdm
           pip install bytecode
-          pip install deepdiff
 
       - name: Run black
         id: black
