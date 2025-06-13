@@ -558,6 +558,7 @@ class ConsistencyRelation(Relation):
                     print("Attribute not found in trace_record")
                 else:
                     for var2 in checker_data.type_map[param2.var_type]:
+                        print(var2.var_name, trace_record.var_name)
                         if var2 == varid:
                             continue
                         if checker_data.varid_map[var2][param2.attr_name] is None:
@@ -572,15 +573,18 @@ class ConsistencyRelation(Relation):
                                         compare_result = ConsistencyRelation.evaluate(
                                             [check_attr.value, attr.value]
                                         )
+                                        print("compare_result: ",compare_result)
                                         if not compare_result:
                                             if inv.precondition.verify(
-                                                [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
+                                                [check_attr.trace_record[-1], attr.trace_record[-1]], VAR_GROUP_NAME, None
                                             ):
+                                                print("precondition satisfied")
                                                 return False
-                                            
+                                            else:
+                                                print("precondition not satisfied")
                                     else:
                                         if inv.precondition.verify(
-                                            [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
+                                            [check_attr.trace_record[-1], attr.trace_record[-1]], VAR_GROUP_NAME, None
                                         ):
                                             compare_result = ConsistencyRelation.evaluate(
                                                 [check_attr.value, attr.value]

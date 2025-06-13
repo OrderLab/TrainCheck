@@ -323,26 +323,30 @@ def check(invariants: str, log_paths: str):
     param_to_invs, vartype_to_invs = sort_inv_file(invariants)
     checker_data = Checker_data()
     observer = run_stream_monitor(log_paths, checker_data)
-
+    num = 0
     try:
         while True:
             trace_record = checker_data.check_queue.get()
             if trace_record is None:
                 continue
-            print("check trace record")
+            # print("check trace record")
 
             varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
             if varid.var_type in vartype_to_invs:
-                print(f"matched var_type: {varid.var_type}")
+                # print(f"matched var_type: {varid.var_type}")
                 for attr_name, invs in vartype_to_invs[varid.var_type].items():
                     if attr_name in trace_record.attributes and trace_record.attributes[attr_name] is not None:
-                        print(f"matched attr_name: {attr_name}")
+                        # print(f"matched attr_name: {attr_name}")
                         for inv in invs:
                             print(inv.text_description)
-                            inv.relation.online_check(True, inv, trace_record, checker_data)
+                            result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                            if not result:
+                                num += 1
+                                print(f"Violated invariant: {inv.text_description}")
 
     except KeyboardInterrupt:
         observer.stop()
+        print(f"Total violated invariant: {num}")
     observer.join()
 
 
