@@ -573,18 +573,30 @@ class ConsistencyRelation(Relation):
                                             [check_attr.value, attr.value]
                                         )
                                         if not compare_result:
-                                            # TODO: check precondition
-                                            print(1)
-
+                                            if inv.precondition.verify(
+                                                [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
+                                            ):
+                                                return False
+                                            
+                                    else:
+                                        if inv.precondition.verify(
+                                            [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
+                                        ):
+                                            compare_result = ConsistencyRelation.evaluate(
+                                                [check_attr.value, attr.value]
+                                            )
+                                            if not compare_result:
+                                                return False
+                                                
                                 else:
                                     break
 
-
-
-            
+        if param1 == param2:
+            return True
         
+        # if param2.var_type == trace_record.var_type:
 
-
+        return True
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:

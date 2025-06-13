@@ -92,6 +92,7 @@ class Trace_record:
         self.var_type = None
         self.mode = None
         self.dump_loc = None
+        # TODO: attributes and meta_vars not use dict
         self.attributes = {
             "_ML_DAIKON_data_ID": None,
             "data": None,
@@ -123,6 +124,16 @@ class Trace_record:
             "shape": None,
             "_ML_DAIKON_grad_ID": None
         }
+        # TODO: check contain all meta data, and this is the same for many trace record
+        self.meta_vars = {
+            "step": None,
+            "stage": None,
+            "_TENSOR_MODEL_PARALLEL_GROUP": None,
+            "_PIPELINE_MODEL_PARALLEL_GROUP": None,
+            "_MODEL_PARALLEL_GROUP": None,
+            "_EMBEDDING_GROUP": None,
+            "_DATA_PARALLEL_GROUP": None
+        }
         if flat_dict:
             self._load_from_flat_dict(flat_dict)
 
@@ -132,6 +143,13 @@ class Trace_record:
                 attr_key = key[len("attributes."):]
                 if attr_key in self.attributes:
                     self.attributes[attr_key] = value
+            elif key.startswith("meta_vars."):
+                meta_key = key[len("meta_vars."):]
+                if meta_key in self.meta_vars:
+                    self.meta_vars[meta_key] = value
+                else:
+                    # !NOTE: 
+                    print(f"Unknown meta var: {meta_key}")
             elif hasattr(self, key):
                 setattr(self, key, value)
             # TODO: else log
