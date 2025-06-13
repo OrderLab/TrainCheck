@@ -173,7 +173,7 @@ class StreamLogHandler(FileSystemEventHandler):
 
         self.fp.seek(0, 2) 
 
-    def set_maps(self, trace_record):
+    def _set_maps(self, trace_record):
         if trace_record.var_type is not None or trace_record.var_name is not None:
             varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
             if varid not in self.varid_map:
@@ -234,7 +234,7 @@ class StreamLogHandler(FileSystemEventHandler):
                     )
                 trace_record = Trace_record(flat_dict)
                 self.trace_records.append(trace_record)
-                self.set_maps(trace_record)
+                self._set_maps(trace_record)
 
             except Exception as e:
                 # TODO: log
