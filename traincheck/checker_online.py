@@ -141,15 +141,11 @@ class Trace_record:
         for key, value in flat_dict.items():
             if key.startswith("attributes."):
                 attr_key = key[len("attributes."):]
-                if attr_key in self.attributes:
-                    self.attributes[attr_key] = value
+                self.attributes[attr_key] = value
             elif key.startswith("meta_vars."):
                 meta_key = key[len("meta_vars."):]
-                if meta_key in self.meta_vars:
-                    self.meta_vars[meta_key] = value
-                else:
-                    # !NOTE: 
-                    print(f"Unknown meta var: {meta_key}")
+                self.meta_vars[meta_key] = value
+                
             elif hasattr(self, key):
                 setattr(self, key, value)
             # TODO: else log
@@ -357,6 +353,7 @@ def main():
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "test")
     check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_deepspeed-1801")
+    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_test")
                 
 if __name__ == "__main__":
     main()

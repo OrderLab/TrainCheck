@@ -558,9 +558,10 @@ class ConsistencyRelation(Relation):
                     print("Attribute not found in trace_record")
                 else:
                     for var2 in checker_data.type_map[param2.var_type]:
-                        print(var2.var_name, trace_record.var_name)
                         if var2 == varid:
                             continue
+                        print(var2.var_name, trace_record.var_name)
+                        print(var2.process_id, trace_record.process_id)
                         if checker_data.varid_map[var2][param2.attr_name] is None:
                             # TODO:
                             print("Attribute not found in checker_data")
