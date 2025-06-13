@@ -402,7 +402,7 @@ class TracePandas(Trace):
 
         logger.info(f"Found {len(all_context_managers)} context managers.")
 
-        # self.context_manager_states = all_context_managers
+        self.context_manager_states = all_context_managers
 
     def is_stage_annotated(self):
         # ideally we want to have a static manifest for the trace produced by the instrumentor according to the args
