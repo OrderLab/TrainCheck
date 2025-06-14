@@ -1,1 +1,0 @@
-python3 main.py --model RNN_RELU --cuda --epochs 3

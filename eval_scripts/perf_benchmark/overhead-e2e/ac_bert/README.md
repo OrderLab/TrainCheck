@@ -1,1 +1,0 @@
-Adapted from traincheck-input-programs/accelerate/complete_nlp_example

@@ -1,5 +1,0 @@
-modules_to_instr:
-- torch
-- accelerate
-- transformers
-pyscript: main.py

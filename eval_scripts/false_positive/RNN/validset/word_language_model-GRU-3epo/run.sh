@@ -1,1 +1,0 @@
-python3 main.py --model GRU --cuda --epochs 3
