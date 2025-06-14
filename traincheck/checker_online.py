@@ -33,6 +33,8 @@ from traincheck.trace.types import VarInstId
 from traincheck.config import config
 import re
 from traincheck.trace.types import Liveness
+from traincheck.instrumentor.tracer import TraceLineType
+from typing import NamedTuple
 
 def sort_inv_file(invariants: str):
     invs = read_inv_file(invariants)
@@ -43,6 +45,7 @@ def sort_inv_file(invariants: str):
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         params = inv.relation.get_mapping_key(inv)
+        # TODO: param_to_invs 细分为 contain, lead, cover
         for param in params:
             if isinstance(param, VarTypeParam):
                 if param.var_type not in vartype_to_invs:
@@ -163,6 +166,13 @@ class AttrState:
     def __eq__(self, other):
         return self.value == other.value and self.liveness == other.liveness
 
+# ! NOTE: this is different from the one in traincheck/trace/types.py
+class FuncCallEvent:
+    def __init__(self):
+        self.pre_record = None
+        self.post_record = None
+    
+
 
 class Checker_data:
     def __init__(self):
@@ -170,6 +180,7 @@ class Checker_data:
         self.check_queue = queue.Queue()
         self.varid_map = {}
         self.type_map = {}
+        self.pt_map = {}
 
 class StreamLogHandler(FileSystemEventHandler):
     def __init__(self, file_path, checker_data: Checker_data):
@@ -182,6 +193,7 @@ class StreamLogHandler(FileSystemEventHandler):
         # TODO: these map should not belong to this class
         self.varid_map = checker_data.varid_map
         self.type_map = checker_data.type_map
+        self.pt_map = checker_data.pt_map
 
         self._save_initial_content()
 
@@ -233,6 +245,23 @@ class StreamLogHandler(FileSystemEventHandler):
                 if trace_record.var_type not in self.type_map:
                     self.type_map[trace_record.var_type] = set()
                 self.type_map[trace_record.var_type].add(varid)
+        elif trace_record.func_call_id is not None:   
+            process_id = trace_record.process_id
+            thread_id = trace_record.thread_id
+            ptid = (process_id, thread_id)
+            if ptid not in self.pt_map:
+                self.pt_map[ptid] = {}
+            if trace_record.function not in self.pt_map[ptid]:
+                self.pt_map[ptid][trace_record.function] = {}
+            if trace_record.func_call_id not in self.pt_map[ptid][trace_record.function]:
+                self.pt_map[ptid][trace_record.function][trace_record.func_call_id] = FuncCallEvent()
+            if trace_record.type == TraceLineType.FUNC_CALL_PRE:
+                self.pt_map[ptid][trace_record.function][trace_record.func_call_id].pre_record = trace_record
+            elif trace_record.type == TraceLineType.FUNC_CALL_POST:
+                self.pt_map[ptid][trace_record.function][trace_record.func_call_id].post_record = trace_record
+            elif trace_record.type == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+                self.pt_map[ptid][trace_record.function][trace_record.func_call_id].post_record = trace_record
+
 
         self.queue.put(trace_record)
 
@@ -350,8 +379,8 @@ def check(invariants: str, log_paths: str):
 
 def main():
     # print(aaaaa)
-    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "test")
-    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_deepspeed-1801")
+    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
+    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_test")
                 
 if __name__ == "__main__":
