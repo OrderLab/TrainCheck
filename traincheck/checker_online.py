@@ -218,17 +218,16 @@ class StreamLogHandler(FileSystemEventHandler):
                             )    
                         ]
                     else:
-                        if self.varid_map[varid][attr_name][-1].value != curr_value:
-                            self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record.time
-                            self.varid_map[varid][attr_name].append(
-                                AttrState(
-                                    curr_value,
-                                    Liveness(trace_record.time, None),
-                                    trace_record,
-                                )
+                        
+                        self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record.time
+                        self.varid_map[varid][attr_name].append(
+                            AttrState(
+                                curr_value,
+                                Liveness(trace_record.time, None),
+                                trace_record,
                             )
-                        else:
-                            self.varid_map[varid][attr_name][-1].trace_record.append(trace_record)
+                        )
+                        
 
             if trace_record.var_type is not None:
                 if trace_record.var_type not in self.type_map:
