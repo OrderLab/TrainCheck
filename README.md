@@ -43,6 +43,30 @@ TrainCheck is under active development. Features may be incomplete and the docum
    - Run the Checker in semi‑online mode to uncover silent bugs
 
 ## Documentation
+
 Please visit [TrainCheck Technical Doc](./docs/technical-doc.md).
+
+## Contributing
+
+We welcome and value any contributions and collaborations. Please check out [Contributing to TrainCheck](./CONTRIBUTING.md) for how to get involved.
+
+## Citation
+
+If TrainCheck is relevant to your work, please cite our paper:
+```bib
+@inproceedings{TrainCheckOSDI2025,
+  author = {Jiang, Yuxuan and Zhou, Ziming and Xu, Boyu and Liu, Beijie and Xu, Runhui and Huang, Peng},
+  title = {Training with Confidence: Catching Silent Errors in Deep Learning Training with Automated Proactive Checks},
+  booktitle = {Proceedings of the 19th USENIX Symposium on Operating Systems Design and Implementation},
+  series = {OSDI '25},
+  month = {July},
+  year = {2025},
+  address = {Boston, MA, USA},
+  publisher = {USENIX Association},
+}
+```
+
+
+## Artifact Evaluation
 
 🕵️‍♀️ OSDI AE members, please see [TrainCheck AE Guide](./docs/ae.md).
