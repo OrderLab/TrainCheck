@@ -137,6 +137,9 @@ class Trace_record:
             "_EMBEDDING_GROUP": None,
             "_DATA_PARALLEL_GROUP": None
         }
+        self.args = None
+        self.kwargs = None
+        self.return_values = None
         if flat_dict:
             self._load_from_flat_dict(flat_dict)
 
