@@ -1336,7 +1336,7 @@ Defaulting to skip the var preconditon check for now.
             child_param, (APIParam, VarTypeParam, VarNameParam)
         ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
         ptid = (trace_record.process_id, trace_record.thread_id)
-        func_name = trace_record.func_name
+        func_name = trace_record.function
         func_id = trace_record.func_call_id
         func_call_event = checker_data.pt_map[ptid][func_name][func_id]
         if func_call_event.pre_record is None:
@@ -1366,7 +1366,7 @@ Defaulting to skip the var preconditon check for now.
                 attr_name = child_param.attr_name
                 for i in reversed(range(1, len(checker_data.varid_map[varid][attr_name]))):
 
-                    change_time = checker_data.varid_map[varid][attr_name][i].start_time
+                    change_time = checker_data.varid_map[varid][attr_name][i].liveness.start_time
                     if change_time <= pre_time:
                         break
                     if change_time > post_time:
@@ -1378,6 +1378,7 @@ Defaulting to skip the var preconditon check for now.
                     events.append((old_state, new_state))
             
             if check_relation_first:
+                found_expected_child_event = False
                 for event in events:
                     if child_param.check_event_match_online(event):
                         found_expected_child_event = True
