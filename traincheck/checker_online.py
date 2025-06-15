@@ -361,10 +361,12 @@ def check(invariants: str, log_paths: str):
     try:
         while True:
             trace_record = checker_data.check_queue.get()
+            if checker_data.check_queue.empty():
+                print("queue empty")
             if trace_record is None:
                 continue
             # print("check trace record")
-            if trace_record.var_type is None or trace_record.var_name is None:
+            if trace_record.var_type is not None or trace_record.var_name is not None:
                 varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
                 if varid.var_type in vartype_to_invs:
                     # print(f"matched var_type: {varid.var_type}")
