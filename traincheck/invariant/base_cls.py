@@ -373,6 +373,9 @@ class Param:
     def check_event_match(self, event: HighLevelEvent) -> bool:
         "Check if the high level event contains the required information for the param."
         raise NotImplementedError("check_event_match method is not implemented yet.")
+    
+    def check_event_match_online(self, event) -> bool:
+        raise NotImplementedError("check_event_match_online method is not implemented yet.")
 
     def get_customizable_field_names(self) -> set[str]:
         """Returns the field names that can be customized for the param."""
@@ -550,6 +553,40 @@ class VarTypeParam(Param):
                     return False
 
         return pre_and_post_value_matched
+    
+    def check_event_match_online(self, event) -> bool:
+        if self.const_value != _NOT_SET:
+            print("Const value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match_online method.")
+        
+        pre_and_post_value_matched = True
+        if self.pre_value != _NOT_SET:
+            if self.pre_value != event[0].value:
+                if self.pre_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.pre_value, event[0].value
+                        )
+                    )
+                else:
+                    return False
+        
+        if self.post_value != _NOT_SET:
+            if self.post_value != event[1].value:
+                if self.post_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.post_value, event[1].value
+                        )
+                    )
+                else:
+                    return False
+
+        return pre_and_post_value_matched
+        
+            
+
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type

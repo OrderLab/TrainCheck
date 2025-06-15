@@ -1341,6 +1341,9 @@ Defaulting to skip the var preconditon check for now.
         func_call_event = checker_data.pt_map[ptid][func_name][func_id]
         if func_call_event.pre_record is None:
             return True
+
+        pre_time = func_call_event.pre_record.time
+        post_time = func_call_event.post_record.time
         
         preconditions = inv.precondition
 
@@ -1357,7 +1360,43 @@ Defaulting to skip the var preconditon check for now.
            
             skip_var_unchanged_check = True
 
-        # if check_relation_first:
+        if isinstance(child_param, VarTypeParam):
+            events = []
+            for varid in checker_data.type_map[child_param.var_type]:
+                attr_name = child_param.attr_name
+                for i in reversed(range(1, len(checker_data.varid_map[varid][attr_name]))):
+
+                    change_time = checker_data.varid_map[varid][attr_name][i].start_time
+                    if change_time <= pre_time:
+                        break
+                    if change_time > post_time:
+                        continue
+                    new_state = checker_data.varid_map[varid][attr_name][i]
+                    old_state = checker_data.varid_map[varid][attr_name][i-1]
+                    if new_state.value == old_state.value:
+                        continue
+                    events.append((old_state, new_state))
+            
+            if check_relation_first:
+                for event in events:
+                    if child_param.check_event_match_online(event):
+                        found_expected_child_event = True
+                        break
+                
+                if found_expected_child_event:
+                    if preconditions.verify(
+                        [func_call_event.pre_record], PARENT_GROUP_NAME, None
+                    ):
+                        return True
+
+            
+            return False
+
+
+
+
+
+        return True
 
         
 

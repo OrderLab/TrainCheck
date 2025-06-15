@@ -382,7 +382,7 @@ def check(invariants: str, log_paths: str):
                 if apiparam in param_to_invs:
                     for inv in param_to_invs[apiparam]:
                         print(inv.text_description)
-                        result = inv.relation.online_check(False, inv, trace_record, checker_data)
+                        result = inv.relation.online_check(True, inv, trace_record, checker_data)
                         if not result:
                             num += 1
                             print(f"Violated invariant: {inv.text_description}")
