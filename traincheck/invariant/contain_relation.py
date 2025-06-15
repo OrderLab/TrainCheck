@@ -37,6 +37,8 @@ from traincheck.trace.types import (
     VarChangeEvent,
 )
 from traincheck.utils import typename
+from traincheck.checker_online import Trace_record, Checker_data
+
 
 PARENT_GROUP_NAME = "parent_func_call_pre"
 VAR_GROUP_NAME = "var_events"
@@ -1315,6 +1317,49 @@ Defaulting to skip the var preconditon check for now.
             check_passed=True,
             triggered=inv_triggered,
         )
+    
+    @staticmethod
+    def online_check(
+        check_relation_first: bool, 
+        inv: Invariant, 
+        trace_record: Trace_record, 
+        checker_data: Checker_data
+    ):
+        if trace_record.type != TraceLineType.FUNC_CALL_POST:
+            return True
+        
+        parent_param, child_param = inv.params[0], inv.params[1]
+        assert isinstance(
+            parent_param, APIParam
+        ), "Expected the first parameter to be an APIParam"
+        assert isinstance(
+            child_param, (APIParam, VarTypeParam, VarNameParam)
+        ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
+        ptid = (trace_record.process_id, trace_record.thread_id)
+        func_name = trace_record.func_name
+        func_id = trace_record.func_call_id
+        func_call_event = checker_data.pt_map[ptid][func_name][func_id]
+        if func_call_event.pre_record is None:
+            return True
+        
+        preconditions = inv.precondition
+
+        # TODO: to check
+        skip_var_unchanged_check = (
+            VAR_GROUP_NAME not in preconditions.get_group_names()
+            or len(preconditions.get_group(VAR_GROUP_NAME)) == 0
+            or preconditions.is_group_unconditional(VAR_GROUP_NAME)
+        )
+        if not skip_var_unchanged_check:
+            assert isinstance(
+                child_param, VarTypeParam
+            ), "Expected the child parameter to be a VarTypeParam"
+           
+            skip_var_unchanged_check = True
+
+        # if check_relation_first:
+
+        
 
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[Param]:

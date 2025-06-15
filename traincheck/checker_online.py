@@ -181,6 +181,7 @@ class Checker_data:
         self.varid_map = {}
         self.type_map = {}
         self.pt_map = {}
+        self.process_to_vars = {}
 
 class StreamLogHandler(FileSystemEventHandler):
     def __init__(self, file_path, checker_data: Checker_data):
@@ -194,6 +195,7 @@ class StreamLogHandler(FileSystemEventHandler):
         self.varid_map = checker_data.varid_map
         self.type_map = checker_data.type_map
         self.pt_map = checker_data.pt_map
+        self.process_to_vars = checker_data.process_to_vars
 
         self._save_initial_content()
 
@@ -204,6 +206,11 @@ class StreamLogHandler(FileSystemEventHandler):
             varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
             if varid not in self.varid_map:
                 self.varid_map[varid] = {}
+
+            if varid.process_id not in self.process_to_vars:
+                self.process_to_vars[varid.process_id] = set()
+
+            self.process_to_vars[varid.process_id].add(varid)
             
             if trace_record.attributes is not None:
                 for attr_name, value in trace_record.attributes.items():
@@ -354,19 +361,28 @@ def check(invariants: str, log_paths: str):
             if trace_record is None:
                 continue
             # print("check trace record")
-
-            varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
-            if varid.var_type in vartype_to_invs:
-                # print(f"matched var_type: {varid.var_type}")
-                for attr_name, invs in vartype_to_invs[varid.var_type].items():
-                    if attr_name in trace_record.attributes and trace_record.attributes[attr_name] is not None:
-                        # print(f"matched attr_name: {attr_name}")
-                        for inv in invs:
-                            print(inv.text_description)
-                            result = inv.relation.online_check(True, inv, trace_record, checker_data)
-                            if not result:
-                                num += 1
-                                print(f"Violated invariant: {inv.text_description}")
+            if trace_record.var_type is None or trace_record.var_name is None:
+                varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
+                if varid.var_type in vartype_to_invs:
+                    # print(f"matched var_type: {varid.var_type}")
+                    for attr_name, invs in vartype_to_invs[varid.var_type].items():
+                        if attr_name in trace_record.attributes and trace_record.attributes[attr_name] is not None:
+                            # print(f"matched attr_name: {attr_name}")
+                            for inv in invs:
+                                print(inv.text_description)
+                                result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                                if not result:
+                                    num += 1
+                                    print(f"Violated invariant: {inv.text_description}")
+            elif trace_record.func_call_id is not None:
+                apiparam = APIParam(trace_record.function)
+                if apiparam in param_to_invs:
+                    for inv in param_to_invs[apiparam]:
+                        print(inv.text_description)
+                        result = inv.relation.online_check(False, inv, trace_record, checker_data)
+                        if not result:
+                            num += 1
+                            print(f"Violated invariant: {inv.text_description}")
 
     except KeyboardInterrupt:
         observer.stop()
@@ -379,7 +395,8 @@ def check(invariants: str, log_paths: str):
 
 def main():
     # print(aaaaa)
-    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
+    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_84911_trace")
+    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_test")
                 
