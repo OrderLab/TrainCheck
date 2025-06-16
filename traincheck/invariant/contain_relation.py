@@ -1384,13 +1384,16 @@ Defaulting to skip the var preconditon check for now.
                         found_expected_child_event = True
                         break
                 
-                if found_expected_child_event:
-                    if preconditions.verify(
-                        [func_call_event.pre_record], PARENT_GROUP_NAME, None
-                    ):
+                
+                if preconditions.verify(
+                    [func_call_event.pre_record], PARENT_GROUP_NAME, None
+                ):
+                    if found_expected_child_event:
                         return True
+                else:
+                    return True
 
-            
+
             return False
 
 
