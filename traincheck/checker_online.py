@@ -176,7 +176,7 @@ class FuncCallEvent:
         self.post_record = None
     
 
-
+# ! NOTE: not thread safe
 class Checker_data:
     def __init__(self):
         self.trace_records = []
@@ -358,6 +358,7 @@ def check(invariants: str, log_paths: str):
     checker_data = Checker_data()
     observer = run_stream_monitor(log_paths, checker_data)
     num = 0
+    failed_inv = set()
     try:
         while True:
             trace_record = checker_data.check_queue.get()
@@ -388,10 +389,12 @@ def check(invariants: str, log_paths: str):
                         if not result:
                             num += 1
                             print(f"Violated invariant: {inv.text_description}")
+                            failed_inv.add(inv)
 
     except KeyboardInterrupt:
         observer.stop()
-        print(f"Total violated invariant: {num}")
+        print(f"Total violated trace: {num}")
+        print(f"Total violated invariant: {len(failed_inv)}")
     observer.join()
 
 
@@ -400,8 +403,8 @@ def check(invariants: str, log_paths: str):
 
 def main():
     # print(aaaaa)
-    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
-    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_84911_trace")
+    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
+    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_84911_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_test")

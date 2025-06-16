@@ -1392,13 +1392,11 @@ Defaulting to skip the var preconditon check for now.
                         return True
                 else:
                     return True
+            # TODO:     
+            # else:
 
 
             return False
-
-
-
-
 
         return True
 
