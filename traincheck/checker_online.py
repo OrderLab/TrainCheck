@@ -35,6 +35,7 @@ import re
 from traincheck.trace.types import Liveness
 from traincheck.instrumentor.tracer import TraceLineType
 from typing import NamedTuple
+import threading
 
 def sort_inv_file(invariants: str):
     invs = read_inv_file(invariants)
@@ -186,6 +187,10 @@ class Checker_data:
         self.pt_map = {}
         self.process_to_vars = {}
 
+        self.min_read_time = {}
+        self.read_lock = threading.Lock()
+        self.cond = threading.Condition(self.read_lock)
+
 class StreamLogHandler(FileSystemEventHandler):
     def __init__(self, file_path, checker_data: Checker_data):
         self.file_path = file_path
@@ -199,6 +204,10 @@ class StreamLogHandler(FileSystemEventHandler):
         self.type_map = checker_data.type_map
         self.pt_map = checker_data.pt_map
         self.process_to_vars = checker_data.process_to_vars
+        self.min_read_time = checker_data.min_read_time
+        self.read_lock = checker_data.read_lock
+        self.cond = checker_data.cond
+        self.checker_data = checker_data
 
         self._save_initial_content()
 
@@ -274,6 +283,11 @@ class StreamLogHandler(FileSystemEventHandler):
 
 
         self.queue.put(trace_record)
+
+        with self.checker_data.cond:
+            self.checker_data.min_read_time[self.file_path] = trace_record.time
+            self.checker_data.cond.notify_all()
+            
 
 
     def _handle_line(self, lines):
@@ -364,8 +378,19 @@ def check(invariants: str, log_paths: str):
             trace_record = checker_data.check_queue.get()
             if checker_data.check_queue.empty():
                 print("queue empty")
+                # time.sleep(20)
             if trace_record is None:
                 continue
+                       
+            # with checker_data.cond:
+            #     if checker_data.min_read_time is None or trace_record.time >= checker_data.min_read_time[1]:
+            #         print("TOO QUICK")
+            #         # print(checker_data.min_read_time)
+            #         # print(f"trace_record time: {trace_record.time}")
+            #         print(f"Waiting")
+            #         checker_data.cond.wait() 
+            #         print("Wake up")
+ 
             # print("check trace record")
             if trace_record.var_type is not None or trace_record.var_name is not None:
                 varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
@@ -385,6 +410,18 @@ def check(invariants: str, log_paths: str):
                 if apiparam in param_to_invs:
                     for inv in param_to_invs[apiparam]:
                         print(inv.text_description)
+                        with checker_data.cond:
+                            while True:
+                                min_time = None
+                                for _ , min_read_time in checker_data.min_read_time.items():
+                                    if min_time is None or min_time > min_read_time:
+                                        min_time = min_read_time
+                                if trace_record.time > min_time:
+                                    print("Wait")
+                                    checker_data.cond.wait()
+                                    print("Wake up")
+                                else:
+                                    break
                         result = inv.relation.online_check(True, inv, trace_record, checker_data)
                         if not result:
                             num += 1
@@ -404,7 +441,8 @@ def check(invariants: str, log_paths: str):
 def main():
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
-    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_84911_trace")
+    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_84911_trace")
+    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/test1")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_test")
