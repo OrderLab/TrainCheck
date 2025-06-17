@@ -405,6 +405,7 @@ def check(invariants: str, log_paths: str):
                                 if not result:
                                     num += 1
                                     print(f"Violated invariant: {inv.text_description}")
+                                    failed_inv.add(inv)
             elif trace_record.func_call_id is not None:
                 apiparam = APIParam(trace_record.function)
                 if apiparam in param_to_invs:
@@ -430,7 +431,7 @@ def check(invariants: str, log_paths: str):
 
     except KeyboardInterrupt:
         observer.stop()
-        print(f"Total violated trace: {num}")
+        print(f"Total violated times: {num}")
         print(f"Total violated invariant: {len(failed_inv)}")
     observer.join()
 
