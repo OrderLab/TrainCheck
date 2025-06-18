@@ -1038,7 +1038,7 @@ Defaulting to skip the var preconditon check for now.
             var_unchanged_check_passed = True
             found_expected_child_event = False
 
-            if check_relation_first:
+            if not check_relation_first:
                 # precondition check
                 if not preconditions.verify(
                     [parent_pre_record], PARENT_GROUP_NAME, trace
