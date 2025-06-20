@@ -552,7 +552,10 @@ class ConsistencyRelation(Relation):
                 return None
             if param.attr_name not in checker_data.varid_map[varid] or len(checker_data.varid_map[varid][param.attr_name]) < 2:
                 return None
-            return checker_data.varid_map[varid][param.attr_name][-2]
+            # return checker_data.varid_map[varid][param.attr_name][-2]
+            for attr in reversed(checker_data.varid_map[varid][param.attr_name]):
+                if attr.liveness.start_time < trace_record.time:
+                    return attr
 
         check_attr1 = get_check_attr(param1, varid)
         check_attr2 = get_check_attr(param2, varid)
@@ -596,16 +599,17 @@ class ConsistencyRelation(Relation):
                                 compare_result = ConsistencyRelation.evaluate(
                                     [check_attr.value, attr.value]
                                 )
-                                print("compare_result: ",compare_result)
+                                # print("compare_result: ",compare_result)
                                 if not compare_result:
                                     if inv.precondition.verify(
                                         [check_attr.trace_record[-1], attr.trace_record[-1]], VAR_GROUP_NAME, None
                                     ):
-                                        print("precondition satisfied")
+                                        # print("precondition satisfied")
                                         # print(attr.liveness.start_time, check_attr.liveness.start_time)
+                                        # return (check_attr.trace_record[-1], attr.trace_record[-1], ref_param.attr_name)
                                         return False
-                                    else:
-                                        print("precondition not satisfied")
+                                    # else:
+                                    #     print("precondition not satisfied")
                             else:
                                 if inv.precondition.verify(
                                     [check_attr.trace_record[-1], attr.trace_record[-1]], VAR_GROUP_NAME, None
@@ -614,6 +618,7 @@ class ConsistencyRelation(Relation):
                                         [check_attr.value, attr.value]
                                     )
                                     if not compare_result:
+                                        # return  (check_attr.trace_record[-1], attr.trace_record[-1])
                                         return False
                                 
         return True

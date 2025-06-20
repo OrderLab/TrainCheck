@@ -70,3 +70,4 @@ eval_scripts/**/*.png
 traincheck_run*
 firsttest/*
 TrainCheck-Evaluation-Workloads-main
+test*/

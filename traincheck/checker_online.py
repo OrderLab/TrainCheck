@@ -373,6 +373,7 @@ def check(invariants: str, log_paths: str):
     observer = run_stream_monitor(log_paths, checker_data)
     num = 0
     failed_inv = set()
+    # violated_paris = {}
     try:
         while True:
             trace_record = checker_data.check_queue.get()
@@ -403,7 +404,15 @@ def check(invariants: str, log_paths: str):
                                 print(inv.text_description)
                                 result = inv.relation.online_check(True, inv, trace_record, checker_data)
                                 if not result:
+                                    # trace_record1, trace_record2, attr_name = result
+                                    # if trace_record1.process_id > trace_record2.process_id:
+                                    #     trace_record1, trace_record2 = trace_record2, trace_record1
+                                    # pair = (trace_record1.var_name, trace_record1.time, trace_record1.process_id, trace_record2.var_name, trace_record2.process_id, trace_record2.time)
+                                    # if pair not in violated_paris:
+                                    #     violated_paris[pair] = 0
+                                    # violated_paris[pair] += 1
                                     num += 1
+                                    # print(trace_record.process_id, trace_record.time)
                                     print(f"Violated invariant: {inv.text_description}")
                                     failed_inv.add(inv)
             elif trace_record.func_call_id is not None:
@@ -433,6 +442,8 @@ def check(invariants: str, log_paths: str):
         observer.stop()
         print(f"Total violated times: {num}")
         print(f"Total violated invariant: {len(failed_inv)}")
+        # for pair, count in violated_paris.items():
+        #     print(f"Pair: {pair}, Count: {count}")
     observer.join()
 
 
@@ -443,10 +454,12 @@ def main():
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_84911_trace")
-    check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/test1")
+    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/test1")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
-    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_deepspeed-1801")
-    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/test_for_con/trace_test")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test3")
                 
 if __name__ == "__main__":
     main()
