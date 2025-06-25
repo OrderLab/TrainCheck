@@ -23,6 +23,8 @@ from traincheck.invariant.lead_relation import (
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
+from traincheck.checker_online import Checker_data
+from traincheck.instrumentor.tracer import TraceLineType
 
 EXP_GROUP_NAME = "func_cover"
 
@@ -634,6 +636,21 @@ class FunctionCoverRelation(Relation):
             check_passed=True,
             triggered=inv_triggered,
         )
+
+    @staticmethod
+    def online_check(
+        check_relation_first: bool, 
+        inv: Invariant, 
+        trace_record: dict, 
+        checker_data: Checker_data
+    ):
+        if trace_record["type"] != TraceLineType.FUNCTION_CALL_PRE:
+            return True
+        
+        # TODO: filter functions
+
+        
+
 
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:

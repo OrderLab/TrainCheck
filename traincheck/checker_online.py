@@ -82,7 +82,7 @@ def sort_inv_file(invariants: str):
     #             f.write("\n")
     return param_to_invs, vartype_to_invs
 
-class OnlineFunccCallEvent(HighLevelEvent):
+class OnlineFuncCallEvent(HighLevelEvent):
     def __init__(self, func_name: str):
         self.func_name = func_name
         self.pre_record = None
@@ -205,7 +205,7 @@ class StreamLogHandler(FileSystemEventHandler):
             if function_name not in self.pt_map[ptid]:
                 self.pt_map[ptid][function_name] = {}
             if func_call_id not in self.pt_map[ptid][function_name]:
-                self.pt_map[ptid][function_name][func_call_id] = OnlineFunccCallEvent(function_name)
+                self.pt_map[ptid][function_name][func_call_id] = OnlineFuncCallEvent(function_name)
             if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
                 self.pt_map[ptid][function_name][func_call_id].pre_record = trace_record
                 self.pt_map[ptid][function_name][func_call_id].args = trace_record["args"]
@@ -381,12 +381,13 @@ def main():
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test3")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702")
                 
 if __name__ == "__main__":
     main()
