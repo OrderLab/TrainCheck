@@ -37,6 +37,14 @@ from traincheck.instrumentor.tracer import TraceLineType
 from typing import NamedTuple
 import threading
 from traincheck.trace.types import AttrState
+from traincheck.trace.types import (
+    HighLevelEvent,
+    ALL_EVENT_TYPES,
+    FuncCallEvent,
+    FuncCallExceptionEvent,
+    IncompleteFuncCallEvent,
+    VarChangeEvent,
+)
 
 def sort_inv_file(invariants: str):
     invs = read_inv_file(invariants)
@@ -47,7 +55,7 @@ def sort_inv_file(invariants: str):
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         params = inv.relation.get_mapping_key(inv)
-        # TODO: param_to_invs 细分为 contain, lead, cover
+        # TODO: param_to_invs spilt to contain, lead, cover
         for param in params:
             if isinstance(param, VarTypeParam):
                 if param.var_type not in vartype_to_invs:
@@ -74,13 +82,27 @@ def sort_inv_file(invariants: str):
     #             f.write("\n")
     return param_to_invs, vartype_to_invs
 
-
-# ! NOTE: this is different from the one in traincheck/trace/types.py
-class FuncCallEvent:
-    def __init__(self):
+class OnlineFunccCallEvent(HighLevelEvent):
+    def __init__(self, func_name: str):
+        self.func_name = func_name
         self.pre_record = None
         self.post_record = None
-    
+        self.exception = None
+
+        self.args = None
+        self.kwargs = None
+
+    def __str__(self):
+        return f"OnlineFuncCallEvent: {self.func_name}"
+
+    def get_traces(self):
+        return [self.pre_record, self.post_record]
+
+    def __hash__(self) -> int:
+        return super().__hash__()
+
+    def __eq__(self, other) -> bool:
+        return super().__eq__(other)
 
 # ! NOTE: not thread safe
 class Checker_data:
@@ -104,7 +126,6 @@ class StreamLogHandler(FileSystemEventHandler):
         self.trace_records = []
         self.queue = checker_data.check_queue
 
-        # TODO: these map should not belong to this class
         self.varid_map = checker_data.varid_map
         self.type_map = checker_data.type_map
         self.pt_map = checker_data.pt_map
@@ -119,7 +140,7 @@ class StreamLogHandler(FileSystemEventHandler):
         self.fp.seek(0, 2) 
 
     def _set_maps(self, trace_record):
-        if trace_record["var_type"] is not None or trace_record["var_name"] is not None:
+        if "var_name" in trace_record and trace_record["var_name"] is not None:
             varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
             if varid not in self.varid_map:
                 self.varid_map[varid] = {}
@@ -173,22 +194,27 @@ class StreamLogHandler(FileSystemEventHandler):
                 if trace_record["var_type"] not in self.type_map:
                     self.type_map[trace_record["var_type"]] = set()
                 self.type_map[trace_record["var_type"]].add(varid)
-        # elif trace_record.func_call_id is not None:   
-        #     process_id = trace_record.process_id
-        #     thread_id = trace_record.thread_id
-        #     ptid = (process_id, thread_id)
-        #     if ptid not in self.pt_map:
-        #         self.pt_map[ptid] = {}
-        #     if trace_record.function not in self.pt_map[ptid]:
-        #         self.pt_map[ptid][trace_record.function] = {}
-        #     if trace_record.func_call_id not in self.pt_map[ptid][trace_record.function]:
-        #         self.pt_map[ptid][trace_record.function][trace_record.func_call_id] = FuncCallEvent()
-        #     if trace_record.type == TraceLineType.FUNC_CALL_PRE:
-        #         self.pt_map[ptid][trace_record.function][trace_record.func_call_id].pre_record = trace_record
-        #     elif trace_record.type == TraceLineType.FUNC_CALL_POST:
-        #         self.pt_map[ptid][trace_record.function][trace_record.func_call_id].post_record = trace_record
-        #     elif trace_record.type == TraceLineType.FUNC_CALL_POST_EXCEPTION:
-        #         self.pt_map[ptid][trace_record.function][trace_record.func_call_id].post_record = trace_record
+        elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
+            process_id = trace_record["process_id"]
+            thread_id = trace_record["thread_id"]
+            ptid = (process_id, thread_id)
+            func_call_id = trace_record["func_call_id"]
+            function_name = trace_record["function"]
+            if ptid not in self.pt_map:
+                self.pt_map[ptid] = {}
+            if function_name not in self.pt_map[ptid]:
+                self.pt_map[ptid][function_name] = {}
+            if func_call_id not in self.pt_map[ptid][function_name]:
+                self.pt_map[ptid][function_name][func_call_id] = OnlineFunccCallEvent(function_name)
+            if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
+                self.pt_map[ptid][function_name][func_call_id].pre_record = trace_record
+                self.pt_map[ptid][function_name][func_call_id].args = trace_record["args"]
+                self.pt_map[ptid][function_name][func_call_id].kwargs = trace_record["kwargs"]
+            elif trace_record["type"] == TraceLineType.FUNC_CALL_POST:
+                self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
+            elif trace_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+                self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
+                self.pt_map[ptid][function_name][func_call_id].exception = trace_record["exception"]
 
 
         self.queue.put(trace_record)
@@ -293,7 +319,7 @@ def check(invariants: str, log_paths: str):
                 continue
                        
 
-            if trace_record["var_type"] is not None or trace_record["var_name"] is not None:
+            if "var_name" in trace_record and trace_record["var_name"] is not None:
                 varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
                 if varid.var_type in vartype_to_invs:
                     # print(f"matched var_type: {varid.var_type}")
@@ -316,28 +342,28 @@ def check(invariants: str, log_paths: str):
                                     # print(trace_record.process_id, trace_record.time)
                                     print(f"Violated invariant: {inv.text_description}")
                                     failed_inv.add(inv)
-            # elif trace_record.func_call_id is not None:
-            #     apiparam = APIParam(trace_record.function)
-            #     if apiparam in param_to_invs:
-            #         for inv in param_to_invs[apiparam]:
-            #             print(inv.text_description)
-            #             with checker_data.cond:
-            #                 while True:
-            #                     min_time = None
-            #                     for _ , min_read_time in checker_data.min_read_time.items():
-            #                         if min_time is None or min_time > min_read_time:
-            #                             min_time = min_read_time
-            #                     if trace_record.time > min_time:
-            #                         print("Wait")
-            #                         checker_data.cond.wait()
-            #                         print("Wake up")
-            #                     else:
-            #                         break
-            #             result = inv.relation.online_check(True, inv, trace_record, checker_data)
-            #             if not result:
-            #                 num += 1
-            #                 print(f"Violated invariant: {inv.text_description}")
-            #                 failed_inv.add(inv)
+            elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
+                apiparam = APIParam(trace_record["function"])
+                if apiparam in param_to_invs:
+                    for inv in param_to_invs[apiparam]:
+                        print(inv.text_description)
+                        with checker_data.cond:
+                            while True:
+                                min_time = None
+                                for _ , min_read_time in checker_data.min_read_time.items():
+                                    if min_time is None or min_time > min_read_time:
+                                        min_time = min_read_time
+                                if trace_record["time"] > min_time:
+                                    print("Wait")
+                                    checker_data.cond.wait()
+                                    print("Wake up")
+                                else:
+                                    break
+                        result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                        if not result:
+                            num += 1
+                            print(f"Violated invariant: {inv.text_description}")
+                            failed_inv.add(inv)
 
     except KeyboardInterrupt:
         observer.stop()
@@ -353,13 +379,13 @@ def check(invariants: str, log_paths: str):
 
 def main():
     # print(aaaaa)
-    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
-    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_84911_trace")
-    # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/test1")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test3")
                 
 if __name__ == "__main__":

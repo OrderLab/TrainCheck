@@ -1325,7 +1325,7 @@ Defaulting to skip the var preconditon check for now.
         trace_record: dict, 
         checker_data: Checker_data
     ):
-        if trace_record.type != TraceLineType.FUNC_CALL_POST:
+        if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
             return True
         
         parent_param, child_param = inv.params[0], inv.params[1]
@@ -1335,15 +1335,15 @@ Defaulting to skip the var preconditon check for now.
         assert isinstance(
             child_param, (APIParam, VarTypeParam, VarNameParam)
         ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
-        ptid = (trace_record.process_id, trace_record.thread_id)
-        func_name = trace_record.function
-        func_id = trace_record.func_call_id
+        ptid = (trace_record["process_id"], trace_record["thread_id"])
+        func_name = trace_record["function"]
+        func_id = trace_record["func_call_id"]
         func_call_event = checker_data.pt_map[ptid][func_name][func_id]
         if func_call_event.pre_record is None:
             return True
 
-        pre_time = func_call_event.pre_record.time
-        post_time = func_call_event.post_record.time
+        pre_time = func_call_event.pre_record["time"]
+        post_time = func_call_event.post_record["time"]
         
         preconditions = inv.precondition
 
