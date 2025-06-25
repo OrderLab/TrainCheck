@@ -1392,11 +1392,23 @@ Defaulting to skip the var preconditon check for now.
                         return True
                 else:
                     return True
-            # TODO:     
-            # else:
+              
+            else:
+                if preconditions.verify(
+                    [func_call_event.pre_record], PARENT_GROUP_NAME, None
+                ):
+                    for event in events:
+                        if child_param.check_event_match_online(event):
+                            return True    
+                else:
+                    return True
 
 
             return False
+        # TODO: APIParam and VarNameParam        
+        # elif isinstance(child_param, APIParam):
+        
+        # elif isinstance(child_param, VarNameParam):
 
         return True
 
