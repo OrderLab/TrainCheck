@@ -18,7 +18,7 @@ from traincheck.invariant.base_cls import (
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import Liveness, VarInstId
-from traincheck.checker_online import Trace_record, Checker_data
+from traincheck.checker_online import Checker_data
 
 tracker_var_field_prefix = "attributes."
 
@@ -536,7 +536,7 @@ class ConsistencyRelation(Relation):
     def online_check(
         check_relation_first: bool, 
         inv: Invariant, 
-        trace_record: Trace_record, 
+        trace_record: dict, 
         checker_data: Checker_data
     ):
         param1 = inv.params[0]
@@ -545,7 +545,7 @@ class ConsistencyRelation(Relation):
             param2, VarTypeParam
         ), "Invariant parameters should be VarTypeParam."
 
-        varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
+        varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
 
         def get_check_attr(param, varid):
             if param.var_type != varid.var_type:
@@ -554,8 +554,10 @@ class ConsistencyRelation(Relation):
                 return None
             # return checker_data.varid_map[varid][param.attr_name][-2]
             for attr in reversed(checker_data.varid_map[varid][param.attr_name]):
-                if attr.liveness.start_time < trace_record.time:
+                if attr.liveness.start_time < trace_record["time"]:
                     return attr
+                
+            return None
 
         check_attr1 = get_check_attr(param1, varid)
         check_attr2 = get_check_attr(param2, varid)
@@ -582,7 +584,7 @@ class ConsistencyRelation(Relation):
                         print("Attribute not found in checker_data")
                     else:
                         for attr in reversed(checker_data.varid_map[var2][ref_param.attr_name]):
-                            if attr.liveness.start_time > trace_record.time:
+                            if attr.liveness.start_time > trace_record["time"]:
                                 continue
                             if attr.liveness.end_time is None:
                                 continue
@@ -602,23 +604,23 @@ class ConsistencyRelation(Relation):
                                 # print("compare_result: ",compare_result)
                                 if not compare_result:
                                     if inv.precondition.verify(
-                                        [check_attr.trace_record[-1], attr.trace_record[-1]], VAR_GROUP_NAME, None
+                                        [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
                                     ):
                                         # print("precondition satisfied")
                                         # print(attr.liveness.start_time, check_attr.liveness.start_time)
-                                        # return (check_attr.trace_record[-1], attr.trace_record[-1], ref_param.attr_name)
+                                        # return (check_attr.traces[-1], attr.traces[-1], ref_param.attr_name)
                                         return False
                                     # else:
                                     #     print("precondition not satisfied")
                             else:
                                 if inv.precondition.verify(
-                                    [check_attr.trace_record[-1], attr.trace_record[-1]], VAR_GROUP_NAME, None
+                                    [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
                                 ):
                                     compare_result = ConsistencyRelation.evaluate(
                                         [check_attr.value, attr.value]
                                     )
                                     if not compare_result:
-                                        # return  (check_attr.trace_record[-1], attr.trace_record[-1])
+                                        # return  (check_attr.traces[-1], attr.traces[-1], ref_param.attr_name)
                                         return False
                                 
         return True

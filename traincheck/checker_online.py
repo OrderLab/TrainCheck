@@ -36,6 +36,7 @@ from traincheck.trace.types import Liveness
 from traincheck.instrumentor.tracer import TraceLineType
 from typing import NamedTuple
 import threading
+from traincheck.trace.types import AttrState
 
 def sort_inv_file(invariants: str):
     invs = read_inv_file(invariants)
@@ -73,102 +74,6 @@ def sort_inv_file(invariants: str):
     #             f.write("\n")
     return param_to_invs, vartype_to_invs
 
-
-class Trace_record:
-    def __init__(self, flat_dict=None):
-        self.func_call_id = None
-        self.thread_id = None
-        self.process_id = None
-        self.meta_vars_step = None
-        self.type = None
-        self.function = None
-        self.is_bound_method = None
-        self.obj_id = None
-        self.args = None
-        self.kwargs = None
-        self.time = None
-        self.return_values = None
-        self.exception = None
-        self.exception_msg = None
-        self.meta_vars_stage = None
-        self.proxy_obj_names = None
-        self.var_name = None
-        self.var_type = None
-        self.mode = None
-        self.dump_loc = None
-        # TODO: attributes and meta_vars not use dict
-        self.attributes = {
-            "_ML_DAIKON_data_ID": None,
-            "data": None,
-            "dtype": None,
-            "grad": None,
-            "grad_fn": None,
-            "is_cpu": None,
-            "is_cuda": None,
-            "is_ipu": None,
-            "is_leaf": None,
-            "is_meta": None,
-            "is_mkldnn": None,
-            "is_mps": None,
-            "is_mtia": None,
-            "is_nested": None,
-            "is_ort": None,
-            "is_quantized": None,
-            "is_sparse": None,
-            "is_sparse_csr": None,
-            "is_vulkan": None,
-            "is_xla": None,
-            "is_xpu": None,
-            "itemsize": None,
-            "name": None,
-            "nbytes": None,
-            "ndim": None,
-            "requires_grad": None,
-            "retains_grad": None,
-            "shape": None,
-            "_ML_DAIKON_grad_ID": None
-        }
-        # TODO: check contain all meta data, and this is the same for many trace record
-        self.meta_vars = {
-            "step": None,
-            "stage": None,
-            "_TENSOR_MODEL_PARALLEL_GROUP": None,
-            "_PIPELINE_MODEL_PARALLEL_GROUP": None,
-            "_MODEL_PARALLEL_GROUP": None,
-            "_EMBEDDING_GROUP": None,
-            "_DATA_PARALLEL_GROUP": None
-        }
-        self.args = None
-        self.kwargs = None
-        self.return_values = None
-        if flat_dict:
-            self._load_from_flat_dict(flat_dict)
-
-    def _load_from_flat_dict(self, flat_dict):
-        for key, value in flat_dict.items():
-            if key.startswith("attributes."):
-                attr_key = key[len("attributes."):]
-                self.attributes[attr_key] = value
-            elif key.startswith("meta_vars."):
-                meta_key = key[len("meta_vars."):]
-                self.meta_vars[meta_key] = value
-                
-            elif hasattr(self, key):
-                setattr(self, key, value)
-            # TODO: else log
-
-# ! NOTE: this is different from the one in traincheck/trace/types.py
-class AttrState:
-    def __init__(self, value: type, liveness: Liveness, trace_record: Trace_record):
-        self.value: type = value
-        self.liveness: Liveness = liveness
-        self.trace_record = [trace_record]
-
-    def __str__(self):
-        return f"Value: {self.value}, Liveness: {self.liveness}"
-
-    def __eq__(self, other):
-        return self.value == other.value and self.liveness == other.liveness
 
 # ! NOTE: this is different from the one in traincheck/trace/types.py
 class FuncCallEvent:
@@ -214,8 +119,8 @@ class StreamLogHandler(FileSystemEventHandler):
         self.fp.seek(0, 2) 
 
     def _set_maps(self, trace_record):
-        if trace_record.var_type is not None or trace_record.var_name is not None:
-            varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
+        if trace_record["var_type"] is not None or trace_record["var_name"] is not None:
+            varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
             if varid not in self.varid_map:
                 self.varid_map[varid] = {}
 
@@ -224,68 +129,72 @@ class StreamLogHandler(FileSystemEventHandler):
 
             self.process_to_vars[varid.process_id].add(varid)
             
-            if trace_record.attributes is not None:
-                for attr_name, value in trace_record.attributes.items():
-                    if value is None:
-                        continue
-                    
-                    from traincheck.invariant.base_cls import make_hashable
+            for attr_name, value in trace_record.items():
+                if value is None:
+                    continue
 
-                    curr_value = make_hashable(value)
-                    if any(
-                        [
-                            re.match(pattern, attr_name) is not None
-                            for pattern in config.PROP_ATTR_PATTERNS
-                        ]
-                    ):
-                        continue
+                if attr_name.startswith(config.VAR_ATTR_PREFIX):
+                    attr_name = attr_name[len(config.VAR_ATTR_PREFIX):]
+                else:
+                    continue
 
-                    if attr_name not in self.varid_map[varid]:
-                        self.varid_map[varid][attr_name] = [
-                            AttrState(
-                                curr_value,
-                                Liveness(trace_record.time, None),
-                                trace_record,
-                            )    
-                        ]
-                    else:
+                from traincheck.invariant.base_cls import make_hashable
+
+                curr_value = make_hashable(value)
+                if any(
+                    [
+                        re.match(pattern, attr_name) is not None
+                        for pattern in config.PROP_ATTR_PATTERNS
+                    ]
+                ):
+                    continue
+
+                if attr_name not in self.varid_map[varid]:
+                    self.varid_map[varid][attr_name] = [
+                        AttrState(
+                            curr_value,
+                            Liveness(trace_record["time"], None),
+                            [trace_record],
+                        )    
+                    ]
+                else:
                         
-                        self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record.time
-                        self.varid_map[varid][attr_name].append(
-                            AttrState(
-                                curr_value,
-                                Liveness(trace_record.time, None),
-                                trace_record,
-                            )
+                    self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record["time"]
+                    self.varid_map[varid][attr_name].append(
+                        AttrState(
+                            curr_value,
+                            Liveness(trace_record["time"], None),
+                            [trace_record],
                         )
+                    )
                         
 
-            if trace_record.var_type is not None:
-                if trace_record.var_type not in self.type_map:
-                    self.type_map[trace_record.var_type] = set()
-                self.type_map[trace_record.var_type].add(varid)
-        elif trace_record.func_call_id is not None:   
-            process_id = trace_record.process_id
-            thread_id = trace_record.thread_id
-            ptid = (process_id, thread_id)
-            if ptid not in self.pt_map:
-                self.pt_map[ptid] = {}
-            if trace_record.function not in self.pt_map[ptid]:
-                self.pt_map[ptid][trace_record.function] = {}
-            if trace_record.func_call_id not in self.pt_map[ptid][trace_record.function]:
-                self.pt_map[ptid][trace_record.function][trace_record.func_call_id] = FuncCallEvent()
-            if trace_record.type == TraceLineType.FUNC_CALL_PRE:
-                self.pt_map[ptid][trace_record.function][trace_record.func_call_id].pre_record = trace_record
-            elif trace_record.type == TraceLineType.FUNC_CALL_POST:
-                self.pt_map[ptid][trace_record.function][trace_record.func_call_id].post_record = trace_record
-            elif trace_record.type == TraceLineType.FUNC_CALL_POST_EXCEPTION:
-                self.pt_map[ptid][trace_record.function][trace_record.func_call_id].post_record = trace_record
+            if trace_record["var_type"] is not None:
+                if trace_record["var_type"] not in self.type_map:
+                    self.type_map[trace_record["var_type"]] = set()
+                self.type_map[trace_record["var_type"]].add(varid)
+        # elif trace_record.func_call_id is not None:   
+        #     process_id = trace_record.process_id
+        #     thread_id = trace_record.thread_id
+        #     ptid = (process_id, thread_id)
+        #     if ptid not in self.pt_map:
+        #         self.pt_map[ptid] = {}
+        #     if trace_record.function not in self.pt_map[ptid]:
+        #         self.pt_map[ptid][trace_record.function] = {}
+        #     if trace_record.func_call_id not in self.pt_map[ptid][trace_record.function]:
+        #         self.pt_map[ptid][trace_record.function][trace_record.func_call_id] = FuncCallEvent()
+        #     if trace_record.type == TraceLineType.FUNC_CALL_PRE:
+        #         self.pt_map[ptid][trace_record.function][trace_record.func_call_id].pre_record = trace_record
+        #     elif trace_record.type == TraceLineType.FUNC_CALL_POST:
+        #         self.pt_map[ptid][trace_record.function][trace_record.func_call_id].post_record = trace_record
+        #     elif trace_record.type == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+        #         self.pt_map[ptid][trace_record.function][trace_record.func_call_id].post_record = trace_record
 
 
         self.queue.put(trace_record)
 
         with self.checker_data.cond:
-            self.checker_data.min_read_time[self.file_path] = trace_record.time
+            self.checker_data.min_read_time[self.file_path] = trace_record["time"]
             self.checker_data.cond.notify_all()
             
 
@@ -298,7 +207,7 @@ class StreamLogHandler(FileSystemEventHandler):
                         json.loads(line, object_hook=replace_none_with_md_none),
                         skip_fields=["args", "kwargs", "return_values"],
                     )
-                trace_record = Trace_record(flat_dict)
+                trace_record = flat_dict
                 self.trace_records.append(trace_record)
                 self._set_maps(trace_record)
 
@@ -373,7 +282,7 @@ def check(invariants: str, log_paths: str):
     observer = run_stream_monitor(log_paths, checker_data)
     num = 0
     failed_inv = set()
-    # violated_paris = {}
+    violated_paris = {}
     try:
         while True:
             trace_record = checker_data.check_queue.get()
@@ -383,31 +292,23 @@ def check(invariants: str, log_paths: str):
             if trace_record is None:
                 continue
                        
-            # with checker_data.cond:
-            #     if checker_data.min_read_time is None or trace_record.time >= checker_data.min_read_time[1]:
-            #         print("TOO QUICK")
-            #         # print(checker_data.min_read_time)
-            #         # print(f"trace_record time: {trace_record.time}")
-            #         print(f"Waiting")
-            #         checker_data.cond.wait() 
-            #         print("Wake up")
- 
-            # print("check trace record")
-            if trace_record.var_type is not None or trace_record.var_name is not None:
-                varid = VarInstId(trace_record.process_id, trace_record.var_name, trace_record.var_type)
+
+            if trace_record["var_type"] is not None or trace_record["var_name"] is not None:
+                varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
                 if varid.var_type in vartype_to_invs:
                     # print(f"matched var_type: {varid.var_type}")
                     for attr_name, invs in vartype_to_invs[varid.var_type].items():
-                        if attr_name in trace_record.attributes and trace_record.attributes[attr_name] is not None:
+                        attr_name = config.VAR_ATTR_PREFIX + attr_name
+                        if attr_name in trace_record and trace_record[attr_name] is not None:
                             # print(f"matched attr_name: {attr_name}")
                             for inv in invs:
                                 print(inv.text_description)
                                 result = inv.relation.online_check(True, inv, trace_record, checker_data)
                                 if not result:
                                     # trace_record1, trace_record2, attr_name = result
-                                    # if trace_record1.process_id > trace_record2.process_id:
+                                    # if trace_record1["process_id"] > trace_record2["process_id"]:
                                     #     trace_record1, trace_record2 = trace_record2, trace_record1
-                                    # pair = (trace_record1.var_name, trace_record1.time, trace_record1.process_id, trace_record2.var_name, trace_record2.process_id, trace_record2.time)
+                                    # pair = (trace_record1["var_name"], trace_record1["time"], trace_record1["process_id"], trace_record2["var_name"], trace_record2["process_id"], trace_record2["time"])
                                     # if pair not in violated_paris:
                                     #     violated_paris[pair] = 0
                                     # violated_paris[pair] += 1
@@ -415,28 +316,28 @@ def check(invariants: str, log_paths: str):
                                     # print(trace_record.process_id, trace_record.time)
                                     print(f"Violated invariant: {inv.text_description}")
                                     failed_inv.add(inv)
-            elif trace_record.func_call_id is not None:
-                apiparam = APIParam(trace_record.function)
-                if apiparam in param_to_invs:
-                    for inv in param_to_invs[apiparam]:
-                        print(inv.text_description)
-                        with checker_data.cond:
-                            while True:
-                                min_time = None
-                                for _ , min_read_time in checker_data.min_read_time.items():
-                                    if min_time is None or min_time > min_read_time:
-                                        min_time = min_read_time
-                                if trace_record.time > min_time:
-                                    print("Wait")
-                                    checker_data.cond.wait()
-                                    print("Wake up")
-                                else:
-                                    break
-                        result = inv.relation.online_check(True, inv, trace_record, checker_data)
-                        if not result:
-                            num += 1
-                            print(f"Violated invariant: {inv.text_description}")
-                            failed_inv.add(inv)
+            # elif trace_record.func_call_id is not None:
+            #     apiparam = APIParam(trace_record.function)
+            #     if apiparam in param_to_invs:
+            #         for inv in param_to_invs[apiparam]:
+            #             print(inv.text_description)
+            #             with checker_data.cond:
+            #                 while True:
+            #                     min_time = None
+            #                     for _ , min_read_time in checker_data.min_read_time.items():
+            #                         if min_time is None or min_time > min_read_time:
+            #                             min_time = min_read_time
+            #                     if trace_record.time > min_time:
+            #                         print("Wait")
+            #                         checker_data.cond.wait()
+            #                         print("Wake up")
+            #                     else:
+            #                         break
+            #             result = inv.relation.online_check(True, inv, trace_record, checker_data)
+            #             if not result:
+            #                 num += 1
+            #                 print(f"Violated invariant: {inv.text_description}")
+            #                 failed_inv.add(inv)
 
     except KeyboardInterrupt:
         observer.stop()

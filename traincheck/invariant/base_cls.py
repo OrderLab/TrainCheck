@@ -946,57 +946,19 @@ class PreconditionClause:
         assert len(example) > 0
 
         def get_prop_from_record(record) -> tuple[Any, bool]:
-            if isinstance(record, dict):
-                if self.prop_name not in record:
-                    return None, False
+            if self.prop_name not in record:
+                return None, False
 
-                current_value = record[self.prop_name]
-                if not self.additional_path:
-                    return current_value, True
-
-                for path in self.additional_path:
-                    if path not in current_value:
-                        return None, False
-                    current_value = current_value[path]
-
+            current_value = record[self.prop_name]
+            if not self.additional_path:
                 return current_value, True
-            else:
-                if "attribute" in self.prop_name or "meta_vars" in self.prop_name:
-                    # special handling for attribute and meta_vars
-                    parts = self.prop_name.split(".")
-                    if len(parts) < 2:
-                        return None, False
-                    base_prop = parts[0]
-                    attr_key = ".".join(parts[1:])
-                    if not hasattr(record, base_prop):
-                        return None, False
-                    base_value = getattr(record, base_prop)
-                    if not isinstance(base_value, dict):
-                        return None, False
-                    if attr_key not in base_value or base_value[attr_key] is None:
-                        return None, False
-                    current_value = base_value[attr_key]
-                    if not self.additional_path:
-                        return current_value, True
-                    for path in self.additional_path:
-                        if not hasattr(current_value, path):
-                            return None, False
-                        current_value = getattr(current_value, path)
-                    return current_value, True
 
-                else:
-                    if not hasattr(record, self.prop_name) or getattr(
-                        record, self.prop_name
-                    ) is None:
-                        return None, False
-                    current_value = getattr(record, self.prop_name)
-                    if not self.additional_path:
-                        return current_value, True
-                    for path in self.additional_path:
-                        if not hasattr(current_value, path):
-                            return None, False
-                        current_value = getattr(current_value, path)
-                    return current_value, True
+            for path in self.additional_path:
+                if path not in current_value:
+                    return None, False
+                current_value = current_value[path]
+
+            return current_value, True
 
         prop_values_seen = set()
         for i in range(len(example)):

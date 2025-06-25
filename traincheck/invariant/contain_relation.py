@@ -37,7 +37,7 @@ from traincheck.trace.types import (
     VarChangeEvent,
 )
 from traincheck.utils import typename
-from traincheck.checker_online import Trace_record, Checker_data
+from traincheck.checker_online import Checker_data
 
 
 PARENT_GROUP_NAME = "parent_func_call_pre"
@@ -1322,7 +1322,7 @@ Defaulting to skip the var preconditon check for now.
     def online_check(
         check_relation_first: bool, 
         inv: Invariant, 
-        trace_record: Trace_record, 
+        trace_record: dict, 
         checker_data: Checker_data
     ):
         if trace_record.type != TraceLineType.FUNC_CALL_POST:
