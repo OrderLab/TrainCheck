@@ -644,17 +644,21 @@ class FunctionCoverRelation(Relation):
         trace_record: dict, 
         checker_data: Checker_data
     ):
-        if trace_record["type"] != TraceLineType.FUNCTION_CALL_PRE:
-            return True
+        print(trace_record["function"])
+        if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
+            return False
         
         # TODO: filter functions
 
-        
+
 
 
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
-        return [inv.params[1]]
+        params = []
+        for i in range(len(inv.params)-1):
+            params.append(inv.params[i+1])
+        return params
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
