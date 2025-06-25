@@ -379,7 +379,7 @@ def check(invariants: str, log_paths: str):
 
 def main():
     # print(aaaaa)
-    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
@@ -387,7 +387,7 @@ def main():
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test3")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702")
                 
 if __name__ == "__main__":
     main()

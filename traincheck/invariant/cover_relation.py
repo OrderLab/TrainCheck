@@ -646,7 +646,9 @@ class FunctionCoverRelation(Relation):
     ):
         print(trace_record["function"])
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
-            return False
+            return True
+        
+        return True
         
         # TODO: filter functions
 

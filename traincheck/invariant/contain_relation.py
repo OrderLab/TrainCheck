@@ -1325,7 +1325,7 @@ Defaulting to skip the var preconditon check for now.
         trace_record: dict, 
         checker_data: Checker_data
     ):
-        if trace_record["type"] != TraceLineType.FUNC_CALL_POST or trace_record["type"] != TraceLineType.FUNC_CALL_POST_EXCEPTION:
+        if trace_record["type"] != TraceLineType.FUNC_CALL_POST and trace_record["type"] != TraceLineType.FUNC_CALL_POST_EXCEPTION:
             return True
         
         parent_param, child_param = inv.params[0], inv.params[1]
