@@ -18,6 +18,8 @@ from traincheck.invariant.base_cls import (
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
+from traincheck.checker_online import Checker_data
+from traincheck.instrumentor.tracer import TraceLineType
 
 EXP_GROUP_NAME = "func_lead"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 4  # ideally this should be proportional to the number of training and testing iterations in the trace
@@ -820,8 +822,73 @@ class FunctionLeadRelation(Relation):
         )
 
     @staticmethod
+    def online_check(
+        check_relation_first: bool, 
+        inv: Invariant, 
+        trace_record: dict, 
+        checker_data: Checker_data
+    ):
+        if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
+            return True
+        
+        # TODO: just check before B is there any A called and neglect the same level check now
+        checker_param = APIParam(trace_record["function"])
+        lead_param = None
+        for i in range(len(inv.params)):
+            if inv.params[i] == checker_param:
+                if i == len(inv.params) - 1:
+                    return True
+                lead_param = inv.params[i+1]
+                break
+        if lead_param is None: 
+            return True
+        
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
+        ptid = (process_id, thread_id)
+        func_name = trace_record["function"]
+
+        start_time = None
+        end_time = trace_record["time"]
+
+        # NOTE: It is quicker to check precondition first
+        if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
+            return True
+
+        # TODO: sort the map or set a new map with sorted order
+        for func_id, func_event in checker_data.pt_map[ptid][func_name].items():
+            # !NOTE: pre_record time or post_record time
+            time = func_event.post_record["time"]
+            if time >= end_time:
+                continue
+            if not inv.precondition.verify([func_event.pre_record], EXP_GROUP_NAME, None):
+                continue
+            if start_time is None or time > start_time:
+                start_time = time
+
+        if start_time is None:
+            return True
+
+        lead_func_name = lead_param.api_full_name
+        found_cover_func = False
+        if lead_func_name in checker_data.pt_map[ptid]:
+            for func_id, func_event in checker_data.pt_map[ptid][lead_func_name].items():
+                pre_time = func_event.pre_record["time"]
+                post_time = func_event.post_record["time"]
+                # !NOTE: do we need to check post_time, which is used to make sure same level call
+                if pre_time >= start_time and post_time <= end_time:
+                    found_cover_func = True
+                    return True
+                
+        return False
+
+
+    @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
-        return [inv.params[0]]
+        params =[]
+        for i in range(len(inv.params)-1):
+            params.append(inv.params[i])
+        return params
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:

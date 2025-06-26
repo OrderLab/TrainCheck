@@ -686,19 +686,15 @@ class FunctionCoverRelation(Relation):
             start_time = 0
 
         cover_func_name = cover_param.api_full_name
-        print(cover_func_name)
         found_cover_func = False
         if cover_func_name in checker_data.pt_map[ptid]:
             for func_id, func_event in checker_data.pt_map[ptid][cover_func_name].items():
                 pre_time = func_event.pre_record["time"]
                 post_time = func_event.post_record["time"]
-                print(pre_time, post_time)
-                print(start_time, end_time)
                 # !NOTE: do we need to check post_time, which is used to make sure same level call
                 if pre_time >= start_time and post_time <= end_time:
                     found_cover_func = True
                     return True
-
         return False
         
 
