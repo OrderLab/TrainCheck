@@ -644,13 +644,63 @@ class FunctionCoverRelation(Relation):
         trace_record: dict, 
         checker_data: Checker_data
     ):
-        print(trace_record["function"])
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
             return True
         
-        return True
+        # TODO: just check before B is there any A called and neglect the same level check now
+        checker_param = APIParam(trace_record["function"])
+        cover_param = None
+        for i in range(len(inv.params)):
+            if inv.params[i] == checker_param:
+                if i == 0:
+                    return True
+                cover_param = inv.params[i-1]
+                break
+        if cover_param is None: 
+            return True
         
-        # TODO: filter functions
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
+        ptid = (process_id, thread_id)
+        func_name = trace_record["function"]
+
+        start_time = None
+        end_time = trace_record["time"]
+
+        # NOTE: It is quicker to check precondition first
+        if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
+            return True
+
+        # TODO: sort the map or set a new map with sorted order
+        for func_id, func_event in checker_data.pt_map[ptid][func_name].items():
+            # !NOTE: pre_record time or post_record time
+            time = func_event.post_record["time"]
+            if time >= end_time:
+                continue
+            if not inv.precondition.verify([func_event.pre_record], EXP_GROUP_NAME, None):
+                continue
+            if start_time is None or time > start_time:
+                start_time = time
+
+        if start_time is None:
+            start_time = 0
+
+        cover_func_name = cover_param.api_full_name
+        print(cover_func_name)
+        found_cover_func = False
+        if cover_func_name in checker_data.pt_map[ptid]:
+            for func_id, func_event in checker_data.pt_map[ptid][cover_func_name].items():
+                pre_time = func_event.pre_record["time"]
+                post_time = func_event.post_record["time"]
+                print(pre_time, post_time)
+                print(start_time, end_time)
+                # !NOTE: do we need to check post_time, which is used to make sure same level call
+                if pre_time >= start_time and post_time <= end_time:
+                    found_cover_func = True
+                    return True
+
+        return False
+        
 
 
 
