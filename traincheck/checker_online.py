@@ -113,6 +113,7 @@ class Checker_data:
         self.type_map = {}
         self.pt_map = {}
         self.process_to_vars = {}
+        self.args_map = {}
 
         self.min_read_time = {}
         self.read_lock = threading.Lock()
@@ -130,6 +131,7 @@ class StreamLogHandler(FileSystemEventHandler):
         self.type_map = checker_data.type_map
         self.pt_map = checker_data.pt_map
         self.process_to_vars = checker_data.process_to_vars
+        self.args_map = checker_data.args_map
         self.min_read_time = checker_data.min_read_time
         self.read_lock = checker_data.read_lock
         self.cond = checker_data.cond
@@ -216,6 +218,18 @@ class StreamLogHandler(FileSystemEventHandler):
                 self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
                 self.pt_map[ptid][function_name][func_call_id].exception = trace_record["exception"]
 
+            if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
+                if "args" in trace_record:
+                    if "meta_vars.step" not in trace_record:
+                        trace_record["meta_vars.step"] = -1
+                    step = trace_record["meta_vars.step"]
+                    if function_name not in self.args_map:
+                        self.args_map[function_name] = {}
+                    if step not in self.args_map[function_name]:
+                        self.args_map[function_name][step] = {}
+                    if ptid not in self.args_map[function_name][step]:
+                        self.args_map[function_name][step][ptid] = []
+                    self.args_map[function_name][step][ptid].append(trace_record)
 
         self.queue.put(trace_record)
 
@@ -388,7 +402,8 @@ def main():
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test3")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702_test")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_pytorch-51800.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_pytorch-51800")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_pytorch-51800.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_pytorch-51800")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/invariants_transformers-17877.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/trace_transformers-17877")
                 
 if __name__ == "__main__":
     main()

@@ -16,6 +16,8 @@ from traincheck.invariant.base_cls import (  # GroupedPreconditions,
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.utils import safe_isnan
+from traincheck.checker_online import Checker_data
+from traincheck.instrumentor.tracer import TraceLineType
 
 EXP_GROUP_NAME = "distinct_arg"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 6
@@ -450,6 +452,45 @@ class DistinctArgumentRelation(Relation):
             triggered=True,
         )
     
+    @staticmethod
+    def online_check(
+        check_relation_first: bool, 
+        inv: Invariant, 
+        trace_record: dict, 
+        checker_data: Checker_data
+    ):
+        if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
+            return True
+        
+        func_param = inv.params[0]
+        assert isinstance(func_param, APIParam), "Invariant parameters should be APIParam."
+        func_name = func_param.api_full_name
+
+        assert func_name == trace_record["function"], "Function name in the invariant should match the function name in the trace record."
+
+        if not inv.precondition.verify(
+            [trace_record], EXP_GROUP_NAME, None
+        ):
+            return True
+
+        if "meta_vars.step" not in trace_record:
+            step = -1
+        else:
+            step = trace_record["meta_vars.step"]
+
+        check_func_list = checker_data.args_map[func_name][step]
+
+        for PT_pair1, PT_pair2 in combinations(check_func_list.keys(), 2):
+            for event1 in check_func_list[PT_pair1]:
+                for event2 in check_func_list[PT_pair2]:
+                    if is_arguments_list_same(event1["args"], event2["args"]):
+                        return False
+                    
+        for PT_pair in check_func_list.keys():
+            for event1, event2 in combinations(check_func_list[PT_pair], 2):
+                if is_arguments_list_same(event1["args"], event2["args"]):
+                    return False
+
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
         return [inv.params[0]]
