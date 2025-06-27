@@ -428,7 +428,7 @@ class DistinctArgumentRelation(Relation):
                             return CheckerResult(
                                 trace=[event1, event2],
                                 invariant=inv,
-                                check_passed=True,
+                                check_passed=False,
                                 triggered=True,
                             )
 
