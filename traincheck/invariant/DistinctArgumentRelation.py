@@ -62,12 +62,13 @@ def get_event_data_per_function_per_step(trace: Trace, function_pool: Set[Any]):
         keep_this_func = False
         for func_call_id in func_call_ids:
             event = trace.query_func_call_event(func_call_id)
-            if (
-                "meta_vars.step" not in event.pre_record
-                or event.pre_record["meta_vars.step"] is None
-                or "args" not in event.pre_record
-            ):
+            if "args" not in event.pre_record:
                 continue
+
+            if "meta_vars.step" not in event.pre_record:
+                # assumed to be in the initialization phase
+                event.pre_record["meta_vars.step"] = -1
+
             keep_this_func = True
             process_id = event.pre_record["process_id"]
             thread_id = event.pre_record["thread_id"]
@@ -438,7 +439,7 @@ class DistinctArgumentRelation(Relation):
                         return CheckerResult(
                             trace=[event1, event2],
                             invariant=inv,
-                            check_passed=True,
+                            check_passed=False,
                             triggered=True,
                         )
 
