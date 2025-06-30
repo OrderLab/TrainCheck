@@ -185,10 +185,9 @@ def is_arguments_list_same(args1: list, args2: list):
 
 
 class DistinctArgumentRelation(Relation):
-    """FunctionCoverRelation is a relation that checks if one function covers another function.
-
-    say function A and function B are two functions in the trace, we say function A covers function B when
-    every time function B is called, a function A invocation exists before it.
+    """
+    DistinctArgumentRelation defines a relation where a function is expected to
+    take different argument values across threads or processes within the same training step.
     """
 
     @staticmethod
@@ -333,7 +332,7 @@ class DistinctArgumentRelation(Relation):
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
-        """Infer Invariants for the FunctionCoverRelation."""
+        """Infer Invariants for the DistinctArgumentRelation."""
         all_hypotheses = DistinctArgumentRelation.generate_hypothesis(trace)
 
         # for hypothesis in all_hypotheses:
@@ -429,7 +428,7 @@ class DistinctArgumentRelation(Relation):
                             return CheckerResult(
                                 trace=[event1, event2],
                                 invariant=inv,
-                                check_passed=True,
+                                check_passed=False,
                                 triggered=True,
                             )
 
