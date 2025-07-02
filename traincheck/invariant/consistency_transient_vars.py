@@ -27,6 +27,8 @@ from traincheck.trace.types import (
     IncompleteFuncCallEvent,
 )
 from traincheck.utils import safe_isnan
+from traincheck.checker_online import Checker_data
+from traincheck.instrumentor.tracer import TraceLineType
 
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"
@@ -577,6 +579,44 @@ class ConsistentOutputRelation(Relation):
         # raise NotImplementedError
 
     @staticmethod
+    def online_check(
+        check_relation_first: bool, 
+        inv: Invariant, 
+        trace_record: dict, 
+        checker_data: Checker_data
+    ):
+        if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
+            return True
+        
+        func_name = trace_record["function"]
+        func_call_id = trace_record["func_call_id"]
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
+        ptid = (process_id, thread_id)
+
+        func_call_event = checker_data.pt_map[ptid][func_name][func_call_id]
+
+        if not inv.precondition.verify(
+            [func_call_event.pre_record], "pre_event", None
+        ):
+            return True
+        
+        returned_tensors = get_returned_tensors(func_call_event)
+        if len(returned_tensors) == 0:
+            return False
+        
+        for returned_tensor in returned_tensors:
+                prop = inv.params[1].attr_name
+                prop_val = inv.params[1].const_value
+                if (
+                    prop not in returned_tensor
+                    or make_hashable(returned_tensor[prop]) != prop_val
+                ):
+                    return False
+                
+        return True
+    
+    @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
         # TODO: check
         return [inv.params[0]]
@@ -890,8 +930,44 @@ class ConsistentInputOutputRelation(Relation):
         )
     
     @staticmethod
+    def online_check(
+        check_relation_first: bool, 
+        inv: Invariant, 
+        trace_record: dict, 
+        checker_data: Checker_data
+    ):
+        if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
+            return True
+        
+        func_name = trace_record["function"]
+        func_call_id = trace_record["func_call_id"]
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
+        ptid = (process_id, thread_id)
+
+        func_call_event = checker_data.pt_map[ptid][func_name][func_call_id]
+
+        if not inv.precondition.verify(
+            [func_call_event.pre_record], "pre_event", None
+        ):
+            return True
+        
+        input_tensors = get_input_tensors(func_call_event)
+        output_tensors = get_returned_tensors(func_call_event)
+        
+        try:
+            input_value = inv.params[0].get_value_from_list_of_tensors(input_tensors)
+            output_value = inv.params[2].get_value_from_list_of_tensors(output_tensors)
+        except (IndexError, KeyError):
+            return False
+
+        if input_value != output_value:
+            return False
+        
+        return True
+    
+    @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
-        # TODO: check
         return [inv.params[1]]
 
     @staticmethod

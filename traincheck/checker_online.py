@@ -82,7 +82,7 @@ def sort_inv_file(invariants: str):
     #             f.write("\n")
     return param_to_invs, vartype_to_invs
 
-class OnlineFuncCallEvent(HighLevelEvent):
+class OnlineFuncCallEvent(FuncCallEvent):
     def __init__(self, func_name: str):
         self.func_name = func_name
         self.pre_record = None
@@ -91,6 +91,7 @@ class OnlineFuncCallEvent(HighLevelEvent):
 
         self.args = None
         self.kwargs = None
+        self.return_values = None
 
     def __str__(self):
         return f"OnlineFuncCallEvent: {self.func_name}"
@@ -214,6 +215,7 @@ class StreamLogHandler(FileSystemEventHandler):
                 self.pt_map[ptid][function_name][func_call_id].kwargs = trace_record["kwargs"]
             elif trace_record["type"] == TraceLineType.FUNC_CALL_POST:
                 self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
+                self.pt_map[ptid][function_name][func_call_id].return_values = trace_record["return_values"]
             elif trace_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
                 self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
                 self.pt_map[ptid][function_name][func_call_id].exception = trace_record["exception"]
