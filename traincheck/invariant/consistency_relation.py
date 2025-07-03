@@ -533,6 +533,12 @@ class ConsistencyRelation(Relation):
         return [inv.params[0], inv.params[1]]
     
     @staticmethod
+    def get_needed_variables(inv):
+        if inv.params[0].var_type == inv.params[1].var_type:
+            return [inv.params[0].var_type]
+        return [inv.params[0].var_type, inv.params[1].var_type]
+    
+    @staticmethod
     def online_check(
         check_relation_first: bool, 
         inv: Invariant, 

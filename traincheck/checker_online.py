@@ -50,11 +50,15 @@ def sort_inv_file(invariants: str):
     invs = read_inv_file(invariants)
     param_to_invs : dict[Param, list[Invariant]] = {}
     vartype_to_invs : dict[str, dict[str, list[Invariant]]] = {}
+    needed_vars = set()
     for inv in invs:
         assert (
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         params = inv.relation.get_mapping_key(inv)
+        needed_var = inv.relation.get_needed_variables(inv)
+        if needed_vars is not None:
+            needed_vars.update(needed_var)
         # TODO: param_to_invs spilt to contain, lead, cover
         for param in params:
             if isinstance(param, VarTypeParam):
@@ -80,7 +84,7 @@ def sort_inv_file(invariants: str):
     #         for inv in invs_:
     #             f.write(json.dumps(inv.to_dict(), cls=MDNONEJSONEncoder))
     #             f.write("\n")
-    return param_to_invs, vartype_to_invs
+    return param_to_invs, vartype_to_invs, needed_vars
 
 class OnlineFuncCallEvent(FuncCallEvent):
     def __init__(self, func_name: str):
@@ -107,8 +111,9 @@ class OnlineFuncCallEvent(FuncCallEvent):
 
 # ! NOTE: not thread safe
 class Checker_data:
-    def __init__(self):
-        self.trace_records = []
+    def __init__(self, needed_vars):
+        self.needed_vars = needed_vars
+
         self.check_queue = queue.Queue()
         self.varid_map = {}
         self.type_map = {}
@@ -125,7 +130,6 @@ class StreamLogHandler(FileSystemEventHandler):
         self.file_path = file_path
         self.fp = open(file_path, 'r')
 
-        self.trace_records = []
         self.queue = checker_data.check_queue
 
         self.varid_map = checker_data.varid_map
@@ -145,58 +149,60 @@ class StreamLogHandler(FileSystemEventHandler):
     def _set_maps(self, trace_record):
         if "var_name" in trace_record and trace_record["var_name"] is not None:
             varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
-            if varid not in self.varid_map:
-                self.varid_map[varid] = {}
+            var_name = trace_record["var_name"]
+            var_type = trace_record["var_type"]
+            if var_name in self.checker_data.needed_vars or var_type in self.checker_data.needed_vars:
+                if varid not in self.varid_map:
+                    self.varid_map[varid] = {}
 
-            if varid.process_id not in self.process_to_vars:
-                self.process_to_vars[varid.process_id] = set()
+                if varid.process_id not in self.process_to_vars:
+                    self.process_to_vars[varid.process_id] = set()
 
-            self.process_to_vars[varid.process_id].add(varid)
-            
-            for attr_name, value in trace_record.items():
-                if value is None:
-                    continue
+                self.process_to_vars[varid.process_id].add(varid)
+                
+                for attr_name, value in trace_record.items():
+                    if value is None:
+                        continue
 
-                if attr_name.startswith(config.VAR_ATTR_PREFIX):
-                    attr_name = attr_name[len(config.VAR_ATTR_PREFIX):]
-                else:
-                    continue
+                    if attr_name.startswith(config.VAR_ATTR_PREFIX):
+                        attr_name = attr_name[len(config.VAR_ATTR_PREFIX):]
+                    else:
+                        continue
 
-                from traincheck.invariant.base_cls import make_hashable
+                    from traincheck.invariant.base_cls import make_hashable
 
-                curr_value = make_hashable(value)
-                if any(
-                    [
-                        re.match(pattern, attr_name) is not None
-                        for pattern in config.PROP_ATTR_PATTERNS
-                    ]
-                ):
-                    continue
+                    curr_value = make_hashable(value)
+                    if any(
+                        [
+                            re.match(pattern, attr_name) is not None
+                            for pattern in config.PROP_ATTR_PATTERNS
+                        ]
+                    ):
+                        continue
 
-                if attr_name not in self.varid_map[varid]:
-                    self.varid_map[varid][attr_name] = [
-                        AttrState(
-                            curr_value,
-                            Liveness(trace_record["time"], None),
-                            [trace_record],
-                        )    
-                    ]
-                else:
-                        
-                    self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record["time"]
-                    self.varid_map[varid][attr_name].append(
-                        AttrState(
-                            curr_value,
-                            Liveness(trace_record["time"], None),
-                            [trace_record],
+                    if attr_name not in self.varid_map[varid]:
+                        self.varid_map[varid][attr_name] = [
+                            AttrState(
+                                curr_value,
+                                Liveness(trace_record["time"], None),
+                                [trace_record],
+                            )    
+                        ]
+                    else:
+                            
+                        self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record["time"]
+                        self.varid_map[varid][attr_name].append(
+                            AttrState(
+                                curr_value,
+                                Liveness(trace_record["time"], None),
+                                [trace_record],
+                            )
                         )
-                    )
-                        
-
-            if trace_record["var_type"] is not None:
-                if trace_record["var_type"] not in self.type_map:
-                    self.type_map[trace_record["var_type"]] = set()
-                self.type_map[trace_record["var_type"]].add(varid)
+                            
+                if trace_record["var_type"] is not None:
+                    if trace_record["var_type"] not in self.type_map:
+                        self.type_map[trace_record["var_type"]] = set()
+                    self.type_map[trace_record["var_type"]].add(varid)
         elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
             process_id = trace_record["process_id"]
             thread_id = trace_record["thread_id"]
@@ -250,7 +256,6 @@ class StreamLogHandler(FileSystemEventHandler):
                         skip_fields=["args", "kwargs", "return_values"],
                     )
                 trace_record = flat_dict
-                self.trace_records.append(trace_record)
                 self._set_maps(trace_record)
 
             except Exception as e:
@@ -319,8 +324,8 @@ def run_stream_monitor(log_paths, checker_data: Checker_data):
  
 
 def check(invariants: str, log_paths: str):
-    param_to_invs, vartype_to_invs = sort_inv_file(invariants)
-    checker_data = Checker_data()
+    param_to_invs, vartype_to_invs, needed_vars = sort_inv_file(invariants)
+    checker_data = Checker_data(needed_vars)
     observer = run_stream_monitor(log_paths, checker_data)
     num = 0
     failed_inv = set()
@@ -401,11 +406,11 @@ def main():
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
-    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test3")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702_test")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_pytorch-51800.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_pytorch-51800")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/invariants_transformers-17877.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/trace_transformers-17877")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/invariants_transformers-17877.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/trace_transformers-17877")
                 
 if __name__ == "__main__":
     main()

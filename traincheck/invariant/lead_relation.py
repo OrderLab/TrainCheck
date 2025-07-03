@@ -889,6 +889,10 @@ class FunctionLeadRelation(Relation):
         for i in range(len(inv.params)-1):
             params.append(inv.params[i])
         return params
+    
+    @staticmethod
+    def get_needed_variables(inv):
+        return None
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:

@@ -1775,11 +1775,19 @@ class Relation(abc.ABC):
     @staticmethod
     @abc.abstractmethod
     def get_mapping_key(inv: Invariant) -> list[Param]:
+        """Given an invariant, should return a list of Param objects that should be checked."""
         pass 
 
     @staticmethod
     @abc.abstractmethod
+    def get_needed_variables(inv: Invariant):
+        """Given an invariant, should return a list of variable names or variable type that are needed to check the invariant."""
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
     def online_check():
+        """Check the invariant online, i.e. during the trace collection process."""
         pass
 
 

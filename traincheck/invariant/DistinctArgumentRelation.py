@@ -494,6 +494,10 @@ class DistinctArgumentRelation(Relation):
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
         return [inv.params[0]]
+    
+    @staticmethod
+    def get_needed_variables(inv):
+        return None
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:

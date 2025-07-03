@@ -1417,6 +1417,17 @@ Defaulting to skip the var preconditon check for now.
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[Param]:
         return [inv.params[0]]
+    
+    @staticmethod
+    def get_needed_variables(inv: Invariant):
+        param = inv.params[1]
+        if isinstance(param, VarTypeParam):
+            return [param.var_type]
+        elif isinstance(param, VarNameParam):
+            return [param.var_name]
+        elif isinstance(param, APIParam):
+            return None
+        
 
 
     @staticmethod
