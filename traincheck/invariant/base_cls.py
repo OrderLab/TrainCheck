@@ -1786,6 +1786,18 @@ class Relation(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
+    def get_needed_api(inv: Invariant):
+        """Given an invariant, should return a list of API names that are needed to check the invariant."""
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def needed_args_map(inv: Invariant):
+        """Given an invariant, should return a list of API names that needs the args map."""
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
     def online_check():
         """Check the invariant online, i.e. during the trace collection process."""
         pass

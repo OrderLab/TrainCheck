@@ -606,13 +606,13 @@ class ConsistentOutputRelation(Relation):
             return False
         
         for returned_tensor in returned_tensors:
-                prop = inv.params[1].attr_name
-                prop_val = inv.params[1].const_value
-                if (
-                    prop not in returned_tensor
-                    or make_hashable(returned_tensor[prop]) != prop_val
-                ):
-                    return False
+            prop = inv.params[1].attr_name
+            prop_val = inv.params[1].const_value
+            if (
+                prop not in returned_tensor
+                or make_hashable(returned_tensor[prop]) != prop_val
+            ):
+                return False
                 
         return True
     
@@ -622,6 +622,14 @@ class ConsistentOutputRelation(Relation):
 
     @staticmethod
     def get_needed_variables(inv):
+        return None
+    
+    @staticmethod
+    def get_needed_api(inv: Invariant):
+        return [inv.params[0].api_full_name]
+    
+    @staticmethod
+    def needed_args_map(inv):
         return None
 
     @staticmethod
@@ -975,6 +983,14 @@ class ConsistentInputOutputRelation(Relation):
     
     @staticmethod
     def get_needed_variables(inv):
+        return None
+    
+    @staticmethod
+    def get_needed_api(inv: Invariant):
+        return [inv.params[1].api_full_name]
+    
+    @staticmethod
+    def needed_args_map(inv):
         return None
 
     @staticmethod
@@ -1373,6 +1389,14 @@ class ThresholdRelation(Relation):
     
     @staticmethod
     def get_needed_variables(inv):
+        return None
+    
+    @staticmethod
+    def get_needed_api(inv: Invariant):
+        return [inv.params[1].api_full_name]
+    
+    @staticmethod
+    def needed_args_map(inv):
         return None
 
     @staticmethod

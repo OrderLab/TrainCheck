@@ -1428,8 +1428,16 @@ Defaulting to skip the var preconditon check for now.
         elif isinstance(param, APIParam):
             return None
         
-
-
+    @staticmethod
+    def get_needed_api(inv: Invariant):
+        if isinstance(inv.params[1], APIParam):
+            return [inv.params[0].api_full_name, inv.params[1].api_full_name]
+        return [inv.params[0].api_full_name]
+    
+    @staticmethod
+    def needed_args_map(inv):
+        return None
+        
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:
         return []

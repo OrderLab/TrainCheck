@@ -496,8 +496,16 @@ class DistinctArgumentRelation(Relation):
         return [inv.params[0]]
     
     @staticmethod
-    def get_needed_variables(inv):
+    def get_needed_variables(inv: Invariant):
         return None
+    
+    @staticmethod
+    def get_needed_api(inv: Invariant):
+        return None
+    
+    @staticmethod
+    def needed_args_map(inv):
+        return [inv.params[0].api_full_name]
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:

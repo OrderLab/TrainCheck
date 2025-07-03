@@ -647,7 +647,6 @@ class FunctionCoverRelation(Relation):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
             return True
         
-        # TODO: just check before B is there any A called and neglect the same level check now
         checker_param = APIParam(trace_record["function"])
         cover_param = None
         for i in range(len(inv.params)):
@@ -673,7 +672,6 @@ class FunctionCoverRelation(Relation):
 
         # TODO: sort the map or set a new map with sorted order
         for func_id, func_event in checker_data.pt_map[ptid][func_name].items():
-            # !NOTE: pre_record time or post_record time
             time = func_event.post_record["time"]
             if time >= end_time:
                 continue
@@ -691,7 +689,6 @@ class FunctionCoverRelation(Relation):
             for func_id, func_event in checker_data.pt_map[ptid][cover_func_name].items():
                 pre_time = func_event.pre_record["time"]
                 post_time = func_event.post_record["time"]
-                # !NOTE: do we need to check post_time, which is used to make sure same level call
                 if pre_time >= start_time and post_time <= end_time:
                     found_cover_func = True
                     return True
@@ -710,6 +707,17 @@ class FunctionCoverRelation(Relation):
     
     @staticmethod
     def get_needed_variables(inv):
+        return None
+    
+    @staticmethod
+    def get_needed_api(inv: Invariant):
+        api_name_list = []
+        for param in inv.params:
+            api_name_list.append(param.api_full_name)
+        return api_name_list
+    
+    @staticmethod
+    def needed_args_map(inv):
         return None
 
     @staticmethod

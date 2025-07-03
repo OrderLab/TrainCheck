@@ -51,14 +51,22 @@ def sort_inv_file(invariants: str):
     param_to_invs : dict[Param, list[Invariant]] = {}
     vartype_to_invs : dict[str, dict[str, list[Invariant]]] = {}
     needed_vars = set()
+    needed_apis = set()
+    needed_args_map = set()
     for inv in invs:
         assert (
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         params = inv.relation.get_mapping_key(inv)
         needed_var = inv.relation.get_needed_variables(inv)
-        if needed_vars is not None:
+        needed_api = inv.relation.get_needed_api(inv)
+        needed_args_api = inv.relation.needed_args_map(inv)
+        if needed_var is not None:
             needed_vars.update(needed_var)
+        if needed_api is not None:
+            needed_apis.update(needed_api)
+        if needed_args_api is not None:
+            needed_args_map.update(needed_args_api)
         # TODO: param_to_invs spilt to contain, lead, cover
         for param in params:
             if isinstance(param, VarTypeParam):
@@ -84,11 +92,10 @@ def sort_inv_file(invariants: str):
     #         for inv in invs_:
     #             f.write(json.dumps(inv.to_dict(), cls=MDNONEJSONEncoder))
     #             f.write("\n")
-    return param_to_invs, vartype_to_invs, needed_vars
+    return param_to_invs, vartype_to_invs, needed_vars, needed_apis, needed_args_map
 
 class OnlineFuncCallEvent(FuncCallEvent):
-    def __init__(self, func_name: str):
-        self.func_name = func_name
+    def __init__(self):
         self.pre_record = None
         self.post_record = None
         self.exception = None
@@ -97,8 +104,6 @@ class OnlineFuncCallEvent(FuncCallEvent):
         self.kwargs = None
         self.return_values = None
 
-    def __str__(self):
-        return f"OnlineFuncCallEvent: {self.func_name}"
 
     def get_traces(self):
         return [self.pre_record, self.post_record]
@@ -111,8 +116,10 @@ class OnlineFuncCallEvent(FuncCallEvent):
 
 # ! NOTE: not thread safe
 class Checker_data:
-    def __init__(self, needed_vars):
+    def __init__(self, needed_vars, needed_apis,  needed_args_map):
         self.needed_vars = needed_vars
+        self.needed_apis = needed_apis
+        self.needed_args_map = needed_args_map
 
         self.check_queue = queue.Queue()
         self.varid_map = {}
@@ -209,35 +216,38 @@ class StreamLogHandler(FileSystemEventHandler):
             ptid = (process_id, thread_id)
             func_call_id = trace_record["func_call_id"]
             function_name = trace_record["function"]
-            if ptid not in self.pt_map:
-                self.pt_map[ptid] = {}
-            if function_name not in self.pt_map[ptid]:
-                self.pt_map[ptid][function_name] = {}
-            if func_call_id not in self.pt_map[ptid][function_name]:
-                self.pt_map[ptid][function_name][func_call_id] = OnlineFuncCallEvent(function_name)
-            if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
-                self.pt_map[ptid][function_name][func_call_id].pre_record = trace_record
-                self.pt_map[ptid][function_name][func_call_id].args = trace_record["args"]
-                self.pt_map[ptid][function_name][func_call_id].kwargs = trace_record["kwargs"]
-            elif trace_record["type"] == TraceLineType.FUNC_CALL_POST:
-                self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
-                self.pt_map[ptid][function_name][func_call_id].return_values = trace_record["return_values"]
-            elif trace_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
-                self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
-                self.pt_map[ptid][function_name][func_call_id].exception = trace_record["exception"]
+            # TODO: change dict to (process_id, thread_id, function_name) -> dict[func_call_id, OnlineFuncCallEvent]
+            if function_name in self.checker_data.needed_apis:
+                if ptid not in self.pt_map:
+                    self.pt_map[ptid] = {}
+                if function_name not in self.pt_map[ptid]:
+                    self.pt_map[ptid][function_name] = {}
+                if func_call_id not in self.pt_map[ptid][function_name]:
+                    self.pt_map[ptid][function_name][func_call_id] = OnlineFuncCallEvent()
+                if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
+                    self.pt_map[ptid][function_name][func_call_id].pre_record = trace_record
+                    self.pt_map[ptid][function_name][func_call_id].args = trace_record["args"]
+                    self.pt_map[ptid][function_name][func_call_id].kwargs = trace_record["kwargs"]
+                elif trace_record["type"] == TraceLineType.FUNC_CALL_POST:
+                    self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
+                    self.pt_map[ptid][function_name][func_call_id].return_values = trace_record["return_values"]
+                elif trace_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+                    self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
+                    self.pt_map[ptid][function_name][func_call_id].exception = trace_record["exception"]
 
             if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
-                if "args" in trace_record:
-                    if "meta_vars.step" not in trace_record:
-                        trace_record["meta_vars.step"] = -1
-                    step = trace_record["meta_vars.step"]
-                    if function_name not in self.args_map:
-                        self.args_map[function_name] = {}
-                    if step not in self.args_map[function_name]:
-                        self.args_map[function_name][step] = {}
-                    if ptid not in self.args_map[function_name][step]:
-                        self.args_map[function_name][step][ptid] = []
-                    self.args_map[function_name][step][ptid].append(trace_record)
+                if function_name in self.checker_data.needed_args_map:
+                    if "args" in trace_record:
+                        if "meta_vars.step" not in trace_record:
+                            trace_record["meta_vars.step"] = -1
+                        step = trace_record["meta_vars.step"]
+                        if function_name not in self.args_map:
+                            self.args_map[function_name] = {}
+                        if step not in self.args_map[function_name]:
+                            self.args_map[function_name][step] = {}
+                        if ptid not in self.args_map[function_name][step]:
+                            self.args_map[function_name][step][ptid] = []
+                        self.args_map[function_name][step][ptid].append(trace_record)
 
         self.queue.put(trace_record)
 
@@ -324,8 +334,8 @@ def run_stream_monitor(log_paths, checker_data: Checker_data):
  
 
 def check(invariants: str, log_paths: str):
-    param_to_invs, vartype_to_invs, needed_vars = sort_inv_file(invariants)
-    checker_data = Checker_data(needed_vars)
+    param_to_invs, vartype_to_invs, needed_vars, needed_apis, needed_args_map = sort_inv_file(invariants)
+    checker_data = Checker_data(needed_vars, needed_apis, needed_args_map)
     observer = run_stream_monitor(log_paths, checker_data)
     num = 0
     failed_inv = set()
@@ -402,11 +412,11 @@ def main():
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
-    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test2/simulated")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test3")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702_test")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_pytorch-51800.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_pytorch-51800")

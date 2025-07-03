@@ -539,6 +539,14 @@ class ConsistencyRelation(Relation):
         return [inv.params[0].var_type, inv.params[1].var_type]
     
     @staticmethod
+    def get_needed_api(inv: Invariant):
+        return None
+    
+    @staticmethod
+    def needed_args_map(inv):
+        return None
+    
+    @staticmethod
     def online_check(
         check_relation_first: bool, 
         inv: Invariant, 
