@@ -86,7 +86,7 @@ def handle_excepthook(typ, message, stack):
     stack_info = traceback.StackSummary.extract(
         traceback.walk_tb(stack), capture_locals=True
     ).format()
-    logger.critical("An exception occured: %s: %s.", typ, message)
+    logger.critical("An exception occurred: %s: %s.", typ, message)
     for i in stack_info:
         logger.critical(i.encode().decode("unicode-escape"))
 
@@ -109,7 +109,7 @@ def thread_excepthook(args):
     stack_info = traceback.StackSummary.extract(
         traceback.walk_tb(exc_traceback), capture_locals=True
     ).format()
-    logger.critical("An exception occured: %s: %s.", exc_type, exc_value)
+    logger.critical("An exception occurred: %s: %s.", exc_type, exc_value)
     for i in stack_info:
         logger.critical(i.encode().decode("unicode-escape"))
 
