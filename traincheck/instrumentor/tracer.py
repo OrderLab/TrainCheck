@@ -244,7 +244,7 @@ def global_wrapper(
     dump_trace_API(pre_record)
 
     if handle_proxy and trigger_proxy_state_dump:
-        """Mimiking the behavior the observer wrapper: pre-observe"""
+        """Mimicking the behavior the observer wrapper: pre-observe"""
         get_global_registry().dump_only_modified(
             dump_loc=original_function_name, dump_config=proxy_state_dump_config
         )
@@ -275,7 +275,7 @@ def global_wrapper(
             ORIG_EXIT_PERF_TIME = time.perf_counter()
 
         if handle_proxy and trigger_proxy_state_dump:
-            """Mimiking the behavior the observer wrapper: post-observe"""
+            """Mimicking the behavior the observer wrapper: post-observe"""
             get_global_registry().dump_only_modified(
                 dump_loc=original_function_name, dump_config=proxy_state_dump_config
             )
