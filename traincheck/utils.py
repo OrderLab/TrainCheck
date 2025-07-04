@@ -44,7 +44,7 @@ def typename(o, is_runtime=False):
     if isinstance(prefix, ModuleSpec):
         # handle the case when prefix is a ModuleSpec object
         prefix = prefix.name
-    if prefix in ["buitins", "__builtin__", None]:
+    if prefix in ["builtins", "__builtin__", None]:
         prefix = ""
     is_class_name_qualname = True
     last_name = safe_getattr(o, "__qualname__", "")
