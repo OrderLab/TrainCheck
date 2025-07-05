@@ -12,7 +12,7 @@ We encourage contributions in the following areas:
 - 🔍 **Testing**: Adding realistic traces and increasing coverage for components that are not thoroughly tested.
 - 🚧 **Engineering Improvements**: Enhancing log formatting, improving CLI usability, and performing code cleanup.
 
-**For specific tasks and upcoming features where we need assistance, please see our [ROADMAP (TBD)](./ROADMAP.md) for planned directions and priorities.**
+**For specific tasks and upcoming features where we need assistance, please see our [ROADMAP](./ROADMAP.md) for planned directions and priorities.**
 
 ## ⚠️ Important Information for Contributors
 
