@@ -490,6 +490,8 @@ class DistinctArgumentRelation(Relation):
             for event1, event2 in combinations(check_func_list[PT_pair], 2):
                 if is_arguments_list_same(event1["args"], event2["args"]):
                     return False
+                
+        return True
 
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
