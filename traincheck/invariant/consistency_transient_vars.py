@@ -1382,9 +1382,72 @@ class ThresholdRelation(Relation):
             triggered=triggered,
         )
     
+    # TODO: check
+    @staticmethod
+    def online_check(
+        check_relation_first: bool,
+        inv: Invariant,
+        trace_record: dict,
+        checker_data: Checker_data,
+    ):
+        # get the first param and the second param, the first param should be larger or equal to the second param
+        # the first param should be larger or equal to the second param
+        assert inv.precondition is not None, "The precondition should not be None."
+        assert len(inv.params) == 3
+        max_param, api_param, min_param = inv.params
+        assert isinstance(max_param, InputOutputParam)
+        assert isinstance(api_param, APIParam)
+        assert isinstance(min_param, InputOutputParam)
+
+        if max_param.is_input:
+            assert not min_param.is_input
+            is_threshold_min = False
+            input_param = max_param
+            output_param = min_param
+        else:
+            assert min_param.is_input
+            is_threshold_min = True
+            input_param = min_param
+            output_param = max_param
+
+        # get all function calls for the function
+        ptid = (trace_record["process_id"], trace_record["thread_id"])
+        func_name = trace_record["function"]
+        func_id = trace_record["func_call_id"]
+        func_call_event = checker_data.pt_map[ptid][func_name][func_id]
+
+        if isinstance(
+            func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
+        ):
+            return True
+
+        # check for precondition here
+        if not inv.precondition.verify([func_call_event.pre_record], "pre_event", None):
+            return True
+
+        threshold_value = input_param.get_value_from_arguments(
+            Arguments(
+                func_call_event.args,
+                func_call_event.kwargs,
+                func_call_event.func_name,
+                consider_default_values=True,
+            )
+        )
+        output_value = output_param.get_value_from_list_of_tensors(
+            get_returned_tensors(func_call_event)
+        )
+
+        if is_threshold_min:
+            if output_value >= threshold_value:
+                return True
+        else:
+            if output_value <= threshold_value:
+                return True
+
+        return False
+    
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
-        # TODO: check
         return [inv.params[1]]
     
     @staticmethod
