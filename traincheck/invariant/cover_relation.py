@@ -662,6 +662,7 @@ class FunctionCoverRelation(Relation):
         thread_id = trace_record["thread_id"]
         ptid = (process_id, thread_id)
         func_name = trace_record["function"]
+        ptname = (process_id, thread_id, func_name)
 
         start_time = None
         end_time = trace_record["time"]
@@ -670,8 +671,7 @@ class FunctionCoverRelation(Relation):
         if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
             return True
 
-        # TODO: sort the map or set a new map with sorted order
-        for func_id, func_event in checker_data.pt_map[ptid][func_name].items():
+        for func_id, func_event in checker_data.pt_map[ptname].items():
             time = func_event.post_record["time"]
             if time >= end_time:
                 continue
@@ -685,8 +685,9 @@ class FunctionCoverRelation(Relation):
 
         cover_func_name = cover_param.api_full_name
         found_cover_func = False
-        if cover_func_name in checker_data.pt_map[ptid]:
-            for func_id, func_event in checker_data.pt_map[ptid][cover_func_name].items():
+        cover_ptname = (process_id, thread_id, cover_func_name)
+        if cover_func_name in checker_data.pt_map:
+            for func_id, func_event in checker_data.pt_map[cover_func_name].items():
                 pre_time = func_event.pre_record["time"]
                 post_time = func_event.post_record["time"]
                 if pre_time >= start_time and post_time <= end_time:

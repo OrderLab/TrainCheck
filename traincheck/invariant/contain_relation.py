@@ -133,10 +133,12 @@ def query_var_changes_within_func_call(
     checker_data: Checker_data,
 ) -> list[VarChangeEvent]:
     """Extract all variable change events from the trace, within the duration of a specific function call."""
-    ptid = (trace_record["process_id"], trace_record["thread_id"])
+    process_id = trace_record["process_id"]
+    thread_id = trace_record["thread_id"]
     func_name = trace_record["function"]
     func_id = trace_record["func_call_id"]
-    func_call_event = checker_data.pt_map[ptid][func_name][func_id]
+    ptname = (process_id, thread_id, func_name)
+    func_call_event = checker_data.pt_map[ptname][func_id]
     pre_record = func_call_event.pre_record
 
     post_record = func_call_event.post_record
@@ -204,14 +206,13 @@ def get_start_time(checker_data, process_id=None, thread_id=None) -> float:
 
     start_times: list[float] = []
 
-    for ptid, funcs in checker_data.pt_map.items():
-        if process_id and ptid[0] != process_id:
+    for ptname, funcs in checker_data.pt_map.items():
+        if process_id and ptname[0] != process_id:
             continue
-        if thread_id and ptid[1] != thread_id:
+        if thread_id and ptname[1] != thread_id:
             continue
-        for _, calls in funcs.items():
-            for _, record in calls.items():
-                start_times.append(record.pre_record["time"])
+        for calls, record in funcs.items():
+            start_times.append(record.pre_record["time"])
 
     start_time = min(start_times)
     return start_time
@@ -223,14 +224,13 @@ def get_end_time(checker_data, process_id=None, thread_id=None) -> float:
 
     end_times: list[float] = []
 
-    for ptid, funcs in checker_data.pt_map.items():
-        if process_id and ptid[0] != process_id:
+    for ptname, funcs in checker_data.pt_map.items():
+        if process_id and ptname[0] != process_id:
             continue
-        if thread_id and ptid[1] != thread_id:
+        if thread_id and ptname[1] != thread_id:
             continue
-        for _, calls in funcs.items():
-            for _, record in calls.items():
-                end_times.append(record.post_record["time"])
+        for calls, record in funcs.items():
+            end_times.append(record.post_record["time"])
 
     end_time = max(end_times)
     return end_time
@@ -1503,10 +1503,12 @@ Defaulting to skip the var preconditon check for now.
         assert isinstance(
             child_param, (APIParam, VarTypeParam, VarNameParam)
         ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
-        ptid = (trace_record["process_id"], trace_record["thread_id"])
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
         func_name = trace_record["function"]
         func_id = trace_record["func_call_id"]
-        func_call_event = checker_data.pt_map[ptid][func_name][func_id]
+        ptname = (process_id, thread_id, func_name)
+        func_call_event = checker_data.pt_map[ptname][func_id]
         if func_call_event.pre_record is None:
             return True
 
@@ -1612,11 +1614,11 @@ Defaulting to skip the var preconditon check for now.
                         return False
 
             return False
-        # TODO:  APIParam and VarNameParam
         elif isinstance(child_param, APIParam):
             events = []
             api_full_name = child_param.api_full_name
-            for child_event in checker_data.pt_map[ptid][api_full_name].values():
+            child_event_ptname = (process_id, thread_id, api_full_name)
+            for child_event in checker_data.pt_map[child_event_ptname].values():
                 if child_event.pre_record is None or child_event.post_record is None:
                     continue
                 child_pre_time = child_event.pre_record["time"]

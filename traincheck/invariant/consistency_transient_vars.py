@@ -592,9 +592,9 @@ class ConsistentOutputRelation(Relation):
         func_call_id = trace_record["func_call_id"]
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
-        ptid = (process_id, thread_id)
+        ptname = (process_id, thread_id, func_name)
 
-        func_call_event = checker_data.pt_map[ptid][func_name][func_call_id]
+        func_call_event = checker_data.pt_map[ptname][func_call_id]
 
         if not inv.precondition.verify(
             [func_call_event.pre_record], "pre_event", None
@@ -954,9 +954,9 @@ class ConsistentInputOutputRelation(Relation):
         func_call_id = trace_record["func_call_id"]
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
-        ptid = (process_id, thread_id)
+        ptname = (process_id, thread_id, func_name)
 
-        func_call_event = checker_data.pt_map[ptid][func_name][func_call_id]
+        func_call_event = checker_data.pt_map[ptname][func_call_id]
 
         if not inv.precondition.verify(
             [func_call_event.pre_record], "pre_event", None
@@ -1411,10 +1411,12 @@ class ThresholdRelation(Relation):
             output_param = max_param
 
         # get all function calls for the function
-        ptid = (trace_record["process_id"], trace_record["thread_id"])
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
         func_name = trace_record["function"]
         func_id = trace_record["func_call_id"]
-        func_call_event = checker_data.pt_map[ptid][func_name][func_id]
+        ptname = (process_id, thread_id, func_name)
+        func_call_event = checker_data.pt_map[ptname][func_id]
 
         if isinstance(
             func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)

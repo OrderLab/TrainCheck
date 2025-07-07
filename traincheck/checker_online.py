@@ -57,6 +57,7 @@ def sort_inv_file(invariants: str):
         assert (
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
+        # TODO: improve code quality
         params = inv.relation.get_mapping_key(inv)
         needed_var = inv.relation.get_needed_variables(inv)
         needed_api = inv.relation.get_needed_api(inv)
@@ -67,7 +68,6 @@ def sort_inv_file(invariants: str):
             needed_apis.update(needed_api)
         if needed_args_api is not None:
             needed_args_map.update(needed_args_api)
-        # TODO: param_to_invs spilt to contain, lead, cover
         for param in params:
             if isinstance(param, VarTypeParam):
                 if param.var_type not in vartype_to_invs:
@@ -216,24 +216,22 @@ class StreamLogHandler(FileSystemEventHandler):
             ptid = (process_id, thread_id)
             func_call_id = trace_record["func_call_id"]
             function_name = trace_record["function"]
-            # TODO: change dict to (process_id, thread_id, function_name) -> dict[func_call_id, OnlineFuncCallEvent]
+            ptname = (process_id, thread_id, function_name)
             if function_name in self.checker_data.needed_apis:
-                if ptid not in self.pt_map:
-                    self.pt_map[ptid] = {}
-                if function_name not in self.pt_map[ptid]:
-                    self.pt_map[ptid][function_name] = {}
-                if func_call_id not in self.pt_map[ptid][function_name]:
-                    self.pt_map[ptid][function_name][func_call_id] = OnlineFuncCallEvent()
+                if ptname not in self.pt_map:
+                    self.pt_map[ptname] = {}
+                if func_call_id not in self.pt_map[ptname]:
+                    self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent()
                 if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
-                    self.pt_map[ptid][function_name][func_call_id].pre_record = trace_record
-                    self.pt_map[ptid][function_name][func_call_id].args = trace_record["args"]
-                    self.pt_map[ptid][function_name][func_call_id].kwargs = trace_record["kwargs"]
+                    self.pt_map[ptname][func_call_id].pre_record = trace_record
+                    self.pt_map[ptname][func_call_id].args = trace_record["args"]
+                    self.pt_map[ptname][func_call_id].kwargs = trace_record["kwargs"]
                 elif trace_record["type"] == TraceLineType.FUNC_CALL_POST:
-                    self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
-                    self.pt_map[ptid][function_name][func_call_id].return_values = trace_record["return_values"]
+                    self.pt_map[ptname][func_call_id].post_record = trace_record
+                    self.pt_map[ptname][func_call_id].return_values = trace_record["return_values"]
                 elif trace_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
-                    self.pt_map[ptid][function_name][func_call_id].post_record = trace_record
-                    self.pt_map[ptid][function_name][func_call_id].exception = trace_record["exception"]
+                    self.pt_map[ptname][func_call_id].post_record = trace_record
+                    self.pt_map[ptname][func_call_id].exception = trace_record["exception"]
 
             if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
                 if function_name in self.checker_data.needed_args_map:
