@@ -672,6 +672,8 @@ class FunctionCoverRelation(Relation):
             return True
 
         for func_id, func_event in checker_data.pt_map[ptname].items():
+            if func_event.post_record is None:
+                continue
             time = func_event.post_record["time"]
             if time >= end_time:
                 continue
@@ -686,8 +688,10 @@ class FunctionCoverRelation(Relation):
         cover_func_name = cover_param.api_full_name
         found_cover_func = False
         cover_ptname = (process_id, thread_id, cover_func_name)
-        if cover_func_name in checker_data.pt_map:
-            for func_id, func_event in checker_data.pt_map[cover_func_name].items():
+        if cover_ptname in checker_data.pt_map:
+            for func_id, func_event in checker_data.pt_map[cover_ptname].items():
+                if func_event.pre_record is None or func_event.post_record is None:
+                    continue
                 pre_time = func_event.pre_record["time"]
                 post_time = func_event.post_record["time"]
                 if pre_time >= start_time and post_time <= end_time:

@@ -856,6 +856,8 @@ class FunctionLeadRelation(Relation):
             return True
 
         for func_id, func_event in checker_data.pt_map[ptname].items():
+            if func_event.post_record is None:
+                continue
             time = func_event.post_record["time"]
             if time >= end_time:
                 continue
@@ -869,9 +871,11 @@ class FunctionLeadRelation(Relation):
 
         lead_func_name = lead_param.api_full_name
         found_cover_func = False
-        lead_ptname = (process_id, thread_id, func_name)
+        lead_ptname = (process_id, thread_id, lead_func_name)
         if lead_ptname in checker_data.pt_map:
             for func_id, func_event in checker_data.pt_map[lead_ptname].items():
+                if func_event.pre_record is None or func_event.post_record is None:
+                    continue
                 pre_time = func_event.pre_record["time"]
                 post_time = func_event.post_record["time"]
                 if pre_time >= start_time and post_time <= end_time:
