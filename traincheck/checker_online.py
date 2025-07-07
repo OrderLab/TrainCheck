@@ -358,6 +358,7 @@ def check(invariants: str, log_paths: str):
                         if attr_name in trace_record and trace_record[attr_name] is not None:
                             # print(f"matched attr_name: {attr_name}")
                             for inv in invs:
+                                # print(inv.text_description)
                                 # result = inv.relation.online_check(True, inv, trace_record, checker_data)
                                 try:
                                     result = inv.relation.online_check(True, inv, trace_record, checker_data)
@@ -382,6 +383,7 @@ def check(invariants: str, log_paths: str):
                 apiparam = APIParam(trace_record["function"])
                 if apiparam in param_to_invs:
                     for inv in param_to_invs[apiparam]:
+                        # print(inv.text_description)
                         with checker_data.cond:
                             while True:
                                 min_time = None
@@ -432,7 +434,7 @@ def main():
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702_test")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_pytorch-51800.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_pytorch-51800")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/invariants_transformers-17877.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/trace_transformers-17877")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
                 
 if __name__ == "__main__":
     main()

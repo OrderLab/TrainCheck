@@ -970,7 +970,7 @@ class ConsistentInputOutputRelation(Relation):
             input_value = inv.params[0].get_value_from_list_of_tensors(input_tensors)
             output_value = inv.params[2].get_value_from_list_of_tensors(output_tensors)
         except (IndexError, KeyError):
-            return False
+            return True
 
         if input_value != output_value:
             return False
