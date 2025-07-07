@@ -1392,6 +1392,9 @@ class ThresholdRelation(Relation):
     ):
         # get the first param and the second param, the first param should be larger or equal to the second param
         # the first param should be larger or equal to the second param
+        if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
+            return True
+        
         assert inv.precondition is not None, "The precondition should not be None."
         assert len(inv.params) == 3
         max_param, api_param, min_param = inv.params

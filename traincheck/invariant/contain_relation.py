@@ -1541,24 +1541,25 @@ Defaulting to skip the var preconditon check for now.
 
         if isinstance(child_param, (VarTypeParam, VarNameParam)):
             events = []
-            for varid in checker_data.type_map[child_param.var_type]:
-                attr_name = child_param.attr_name
-                for i in reversed(
-                    range(1, len(checker_data.varid_map[varid][attr_name]))
-                ):
+            if child_param.var_type in checker_data.type_map:
+                for varid in checker_data.type_map[child_param.var_type]:
+                    attr_name = child_param.attr_name
+                    for i in reversed(
+                        range(1, len(checker_data.varid_map[varid][attr_name]))
+                    ):
 
-                    change_time = checker_data.varid_map[varid][attr_name][
-                        i
-                    ].liveness.start_time
-                    if change_time <= pre_time:
-                        break
-                    if change_time > post_time:
-                        continue
-                    new_state = checker_data.varid_map[varid][attr_name][i]
-                    old_state = checker_data.varid_map[varid][attr_name][i - 1]
-                    if new_state.value == old_state.value:
-                        continue
-                    events.append((old_state, new_state))
+                        change_time = checker_data.varid_map[varid][attr_name][
+                            i
+                        ].liveness.start_time
+                        if change_time <= pre_time:
+                            break
+                        if change_time > post_time:
+                            continue
+                        new_state = checker_data.varid_map[varid][attr_name][i]
+                        old_state = checker_data.varid_map[varid][attr_name][i - 1]
+                        if new_state.value == old_state.value:
+                            continue
+                        events.append((old_state, new_state))
 
             if check_relation_first:
                 for event in events:
