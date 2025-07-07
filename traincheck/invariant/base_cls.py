@@ -434,6 +434,33 @@ class APIParam(Param):
             matched = matched and not self.arguments.check_for_violation(current_args)
 
         return matched
+    
+    def check_event_match_online(self, event: HighLevelEvent) -> bool:
+        if not isinstance(
+            event, (FuncCallEvent, FuncCallExceptionEvent, IncompleteFuncCallEvent)
+        ):
+            return False
+
+        # TODO: Handle Stop Iteration Exception!!!
+        matched = True
+        if self.exception != _NOT_SET:
+            matched = (
+                isinstance(event, FuncCallExceptionEvent)
+                and event.exception == self.exception
+            )
+        else:
+            matched = not isinstance(event, FuncCallExceptionEvent)
+
+        if not matched:
+            return False
+
+        # check the arguments if they are provided
+        if isinstance(self.arguments, Arguments):
+            # current_args should not violate the provided arguments (i.e., self.arguments should be a subset of current_args)
+            current_args = Arguments(event.args, event.kwargs, event.func_name)
+            matched = matched and not self.arguments.check_for_violation(current_args)
+
+        return matched
 
     def with_no_customization(self) -> APIParam:
         return APIParam(self.api_full_name)
@@ -715,6 +742,39 @@ class VarNameParam(Param):
 
     def __repr__(self) -> str:
         return self.__str__()
+    
+    def check_event_match_online(self, event) -> bool:
+        if self.const_value != _NOT_SET:
+            print(
+                "Const value is set for VarNameParam, this should be checked in the relation's evaluate method instead of the check_event_match_online method."
+            )
+
+        pre_and_post_value_matched = True
+        if self.pre_value != _NOT_SET:
+            if self.pre_value != event[0].value:
+                if self.pre_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.pre_value, event[0].value
+                        )
+                    )
+                else:
+                    return False
+
+        if self.post_value != _NOT_SET:
+            if self.post_value != event[1].value:
+                if self.post_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.post_value, event[1].value
+                        )
+                    )
+                else:
+                    return False
+
+        return pre_and_post_value_matched
 
 
 class InputOutputParam(Param):

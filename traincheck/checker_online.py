@@ -95,7 +95,8 @@ def sort_inv_file(invariants: str):
     return param_to_invs, vartype_to_invs, needed_vars, needed_apis, needed_args_map
 
 class OnlineFuncCallEvent(FuncCallEvent):
-    def __init__(self):
+    def __init__(self, func_name):
+        self.func_name = func_name
         self.pre_record = None
         self.post_record = None
         self.exception = None
@@ -221,7 +222,7 @@ class StreamLogHandler(FileSystemEventHandler):
                 if ptname not in self.pt_map:
                     self.pt_map[ptname] = {}
                 if func_call_id not in self.pt_map[ptname]:
-                    self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent()
+                    self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent(function_name)
                 if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
                     self.pt_map[ptname][func_call_id].pre_record = trace_record
                     self.pt_map[ptname][func_call_id].args = trace_record["args"]
@@ -357,8 +358,14 @@ def check(invariants: str, log_paths: str):
                         if attr_name in trace_record and trace_record[attr_name] is not None:
                             # print(f"matched attr_name: {attr_name}")
                             for inv in invs:
-                                print(inv.text_description)
-                                result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                                # result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                                try:
+                                    result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                                except Exception as e:
+                                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                    print(inv)
+                                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                    raise e
                                 if not result:
                                     # trace_record1, trace_record2, attr_name = result
                                     # if trace_record1["process_id"] > trace_record2["process_id"]:
@@ -375,7 +382,6 @@ def check(invariants: str, log_paths: str):
                 apiparam = APIParam(trace_record["function"])
                 if apiparam in param_to_invs:
                     for inv in param_to_invs[apiparam]:
-                        print(inv.text_description)
                         with checker_data.cond:
                             while True:
                                 min_time = None
@@ -388,7 +394,14 @@ def check(invariants: str, log_paths: str):
                                     print("Wake up")
                                 else:
                                     break
-                        result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                        try:
+                            result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                        except Exception as e:
+                            print("????????????????????????????????????????????????????????")
+                            print(inv)
+                            print("????????????????????????????????????????????????????????")
+                            print(inv.text_description)
+                            raise e
                         if not result:
                             num += 1
                             print(f"Violated invariant: {inv.text_description}")
@@ -397,7 +410,7 @@ def check(invariants: str, log_paths: str):
     except KeyboardInterrupt:
         observer.stop()
         print(f"Total violated times: {num}")
-        print(f"Total violated invariant: {len(failed_inv)}")
+        print(f"Total violated invariants: {len(failed_inv)}")
         # for pair, count in violated_paris.items():
         #     print(f"Pair: {pair}, Count: {count}")
     observer.join()
@@ -410,7 +423,7 @@ def main():
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
@@ -419,6 +432,7 @@ def main():
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702_test")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_pytorch-51800.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_pytorch-51800")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/invariants_transformers-17877.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/trace_transformers-17877")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
                 
 if __name__ == "__main__":
     main()

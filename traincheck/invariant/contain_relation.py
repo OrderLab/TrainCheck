@@ -1618,20 +1618,22 @@ Defaulting to skip the var preconditon check for now.
             events = []
             api_full_name = child_param.api_full_name
             child_event_ptname = (process_id, thread_id, api_full_name)
-            for child_event in checker_data.pt_map[child_event_ptname].values():
-                if child_event.pre_record is None or child_event.post_record is None:
-                    continue
-                child_pre_time = child_event.pre_record["time"]
-                child_post_time = child_event.post_record["time"]
-                if pre_time > child_pre_time:
-                    continue
-                if child_post_time > post_time:
-                    continue
-                events.append(child_event)
+            if child_event_ptname in checker_data.pt_map:
+                for child_event in checker_data.pt_map[child_event_ptname].values():
+                    if child_event.pre_record is None or child_event.post_record is None:
+                        continue
+                    child_pre_time = child_event.pre_record["time"]
+                    child_post_time = child_event.post_record["time"]
+                    if pre_time > child_pre_time:
+                        continue
+                    if child_post_time > post_time:
+                        continue
+                    events.append(child_event)
 
             if check_relation_first:
                 found_expected_child_event = False
                 for event in events:
+                    # TODO: check apiparam check_event_match_online
                     if child_param.check_event_match_online(event):
                         found_expected_child_event = True
                         break
