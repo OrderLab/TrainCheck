@@ -46,6 +46,26 @@ from traincheck.trace.types import (
     VarChangeEvent,
 )
 
+
+timing_info = {}
+lock = threading.Lock()
+
+def profile_section(name):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            start = time.perf_counter()
+            result = func(*args, **kwargs)
+            end = time.perf_counter()
+            duration = end - start
+            with lock:
+                if name not in timing_info:
+                    timing_info[name] = []
+                timing_info[name].append(duration)
+            return result
+        return wrapper
+    return decorator
+
+
 def sort_inv_file(invariants: str):
     invs = read_inv_file(invariants)
     param_to_invs : dict[Param, list[Invariant]] = {}
@@ -267,6 +287,7 @@ class StreamLogHandler(FileSystemEventHandler):
             
 
     def _handle_line(self, lines):
+        start = time.perf_counter()
         for line in lines:
             trace_record = None
             try:
@@ -281,6 +302,13 @@ class StreamLogHandler(FileSystemEventHandler):
                 # TODO: log
                 print(line)
                 raise e
+        end = time.perf_counter()
+        duration = end - start
+        with lock:
+            name = self.file_path + "handle_line"
+            if name not in timing_info:
+                timing_info[name] = []
+            timing_info[name].append(duration)
 
 
     def _save_initial_content(self):
@@ -379,7 +407,15 @@ def check(invariants: str, log_paths: str):
                                 # print(inv.text_description)
                                 # result = inv.relation.online_check(True, inv, trace_record, checker_data)
                                 try:
+                                    start = time.perf_counter()
                                     result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                                    end = time.perf_counter()
+                                    duration = end - start
+                                    with lock:
+                                        name = "online_check"
+                                        if name not in timing_info:
+                                            timing_info[name] = []
+                                        timing_info[name].append(duration)
                                     if not result:
                                         # trace_record1, trace_record2, attr_name = result
                                         # if trace_record1["process_id"] > trace_record2["process_id"]:
@@ -402,22 +438,31 @@ def check(invariants: str, log_paths: str):
                     for inv in param_to_invs[apiparam]:
                         # print(inv.text_description)
                         try:
+                            start = time.perf_counter()
                             result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                            end = time.perf_counter()
+                            duration = end - start
+                            with lock:
+                                name = "online_check"
+                                if name not in timing_info:
+                                    timing_info[name] = []
+                                timing_info[name].append(duration)
                             if not result:
                                 num += 1
                                 print(f"Violated invariant: {inv.text_description}")
                                 failed_inv.add(inv)
                         except Exception as e:
                             print(inv)
-                            print(inv.text_description)
-                            raise e
+                            # print(inv.text_description)
+                            # raise e
                         
 
     except KeyboardInterrupt:
         observer.stop()
         print(f"Total violated times: {num}")
         print(f"Total violated invariants: {len(failed_inv)}")
-
+        for name, times in timing_info.items():
+            print(f"{name}: called {len(times)} times, total time = {sum(times)}s, avg time = {sum(times)/len(times):.6f}s")
 
 
     observer.join()
@@ -430,7 +475,7 @@ def main():
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test1")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
