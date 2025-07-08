@@ -129,7 +129,9 @@ class Checker_data:
         self.process_to_vars = {}
         self.args_map = {}
 
-        self.min_read_time = {}
+        self.read_time_map = {}
+        self.min_read_time = None
+        self.min_read_path = None
         self.read_lock = threading.Lock()
         self.cond = threading.Condition(self.read_lock)
 
@@ -251,8 +253,17 @@ class StreamLogHandler(FileSystemEventHandler):
         self.queue.put(trace_record)
 
         with self.checker_data.cond:
-            self.checker_data.min_read_time[self.file_path] = trace_record["time"]
-            self.checker_data.cond.notify_all()
+            self.checker_data.read_time_map[self.file_path] = trace_record["time"]
+            recalc_needed = (
+               self.checker_data.min_read_path == self.file_path
+                or self.checker_data.min_read_time is None
+            )
+            if recalc_needed:
+                pre_min_read_time = self.checker_data.min_read_time
+                self.checker_data.min_read_path, self.checker_data.min_read_time = min(
+                    self.checker_data.read_time_map.items(), default=(None, None))
+                if pre_min_read_time != self.checker_data.min_read_time:
+                    self.checker_data.cond.notify_all()
             
 
 
@@ -347,7 +358,15 @@ def check(invariants: str, log_paths: str):
                 # time.sleep(20)
             if trace_record is None:
                 continue
-                       
+            
+            with checker_data.cond:
+                while True:
+                    if trace_record["time"] > checker_data.min_read_time:
+                        print("Wait")
+                        checker_data.cond.wait()
+                        print("Wake up")
+                    else:
+                        break
 
             if "var_name" in trace_record and trace_record["var_name"] is not None:
                 varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
@@ -358,7 +377,7 @@ def check(invariants: str, log_paths: str):
                         if attr_name in trace_record and trace_record[attr_name] is not None:
                             # print(f"matched attr_name: {attr_name}")
                             for inv in invs:
-                                print(inv.text_description)
+                                # print(inv.text_description)
                                 # result = inv.relation.online_check(True, inv, trace_record, checker_data)
                                 try:
                                     result = inv.relation.online_check(True, inv, trace_record, checker_data)
@@ -375,28 +394,14 @@ def check(invariants: str, log_paths: str):
                                         print(f"Violated invariant: {inv.text_description}")
                                         failed_inv.add(inv)
                                 except Exception as e:
-                                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                                     print(inv)
-                                    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                                     # raise e
 
             elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
                 apiparam = APIParam(trace_record["function"])
                 if apiparam in param_to_invs:
                     for inv in param_to_invs[apiparam]:
-                        print(inv.text_description)
-                        with checker_data.cond:
-                            while True:
-                                min_time = None
-                                for _ , min_read_time in checker_data.min_read_time.items():
-                                    if min_time is None or min_time > min_read_time:
-                                        min_time = min_read_time
-                                if trace_record["time"] > min_time:
-                                    print("Wait")
-                                    checker_data.cond.wait()
-                                    print("Wake up")
-                                else:
-                                    break
+                        # print(inv.text_description)
                         try:
                             result = inv.relation.online_check(True, inv, trace_record, checker_data)
                             if not result:
@@ -404,9 +409,7 @@ def check(invariants: str, log_paths: str):
                                 print(f"Violated invariant: {inv.text_description}")
                                 failed_inv.add(inv)
                         except Exception as e:
-                            print("????????????????????????????????????????????????????????")
                             print(inv)
-                            print("????????????????????????????????????????????????????????")
                             print(inv.text_description)
                             raise e
                         
@@ -436,8 +439,8 @@ def main():
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702_test")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_pytorch-51800.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_pytorch-51800")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/invariants_transformers-17877.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/trace_transformers-17877")
-    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/TrainCheck-Evaluation-Workloads-main/silent-issue-detection/invariants_transformers-33844.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/test")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/TrainCheck-Evaluation-Workloads-main/silent-issue-detection/invariants_transformers-33844.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/test")
                 
 if __name__ == "__main__":
     main()
