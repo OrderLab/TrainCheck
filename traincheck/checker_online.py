@@ -266,7 +266,6 @@ class StreamLogHandler(FileSystemEventHandler):
                     self.checker_data.cond.notify_all()
             
 
-
     def _handle_line(self, lines):
         for line in lines:
             trace_record = None
@@ -418,8 +417,9 @@ def check(invariants: str, log_paths: str):
         observer.stop()
         print(f"Total violated times: {num}")
         print(f"Total violated invariants: {len(failed_inv)}")
-        # for pair, count in violated_paris.items():
-        #     print(f"Pair: {pair}, Count: {count}")
+
+
+
     observer.join()
 
 
@@ -430,7 +430,7 @@ def main():
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
-    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
+    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
@@ -439,7 +439,7 @@ def main():
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_mmpretrain-702.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_mmpretrain-702_test")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/invariants_pytorch-51800.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_co_le/trace_pytorch-51800")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/invariants_transformers-17877.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_da/trace_transformers-17877")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/TrainCheck-Evaluation-Workloads-main/silent-issue-detection/invariants_transformers-33844.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/test")
                 
 if __name__ == "__main__":
