@@ -133,9 +133,12 @@ def get_causally_related_vars(
     """
 
     ptid = (trace_record["process_id"], trace_record["thread_id"])
+    process_id = trace_record["process_id"]
+    thread_id = trace_record["thread_id"]
     func_name = trace_record["function"]
     func_id = trace_record["func_call_id"]
-    func_call_pre_event = checker_data.pt_map[ptid][func_name][func_id].pre_record
+    ptname = (process_id, thread_id, func_name)
+    func_call_pre_event = checker_data.pt_map[ptname][func_id].pre_record
 
     if func_call_pre_event is None:
         raise ValueError(
@@ -150,30 +153,29 @@ def get_causally_related_vars(
 
     causally_related_var_ids: set[VarInstId] = set()
 
-    for ptid, pts in checker_data.pt_map.items():
-        for function_name, calls in pts.items():
-            for call_id, record in calls.items():
-                if (
-                    record.pre_record["obj_id"] == obj_id
-                    and record.pre_record["time"] < func_call_pre_event["time"]
-                ):
-                    assert (
-                        record.pre_record["process_id"]
-                        == func_call_pre_event["process_id"]
-                    ), "Related function call is on a different process."
-                    assert (
-                        record.pre_record["thread_id"]
-                        == func_call_pre_event["thread_id"]
-                    ), "Related function call is on a different thread."
+    for _, calls in checker_data.pt_map.items():
+        for call_id, record in calls.items():
+            if (
+                record.pre_record["obj_id"] == obj_id
+                and record.pre_record["time"] < func_call_pre_event["time"]
+            ):
+                assert (
+                    record.pre_record["process_id"]
+                    == func_call_pre_event["process_id"]
+                ), "Related function call is on a different process."
+                assert (
+                    record.pre_record["thread_id"]
+                    == func_call_pre_event["thread_id"]
+                ), "Related function call is on a different thread."
 
-                    for var_name, var_type in record.pre_record["proxy_obj_names"]:
-                        if var_name == "" and var_type == "":
-                            continue
-                        causally_related_var_ids.add(
-                            VarInstId(
-                                record.pre_record["process_id"], var_name, var_type
-                            )
+                for var_name, var_type in record.pre_record["proxy_obj_names"]:
+                    if var_name == "" and var_type == "":
+                        continue
+                    causally_related_var_ids.add(
+                        VarInstId(
+                            record.pre_record["process_id"], var_name, var_type
                         )
+                    )
 
     return causally_related_var_ids
 
@@ -1570,7 +1572,6 @@ Defaulting to skip the var preconditon check for now.
 
         preconditions = inv.precondition
 
-        # TODO: to check
         skip_var_unchanged_check = (
             VAR_GROUP_NAME not in preconditions.get_group_names()
             or len(preconditions.get_group(VAR_GROUP_NAME)) == 0
@@ -1690,7 +1691,6 @@ Defaulting to skip the var preconditon check for now.
             if check_relation_first:
                 found_expected_child_event = False
                 for event in events:
-                    # TODO: check apiparam check_event_match_online
                     if child_param.check_event_match_online(event):
                         found_expected_child_event = True
                         break
