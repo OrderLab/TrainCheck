@@ -1596,6 +1596,9 @@ Defaulting to skip the var preconditon check for now.
             events = []
             if child_param.var_type in checker_data.type_map:
                 for varid in checker_data.type_map[child_param.var_type]:
+                    if isinstance(child_param, VarNameParam):
+                        if varid.var_name != child_param.var_name:
+                            continue
                     attr_name = child_param.attr_name
                     for i in reversed(
                         range(1, len(checker_data.varid_map[varid][attr_name]))
