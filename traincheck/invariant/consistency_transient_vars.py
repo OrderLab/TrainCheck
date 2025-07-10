@@ -593,8 +593,8 @@ class ConsistentOutputRelation(Relation):
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
         ptname = (process_id, thread_id, func_name)
-
-        func_call_event = checker_data.pt_map[ptname][func_call_id]
+        with checker_data.lock:
+            func_call_event = checker_data.pt_map[ptname][func_call_id]
 
         if not inv.precondition.verify(
             [func_call_event.pre_record], "pre_event", None
@@ -955,8 +955,8 @@ class ConsistentInputOutputRelation(Relation):
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
         ptname = (process_id, thread_id, func_name)
-
-        func_call_event = checker_data.pt_map[ptname][func_call_id]
+        with checker_data.lock:
+            func_call_event = checker_data.pt_map[ptname][func_call_id]
 
         if not inv.precondition.verify(
             [func_call_event.pre_record], "pre_event", None
@@ -1382,7 +1382,6 @@ class ThresholdRelation(Relation):
             triggered=triggered,
         )
     
-    # TODO: check
     @staticmethod
     def online_check(
         check_relation_first: bool,
@@ -1419,7 +1418,8 @@ class ThresholdRelation(Relation):
         func_name = trace_record["function"]
         func_id = trace_record["func_call_id"]
         ptname = (process_id, thread_id, func_name)
-        func_call_event = checker_data.pt_map[ptname][func_id]
+        with checker_data.lock:
+            func_call_event = checker_data.pt_map[ptname][func_id]
 
         if isinstance(
             func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)

@@ -152,8 +152,8 @@ class Checker_data:
         self.read_time_map = {}
         self.min_read_time = None
         self.min_read_path = None
-        self.read_lock = threading.Lock()
-        self.cond = threading.Condition(self.read_lock)
+        self.lock = threading.Lock()
+        self.cond = threading.Condition(self.lock)
 
 class StreamLogHandler(FileSystemEventHandler):
     def __init__(self, file_path, checker_data: Checker_data):
@@ -168,7 +168,7 @@ class StreamLogHandler(FileSystemEventHandler):
         self.process_to_vars = checker_data.process_to_vars
         self.args_map = checker_data.args_map
         self.min_read_time = checker_data.min_read_time
-        self.read_lock = checker_data.read_lock
+        self.lock = checker_data.lock
         self.cond = checker_data.cond
         self.checker_data = checker_data
 
@@ -177,98 +177,99 @@ class StreamLogHandler(FileSystemEventHandler):
         self.fp.seek(0, 2) 
 
     def _set_maps(self, trace_record):
-        if "var_name" in trace_record and trace_record["var_name"] is not None:
-            varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
-            var_name = trace_record["var_name"]
-            var_type = trace_record["var_type"]
-            if var_name in self.checker_data.needed_vars or var_type in self.checker_data.needed_vars:
-                if varid not in self.varid_map:
-                    self.varid_map[varid] = {}
+        with self.lock:
+            if "var_name" in trace_record and trace_record["var_name"] is not None:
+                var_name = trace_record["var_name"]
+                var_type = trace_record["var_type"]
+                if var_name in self.checker_data.needed_vars or var_type in self.checker_data.needed_vars:
+                    varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
+                    if varid not in self.varid_map:
+                        self.varid_map[varid] = {}
 
-                if varid.process_id not in self.process_to_vars:
-                    self.process_to_vars[varid.process_id] = set()
+                    if varid.process_id not in self.process_to_vars:
+                        self.process_to_vars[varid.process_id] = set()
 
-                self.process_to_vars[varid.process_id].add(varid)
-                
-                for attr_name, value in trace_record.items():
-                    if value is None:
-                        continue
+                    self.process_to_vars[varid.process_id].add(varid)
+                    
+                    for attr_name, value in trace_record.items():
+                        if value is None:
+                            continue
 
-                    if attr_name.startswith(config.VAR_ATTR_PREFIX):
-                        attr_name = attr_name[len(config.VAR_ATTR_PREFIX):]
-                    else:
-                        continue
+                        if attr_name.startswith(config.VAR_ATTR_PREFIX):
+                            attr_name = attr_name[len(config.VAR_ATTR_PREFIX):]
+                        else:
+                            continue
 
-                    from traincheck.invariant.base_cls import make_hashable
+                        from traincheck.invariant.base_cls import make_hashable
 
-                    curr_value = make_hashable(value)
-                    if any(
-                        [
-                            re.match(pattern, attr_name) is not None
-                            for pattern in config.PROP_ATTR_PATTERNS
-                        ]
-                    ):
-                        continue
+                        curr_value = make_hashable(value)
+                        if any(
+                            [
+                                re.match(pattern, attr_name) is not None
+                                for pattern in config.PROP_ATTR_PATTERNS
+                            ]
+                        ):
+                            continue
 
-                    if attr_name not in self.varid_map[varid]:
-                        self.varid_map[varid][attr_name] = [
-                            AttrState(
-                                curr_value,
-                                Liveness(trace_record["time"], None),
-                                [trace_record],
-                            )    
-                        ]
-                    else:
-                            
-                        self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record["time"]
-                        self.varid_map[varid][attr_name].append(
-                            AttrState(
-                                curr_value,
-                                Liveness(trace_record["time"], None),
-                                [trace_record],
+                        if attr_name not in self.varid_map[varid]:
+                            self.varid_map[varid][attr_name] = [
+                                AttrState(
+                                    curr_value,
+                                    Liveness(trace_record["time"], None),
+                                    [trace_record],
+                                )    
+                            ]
+                        else:
+                                
+                            self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record["time"]
+                            self.varid_map[varid][attr_name].append(
+                                AttrState(
+                                    curr_value,
+                                    Liveness(trace_record["time"], None),
+                                    [trace_record],
+                                )
                             )
-                        )
-                            
-                if trace_record["var_type"] is not None:
-                    if trace_record["var_type"] not in self.type_map:
-                        self.type_map[trace_record["var_type"]] = set()
-                    self.type_map[trace_record["var_type"]].add(varid)
-        elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
-            process_id = trace_record["process_id"]
-            thread_id = trace_record["thread_id"]
-            ptid = (process_id, thread_id)
-            func_call_id = trace_record["func_call_id"]
-            function_name = trace_record["function"]
-            ptname = (process_id, thread_id, function_name)
-            if function_name in self.checker_data.needed_apis:
-                if ptname not in self.pt_map:
-                    self.pt_map[ptname] = {}
-                if func_call_id not in self.pt_map[ptname]:
-                    self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent(function_name)
-                if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
-                    self.pt_map[ptname][func_call_id].pre_record = trace_record
-                    self.pt_map[ptname][func_call_id].args = trace_record["args"]
-                    self.pt_map[ptname][func_call_id].kwargs = trace_record["kwargs"]
-                elif trace_record["type"] == TraceLineType.FUNC_CALL_POST:
-                    self.pt_map[ptname][func_call_id].post_record = trace_record
-                    self.pt_map[ptname][func_call_id].return_values = trace_record["return_values"]
-                elif trace_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
-                    self.pt_map[ptname][func_call_id].post_record = trace_record
-                    self.pt_map[ptname][func_call_id].exception = trace_record["exception"]
+                                
+                    if trace_record["var_type"] is not None:
+                        if trace_record["var_type"] not in self.type_map:
+                            self.type_map[trace_record["var_type"]] = set()
+                        self.type_map[trace_record["var_type"]].add(varid)
+            elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
+                function_name = trace_record["function"]
+                if function_name in self.checker_data.needed_apis:
+                    process_id = trace_record["process_id"]
+                    thread_id = trace_record["thread_id"]
+                    ptid = (process_id, thread_id)
+                    func_call_id = trace_record["func_call_id"]
+                    ptname = (process_id, thread_id, function_name)
+                    if ptname not in self.pt_map:
+                        self.pt_map[ptname] = {}
+                    if func_call_id not in self.pt_map[ptname]:
+                        self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent(function_name)
+                    if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
+                        self.pt_map[ptname][func_call_id].pre_record = trace_record
+                        self.pt_map[ptname][func_call_id].args = trace_record["args"]
+                        self.pt_map[ptname][func_call_id].kwargs = trace_record["kwargs"]
+                    elif trace_record["type"] == TraceLineType.FUNC_CALL_POST:
+                        self.pt_map[ptname][func_call_id].post_record = trace_record
+                        self.pt_map[ptname][func_call_id].return_values = trace_record["return_values"]
+                    elif trace_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
+                        self.pt_map[ptname][func_call_id].post_record = trace_record
+                        self.pt_map[ptname][func_call_id].exception = trace_record["exception"]
 
-            if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
-                if function_name in self.checker_data.needed_args_map:
-                    if "args" in trace_record:
-                        if "meta_vars.step" not in trace_record:
-                            trace_record["meta_vars.step"] = -1
-                        step = trace_record["meta_vars.step"]
-                        if function_name not in self.args_map:
-                            self.args_map[function_name] = {}
-                        if step not in self.args_map[function_name]:
-                            self.args_map[function_name][step] = {}
-                        if ptid not in self.args_map[function_name][step]:
-                            self.args_map[function_name][step][ptid] = []
-                        self.args_map[function_name][step][ptid].append(trace_record)
+                if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
+                    if function_name in self.checker_data.needed_args_map:
+                        if "args" in trace_record:
+                            if "meta_vars.step" not in trace_record:
+                                trace_record["meta_vars.step"] = -1
+                            step = trace_record["meta_vars.step"]
+                            if function_name not in self.args_map:
+                                self.args_map[function_name] = {}
+                            if step not in self.args_map[function_name]:
+                                self.args_map[function_name][step] = {}
+                            if ptid not in self.args_map[function_name][step]:
+                                self.args_map[function_name][step][ptid] = []
+                            self.args_map[function_name][step][ptid].append(trace_record)
 
         self.queue.put(trace_record)
 

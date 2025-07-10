@@ -572,70 +572,70 @@ class ConsistencyRelation(Relation):
                     return attr
                 
             return None
-
-        check_attr1 = get_check_attr(param1, varid)
-        check_attr2 = get_check_attr(param2, varid)
+        with checker_data.lock:
+            check_attr1 = get_check_attr(param1, varid)
+            check_attr2 = get_check_attr(param2, varid)
         if param1 == param2:
             check_attr2 = None
 
         for check_attr, ref_param in [(check_attr1, param2), (check_attr2, param1)]:
             if check_attr is None:
-                continue
-
-            if ref_param.var_type not in checker_data.type_map:
-                # TODO:
-                print("Type not found in checker_data.type_map")
-            else:
-                
-                for var2 in checker_data.type_map[ref_param.var_type]:
-                    if var2 == varid:
-                        continue
-                    # print(trace_record.time)
-                    # print(var2.var_name, trace_record.var_name)
-                    # print(var2.process_id, trace_record.process_id)
-                    if checker_data.varid_map[var2][ref_param.attr_name] is None:
-                        # TODO:
-                        print("Attribute not found in checker_data")
-                    else:
-                        for attr in reversed(checker_data.varid_map[var2][ref_param.attr_name]):
-                            if attr.liveness.start_time > trace_record["time"]:
-                                continue
-                            if attr.liveness.end_time is None:
-                                continue
-                            if attr.liveness.end_time <= check_attr.liveness.start_time:
-                                break
-                            if attr.liveness.start_time >= check_attr.liveness.end_time:
-                                continue
-                            overlap = calc_liveness_overlap(
-                                check_attr.liveness, attr.liveness
-                            )
-                            if overlap <= config.LIVENESS_OVERLAP_THRESHOLD:
-                                continue
-                            if check_relation_first:
-                                compare_result = ConsistencyRelation.evaluate(
-                                    [check_attr.value, attr.value]
+                    continue
+            with checker_data.lock:
+                if ref_param.var_type not in checker_data.type_map:
+                    # TODO:
+                    print("Type not found in checker_data.type_map")
+                else:
+                    
+                    for var2 in checker_data.type_map[ref_param.var_type]:
+                        if var2 == varid:
+                            continue
+                        # print(trace_record.time)
+                        # print(var2.var_name, trace_record.var_name)
+                        # print(var2.process_id, trace_record.process_id)
+                        if checker_data.varid_map[var2][ref_param.attr_name] is None:
+                            # TODO:
+                            print("Attribute not found in checker_data")
+                        else:
+                            for attr in reversed(checker_data.varid_map[var2][ref_param.attr_name]):
+                                if attr.liveness.start_time > trace_record["time"]:
+                                    continue
+                                if attr.liveness.end_time is None:
+                                    continue
+                                if attr.liveness.end_time <= check_attr.liveness.start_time:
+                                    break
+                                if attr.liveness.start_time >= check_attr.liveness.end_time:
+                                    continue
+                                overlap = calc_liveness_overlap(
+                                    check_attr.liveness, attr.liveness
                                 )
-                                # print("compare_result: ",compare_result)
-                                if not compare_result:
-                                    if inv.precondition.verify(
-                                        [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
-                                    ):
-                                        # print("precondition satisfied")
-                                        # print(attr.liveness.start_time, check_attr.liveness.start_time)
-                                        # return (check_attr.traces[-1], attr.traces[-1], ref_param.attr_name)
-                                        return False
-                                    # else:
-                                    #     print("precondition not satisfied")
-                            else:
-                                if inv.precondition.verify(
-                                    [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
-                                ):
+                                if overlap <= config.LIVENESS_OVERLAP_THRESHOLD:
+                                    continue
+                                if check_relation_first:
                                     compare_result = ConsistencyRelation.evaluate(
                                         [check_attr.value, attr.value]
                                     )
+                                    # print("compare_result: ",compare_result)
                                     if not compare_result:
-                                        # return  (check_attr.traces[-1], attr.traces[-1], ref_param.attr_name)
-                                        return False
+                                        if inv.precondition.verify(
+                                            [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
+                                        ):
+                                            # print("precondition satisfied")
+                                            # print(attr.liveness.start_time, check_attr.liveness.start_time)
+                                            # return (check_attr.traces[-1], attr.traces[-1], ref_param.attr_name)
+                                            return False
+                                        # else:
+                                        #     print("precondition not satisfied")
+                                else:
+                                    if inv.precondition.verify(
+                                        [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
+                                    ):
+                                        compare_result = ConsistencyRelation.evaluate(
+                                            [check_attr.value, attr.value]
+                                        )
+                                        if not compare_result:
+                                            # return  (check_attr.traces[-1], attr.traces[-1], ref_param.attr_name)
+                                            return False
                                 
         return True
 

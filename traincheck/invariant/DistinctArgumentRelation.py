@@ -478,18 +478,19 @@ class DistinctArgumentRelation(Relation):
         else:
             step = trace_record["meta_vars.step"]
 
-        check_func_list = checker_data.args_map[func_name][step]
+        with checker_data.lock:
+            check_func_list = checker_data.args_map[func_name][step]
 
-        for PT_pair1, PT_pair2 in combinations(check_func_list.keys(), 2):
-            for event1 in check_func_list[PT_pair1]:
-                for event2 in check_func_list[PT_pair2]:
+            for PT_pair1, PT_pair2 in combinations(check_func_list.keys(), 2):
+                for event1 in check_func_list[PT_pair1]:
+                    for event2 in check_func_list[PT_pair2]:
+                        if is_arguments_list_same(event1["args"], event2["args"]):
+                            return False
+                        
+            for PT_pair in check_func_list.keys():
+                for event1, event2 in combinations(check_func_list[PT_pair], 2):
                     if is_arguments_list_same(event1["args"], event2["args"]):
                         return False
-                    
-        for PT_pair in check_func_list.keys():
-            for event1, event2 in combinations(check_func_list[PT_pair], 2):
-                if is_arguments_list_same(event1["args"], event2["args"]):
-                    return False
                 
         return True
 

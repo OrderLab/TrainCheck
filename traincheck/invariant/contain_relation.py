@@ -125,6 +125,58 @@ def get_var_ids_unchanged_but_causally_related(
         related_vars_not_changed.append(var_id)
     return related_vars_not_changed
 
+def get_causally_related_vars(
+    func_call_id, trace_record, checker_data
+) -> set[VarInstId]:
+    """Find all variables that are causally related to a function call.
+    By causally related, we mean that the variables have been accessed or modified by the object (with another method) that the function call is made on.
+    """
+
+    ptid = (trace_record["process_id"], trace_record["thread_id"])
+    func_name = trace_record["function"]
+    func_id = trace_record["func_call_id"]
+    func_call_pre_event = checker_data.pt_map[ptid][func_name][func_id].pre_record
+
+    if func_call_pre_event is None:
+        raise ValueError(
+            f"Function call pre-event not found for func_call_id: {func_call_id}"
+        )
+
+    assert func_call_pre_event[
+        "is_bound_method"
+    ], f"Causal relation extraction is only supported for bound methods, got {func_call_pre_event['function']} which is not"
+
+    obj_id = func_call_pre_event["obj_id"]
+
+    causally_related_var_ids: set[VarInstId] = set()
+
+    for ptid, pts in checker_data.pt_map.items():
+        for function_name, calls in pts.items():
+            for call_id, record in calls.items():
+                if (
+                    record.pre_record["obj_id"] == obj_id
+                    and record.pre_record["time"] < func_call_pre_event["time"]
+                ):
+                    assert (
+                        record.pre_record["process_id"]
+                        == func_call_pre_event["process_id"]
+                    ), "Related function call is on a different process."
+                    assert (
+                        record.pre_record["thread_id"]
+                        == func_call_pre_event["thread_id"]
+                    ), "Related function call is on a different thread."
+
+                    for var_name, var_type in record.pre_record["proxy_obj_names"]:
+                        if var_name == "" and var_type == "":
+                            continue
+                        causally_related_var_ids.add(
+                            VarInstId(
+                                record.pre_record["process_id"], var_name, var_type
+                            )
+                        )
+
+    return causally_related_var_ids
+
 def query_var_changes_within_func_call(
     func_call_id: str,
     var_type: str,
@@ -1508,7 +1560,8 @@ Defaulting to skip the var preconditon check for now.
         func_name = trace_record["function"]
         func_id = trace_record["func_call_id"]
         ptname = (process_id, thread_id, func_name)
-        func_call_event = checker_data.pt_map[ptname][func_id]
+        with checker_data.lock:
+            func_call_event = checker_data.pt_map[ptname][func_id]
         if func_call_event.pre_record is None:
             return True
 

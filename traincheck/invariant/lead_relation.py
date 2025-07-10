@@ -855,16 +855,17 @@ class FunctionLeadRelation(Relation):
         if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
             return True
 
-        for func_id, func_event in checker_data.pt_map[ptname].items():
-            if func_event.post_record is None:
-                continue
-            time = func_event.post_record["time"]
-            if time >= end_time:
-                continue
-            if not inv.precondition.verify([func_event.pre_record], EXP_GROUP_NAME, None):
-                continue
-            if start_time is None or time > start_time:
-                start_time = time
+        with checker_data.lock:
+            for func_id, func_event in checker_data.pt_map[ptname].items():
+                if func_event.post_record is None:
+                    continue
+                time = func_event.post_record["time"]
+                if time >= end_time:
+                    continue
+                if not inv.precondition.verify([func_event.pre_record], EXP_GROUP_NAME, None):
+                    continue
+                if start_time is None or time > start_time:
+                    start_time = time
 
         if start_time is None:
             return True
@@ -872,15 +873,16 @@ class FunctionLeadRelation(Relation):
         lead_func_name = lead_param.api_full_name
         found_cover_func = False
         lead_ptname = (process_id, thread_id, lead_func_name)
-        if lead_ptname in checker_data.pt_map:
-            for func_id, func_event in checker_data.pt_map[lead_ptname].items():
-                if func_event.pre_record is None or func_event.post_record is None:
-                    continue
-                pre_time = func_event.pre_record["time"]
-                post_time = func_event.post_record["time"]
-                if pre_time >= start_time and post_time <= end_time:
-                    found_cover_func = True
-                    return True
+        with checker_data.lock:
+            if lead_ptname in checker_data.pt_map:
+                for func_id, func_event in checker_data.pt_map[lead_ptname].items():
+                    if func_event.pre_record is None or func_event.post_record is None:
+                        continue
+                    pre_time = func_event.pre_record["time"]
+                    post_time = func_event.post_record["time"]
+                    if pre_time >= start_time and post_time <= end_time:
+                        found_cover_func = True
+                        return True
                 
         return False
 
