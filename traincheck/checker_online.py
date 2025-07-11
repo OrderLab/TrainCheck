@@ -86,38 +86,34 @@ def check(invariants, traces, trace_folders, output_dir: str):
     param_to_invs, vartype_to_invs, needed_data = sort_inv_file(invariants)
     checker_data = Checker_data(needed_data)
     observer = run_stream_monitor(traces, trace_folders, checker_data)
+    output_file = os.path.join(output_dir, "failed.log")
     num = 0
-    failed_inv = set()
-    violated_paris = {}
+    violated_paris = dict()
+    failed_inv = dict()
     try:
         while True:
             trace_record = checker_data.check_queue.get()
             if checker_data.check_queue.empty():
-                print("queue empty")
-                # time.sleep(20)
+                logger.debug("Check queue is empty")
             if trace_record is None:
                 continue
             
             with checker_data.cond:
                 while True:
                     if trace_record["time"] > checker_data.min_read_time:
-                        print("Wait")
+                        logger.debug("Wait for the different trace file to catch up")
                         checker_data.cond.wait()
-                        print("Wake up")
+                        logger.debug("Woke up from wait")
                     else:
                         break
 
             if "var_name" in trace_record and trace_record["var_name"] is not None:
                 varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
                 if varid.var_type in vartype_to_invs:
-                    # print(f"matched var_type: {varid.var_type}")
                     for attr_name, invs in vartype_to_invs[varid.var_type].items():
                         attr_name = config.VAR_ATTR_PREFIX + attr_name
                         if attr_name in trace_record and trace_record[attr_name] is not None:
-                            # print(f"matched attr_name: {attr_name}")
                             for inv in invs:
-                                # print(inv.text_description)
-                                # result = inv.relation.online_check(True, inv, trace_record, checker_data)
                                 try:
                                     start = time.perf_counter()
                                     result = inv.relation.online_check(True, inv, trace_record, checker_data)
@@ -128,21 +124,25 @@ def check(invariants, traces, trace_folders, output_dir: str):
                                         if name not in timing_info:
                                             timing_info[name] = []
                                         timing_info[name].append(duration)
-                                    if not result:
-                                        # trace_record1, trace_record2, attr_name = result
-                                        # if trace_record1["process_id"] > trace_record2["process_id"]:
-                                        #     trace_record1, trace_record2 = trace_record2, trace_record1
-                                        # pair = (trace_record1["var_name"], trace_record1["time"], trace_record1["process_id"], trace_record2["var_name"], trace_record2["process_id"], trace_record2["time"])
-                                        # if pair not in violated_paris:
-                                        #     violated_paris[pair] = 0
-                                        # violated_paris[pair] += 1
+                                    if result is not None:
+                                        # voilated_pair = frozenset(result.trace)
+                                        # if inv not in violated_paris:
+                                        #     violated_paris[inv] = set()
+                                        # if voilated_pair not in violated_paris[inv]:
+                                        #     violated_paris[inv].add(voilated_pair)
+                                        # else:
+                                        #     continue
+                                        if inv not in failed_inv:
+                                            failed_inv[inv] = 0
+                                        failed_inv[inv] += 1
                                         num += 1
-                                        # print(trace_record.process_id, trace_record.time)
-                                        print(f"Violated invariant: {inv.text_description}")
-                                        failed_inv.add(inv)
+                                        logger.error(f"Voilated times {num}: Invariant {inv} violated near time {trace_record['time']}")
+                                        # with open(output_file, "a") as f:
+                                        #     json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                                        #     f.write("\n")
                                 except Exception as e:
-                                    print(inv)
-                                    # raise e
+                                    logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
+                                
 
             elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
                 apiparam = APIParam(trace_record["function"])
