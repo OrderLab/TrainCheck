@@ -38,6 +38,7 @@ from traincheck.trace.types import (
     VarInstId,
 )
 from traincheck.utils import typename
+import copy
 from traincheck.checker_online import Checker_data
 
 
@@ -138,12 +139,13 @@ def get_causally_related_vars(
     func_name = trace_record["function"]
     func_id = trace_record["func_call_id"]
     ptname = (process_id, thread_id, func_name)
-    func_call_pre_event = checker_data.pt_map[ptname][func_id].pre_record
+    with checker_data.lock:
+        func_call_pre_event = checker_data.pt_map[ptname][func_id].pre_record
 
-    if func_call_pre_event is None:
-        raise ValueError(
-            f"Function call pre-event not found for func_call_id: {func_call_id}"
-        )
+        if func_call_pre_event is None:
+            raise ValueError(
+                f"Function call pre-event not found for func_call_id: {func_call_id}"
+            )
 
     assert func_call_pre_event[
         "is_bound_method"
@@ -153,29 +155,30 @@ def get_causally_related_vars(
 
     causally_related_var_ids: set[VarInstId] = set()
 
-    for _, calls in checker_data.pt_map.items():
-        for call_id, record in calls.items():
-            if (
-                record.pre_record["obj_id"] == obj_id
-                and record.pre_record["time"] < func_call_pre_event["time"]
-            ):
-                assert (
-                    record.pre_record["process_id"]
-                    == func_call_pre_event["process_id"]
-                ), "Related function call is on a different process."
-                assert (
-                    record.pre_record["thread_id"]
-                    == func_call_pre_event["thread_id"]
-                ), "Related function call is on a different thread."
+    with checker_data.lock:
+        for _, calls in checker_data.pt_map.items():
+            for call_id, record in calls.items():
+                if (
+                    record.pre_record["obj_id"] == obj_id
+                    and record.pre_record["time"] < func_call_pre_event["time"]
+                ):
+                    assert (
+                        record.pre_record["process_id"]
+                        == func_call_pre_event["process_id"]
+                    ), "Related function call is on a different process."
+                    assert (
+                        record.pre_record["thread_id"]
+                        == func_call_pre_event["thread_id"]
+                    ), "Related function call is on a different thread."
 
-                for var_name, var_type in record.pre_record["proxy_obj_names"]:
-                    if var_name == "" and var_type == "":
-                        continue
-                    causally_related_var_ids.add(
-                        VarInstId(
-                            record.pre_record["process_id"], var_name, var_type
+                    for var_name, var_type in record.pre_record["proxy_obj_names"]:
+                        if var_name == "" and var_type == "":
+                            continue
+                        causally_related_var_ids.add(
+                            VarInstId(
+                                record.pre_record["process_id"], var_name, var_type
+                            )
                         )
-                    )
 
     return causally_related_var_ids
 
@@ -192,13 +195,14 @@ def query_var_changes_within_func_call(
     func_name = trace_record["function"]
     func_id = trace_record["func_call_id"]
     ptname = (process_id, thread_id, func_name)
-    func_call_event = checker_data.pt_map[ptname][func_id]
-    pre_record = func_call_event.pre_record
+    with checker_data.lock:
+        func_call_event = checker_data.pt_map[ptname][func_id]
+        pre_record = func_call_event.pre_record
 
-    post_record = func_call_event.post_record
+        post_record = func_call_event.post_record
 
-    start_time = pre_record["time"]
-    end_time = post_record["time"]
+        start_time = pre_record["time"]
+        end_time = post_record["time"]
 
     return query_var_changes_within_time_and_process(
         (start_time, end_time),
@@ -218,21 +222,22 @@ def query_var_changes_within_time_and_process(
 ) -> list[VarChangeEvent]:
     """Extract all variable change events from the trace, within a specific time range and process."""
     events = []
-    for varid in checker_data.type_map[var_type]:
-        for i in reversed(range(1, len(checker_data.varid_map[varid][attr_name]))):
+    with checker_data.lock:
+        for varid in checker_data.type_map[var_type]:
+            for i in reversed(range(1, len(checker_data.varid_map[varid][attr_name]))):
 
-            change_time = checker_data.varid_map[varid][attr_name][
-                i
-            ].liveness.start_time
-            if change_time <= time_range[0]:
-                break
-            if change_time > time_range[1]:
-                continue
-            new_state = checker_data.varid_map[varid][attr_name][i]
-            old_state = checker_data.varid_map[varid][attr_name][i - 1]
-            if new_state.value == old_state.value:
-                continue
-            events.append((varid, attr_name))
+                change_time = checker_data.varid_map[varid][attr_name][
+                    i
+                ].liveness.start_time
+                if change_time <= time_range[0]:
+                    break
+                if change_time > time_range[1]:
+                    continue
+                new_state = checker_data.varid_map[varid][attr_name][i]
+                old_state = checker_data.varid_map[varid][attr_name][i - 1]
+                if new_state.value == old_state.value:
+                    continue
+                events.append((varid, attr_name))
     return events
 
 
@@ -242,10 +247,11 @@ def get_var_raw_event_before_time(
     """Get all original trace records of a variable before the specified time."""
 
     raw_events = []
-    for attr_name, records in checker_data.varid_map[var_id].items():
-        for record in records:
-            if record.liveness.start_time < time:
-                raw_events.append(record.traces[-1])
+    with checker_data.lock:
+        for attr_name, records in checker_data.varid_map[var_id].items():
+            for record in records:
+                if record.liveness.start_time < time:
+                    raw_events.append(record.traces[-1])
 
     return raw_events
 
@@ -1564,11 +1570,13 @@ Defaulting to skip the var preconditon check for now.
         ptname = (process_id, thread_id, func_name)
         with checker_data.lock:
             func_call_event = checker_data.pt_map[ptname][func_id]
-        if func_call_event.pre_record is None:
-            return True
+            if func_call_event.pre_record is None:
+                return True
+            pre_trace_record = func_call_event.pre_record
+            post_trace_record = func_call_event.post_record
 
-        pre_time = func_call_event.pre_record["time"]
-        post_time = func_call_event.post_record["time"]
+        pre_time = pre_trace_record["time"]
+        post_time = post_trace_record["time"]
 
         preconditions = inv.precondition
 
@@ -1595,28 +1603,31 @@ Defaulting to skip the var preconditon check for now.
 
         if isinstance(child_param, (VarTypeParam, VarNameParam)):
             events = []
-            if child_param.var_type in checker_data.type_map:
-                for varid in checker_data.type_map[child_param.var_type]:
-                    if isinstance(child_param, VarNameParam):
-                        if varid.var_name != child_param.var_name:
-                            continue
-                    attr_name = child_param.attr_name
-                    for i in reversed(
-                        range(1, len(checker_data.varid_map[varid][attr_name]))
-                    ):
+            with checker_data.lock:
+                if child_param.var_type in checker_data.type_map:
+                    for varid in checker_data.type_map[child_param.var_type]:
+                        if isinstance(child_param, VarNameParam):
+                            if varid.var_name != child_param.var_name:
+                                continue
+                        attr_name = child_param.attr_name
+                        for i in reversed(
+                            range(1, len(checker_data.varid_map[varid][attr_name]))
+                        ):
 
-                        change_time = checker_data.varid_map[varid][attr_name][
-                            i
-                        ].liveness.start_time
-                        if change_time <= pre_time:
-                            break
-                        if change_time > post_time:
-                            continue
-                        new_state = checker_data.varid_map[varid][attr_name][i]
-                        old_state = checker_data.varid_map[varid][attr_name][i - 1]
-                        if new_state.value == old_state.value:
-                            continue
-                        events.append((old_state, new_state))
+                            change_time = checker_data.varid_map[varid][attr_name][
+                                i
+                            ].liveness.start_time
+                            if change_time <= pre_time:
+                                break
+                            if change_time > post_time:
+                                continue
+                            new_state = checker_data.varid_map[varid][attr_name][i]
+                            old_state = checker_data.varid_map[varid][attr_name][i - 1]
+                            if new_state.value == old_state.value:
+                                continue
+                            if new_state.liveness.end_time is None:
+                                new_state = copy.deepcopy(new_state)
+                            events.append((old_state, new_state))
 
             if check_relation_first:
                 for event in events:
@@ -1625,13 +1636,13 @@ Defaulting to skip the var preconditon check for now.
                         break
 
                 if not preconditions.verify(
-                    [func_call_event.pre_record], PARENT_GROUP_NAME, None
+                    [pre_trace_record], PARENT_GROUP_NAME, None
                 ):
                     return True
 
             else:
                 if preconditions.verify(
-                    [func_call_event.pre_record], PARENT_GROUP_NAME, None
+                    [pre_trace_record], PARENT_GROUP_NAME, None
                 ):
                     for event in events:
                         if child_param.check_event_match_online(event):
@@ -1645,6 +1656,7 @@ Defaulting to skip the var preconditon check for now.
                     child_param, VarTypeParam
                 ), "Expected the child parameter to be a VarTypeParam"
                 # get the unchanged vars that are causally related to the parent function
+                # TODO: this function called twice, can be cached
                 unchanged_var_ids = get_var_ids_unchanged_but_causally_related(
                     func_id,
                     child_param.var_type,
@@ -1676,17 +1688,18 @@ Defaulting to skip the var preconditon check for now.
             events = []
             api_full_name = child_param.api_full_name
             child_event_ptname = (process_id, thread_id, api_full_name)
-            if child_event_ptname in checker_data.pt_map:
-                for child_event in checker_data.pt_map[child_event_ptname].values():
-                    if child_event.pre_record is None or child_event.post_record is None:
-                        continue
-                    child_pre_time = child_event.pre_record["time"]
-                    child_post_time = child_event.post_record["time"]
-                    if pre_time > child_pre_time:
-                        continue
-                    if child_post_time > post_time:
-                        continue
-                    events.append(child_event)
+            with checker_data.lock:
+                if child_event_ptname in checker_data.pt_map:
+                    for child_event in checker_data.pt_map[child_event_ptname].values():
+                        if child_event.pre_record is None or child_event.post_record is None:
+                            continue
+                        child_pre_time = child_event.pre_record["time"]
+                        child_post_time = child_event.post_record["time"]
+                        if pre_time > child_pre_time:
+                            continue
+                        if child_post_time > post_time:
+                            continue
+                        events.append(child_event)
 
             if check_relation_first:
                 found_expected_child_event = False
@@ -1696,7 +1709,7 @@ Defaulting to skip the var preconditon check for now.
                         break
 
                 if preconditions.verify(
-                    [func_call_event.pre_record], PARENT_GROUP_NAME, None
+                    [pre_trace_record], PARENT_GROUP_NAME, None
                 ):
                     if found_expected_child_event:
                         return True
@@ -1704,7 +1717,7 @@ Defaulting to skip the var preconditon check for now.
                     return True
             else:
                 if preconditions.verify(
-                    [func_call_event.pre_record], PARENT_GROUP_NAME, None
+                    [pre_trace_record], PARENT_GROUP_NAME, None
                 ):
                     for event in events:
                         if child_param.check_event_match_online(event):
