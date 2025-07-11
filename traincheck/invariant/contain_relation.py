@@ -110,17 +110,17 @@ def get_var_ids_unchanged_but_causally_related(
         changed_vars = [
             var_change
             for var_change in changed_vars
-            if var_change.var_id.var_type == var_type
+            if var_change[0].var_type == var_type
         ]
     if attr_name is not None:
         changed_vars = [
             var_change
             for var_change in changed_vars
-            if var_change.attr_name == attr_name
+            if var_change[1] == attr_name
         ]
 
     for var_id in related_vars:
-        if any([var_change.var_id == var_id for var_change in changed_vars]):
+        if any([var_change[0] == var_id for var_change in changed_vars]):
             continue
         related_vars_not_changed.append(var_id)
     return related_vars_not_changed
@@ -232,7 +232,7 @@ def query_var_changes_within_time_and_process(
             old_state = checker_data.varid_map[varid][attr_name][i - 1]
             if new_state.value == old_state.value:
                 continue
-            events.append((old_state, new_state))
+            events.append((varid, attr_name))
     return events
 
 
@@ -245,7 +245,7 @@ def get_var_raw_event_before_time(
     for attr_name, records in checker_data.varid_map[var_id].items():
         for record in records:
             if record.liveness.start_time < time:
-                raw_events.append(record)
+                raw_events.append(record.traces[-1])
 
     return raw_events
 
@@ -1624,12 +1624,9 @@ Defaulting to skip the var preconditon check for now.
                         found_expected_child_event = True
                         break
 
-                if preconditions.verify(
+                if not preconditions.verify(
                     [func_call_event.pre_record], PARENT_GROUP_NAME, None
                 ):
-                    if found_expected_child_event:
-                        return True
-                else:
                     return True
 
             else:
@@ -1638,7 +1635,8 @@ Defaulting to skip the var preconditon check for now.
                 ):
                     for event in events:
                         if child_param.check_event_match_online(event):
-                            return True
+                            found_expected_child_event = True
+                            break
                 else:
                     return True
 
@@ -1665,13 +1663,15 @@ Defaulting to skip the var preconditon check for now.
                 for unchanged_var_state in unchanged_var_states:
                     # verify that no precondition is met for the unchanged vars
                     # MARK: precondition 2
+                    # TODO: check unchanged_var_state or [unchanged_var_state]
                     if not preconditions.verify(
                         unchanged_var_state, VAR_GROUP_NAME, None
                     ):
                         var_unchanged_check_passed = False
                         return False
+                
+            return found_expected_child_event
 
-            return False
         elif isinstance(child_param, APIParam):
             events = []
             api_full_name = child_param.api_full_name
