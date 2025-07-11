@@ -23,11 +23,7 @@ from traincheck.trace import MDNONEJSONEncoder
 
 import time
 import datetime
-from watchdog.observers import Observer
-from watchdog.observers.polling import PollingObserver
-from watchdog.events import FileSystemEventHandler
 import os
-from traincheck.trace.utils import flatten_dict, replace_none_with_md_none
 import queue
 from traincheck.trace.types import VarInstId
 from traincheck.config import config
@@ -37,35 +33,12 @@ from traincheck.instrumentor.tracer import TraceLineType
 from typing import NamedTuple
 import threading
 from traincheck.trace.types import AttrState
-from traincheck.trace.types import (
-    HighLevelEvent,
-    ALL_EVENT_TYPES,
-    FuncCallEvent,
-    FuncCallExceptionEvent,
-    IncompleteFuncCallEvent,
-    VarChangeEvent,
-)
 import logging
 import argparse
-from traincheck.onlinechecker.utils import Checker_data
+from traincheck.onlinechecker.utils import Checker_data, timing_info, lock
+from traincheck.onlinechecker.streamhandler_filesystem import run_stream_monitor
 
-timing_info = {}
-lock = threading.Lock()
 
-def profile_section(name):
-    def decorator(func):
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            result = func(*args, **kwargs)
-            end = time.perf_counter()
-            duration = end - start
-            with lock:
-                if name not in timing_info:
-                    timing_info[name] = []
-                timing_info[name].append(duration)
-            return result
-        return wrapper
-    return decorator
 
 
 def sort_inv_file(invariants):
@@ -83,7 +56,6 @@ def sort_inv_file(invariants):
         assert (
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
-        # TODO: improve code quality
         params = inv.relation.get_mapping_key(inv)
         needed_var, needed_api, needed_args_api = inv.relation.get_needed_data(inv)
         if needed_var is not None:
@@ -105,255 +77,12 @@ def sort_inv_file(invariants):
                 param_to_invs[param].append(inv)
     logger.info("Sorting done.")
     needed_data = (needed_vars, needed_apis, needed_args_map)
-    return param_to_invs, vartype_to_invs, needed_data
-
-class OnlineFuncCallEvent(FuncCallEvent):
-    def __init__(self, func_name):
-        self.func_name = func_name
-        self.pre_record = None
-        self.post_record = None
-        self.exception = None
-
-        self.args = None
-        self.kwargs = None
-        self.return_values = None
-
-
-    def get_traces(self):
-        return [self.pre_record, self.post_record]
-
-    def __hash__(self) -> int:
-        return super().__hash__()
-
-    def __eq__(self, other) -> bool:
-        return super().__eq__(other)
-
-
-class StreamLogHandler(FileSystemEventHandler):
-    def __init__(self, file_path, checker_data: Checker_data):
-        self.file_path = file_path
-        self.fp = open(file_path, 'r')
-
-        self.queue = checker_data.check_queue
-
-        self.varid_map = checker_data.varid_map
-        self.type_map = checker_data.type_map
-        self.pt_map = checker_data.pt_map
-        self.process_to_vars = checker_data.process_to_vars
-        self.args_map = checker_data.args_map
-        self.min_read_time = checker_data.min_read_time
-        self.lock = checker_data.lock
-        self.cond = checker_data.cond
-        self.checker_data = checker_data
-
-        self._save_initial_content()
-
-        self.fp.seek(0, 2) 
-
-    def _set_maps(self, trace_record):
-        with self.lock:
-            if "var_name" in trace_record and trace_record["var_name"] is not None:
-                var_name = trace_record["var_name"]
-                var_type = trace_record["var_type"]
-                if var_name in self.checker_data.needed_vars or var_type in self.checker_data.needed_vars:
-                    varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
-                    if varid not in self.varid_map:
-                        self.varid_map[varid] = {}
-
-                    if varid.process_id not in self.process_to_vars:
-                        self.process_to_vars[varid.process_id] = set()
-
-                    self.process_to_vars[varid.process_id].add(varid)
-                    
-                    for attr_name, value in trace_record.items():
-                        if value is None:
-                            continue
-
-                        if attr_name.startswith(config.VAR_ATTR_PREFIX):
-                            attr_name = attr_name[len(config.VAR_ATTR_PREFIX):]
-                        else:
-                            continue
-
-                        from traincheck.invariant.base_cls import make_hashable
-
-                        curr_value = make_hashable(value)
-                        if any(
-                            [
-                                re.match(pattern, attr_name) is not None
-                                for pattern in config.PROP_ATTR_PATTERNS
-                            ]
-                        ):
-                            continue
-
-                        if attr_name not in self.varid_map[varid]:
-                            self.varid_map[varid][attr_name] = [
-                                AttrState(
-                                    curr_value,
-                                    Liveness(trace_record["time"], None),
-                                    [trace_record],
-                                )    
-                            ]
-                        else:
-                                
-                            self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record["time"]
-                            self.varid_map[varid][attr_name].append(
-                                AttrState(
-                                    curr_value,
-                                    Liveness(trace_record["time"], None),
-                                    [trace_record],
-                                )
-                            )
-                                
-                    if trace_record["var_type"] is not None:
-                        if trace_record["var_type"] not in self.type_map:
-                            self.type_map[trace_record["var_type"]] = set()
-                        self.type_map[trace_record["var_type"]].add(varid)
-            elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
-                function_name = trace_record["function"]
-                process_id = trace_record["process_id"]
-                thread_id = trace_record["thread_id"]
-                ptid = (process_id, thread_id)
-                func_call_id = trace_record["func_call_id"]
-                ptname = (process_id, thread_id, function_name)
-                if function_name in self.checker_data.needed_apis:
-                    if ptname not in self.pt_map:
-                        self.pt_map[ptname] = {}
-                    if func_call_id not in self.pt_map[ptname]:
-                        self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent(function_name)
-                    if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
-                        self.pt_map[ptname][func_call_id].pre_record = trace_record
-                        self.pt_map[ptname][func_call_id].args = trace_record["args"]
-                        self.pt_map[ptname][func_call_id].kwargs = trace_record["kwargs"]
-                    elif trace_record["type"] == TraceLineType.FUNC_CALL_POST:
-                        self.pt_map[ptname][func_call_id].post_record = trace_record
-                        self.pt_map[ptname][func_call_id].return_values = trace_record["return_values"]
-                    elif trace_record["type"] == TraceLineType.FUNC_CALL_POST_EXCEPTION:
-                        self.pt_map[ptname][func_call_id].post_record = trace_record
-                        self.pt_map[ptname][func_call_id].exception = trace_record["exception"]
-
-                if trace_record["type"] == TraceLineType.FUNC_CALL_PRE:
-                    if function_name in self.checker_data.needed_args_map:
-                        if "args" in trace_record:
-                            if "meta_vars.step" not in trace_record:
-                                trace_record["meta_vars.step"] = -1
-                            step = trace_record["meta_vars.step"]
-                            if function_name not in self.args_map:
-                                self.args_map[function_name] = {}
-                            if step not in self.args_map[function_name]:
-                                self.args_map[function_name][step] = {}
-                            if ptid not in self.args_map[function_name][step]:
-                                self.args_map[function_name][step][ptid] = []
-                            self.args_map[function_name][step][ptid].append(trace_record)
-
-        self.queue.put(trace_record)
-
-        with self.checker_data.cond:
-            self.checker_data.read_time_map[self.file_path] = trace_record["time"]
-            recalc_needed = (
-               self.checker_data.min_read_path == self.file_path
-                or self.checker_data.min_read_time is None
-            )
-            if recalc_needed:
-                pre_min_read_time = self.checker_data.min_read_time
-                self.checker_data.min_read_path, self.checker_data.min_read_time = min(
-                    self.checker_data.read_time_map.items(), default=(None, None))
-                if pre_min_read_time != self.checker_data.min_read_time:
-                    self.checker_data.cond.notify_all()
-            
-
-    def _handle_line(self, lines):
-        start = time.perf_counter()
-        for line in lines:
-            trace_record = None
-            try:
-                flat_dict = flatten_dict(
-                        json.loads(line, object_hook=replace_none_with_md_none),
-                        skip_fields=["args", "kwargs", "return_values"],
-                    )
-                trace_record = flat_dict
-                self._set_maps(trace_record)
-
-            except Exception as e:
-                # TODO: log
-                print(line)
-                raise e
-        end = time.perf_counter()
-        duration = end - start
-        with lock:
-            name = self.file_path + "handle_line"
-            if name not in timing_info:
-                timing_info[name] = []
-            timing_info[name].append(duration)
-
-
-    def _save_initial_content(self):
-        self.fp.seek(0)
-        lines = self.fp.readlines()
-        if not lines:
-            return
-        
-        self._handle_line(lines)
-        print("ok")
-
-        # TODO: remove, just for check correctness
-        # time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        # dir_name = "test_for_watch_dog"
-        # os.makedirs(dir_name, exist_ok=True)
-        # if self.file_path.endswith(".json"):
-        #     file_name = os.path.join(dir_name, f"log_init_proxy_{time_now}.txt")
-        # else:
-        #     file_name = os.path.join(dir_name, f"log_init_api_{time_now}.txt")
-        # with open(file_name, 'w') as f:
-        #     f.writelines(lines)
-
-    def on_modified(self, event):
-        if os.path.abspath(event.src_path) != os.path.abspath(self.file_path):
-            return
-
-        self._handle_line(self.fp)
-
-        # TODO: remove, just for check correctness
-        # time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        # dir_name = "test_for_watch_dog"
-        # os.makedirs(dir_name, exist_ok=True)
-        # if self.file_path.endswith(".json"):
-        #     file_name = os.path.join("test_for_watch_dog", f"log_proxy_{time_now}.txt")
-        # else:
-        #     file_name = os.path.join("test_for_watch_dog", f"log_api_{time_now}.txt")
-        # with open(file_name, 'a') as f:
-        #     for line in self.fp:
-        #         f.write(line)
-
-
-
-def run_stream_monitor(traces, trace_folders, checker_data: Checker_data):
-    logger = logging.getLogger(__name__)
-    observer = PollingObserver()
-    handlers = []
-    if traces is not None:
-        file_path = os.path.abspath(traces[0])
-        handler = StreamLogHandler(file_path, checker_data)
-        handlers.append(handler)
-        watch_dir = os.path.dirname(file_path)
-        observer.schedule(handler, path=watch_dir, recursive=False)
-        logger.info(f"Watching: {file_path}")
-
-    if trace_folders is not None:
-        for trace_folder in trace_folders:
-            for file in os.listdir(trace_folder):
-                if file.startswith("trace_") or file.endswith("proxy_log.json"):
-                    file_path = os.path.join(trace_folder, file)
-                    handler = StreamLogHandler(file_path, checker_data)
-                    handlers.append(handler)
-                    watch_dir = os.path.dirname(file_path)
-                    observer.schedule(handler, path=watch_dir, recursive=False)
-                    logger.info(f"Watching: {file_path}")
-
-    observer.start()
-    return observer
- 
+    return param_to_invs, vartype_to_invs, needed_data 
 
 def check(invariants, traces, trace_folders, output_dir: str):
+    logger = logging.getLogger(__name__)
+    logger.info("Starting online checker")
+    logger.addHandler(logging.StreamHandler())
     param_to_invs, vartype_to_invs, needed_data = sort_inv_file(invariants)
     checker_data = Checker_data(needed_data)
     observer = run_stream_monitor(traces, trace_folders, checker_data)
