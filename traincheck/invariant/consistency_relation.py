@@ -7,6 +7,7 @@ from tqdm import tqdm
 from traincheck.config import config
 from traincheck.invariant.base_cls import (
     CheckerResult,
+    OnlineCheckerResult,
     Example,
     ExampleList,
     FailedHypothesis,
@@ -619,11 +620,10 @@ class ConsistencyRelation(Relation):
                                 if inv.precondition.verify(
                                     [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
                                 ):
-                                    return CheckerResult(
+                                    return OnlineCheckerResult(
                                         trace=[check_attr.traces[-1], attr.traces[-1]],
                                         invariant=inv,
                                         check_passed=False,
-                                        triggered=True,
                                     )
                         else:
                             if inv.precondition.verify(
@@ -633,11 +633,10 @@ class ConsistencyRelation(Relation):
                                     [check_attr.value, attr.value]
                                 )
                                 if not compare_result:
-                                    return CheckerResult(
+                                    return OnlineCheckerResult(
                                         trace=[check_attr.traces[-1], attr.traces[-1]],
                                         invariant=inv,
                                         check_passed=False,
-                                        triggered=True,
                                     )
                                 
         return None

@@ -38,9 +38,6 @@ import argparse
 from traincheck.onlinechecker.utils import Checker_data, timing_info, lock
 from traincheck.onlinechecker.streamhandler_filesystem import run_stream_monitor
 
-
-
-
 def sort_inv_file(invariants):
     logger = logging.getLogger(__name__)
     logger.info("Reading invariants from file: %s", invariants)
@@ -78,6 +75,12 @@ def sort_inv_file(invariants):
     logger.info("Sorting done.")
     needed_data = (needed_vars, needed_apis, needed_args_map)
     return param_to_invs, vartype_to_invs, needed_data 
+
+def get_voilated_pair_hash(trace_pair):
+    from traincheck.invariant.base_cls import make_hashable
+    h1 = hash(make_hashable(trace_pair[0]))
+    h2 = hash(make_hashable(trace_pair[1]))
+    return tuple(sorted((h1, h2), reverse=True))
 
 def check(invariants, traces, trace_folders, output_dir: str):
     logger = logging.getLogger(__name__)
@@ -125,25 +128,25 @@ def check(invariants, traces, trace_folders, output_dir: str):
                                             timing_info[name] = []
                                         timing_info[name].append(duration)
                                     if result is not None:
-                                        # voilated_pair = frozenset(result.trace)
-                                        # if inv not in violated_paris:
-                                        #     violated_paris[inv] = set()
-                                        # if voilated_pair not in violated_paris[inv]:
-                                        #     violated_paris[inv].add(voilated_pair)
-                                        # else:
-                                        #     continue
+                                        violated_pair = get_voilated_pair_hash(result.trace)
+                                        if inv not in violated_paris:
+                                            violated_paris[inv] = set()
+                                        if violated_pair not in violated_paris[inv]:
+                                            violated_paris[inv].add(violated_pair)
+                                        else:
+                                            continue
                                         if inv not in failed_inv:
                                             failed_inv[inv] = 0
                                         failed_inv[inv] += 1
                                         num += 1
-                                        logger.error(f"Voilated times {num}: Invariant {inv} violated near time {trace_record['time']}")
-                                        # with open(output_file, "a") as f:
-                                        #     json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                                        #     f.write("\n")
+                                        result.set_id_and_detection_time(num, time.monotonic_ns())
+                                        logger.error(f"Voilated id {num}:\nInvariant {inv} violated near time {trace_record['time']}")
+                                        with open(output_file, "a") as f:
+                                            json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                                            f.write("\n")
                                 except Exception as e:
                                     logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
                                 
-
             elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
                 apiparam = APIParam(trace_record["function"])
                 if apiparam in param_to_invs:

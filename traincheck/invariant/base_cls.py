@@ -1536,6 +1536,54 @@ class CheckerResult:
         return result_dict
 
 
+class OnlineCheckerResult:
+    def __init__(
+        self,
+        trace: Optional[list[dict]],
+        invariant: Invariant,
+        check_passed: bool,
+    ):
+        if trace is None:
+            assert check_passed, "Check passed should be True for None trace"
+        else:
+            assert len(trace) > 0, "Trace should not be empty"
+        self.trace = trace
+        self.invariant = invariant
+        self.check_passed = check_passed
+
+    def __str__(self) -> str:
+        return f"Trace: {self.trace}\nInvariant: {self.invariant}\nResult: {self.check_passed}"
+
+    def __repr__(self):
+        return self.__str__()
+
+    def set_id_and_detection_time(self, id: int, detection_time: float):
+        self.id = id
+        self.detection_time = detection_time
+
+    def to_dict(self):
+        """Convert the OnlineCheckerResult object to a json serializable dictionary."""
+        assert hasattr(self, "id"), "ID NOT SET for OnlineCheckerResult, please set it before converting to dict"
+        assert hasattr(self, "detection_time"), "Detection time NOT SET for OnlineCheckerResult, please set it before converting to dict"
+        result_dict = {
+            "voilated_id": self.id,
+            "invariant": self.invariant.to_dict(),
+            "check_passed": self.check_passed,
+        }
+
+        trace = self.trace.copy()
+        MD_NONE.replace_with_none(trace)
+
+        result_dict.update(
+            {
+                "detection_time": self.detection_time,
+                "trace": trace,
+            }
+        )
+
+        return result_dict
+
+
 def make_hashable(value):
     """Recursively convert a value into a hashable form."""
     if isinstance(value, dict):
