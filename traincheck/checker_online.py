@@ -45,7 +45,8 @@ from traincheck.trace.types import (
     IncompleteFuncCallEvent,
     VarChangeEvent,
 )
-
+import logging
+import argparse
 
 timing_info = {}
 lock = threading.Lock()
@@ -67,7 +68,11 @@ def profile_section(name):
 
 
 def sort_inv_file(invariants: str):
+    logger = logging.getLogger(__name__)
+    logger.info("Reading invariants from file: %s", invariants)
     invs = read_inv_file(invariants)
+    logger.info("Total %d invariants read from file: %s", len(invs), invariants)
+    logger.info("Sorting invariants by parameters")
     param_to_invs : dict[Param, list[Invariant]] = {}
     vartype_to_invs : dict[str, dict[str, list[Invariant]]] = {}
     needed_vars = set()
@@ -79,9 +84,7 @@ def sort_inv_file(invariants: str):
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         # TODO: improve code quality
         params = inv.relation.get_mapping_key(inv)
-        needed_var = inv.relation.get_needed_variables(inv)
-        needed_api = inv.relation.get_needed_api(inv)
-        needed_args_api = inv.relation.needed_args_map(inv)
+        needed_var, needed_api, needed_args_api = inv.relation.get_needed_data(inv)
         if needed_var is not None:
             needed_vars.update(needed_var)
         if needed_api is not None:
@@ -473,6 +476,22 @@ def check(invariants: str, log_paths: str):
     
 
 def main():
+    # if args.debug:
+    #     log_level = logging.DEBUG
+    # else:
+    #     log_level = logging.INFO
+
+    time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    ## DEBUG
+    # time_now = f"{time_now}_relation_first_{args.check_relation_first}"
+    # set logging to a file
+    logging.basicConfig(
+        filename=f"traincheck_onlinechecker_{time_now}.log",
+        level=logging.INFO,
+    )
+
+    logger = logging.getLogger(__name__)
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")

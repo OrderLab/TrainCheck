@@ -1838,6 +1838,12 @@ class Relation(abc.ABC):
         """Given an invariant, should return a list of Param objects that should be checked."""
         pass 
 
+    @classmethod
+    def get_needed_data(cls, inv: Invariant):
+        """Given an invariant, should return a list of data names that are needed to check the invariant."""
+        return cls.get_needed_variables(inv), cls.get_needed_api(inv), cls.needed_args_map(inv)
+        
+
     @staticmethod
     @abc.abstractmethod
     def get_needed_variables(inv: Invariant):
