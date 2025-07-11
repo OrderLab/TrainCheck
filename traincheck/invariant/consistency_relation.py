@@ -18,7 +18,7 @@ from traincheck.invariant.base_cls import (
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import Liveness, VarInstId
-from traincheck.checker_online import Checker_data
+from traincheck.onlinechecker.utils import Checker_data
 
 tracker_var_field_prefix = "attributes."
 

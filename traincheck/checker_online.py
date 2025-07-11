@@ -47,6 +47,7 @@ from traincheck.trace.types import (
 )
 import logging
 import argparse
+from traincheck.onlinechecker.utils import Checker_data
 
 timing_info = {}
 lock = threading.Lock()
@@ -102,20 +103,9 @@ def sort_inv_file(invariants: str):
                 if param not in param_to_invs:
                     param_to_invs[param] = []
                 param_to_invs[param].append(inv)
-
-
-    # with open("./test.txt", "w") as f:     
-    #     for param, invs_ in param_to_invs.items():
-    #         if isinstance(param, APIParam):
-    #             f.write(param.api_full_name)
-    #         elif isinstance(param, VarNameParam):
-    #             f.write(param.var_name)
-    #         elif isinstance(param, VarTypeParam):
-    #             f.write(param.var_type)
-    #         for inv in invs_:
-    #             f.write(json.dumps(inv.to_dict(), cls=MDNONEJSONEncoder))
-    #             f.write("\n")
-    return param_to_invs, vartype_to_invs, needed_vars, needed_apis, needed_args_map
+    logger.info("Sorting done.")
+    needed_data = (needed_vars, needed_apis, needed_args_map)
+    return param_to_invs, vartype_to_invs, needed_data
 
 class OnlineFuncCallEvent(FuncCallEvent):
     def __init__(self, func_name):
@@ -138,25 +128,6 @@ class OnlineFuncCallEvent(FuncCallEvent):
     def __eq__(self, other) -> bool:
         return super().__eq__(other)
 
-# ! NOTE: not thread safe
-class Checker_data:
-    def __init__(self, needed_vars, needed_apis,  needed_args_map):
-        self.needed_vars = needed_vars
-        self.needed_apis = needed_apis
-        self.needed_args_map = needed_args_map
-
-        self.check_queue = queue.Queue()
-        self.varid_map = {}
-        self.type_map = {}
-        self.pt_map = {}
-        self.process_to_vars = {}
-        self.args_map = {}
-
-        self.read_time_map = {}
-        self.min_read_time = None
-        self.min_read_path = None
-        self.lock = threading.Lock()
-        self.cond = threading.Condition(self.lock)
 
 class StreamLogHandler(FileSystemEventHandler):
     def __init__(self, file_path, checker_data: Checker_data):
@@ -375,8 +346,8 @@ def run_stream_monitor(log_paths, checker_data: Checker_data):
  
 
 def check(invariants: str, log_paths: str):
-    param_to_invs, vartype_to_invs, needed_vars, needed_apis, needed_args_map = sort_inv_file(invariants)
-    checker_data = Checker_data(needed_vars, needed_apis, needed_args_map)
+    param_to_invs, vartype_to_invs, needed_data = sort_inv_file(invariants)
+    checker_data = Checker_data(needed_data)
     observer = run_stream_monitor(log_paths, checker_data)
     num = 0
     failed_inv = set()

@@ -23,8 +23,9 @@ from traincheck.invariant.lead_relation import (
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
-from traincheck.checker_online import Checker_data
 from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.onlinechecker.utils import Checker_data
+
 
 EXP_GROUP_NAME = "func_cover"
 

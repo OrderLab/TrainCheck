@@ -39,7 +39,7 @@ from traincheck.trace.types import (
 )
 from traincheck.utils import typename
 import copy
-from traincheck.checker_online import Checker_data
+from traincheck.onlinechecker.utils import Checker_data
 
 
 PARENT_GROUP_NAME = "parent_func_call_pre"

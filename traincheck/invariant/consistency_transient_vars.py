@@ -27,8 +27,8 @@ from traincheck.trace.types import (
     IncompleteFuncCallEvent,
 )
 from traincheck.utils import safe_isnan
-from traincheck.checker_online import Checker_data
 from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.onlinechecker.utils import Checker_data
 
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"

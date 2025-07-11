@@ -16,8 +16,8 @@ from traincheck.invariant.base_cls import (  # GroupedPreconditions,
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.utils import safe_isnan
-from traincheck.checker_online import Checker_data
 from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.onlinechecker.utils import Checker_data
 
 EXP_GROUP_NAME = "distinct_arg"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 6

@@ -18,8 +18,8 @@ from traincheck.invariant.base_cls import (
 from traincheck.invariant.precondition import find_precondition
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
-from traincheck.checker_online import Checker_data
 from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.onlinechecker.utils import Checker_data
 
 EXP_GROUP_NAME = "func_lead"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 4  # ideally this should be proportional to the number of training and testing iterations in the trace
