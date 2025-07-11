@@ -68,7 +68,7 @@ def profile_section(name):
     return decorator
 
 
-def sort_inv_file(invariants: str):
+def sort_inv_file(invariants):
     logger = logging.getLogger(__name__)
     logger.info("Reading invariants from file: %s", invariants)
     invs = read_inv_file(invariants)
@@ -326,29 +326,37 @@ class StreamLogHandler(FileSystemEventHandler):
 
 
 
-def run_stream_monitor(log_paths, checker_data: Checker_data):
+def run_stream_monitor(traces, trace_folders, checker_data: Checker_data):
+    logger = logging.getLogger(__name__)
     observer = PollingObserver()
     handlers = []
+    if traces is not None:
+        file_path = os.path.abspath(traces[0])
+        handler = StreamLogHandler(file_path, checker_data)
+        handlers.append(handler)
+        watch_dir = os.path.dirname(file_path)
+        observer.schedule(handler, path=watch_dir, recursive=False)
+        logger.info(f"Watching: {file_path}")
 
-
-    # TODO: Keep it the same as the trace reading in the checker.py
-    for file in os.listdir(log_paths):
-        if file.startswith("trace_") or file.endswith("proxy_log.json"):
-            file_path = os.path.join(log_paths, file)
-            handler = StreamLogHandler(file_path, checker_data)
-            handlers.append(handler)
-            watch_dir = os.path.dirname(file_path)
-            observer.schedule(handler, path=watch_dir, recursive=False)
-            print(f"Watching: {file_path}")
+    if trace_folders is not None:
+        for trace_folder in trace_folders:
+            for file in os.listdir(trace_folder):
+                if file.startswith("trace_") or file.endswith("proxy_log.json"):
+                    file_path = os.path.join(trace_folder, file)
+                    handler = StreamLogHandler(file_path, checker_data)
+                    handlers.append(handler)
+                    watch_dir = os.path.dirname(file_path)
+                    observer.schedule(handler, path=watch_dir, recursive=False)
+                    logger.info(f"Watching: {file_path}")
 
     observer.start()
     return observer
  
 
-def check(invariants: str, log_paths: str):
+def check(invariants, traces, trace_folders, output_dir: str):
     param_to_invs, vartype_to_invs, needed_data = sort_inv_file(invariants)
     checker_data = Checker_data(needed_data)
-    observer = run_stream_monitor(log_paths, checker_data)
+    observer = run_stream_monitor(traces, trace_folders, checker_data)
     num = 0
     failed_inv = set()
     violated_paris = {}
@@ -447,26 +455,99 @@ def check(invariants: str, log_paths: str):
     
 
 def main():
-    # if args.debug:
-    #     log_level = logging.DEBUG
-    # else:
-    #     log_level = logging.INFO
+    parser = argparse.ArgumentParser(
+        description="(Online) Invariant Checker for ML Pipelines in Python"
+    )
+    parser.add_argument(
+        "-t",
+        "--traces",
+        nargs="+",
+        required=False,
+        help="Traces files to infer invariants on",
+    )
+    parser.add_argument(
+        "-f",
+        "--trace-folders",
+        nargs="+",
+        help='Folders containing traces files to infer invariants on. Trace files should start with "trace_" or "proxy_log.json"',
+    )
+    parser.add_argument(
+        "-i",
+        "--invariants",
+        nargs="+",
+        required=True,
+        help="Invariants files to check on traces",
+    )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        help="Enable debug logging",
+    )
+    parser.add_argument(
+        "--check-relation-first",
+        action="store_true",
+        help="""Check the relation first, otherwise, the precondition will be checked first. 
+            Enabling this flag will make the checker slower, but enables the checker to catch 
+            the cases where the invariant still holds even if the precondition is not satisfied, 
+            which opens opportunity for precondition refinement. Note that the precondition 
+            refinement algorithm is not implemented yet.""",
+    )
+    parser.add_argument(
+        "-o",
+        "--output-dir",
+        type=str,
+        help="Output folder to store the results, defaulted to traincheck_checker_results_{timestamp}/",
+    )
+
+    args = parser.parse_args()
+
+    # check if either traces or trace folders are provided
+    if args.traces is None and args.trace_folders is None:
+        # print help message if neither traces nor trace folders are provided
+        parser.print_help()
+        parser.error(
+            "Please provide either traces or trace folders to infer invariants"
+        )
+
+    if args.invariants is None:
+        parser.print_help()
+        parser.error("Please provide exactly one invariant file to check")
+
+    if args.debug:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
 
     time_now = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     ## DEBUG
-    # time_now = f"{time_now}_relation_first_{args.check_relation_first}"
+    time_now = f"{time_now}_relation_first_{args.check_relation_first}"
     # set logging to a file
     logging.basicConfig(
         filename=f"traincheck_onlinechecker_{time_now}.log",
-        level=logging.INFO,
+        level=log_level,
     )
 
     logger = logging.getLogger(__name__)
+    # log all the arguments
+    logger.info("Checker started with Arguments:")
+    for arg, val in vars(args).items():
+        logger.info("%s: %s", arg, val)
+
+    if not args.output_dir:
+        args.output_dir = f"traincheck_onlinechecker_results_{time_now}"
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # copy the invariants to the output folder
+    for inv_file in args.invariants:
+        os.system(f"cp {inv_file} {args.output_dir}/invariants.json")
+    
+    check(args.invariants, args.traces, args.trace_folders, args.output_dir)
     # print(aaaaa)
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/traincheck_84911_trace")
-    check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
+    # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/invariants_test.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/firsttest/test")
     # check("/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/invariants.json", "/Users/universe/Documents/univer/study/MLSYS/TrainCheck/firsttest/traincheck_mnist_trace")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_deepspeed-1801")
     # check("/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/invariants_deepspeed-1801-fp16.json", "/Users/universe/Documents/univer/study/MLSYS/OrderLab/TrainCheck/test_for_con/trace_test/simulated")
