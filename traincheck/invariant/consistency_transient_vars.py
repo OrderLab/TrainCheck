@@ -587,7 +587,11 @@ class ConsistentOutputRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         assert inv.precondition is not None, "The precondition should not be None."
         
@@ -607,7 +611,11 @@ class ConsistentOutputRelation(Relation):
         if not inv.precondition.verify(
             func_pre_record, "pre_event", None
         ):
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         returned_tensors = get_returned_tensors(func_call_event)
         if len(returned_tensors) == 0:
@@ -630,7 +638,11 @@ class ConsistentOutputRelation(Relation):
                     check_passed=False,
                 )
                 
-        return None
+        return OnlineCheckerResult(
+            trace=None,
+            invariant=inv,
+            check_passed=True,
+        )
     
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
@@ -964,7 +976,11 @@ class ConsistentInputOutputRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         assert inv.precondition is not None, "The precondition should not be None."
         assert len(inv.params) == 3
@@ -991,7 +1007,11 @@ class ConsistentInputOutputRelation(Relation):
         if not inv.precondition.verify(
             [func_pre_record], "pre_event", None
         ):
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         input_tensors = get_input_tensors(func_call_event)
         output_tensors = get_returned_tensors(func_call_event)
@@ -1003,7 +1023,11 @@ class ConsistentInputOutputRelation(Relation):
             logger.warning(
                 f"Could not find the value to be checked in input or output tensors for the hypothesis {inv}, skipping this function call."
             )
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
 
         if input_value != output_value:
             return OnlineCheckerResult(
@@ -1012,7 +1036,11 @@ class ConsistentInputOutputRelation(Relation):
                 check_passed=False,
             )
         
-        return None
+        return OnlineCheckerResult(
+            trace=None,
+            invariant=inv,  
+            check_passed=True,
+        )
     
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
@@ -1429,7 +1457,11 @@ class ThresholdRelation(Relation):
         # get the first param and the second param, the first param should be larger or equal to the second param
         # the first param should be larger or equal to the second param
         if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         assert inv.precondition is not None, "The precondition should not be None."
         assert len(inv.params) == 3
@@ -1458,14 +1490,15 @@ class ThresholdRelation(Relation):
         with checker_data.lock:
             func_call_event = checker_data.pt_map[ptname][func_id]
 
-        if isinstance(
-            func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
-        ):
-            return None
+        assert not isinstance(func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)), "The function call event should not be an exception or incomplete."
 
         # check for precondition here
         if not inv.precondition.verify([func_call_event.pre_record], "pre_event", None):
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
 
         threshold_value = input_param.get_value_from_arguments(
             Arguments(
@@ -1481,10 +1514,18 @@ class ThresholdRelation(Relation):
 
         if is_threshold_min:
             if output_value >= threshold_value:
-                return None
+                return OnlineCheckerResult(
+                    trace=None,
+                    invariant=inv,  
+                    check_passed=True,
+                )
         else:
             if output_value <= threshold_value:
-                return None
+                return OnlineCheckerResult(
+                    trace=None,
+                    invariant=inv,  
+                    check_passed=True,
+                )
 
         return OnlineCheckerResult(
             trace=[trace_record],

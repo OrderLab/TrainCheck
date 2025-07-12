@@ -127,7 +127,7 @@ def check(invariants, traces, trace_folders, output_dir: str):
                                         if name not in timing_info:
                                             timing_info[name] = []
                                         timing_info[name].append(duration)
-                                    if result is not None:
+                                    if not result.check_passed:
                                         violated_pair = get_voilated_pair_hash(result.trace)
                                         if inv not in violated_paris:
                                             violated_paris[inv] = set()
@@ -146,6 +146,8 @@ def check(invariants, traces, trace_folders, output_dir: str):
                                             f.write("\n")
                                 except Exception as e:
                                     logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
+                                    # TODO: delete raise
+                                    raise e
                                 
             elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
                 apiparam = APIParam(trace_record["function"])
@@ -161,7 +163,7 @@ def check(invariants, traces, trace_folders, output_dir: str):
                                 if name not in timing_info:
                                     timing_info[name] = []
                                 timing_info[name].append(duration)
-                            if result is not None:
+                            if not result.check_passed:
                                 if inv not in failed_inv:
                                     failed_inv[inv] = 0
                                 failed_inv[inv] += 1
@@ -173,8 +175,9 @@ def check(invariants, traces, trace_folders, output_dir: str):
                                     f.write("\n")
                         except Exception as e:
                             logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
+                            # TODO: delete raise
+                            raise e
                         
-
     except KeyboardInterrupt:
         observer.stop()
         logger.info("Checker stopped")

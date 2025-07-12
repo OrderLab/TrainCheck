@@ -647,7 +647,11 @@ class FunctionCoverRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         assert inv.precondition is not None, "Invariant should have a precondition."
 
@@ -656,11 +660,19 @@ class FunctionCoverRelation(Relation):
         for i in range(len(inv.params)):
             if inv.params[i] == checker_param:
                 if i == 0:
-                    return None
+                    return OnlineCheckerResult(
+                        trace=None,
+                        invariant=inv,
+                        check_passed=True,
+                    )
                 cover_param = inv.params[i-1]
                 break
         if cover_param is None: 
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
@@ -672,7 +684,11 @@ class FunctionCoverRelation(Relation):
         end_time = trace_record["time"]
 
         if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )   
 
         with checker_data.lock:
             for func_id, func_event in checker_data.pt_map[ptname].items():
@@ -701,7 +717,11 @@ class FunctionCoverRelation(Relation):
                     post_time = func_event.post_record["time"]
                     if pre_time >= start_time and post_time <= end_time:
                         found_cover_func = True
-                        return None
+                        return OnlineCheckerResult(
+                            trace=None,
+                            invariant=inv,
+                            check_passed=True,
+                        )
         return OnlineCheckerResult(
             trace=[trace_record],
             invariant=inv,

@@ -1555,7 +1555,11 @@ Defaulting to skip the var preconditon check for now.
             trace_record["type"] != TraceLineType.FUNC_CALL_POST
             and trace_record["type"] != TraceLineType.FUNC_CALL_POST_EXCEPTION
         ):
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         assert (
             len(inv.params) == 2
@@ -1577,7 +1581,11 @@ Defaulting to skip the var preconditon check for now.
         with checker_data.lock:
             func_call_event = checker_data.pt_map[ptname][func_id]
             if func_call_event.pre_record is None:
-                return None
+                return OnlineCheckerResult(
+                    trace=None,
+                    invariant=inv,
+                    check_passed=True,
+                )
             func_pre_record = func_call_event.pre_record
             func_post_record = func_call_event.post_record
 
@@ -1644,7 +1652,11 @@ Defaulting to skip the var preconditon check for now.
                 if not preconditions.verify(
                     [func_pre_record], PARENT_GROUP_NAME, None
                 ):
-                    return None
+                    return OnlineCheckerResult(
+                        trace=None,
+                        invariant=inv,
+                        check_passed=True,
+                    )
 
             else:
                 if preconditions.verify(
@@ -1655,7 +1667,11 @@ Defaulting to skip the var preconditon check for now.
                             found_expected_child_event = True
                             break
                 else:
-                    return None
+                    return OnlineCheckerResult(
+                        trace=None,
+                        invariant=inv,
+                        check_passed=True,
+                    )
 
             if not skip_var_unchanged_check:
                 assert isinstance(
@@ -1693,7 +1709,11 @@ Defaulting to skip the var preconditon check for now.
                         )
                 
             if found_expected_child_event:
-                return None
+                return OnlineCheckerResult(
+                    trace=None,
+                    invariant=inv,
+                    check_passed=True,
+                )
             else:
                 return OnlineCheckerResult(
                     trace=[func_pre_record],
@@ -1729,18 +1749,35 @@ Defaulting to skip the var preconditon check for now.
                     [func_pre_record], PARENT_GROUP_NAME, None
                 ):
                     if found_expected_child_event:
-                        return None
+                        return OnlineCheckerResult(
+                            trace=None, 
+                            invariant=inv,
+                            check_passed=True,
+                        )
                 else:
-                    return None
+                    return OnlineCheckerResult(
+                        trace=None,
+                        invariant=inv,
+                        check_passed=True,
+                    )
             else:
                 if preconditions.verify(
                     [func_pre_record], PARENT_GROUP_NAME, None
                 ):
                     for event in events:
                         if child_param.check_event_match_online(event):
-                            return None
+                            return OnlineCheckerResult(
+                                trace=None,
+                                invariant=inv,
+                                check_passed=True,
+                            )
                 else:
-                    return None
+                    return OnlineCheckerResult(
+                        trace=None,
+                        invariant=inv,
+                        check_passed=True,
+                    )
+                
             return OnlineCheckerResult(
                 trace=[func_pre_record],
                 invariant=inv,

@@ -639,7 +639,11 @@ class ConsistencyRelation(Relation):
                                         check_passed=False,
                                     )
                                 
-        return None
+        return OnlineCheckerResult(
+            trace=None,
+            invariant=inv,
+            check_passed=True,
+        )
 
     @staticmethod
     def get_precondition_infer_keys_to_skip(hypothesis: Hypothesis) -> list[str]:

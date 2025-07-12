@@ -461,7 +461,11 @@ class DistinctArgumentRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         assert inv.precondition is not None, "Invariant should have a precondition."
         
@@ -474,7 +478,11 @@ class DistinctArgumentRelation(Relation):
         if not inv.precondition.verify(
             [trace_record], EXP_GROUP_NAME, None
         ):
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
 
         if "meta_vars.step" not in trace_record:
             step = -1
@@ -503,7 +511,11 @@ class DistinctArgumentRelation(Relation):
                             check_passed=False,
                         )
                 
-        return None
+        return OnlineCheckerResult(
+            trace=None,
+            invariant=inv,  
+            check_passed=True,
+        )
 
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:

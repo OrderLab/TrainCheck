@@ -830,7 +830,11 @@ class FunctionLeadRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         assert inv.precondition is not None, "Invariant should have a precondition."
         
@@ -839,11 +843,19 @@ class FunctionLeadRelation(Relation):
         for i in range(len(inv.params)):
             if inv.params[i] == checker_param:
                 if i == len(inv.params) - 1:
-                    return None
+                    return OnlineCheckerResult(
+                        trace=None,
+                        invariant=inv,
+                        check_passed=True,
+                    )
                 lead_param = inv.params[i+1]
                 break
         if lead_param is None: 
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
         
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
@@ -855,7 +867,11 @@ class FunctionLeadRelation(Relation):
         end_time = trace_record["time"]
 
         if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
 
         with checker_data.lock:
             for func_id, func_event in checker_data.pt_map[ptname].items():
@@ -870,7 +886,11 @@ class FunctionLeadRelation(Relation):
                     start_time = time
 
         if start_time is None:
-            return None
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
 
         lead_func_name = lead_param.api_full_name
         found_cover_func = False
@@ -884,7 +904,11 @@ class FunctionLeadRelation(Relation):
                     post_time = func_event.post_record["time"]
                     if pre_time >= start_time and post_time <= end_time:
                         found_cover_func = True
-                        return None
+                        return OnlineCheckerResult(
+                            trace=None,
+                            invariant=inv,
+                            check_passed=True,
+                        )
                 
         return OnlineCheckerResult(
             trace=[trace_record],
