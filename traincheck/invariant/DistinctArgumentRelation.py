@@ -6,6 +6,7 @@ from tqdm import tqdm
 from traincheck.invariant.base_cls import (  # GroupedPreconditions,
     APIParam,
     CheckerResult,
+    OnlineCheckerResult,
     Example,
     ExampleList,
     FailedHypothesis,
@@ -460,7 +461,9 @@ class DistinctArgumentRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
-            return True
+            return None
+        
+        assert inv.precondition is not None, "Invariant should have a precondition."
         
         func_param = inv.params[0]
         assert isinstance(func_param, APIParam), "Invariant parameters should be APIParam."
@@ -471,7 +474,7 @@ class DistinctArgumentRelation(Relation):
         if not inv.precondition.verify(
             [trace_record], EXP_GROUP_NAME, None
         ):
-            return True
+            return None
 
         if "meta_vars.step" not in trace_record:
             step = -1
@@ -485,14 +488,22 @@ class DistinctArgumentRelation(Relation):
                 for event1 in check_func_list[PT_pair1]:
                     for event2 in check_func_list[PT_pair2]:
                         if is_arguments_list_same(event1["args"], event2["args"]):
-                            return False
+                            return OnlineCheckerResult(
+                                trace=[event1, event2],
+                                invariant=inv,
+                                check_passed=False,
+                            )
                         
             for PT_pair in check_func_list.keys():
                 for event1, event2 in combinations(check_func_list[PT_pair], 2):
                     if is_arguments_list_same(event1["args"], event2["args"]):
-                        return False
+                        return OnlineCheckerResult(
+                            trace=[event1, event2],
+                            invariant=inv,
+                            check_passed=False,
+                        )
                 
-        return True
+        return None
 
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:

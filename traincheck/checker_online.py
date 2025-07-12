@@ -151,7 +151,6 @@ def check(invariants, traces, trace_folders, output_dir: str):
                 apiparam = APIParam(trace_record["function"])
                 if apiparam in param_to_invs:
                     for inv in param_to_invs[apiparam]:
-                        # print(inv.text_description)
                         try:
                             start = time.perf_counter()
                             result = inv.relation.online_check(True, inv, trace_record, checker_data)
@@ -162,20 +161,28 @@ def check(invariants, traces, trace_folders, output_dir: str):
                                 if name not in timing_info:
                                     timing_info[name] = []
                                 timing_info[name].append(duration)
-                            if not result:
+                            if result is not None:
+                                if inv not in failed_inv:
+                                    failed_inv[inv] = 0
+                                failed_inv[inv] += 1
                                 num += 1
-                                print(f"Violated invariant: {inv.text_description}")
-                                failed_inv.add(inv)
+                                result.set_id_and_detection_time(num, time.monotonic_ns())
+                                logger.error(f"Voilated id {num}:\nInvariant {inv} violated near time {trace_record['time']}")
+                                with open(output_file, "a") as f:
+                                    json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                                    f.write("\n")
                         except Exception as e:
-                            print(inv)
-                            # print(inv.text_description)
-                            # raise e
+                            logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
                         
 
     except KeyboardInterrupt:
         observer.stop()
-        print(f"Total violated times: {num}")
-        print(f"Total violated invariants: {len(failed_inv)}")
+        logger.info("Checker stopped")
+        logger.info(f"Total {num} violations found")
+        logger.info(f"Total {len(failed_inv)} invariants violated:")
+        # for inv, count in failed_inv.items():
+        #     logger.info(f"Invariant {inv} violated {count} times")
+        logger.info(f"Violations are stored in {output_file}")
         for name, times in timing_info.items():
             print(f"{name}: called {len(times)} times, total time = {sum(times)}s, avg time = {sum(times)/len(times):.6f}s")
 

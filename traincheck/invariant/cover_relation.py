@@ -7,6 +7,7 @@ from tqdm import tqdm
 from traincheck.invariant.base_cls import (
     APIParam,
     CheckerResult,
+    OnlineCheckerResult,
     Example,
     ExampleList,
     FailedHypothesis,
@@ -646,18 +647,20 @@ class FunctionCoverRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
-            return True
+            return None
         
+        assert inv.precondition is not None, "Invariant should have a precondition."
+
         checker_param = APIParam(trace_record["function"])
         cover_param = None
         for i in range(len(inv.params)):
             if inv.params[i] == checker_param:
                 if i == 0:
-                    return True
+                    return None
                 cover_param = inv.params[i-1]
                 break
         if cover_param is None: 
-            return True
+            return None
         
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
@@ -668,9 +671,8 @@ class FunctionCoverRelation(Relation):
         start_time = None
         end_time = trace_record["time"]
 
-        # NOTE: It is quicker to check precondition first
         if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
-            return True
+            return None
 
         with checker_data.lock:
             for func_id, func_event in checker_data.pt_map[ptname].items():
@@ -699,12 +701,12 @@ class FunctionCoverRelation(Relation):
                     post_time = func_event.post_record["time"]
                     if pre_time >= start_time and post_time <= end_time:
                         found_cover_func = True
-                        return True
-        return False
-        
-
-
-
+                        return None
+        return OnlineCheckerResult(
+            trace=[trace_record],
+            invariant=inv,
+            check_passed=False,
+        )
 
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:

@@ -9,6 +9,7 @@ from traincheck.invariant.base_cls import (
     APIParam,
     Arguments,
     CheckerResult,
+    OnlineCheckerResult,
     Example,
     ExampleList,
     FailedHypothesis,
@@ -586,7 +587,13 @@ class ConsistentOutputRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
-            return True
+            return None
+        
+        assert inv.precondition is not None, "The precondition should not be None."
+        
+        assert len(inv.params) == 2
+        assert isinstance(inv.params[0], APIParam)
+        assert isinstance(inv.params[1], VarTypeParam)
         
         func_name = trace_record["function"]
         func_call_id = trace_record["func_call_id"]
@@ -595,15 +602,20 @@ class ConsistentOutputRelation(Relation):
         ptname = (process_id, thread_id, func_name)
         with checker_data.lock:
             func_call_event = checker_data.pt_map[ptname][func_call_id]
+            func_pre_record = func_call_event.pre_record
 
         if not inv.precondition.verify(
-            [func_call_event.pre_record], "pre_event", None
+            func_pre_record, "pre_event", None
         ):
-            return True
+            return None
         
         returned_tensors = get_returned_tensors(func_call_event)
         if len(returned_tensors) == 0:
-            return False
+            return OnlineCheckerResult(
+                trace= [trace_record],
+                invariant=inv,
+                check_passed=False,
+            )
         
         for returned_tensor in returned_tensors:
             prop = inv.params[1].attr_name
@@ -612,9 +624,13 @@ class ConsistentOutputRelation(Relation):
                 prop not in returned_tensor
                 or make_hashable(returned_tensor[prop]) != prop_val
             ):
-                return False
+                return OnlineCheckerResult(
+                    trace= [trace_record],
+                    invariant=inv,
+                    check_passed=False,
+                )
                 
-        return True
+        return None
     
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
@@ -948,7 +964,20 @@ class ConsistentInputOutputRelation(Relation):
         checker_data: Checker_data
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
-            return True
+            return None
+        
+        assert inv.precondition is not None, "The precondition should not be None."
+        assert len(inv.params) == 3
+
+        input_param, api_param, output_param = inv.params
+
+        assert isinstance(input_param, InputOutputParam)
+        assert isinstance(api_param, APIParam)
+        assert isinstance(output_param, InputOutputParam)
+        assert inv.params[0].is_input
+        assert not inv.params[2].is_input
+
+        logger = logging.getLogger(__name__)
         
         func_name = trace_record["function"]
         func_call_id = trace_record["func_call_id"]
@@ -957,11 +986,12 @@ class ConsistentInputOutputRelation(Relation):
         ptname = (process_id, thread_id, func_name)
         with checker_data.lock:
             func_call_event = checker_data.pt_map[ptname][func_call_id]
+            func_pre_record = func_call_event.pre_record
 
         if not inv.precondition.verify(
-            [func_call_event.pre_record], "pre_event", None
+            [func_pre_record], "pre_event", None
         ):
-            return True
+            return None
         
         input_tensors = get_input_tensors(func_call_event)
         output_tensors = get_returned_tensors(func_call_event)
@@ -970,12 +1000,19 @@ class ConsistentInputOutputRelation(Relation):
             input_value = inv.params[0].get_value_from_list_of_tensors(input_tensors)
             output_value = inv.params[2].get_value_from_list_of_tensors(output_tensors)
         except (IndexError, KeyError):
-            return True
+            logger.warning(
+                f"Could not find the value to be checked in input or output tensors for the hypothesis {inv}, skipping this function call."
+            )
+            return None
 
         if input_value != output_value:
-            return False
+            return OnlineCheckerResult(
+                trace= [trace_record],
+                invariant=inv,
+                check_passed=False,
+            )
         
-        return True
+        return None
     
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
@@ -1392,7 +1429,7 @@ class ThresholdRelation(Relation):
         # get the first param and the second param, the first param should be larger or equal to the second param
         # the first param should be larger or equal to the second param
         if trace_record["type"] != TraceLineType.FUNC_CALL_POST:
-            return True
+            return None
         
         assert inv.precondition is not None, "The precondition should not be None."
         assert len(inv.params) == 3
@@ -1424,11 +1461,11 @@ class ThresholdRelation(Relation):
         if isinstance(
             func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)
         ):
-            return True
+            return None
 
         # check for precondition here
         if not inv.precondition.verify([func_call_event.pre_record], "pre_event", None):
-            return True
+            return None
 
         threshold_value = input_param.get_value_from_arguments(
             Arguments(
@@ -1444,12 +1481,16 @@ class ThresholdRelation(Relation):
 
         if is_threshold_min:
             if output_value >= threshold_value:
-                return True
+                return None
         else:
             if output_value <= threshold_value:
-                return True
+                return None
 
-        return False
+        return OnlineCheckerResult(
+            trace=[trace_record],
+            invariant=inv, 
+            check_passed=False,
+        )
     
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[APIParam]:
