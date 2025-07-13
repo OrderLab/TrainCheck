@@ -59,8 +59,7 @@ class StreamLogHandler(FileSystemEventHandler):
     def on_modified(self, event):
         if os.path.abspath(event.src_path) != os.path.abspath(self.file_path):
             return
-        time = datetime.datetime.now()
-        self.logger.info(f"File {self.file_path} modified at {time}")
+        self.logger.debug(f"File {self.file_path} modified at {time.monotonic_ns()}")
         self._handle_line(self.fp)
 
     def _handle_line(self, lines):
