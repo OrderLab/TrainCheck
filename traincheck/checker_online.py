@@ -37,6 +37,59 @@ import logging
 import argparse
 from traincheck.onlinechecker.utils import Checker_data, timing_info, lock
 from traincheck.onlinechecker.streamhandler_filesystem import run_stream_monitor
+import signal
+import sys
+
+OBSERVER = None 
+KILLING_PROCESS = (
+    False  # True indicates that SIGTERM has been sent to the running process
+)
+NUM_VIOLATIONS = 0
+FAILED_INV = dict()
+
+ORIGINAL_SIGINT_HANDLER = signal.getsignal(signal.SIGINT)
+ORIGINAL_SIGTERM_HANDLER = signal.getsignal(signal.SIGTERM)
+
+def handle_SIGINT(signum, frame):
+    global KILLING_PROCESS
+
+    print("Received SIGINT")
+    if KILLING_PROCESS:
+        exit(130)
+        return
+    KILLING_PROCESS = True
+    stop_checker()
+    # if callable(ORIGINAL_SIGINT_HANDLER):
+    #     ORIGINAL_SIGINT_HANDLER(signum, frame)
+    exit(130)
+
+
+def handle_SIGTERM(signum, frame):
+    global KILLING_PROCESS
+
+    print("Received SIGTERM")
+    if KILLING_PROCESS:
+        exit(143)
+        return
+    KILLING_PROCESS = True
+    stop_checker()
+    if callable(ORIGINAL_SIGTERM_HANDLER):
+        ORIGINAL_SIGTERM_HANDLER(signum, frame)
+    else:
+        exit(143)
+
+curr_excepthook = sys.excepthook
+
+
+def kill_running_process_on_except(typ, value, tb):
+    stop_checker()
+    curr_excepthook(typ, value, tb)
+
+
+def register_hook_closing_program():
+    signal.signal(signal.SIGTERM, handle_SIGTERM)
+    signal.signal(signal.SIGINT, handle_SIGINT)
+    sys.excepthook = kill_running_process_on_except
 
 def sort_inv_file(invariants):
     logger = logging.getLogger(__name__)
@@ -83,117 +136,123 @@ def get_voilated_pair_hash(trace_pair):
     return tuple(sorted((h1, h2), reverse=True))
 
 def check(invariants, traces, trace_folders, output_dir: str):
+    global OBSERVER
+    global NUM_VIOLATIONS
+    global FAILED_INV
+    register_hook_closing_program()
     logger = logging.getLogger(__name__)
     logger.info("Starting online checker")
     logger.addHandler(logging.StreamHandler())
     param_to_invs, vartype_to_invs, needed_data = sort_inv_file(invariants)
     checker_data = Checker_data(needed_data)
-    observer = run_stream_monitor(traces, trace_folders, checker_data)
+    OBSERVER = run_stream_monitor(traces, trace_folders, checker_data)
     output_file = os.path.join(output_dir, "failed.log")
-    num = 0
     violated_paris = dict()
-    failed_inv = dict()
-    try:
-        while True:
-            trace_record = checker_data.check_queue.get()
-            if checker_data.check_queue.empty():
-                logger.debug("Check queue is empty")
-            if trace_record is None:
-                continue
+    while True:
+        trace_record = checker_data.check_queue.get()
+        if checker_data.check_queue.empty():
+            logger.debug("Check queue is empty")
+        if trace_record is None:
+            continue
             
-            with checker_data.cond:
-                while True:
-                    if trace_record["time"] > checker_data.min_read_time:
-                        logger.debug("Wait for the different trace file to catch up")
-                        checker_data.cond.wait()
-                        logger.debug("Woke up from wait")
-                    else:
-                        break
+        with checker_data.cond:
+            while True:
+                if trace_record["time"] > checker_data.min_read_time:
+                    logger.debug("Wait for the different trace file to catch up")
+                    checker_data.cond.wait()
+                    logger.debug("Woke up from wait")
+                else:
+                    break
 
-            if "var_name" in trace_record and trace_record["var_name"] is not None:
-                varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
-                if varid.var_type in vartype_to_invs:
-                    for attr_name, invs in vartype_to_invs[varid.var_type].items():
-                        attr_name = config.VAR_ATTR_PREFIX + attr_name
-                        if attr_name in trace_record and trace_record[attr_name] is not None:
-                            for inv in invs:
-                                try:
-                                    start = time.perf_counter()
-                                    result = inv.relation.online_check(True, inv, trace_record, checker_data)
-                                    end = time.perf_counter()
-                                    duration = end - start
-                                    with lock:
-                                        name = "online_check"
-                                        if name not in timing_info:
-                                            timing_info[name] = []
-                                        timing_info[name].append(duration)
-                                    if not result.check_passed:
-                                        violated_pair = get_voilated_pair_hash(result.trace)
-                                        if inv not in violated_paris:
-                                            violated_paris[inv] = set()
-                                        if violated_pair not in violated_paris[inv]:
-                                            violated_paris[inv].add(violated_pair)
-                                        else:
-                                            continue
-                                        if inv not in failed_inv:
-                                            failed_inv[inv] = 0
-                                        failed_inv[inv] += 1
-                                        num += 1
-                                        result.set_id_and_detection_time(num, time.monotonic_ns())
-                                        logger.error(f"Voilated id {num}:\nInvariant {inv} violated near time {trace_record['time']}")
-                                        with open(output_file, "a") as f:
-                                            json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                                            f.write("\n")
-                                except Exception as e:
-                                    logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
-                                    # TODO: delete raise
-                                    raise e
+        if "var_name" in trace_record and trace_record["var_name"] is not None:
+            varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
+            if varid.var_type in vartype_to_invs:
+                for attr_name, invs in vartype_to_invs[varid.var_type].items():
+                    attr_name = config.VAR_ATTR_PREFIX + attr_name
+                    if attr_name in trace_record and trace_record[attr_name] is not None:
+                        for inv in invs:
+                            try:
+                                start = time.perf_counter()
+                                result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                                end = time.perf_counter()
+                                duration = end - start
+                                with lock:
+                                    name = "online_check"
+                                    if name not in timing_info:
+                                        timing_info[name] = []
+                                    timing_info[name].append(duration)
+                                if not result.check_passed:
+                                    violated_pair = get_voilated_pair_hash(result.trace)
+                                    if inv not in violated_paris:
+                                        violated_paris[inv] = set()
+                                    if violated_pair not in violated_paris[inv]:
+                                        violated_paris[inv].add(violated_pair)
+                                    else:
+                                        continue
+                                    if inv not in FAILED_INV:
+                                        FAILED_INV[inv] = 0
+                                    FAILED_INV[inv] += 1
+                                    NUM_VIOLATIONS += 1
+                                    result.set_id_and_detection_time(NUM_VIOLATIONS, time.monotonic_ns())
+                                    logger.error(f"Voilated id {NUM_VIOLATIONS}:\nInvariant {inv} violated near time {trace_record['time']}")
+                                    with open(output_file, "a") as f:
+                                        json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                                        f.write("\n")
+                            except Exception as e:
+                                logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
+                                # TODO: delete raise
+                                raise e
                                 
-            elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
-                apiparam = APIParam(trace_record["function"])
-                if apiparam in param_to_invs:
-                    for inv in param_to_invs[apiparam]:
-                        try:
-                            start = time.perf_counter()
-                            result = inv.relation.online_check(True, inv, trace_record, checker_data)
-                            end = time.perf_counter()
-                            duration = end - start
-                            with lock:
-                                name = "online_check"
-                                if name not in timing_info:
-                                    timing_info[name] = []
-                                timing_info[name].append(duration)
-                            if not result.check_passed:
-                                if inv not in failed_inv:
-                                    failed_inv[inv] = 0
-                                failed_inv[inv] += 1
-                                num += 1
-                                result.set_id_and_detection_time(num, time.monotonic_ns())
-                                logger.error(f"Voilated id {num}:\nInvariant {inv} violated near time {trace_record['time']}")
-                                with open(output_file, "a") as f:
-                                    json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
-                                    f.write("\n")
-                        except Exception as e:
-                            logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
-                            # TODO: delete raise
-                            raise e
+        elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
+            apiparam = APIParam(trace_record["function"])
+            if apiparam in param_to_invs:
+                for inv in param_to_invs[apiparam]:
+                    try:
+                        start = time.perf_counter()
+                        result = inv.relation.online_check(True, inv, trace_record, checker_data)
+                        end = time.perf_counter()
+                        duration = end - start
+                        with lock:
+                            name = "online_check"
+                            if name not in timing_info:
+                                timing_info[name] = []
+                            timing_info[name].append(duration)
+                        if not result.check_passed:
+                            if inv not in FAILED_INV:
+                                FAILED_INV[inv] = 0
+                            FAILED_INV[inv] += 1
+                            NUM_VIOLATIONS += 1
+                            result.set_id_and_detection_time(NUM_VIOLATIONS, time.monotonic_ns())
+                            logger.error(f"Voilated id {NUM_VIOLATIONS}:\nInvariant {inv} violated near time {trace_record['time']}")
+                            with open(output_file, "a") as f:
+                                json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                                f.write("\n")
+                    except Exception as e:
+                        logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
+                        # TODO: delete raise
+                        raise e
                         
-    except KeyboardInterrupt:
-        observer.stop()
-        logger.info("Checker stopped")
-        logger.info(f"Total {num} violations found")
-        logger.info(f"Total {len(failed_inv)} invariants violated:")
-        # for inv, count in failed_inv.items():
-        #     logger.info(f"Invariant {inv} violated {count} times")
-        logger.info(f"Violations are stored in {output_file}")
-        for name, times in timing_info.items():
-            print(f"{name}: called {len(times)} times, total time = {sum(times)}s, avg time = {sum(times)/len(times):.6f}s")
 
+def stop_checker():
+    global OBSERVER
+    if OBSERVER is None:
+        return
+    
+    OBSERVER.stop()
+    OBSERVER.join()
 
-    observer.join()
+    global NUM_VIOLATIONS
+    global FAILED_INV
 
-
-        
+    logger = logging.getLogger(__name__)
+    logger.info("Checker stopped")
+    logger.info(f"Total {NUM_VIOLATIONS} violations found")
+    logger.info(f"Total {len(FAILED_INV)} invariants violated:")
+    # for inv, count in failed_inv.items():
+    #     logger.info(f"Invariant {inv} violated {count} times")
+    logger.info(f"Violations are stored")
+    for name, times in timing_info.items():
+        print(f"{name}: called {len(times)} times, total time = {sum(times)}s, avg time = {sum(times)/len(times):.6f}s")
     
 
 def main():
