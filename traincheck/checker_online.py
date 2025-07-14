@@ -79,6 +79,12 @@ def register_hook_closing_program():
     sys.excepthook = kill_running_process_on_except
 
 def sort_inv_file(invariants):
+    """Sort the invariants by their parameters. Also collect the needed data for online checking.
+    Return:
+        param_to_invs: dict[Param, list[Invariant]]
+        vartype_to_invs: dict[str, dict[str, list[Invariant]]]
+        needed_data: (set[str], set[str], set[str])
+    """
     logger = logging.getLogger(__name__)
     logger.info("Reading invariants from file: %s", invariants)
 
