@@ -147,7 +147,7 @@ def main():
     for inv_file in args.invariants:
         os.system(f"cp {inv_file} {args.output_dir}/invariants.json")
 
-    logger.info("Reading invaraints from %s", "\n".join(args.invariants))
+    logger.info("Reading invariants from %s", "\n".join(args.invariants))
     invs = read_inv_file(args.invariants)
 
     traces = []
