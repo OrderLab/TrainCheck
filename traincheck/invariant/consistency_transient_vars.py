@@ -1528,7 +1528,7 @@ class ThresholdRelation(Relation):
                 )
 
         return OnlineCheckerResult(
-            trace=[trace_record],
+            trace=[func_call_event.pre_record],
             invariant=inv, 
             check_passed=False,
         )
