@@ -101,8 +101,8 @@ def sort_inv_file(invariants):
         assert (
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
-        params = inv.relation.get_mapping_key(inv)
-        needed_var, needed_api, needed_args_api = inv.relation.get_needed_data(inv)
+        params = inv.get_mapping_key(inv)
+        needed_var, needed_api, needed_args_api = inv.get_needed_data(inv)
         if needed_var is not None:
             needed_vars.update(needed_var)
         if needed_api is not None:
@@ -172,7 +172,7 @@ def check(invariants, traces, trace_folders, output_dir: str, check_relation_fir
                     if attr_name in trace_record and trace_record[attr_name] is not None:
                         for inv in invs:
                             try:
-                                result = inv.relation.online_check(check_relation_first, inv, trace_record, checker_data)
+                                result = inv.online_check(check_relation_first, inv, trace_record, checker_data)
 
                                 if not result.check_passed:
                                     violated_pair = get_violated_pair_hash(result.trace)
@@ -201,7 +201,7 @@ def check(invariants, traces, trace_folders, output_dir: str, check_relation_fir
             if apiparam in param_to_invs:
                 for inv in param_to_invs[apiparam]:
                     try:
-                        result = inv.relation.online_check(check_relation_first, inv, trace_record, checker_data)
+                        result = inv.online_check(check_relation_first, inv, trace_record, checker_data)
                         if not result.check_passed:
                             if inv not in FAILED_INV:
                                 FAILED_INV[inv] = 0

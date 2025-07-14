@@ -433,6 +433,33 @@ class APIParam(Param):
 
         return matched
 
+    def check_event_match_online(self, event: HighLevelEvent) -> bool:
+        if not isinstance(
+            event, (FuncCallEvent, FuncCallExceptionEvent, IncompleteFuncCallEvent)
+        ):
+            return False
+
+        # TODO: Handle Stop Iteration Exception!!!
+        matched = True
+        if self.exception != _NOT_SET:
+            matched = (
+                isinstance(event, FuncCallExceptionEvent)
+                and event.exception == self.exception
+            )
+        else:
+            matched = not isinstance(event, FuncCallExceptionEvent)
+
+        if not matched:
+            return False
+
+        # check the arguments if they are provided
+        if isinstance(self.arguments, Arguments):
+            # current_args should not violate the provided arguments (i.e., self.arguments should be a subset of current_args)
+            current_args = Arguments(event.args, event.kwargs, event.func_name)
+            matched = matched and not self.arguments.check_for_violation(current_args)
+
+        return matched
+
     def with_no_customization(self) -> APIParam:
         return APIParam(self.api_full_name)
 
@@ -551,6 +578,37 @@ class VarTypeParam(Param):
                     return False
 
         return pre_and_post_value_matched
+    
+    def check_event_match_online(self, event) -> bool:
+        if self.const_value != _NOT_SET:
+            print("Const value is set for VarTypeParam, this should be checked in the relation's evaluate method instead of the check_event_match_online method.")
+        
+        pre_and_post_value_matched = True
+        if self.pre_value != _NOT_SET:
+            if self.pre_value != event[0].value:
+                if self.pre_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.pre_value, event[0].value
+                        )
+                    )
+                else:
+                    return False
+        
+        if self.post_value != _NOT_SET:
+            if self.post_value != event[1].value:
+                if self.post_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.post_value, event[1].value
+                        )
+                    )
+                else:
+                    return False
+
+        return pre_and_post_value_matched
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type
@@ -650,6 +708,39 @@ class VarNameParam(Param):
                     return False
 
         return var_attr_matched and pre_and_post_value_matched
+    
+    def check_event_match_online(self, event) -> bool:
+        if self.const_value != _NOT_SET:
+            print(
+                "Const value is set for VarNameParam, this should be checked in the relation's evaluate method instead of the check_event_match_online method."
+            )
+
+        pre_and_post_value_matched = True
+        if self.pre_value != _NOT_SET:
+            if self.pre_value != event[0].value:
+                if self.pre_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.pre_value, event[0].value
+                        )
+                    )
+                else:
+                    return False
+
+        if self.post_value != _NOT_SET:
+            if self.post_value != event[1].value:
+                if self.post_value in GENERALIZED_TYPES:
+                    pre_and_post_value_matched = (
+                        pre_and_post_value_matched
+                        and check_generalized_value_match(
+                            self.post_value, event[1].value
+                        )
+                    )
+                else:
+                    return False
+
+        return pre_and_post_value_matched
 
     def check_var_id_match(self, var_id: VarInstId) -> bool:
         return var_id.var_type == self.var_type and var_id.var_name == self.var_name
@@ -1353,6 +1444,23 @@ class Invariant:
             f"Checking invariant: {self.text_description} of relation {self.relation}"
         )
         return self.relation.static_check_all(trace, self, check_relation_first)
+    
+    def online_check(self, trace: dict, checker_data, check_relation_first: bool) -> OnlineCheckerResult:
+        assert (
+            self.precondition is not None
+        ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
+
+        return self.relation.online_check(check_relation_first, self, trace, checker_data)
+    
+    def get_mapping_key(self) -> list[Param]:
+        """Get a key that can be used to map the parameters to the invariant."""
+        return self.relation.get_mapping_key(self)
+    
+    def get_needed_data(self):
+        """
+        Get the needed variables, APIs, and arguments for the invariant.
+        """
+        return self.relation.get_needed_variables(self), self.relation.get_needed_apis(self), self.relation.get_needed_args(self)
 
 
 class CheckerResult:
@@ -1423,6 +1531,54 @@ class CheckerResult:
                     "trace": trace,
                 }
             )
+
+        return result_dict
+    
+    
+class OnlineCheckerResult:
+    def __init__(
+        self,
+        trace: Optional[list[dict]],
+        invariant: Invariant,
+        check_passed: bool,
+    ):
+        if trace is None:
+            assert check_passed, "Check passed should be True for None trace"
+        else:
+            assert len(trace) > 0, "Trace should not be empty"
+        self.trace = trace
+        self.invariant = invariant
+        self.check_passed = check_passed
+
+    def __str__(self) -> str:
+        return f"Trace: {self.trace}\nInvariant: {self.invariant}\nResult: {self.check_passed}"
+
+    def __repr__(self):
+        return self.__str__()
+
+    def set_id_and_detection_time(self, id: int, detection_time: float):
+        self.id = id
+        self.detection_time = detection_time
+
+    def to_dict(self):
+        """Convert the OnlineCheckerResult object to a json serializable dictionary."""
+        assert hasattr(self, "id"), "ID NOT SET for OnlineCheckerResult, please set it before converting to dict"
+        assert hasattr(self, "detection_time"), "Detection time NOT SET for OnlineCheckerResult, please set it before converting to dict"
+        result_dict = {
+            "voilated_id": self.id,
+            "invariant": self.invariant.to_dict(),
+            "check_passed": self.check_passed,
+        }
+
+        trace = self.trace.copy()
+        MD_NONE.replace_with_none(trace)
+
+        result_dict.update(
+            {
+                "detection_time": self.detection_time,
+                "trace": trace,
+            }
+        )
 
         return result_dict
 
@@ -1706,6 +1862,37 @@ class Relation(abc.ABC):
                 The invariant to check on the trace.
         """
         pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_mapping_key(inv: Invariant) -> list[Param]:
+        """Given an invariant, should return a list of Param objects that should be checked."""
+        pass 
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_needed_variables(inv: Invariant):
+        """Given an invariant, should return a list of variable names or variable type that are needed to check the invariant."""
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_needed_api(inv: Invariant):
+        """Given an invariant, should return a list of API names that are needed to check the invariant."""
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def needed_args_map(inv: Invariant):
+        """Given an invariant, should return a list of API names that needs the args map."""
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def online_check(check_relation_first: bool, inv: Invariant, trace: dict, checker_data) -> OnlineCheckerResult:
+        """Check the invariant online, i.e. during the trace collection process."""
+        pass
+
 
 
 def read_inv_file(file_path: str | list[str]) -> list[Invariant]:
