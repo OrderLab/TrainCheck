@@ -1,3 +1,4 @@
+import copy
 import logging
 import random
 import time
@@ -17,6 +18,7 @@ from traincheck.invariant.base_cls import (
     FailedHypothesis,
     Hypothesis,
     Invariant,
+    OnlineCheckerResult,
     Param,
     Relation,
     VarNameParam,
@@ -28,6 +30,11 @@ from traincheck.invariant.base_cls import (
 )
 from traincheck.invariant.precondition import find_precondition
 from traincheck.invariant.symbolic_value import generalize_values
+from traincheck.onlinechecker.utils import (
+    Checker_data, 
+    get_var_ids_unchanged_but_causally_related,
+    get_var_raw_event_before_time,
+)
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import (
     ALL_EVENT_TYPES,
@@ -67,6 +74,20 @@ def can_func_be_bound_method(
             func_call_id, var_type, attr_name
         ):
             return False
+    return True
+
+def can_func_be_bound_method_online(
+    trace_record: dict,
+    checker_data: Checker_data,
+    func_name: str,
+    var_type: str | None = None,
+    attr_name: str | None = None,
+) -> bool:
+    func_id = trace_record["func_call_id"]
+    if not get_var_ids_unchanged_but_causally_related(
+        func_id, var_type, attr_name, trace_record, checker_data
+    ):
+        return False
     return True
 
 
@@ -1133,6 +1154,258 @@ Defaulting to skip the var preconditon check for now.
             invariant=inv,
             check_passed=True,
             triggered=inv_triggered,
+        )
+    
+    @staticmethod
+    def get_mapping_key(inv: Invariant) -> list[Param]:
+        return [inv.params[0]]
+    
+    @staticmethod
+    def get_needed_variables(inv: Invariant):
+        param = inv.params[1]
+        if isinstance(param, VarTypeParam):
+            return [param.var_type]
+        elif isinstance(param, VarNameParam):
+            return [param.var_name]
+        elif isinstance(param, APIParam):
+            return None
+        
+    @staticmethod
+    def get_needed_api(inv: Invariant):
+        if isinstance(inv.params[1], APIParam):
+            return [inv.params[0].api_full_name, inv.params[1].api_full_name]
+        return [inv.params[0].api_full_name]
+    
+    @staticmethod
+    def needed_args_map(inv):
+        return None
+
+    @staticmethod
+    def online_check(
+        check_relation_first: bool, 
+        inv: Invariant, 
+        trace_record: dict, 
+        checker_data: Checker_data,
+    ):
+        if (
+            trace_record["type"] != TraceLineType.FUNC_CALL_POST
+            and trace_record["type"] != TraceLineType.FUNC_CALL_POST_EXCEPTION
+        ):
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+        
+        assert (
+            len(inv.params) == 2
+        ), f"Expected 2 parameters for APIContainRelation, one for the parent function name, and one for the child event name: {inv.params[0].to_dict()}"
+
+        parent_param, child_param = inv.params[0], inv.params[1]
+        assert isinstance(
+            parent_param, APIParam
+        ), "Expected the first parameter to be an APIParam"
+        assert isinstance(
+            child_param, (APIParam, VarTypeParam, VarNameParam)
+        ), "Expected the second parameter to be an APIParam or VarTypeParam (VarNameParam not supported yet)"
+
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
+        func_name = trace_record["function"]
+        func_id = trace_record["func_call_id"]
+        ptname = (process_id, thread_id, func_name)
+        with checker_data.lock:
+            func_call_event = checker_data.pt_map[ptname][func_id]
+            if func_call_event.pre_record is None:
+                return OnlineCheckerResult(
+                    trace=None,
+                    invariant=inv,
+                    check_passed=True,
+                )
+            func_pre_record = func_call_event.pre_record
+            func_post_record = func_call_event.post_record
+
+        pre_time = func_pre_record["time"]
+        post_time = func_post_record["time"]
+
+        preconditions = inv.precondition
+
+        skip_var_unchanged_check = (
+            VAR_GROUP_NAME not in preconditions.get_group_names()
+            or len(preconditions.get_group(VAR_GROUP_NAME)) == 0
+            or preconditions.is_group_unconditional(VAR_GROUP_NAME)
+        )
+
+        if not skip_var_unchanged_check:
+            assert isinstance(
+                child_param, VarTypeParam
+            ), "Expected the child parameter to be a VarTypeParam"
+            if not can_func_be_bound_method_online(
+                trace_record,
+                checker_data,
+                func_name,
+                child_param.var_type,
+                child_param.attr_name,
+            ):
+                skip_var_unchanged_check = True
+
+        var_unchanged_check_passed = True
+        found_expected_child_event = False
+        precondition_check_passed = True
+
+        if isinstance(child_param, (VarTypeParam, VarNameParam)):
+            events = []
+            with checker_data.lock:
+                if child_param.var_type in checker_data.type_map:
+                    for varid in checker_data.type_map[child_param.var_type]:
+                        if isinstance(child_param, VarNameParam):
+                            if varid.var_name != child_param.var_name:
+                                continue
+                        attr_name = child_param.attr_name
+                        for i in reversed(
+                            range(1, len(checker_data.varid_map[varid][attr_name]))
+                        ):
+
+                            change_time = checker_data.varid_map[varid][attr_name][
+                                i
+                            ].liveness.start_time
+                            if change_time <= pre_time:
+                                break
+                            if change_time > post_time:
+                                continue
+                            new_state = checker_data.varid_map[varid][attr_name][i]
+                            old_state = checker_data.varid_map[varid][attr_name][i - 1]
+                            if new_state.value == old_state.value:
+                                continue
+                            if new_state.liveness.end_time is None:
+                                new_state = copy.deepcopy(new_state)
+                            events.append((old_state, new_state))
+
+            if check_relation_first:
+                for event in events:
+                    if child_param.check_event_match_online(event):
+                        found_expected_child_event = True
+                        break
+
+                if not preconditions.verify(
+                    [func_pre_record], PARENT_GROUP_NAME, None
+                ):
+                    precondition_check_passed = False
+
+            else:
+                if preconditions.verify(
+                    [func_pre_record], PARENT_GROUP_NAME, None
+                ):
+                    for event in events:
+                        if child_param.check_event_match_online(event):
+                            found_expected_child_event = True
+                            break
+                else:
+                    precondition_check_passed = False
+            
+            if not precondition_check_passed:
+                return OnlineCheckerResult(
+                    trace=None,
+                    invariant=inv,
+                    check_passed=True,
+                )
+
+            if not found_expected_child_event:
+                return OnlineCheckerResult(
+                    trace=[func_pre_record],
+                    invariant=inv,
+                    check_passed=False,
+                )
+
+            if not skip_var_unchanged_check:
+                assert isinstance(
+                    child_param, VarTypeParam
+                ), "Expected the child parameter to be a VarTypeParam"
+                # get the unchanged vars that are causally related to the parent function
+                # TODO: this function called twice, can be cached
+                unchanged_var_ids = get_var_ids_unchanged_but_causally_related(
+                    func_id,
+                    child_param.var_type,
+                    child_param.attr_name,
+                    trace_record,
+                    checker_data,
+                )
+                assert (
+                    len(unchanged_var_ids) > 0
+                ), f"Internal error: can_func_be_bound_method returned True but no unchanged vars found for the parent function: {func_name} at {func_id}: {pre_time} at {time.monotonic_ns()}"
+                # get the var change events for the unchanged vars
+                unchanged_var_states = [
+                    get_var_raw_event_before_time(var_id, pre_time, checker_data)
+                    for var_id in unchanged_var_ids
+                ]
+                for unchanged_var_state in unchanged_var_states:
+                    # verify that no precondition is met for the unchanged vars
+                    # MARK: precondition 2
+                    # TODO: check unchanged_var_state or [unchanged_var_state]
+                    if not preconditions.verify(
+                        unchanged_var_state, VAR_GROUP_NAME, None
+                    ):
+                        var_unchanged_check_passed = False
+                        break
+                
+            if not var_unchanged_check_passed:
+                return OnlineCheckerResult(
+                    trace=[func_pre_record],
+                    invariant=inv,
+                    check_passed=False,
+                )
+                
+        elif isinstance(child_param, APIParam):
+            events = []
+            api_full_name = child_param.api_full_name
+            child_event_ptname = (process_id, thread_id, api_full_name)
+            with checker_data.lock:
+                if child_event_ptname in checker_data.pt_map:
+                    for child_event in checker_data.pt_map[child_event_ptname].values():
+                        if child_event.pre_record is None or child_event.post_record is None:
+                            continue
+                        child_pre_time = child_event.pre_record["time"]
+                        child_post_time = child_event.post_record["time"]
+                        if pre_time > child_pre_time:
+                            continue
+                        if child_post_time > post_time:
+                            continue
+                        events.append(child_event)
+
+            check_passed = False
+
+            if check_relation_first:
+                for event in events:
+                    if child_param.check_event_match_online(event):
+                        check_passed = True
+                        break
+
+                if not preconditions.verify(
+                    [func_pre_record], PARENT_GROUP_NAME, None
+                ):
+                    check_passed = True
+            else:
+                if preconditions.verify(
+                    [func_pre_record], PARENT_GROUP_NAME, None
+                ):
+                    for event in events:
+                        if child_param.check_event_match_online(event):
+                            check_passed = True
+                            break
+                else:
+                    check_passed = True
+            
+            if not check_passed:
+                return OnlineCheckerResult(
+                    trace=[func_pre_record],
+                    invariant=inv,
+                    check_passed=False,
+                )
+
+        return OnlineCheckerResult(
+            trace=None,
+            invariant=inv,  
+            check_passed=True,
         )
 
     @staticmethod
