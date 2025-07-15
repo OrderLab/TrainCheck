@@ -150,6 +150,7 @@ class StreamLogHandler(FileSystemEventHandler):
                 if ptname not in self.pt_map:
                     self.pt_map[ptname] = {}
                 if func_call_id not in self.pt_map[ptname]:
+                    # TODO: check whether dict is necessary here, can be a list?
                     self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent(function_name)
                 if trace_type == TraceLineType.FUNC_CALL_PRE:
                     self.pt_map[ptname][func_call_id].pre_record = trace_record
