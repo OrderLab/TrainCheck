@@ -9,8 +9,15 @@ from watchdog.events import FileSystemEventHandler
 
 from traincheck.config import config
 from traincheck.instrumentor.tracer import TraceLineType
-from traincheck.trace.utils import flatten_dict, replace_none_with_md_none
-from traincheck.trace.types import VarInstId, AttrState, Liveness
+from traincheck.trace.utils import (
+    BindedFuncInput,
+    bind_args_kwargs_to_signature,
+    flatten_dict, 
+    load_signature_from_class_method_name,
+    replace_none_with_md_none,
+)
+from traincheck.trace.types import AttrState, ContextManagerState, Liveness, VarInstId
+from traincheck.utils import safe_isnan
 
 from .utils import Checker_data, OnlineFuncCallEvent
 
@@ -28,6 +35,10 @@ class StreamLogHandler(FileSystemEventHandler):
         self.pt_map = checker_data.pt_map
         self.process_to_vars = checker_data.process_to_vars
         self.args_map = checker_data.args_map
+
+        self.context_map = checker_data.context_map
+        self.init_map = checker_data.init_map
+
         self.needed_vars = checker_data.needed_vars
         self.needed_apis = checker_data.needed_apis
         self.needed_args_map = checker_data.needed_args_map
@@ -176,7 +187,72 @@ class StreamLogHandler(FileSystemEventHandler):
                         if ptid not in self.args_map[function_name][step]:
                             self.args_map[function_name][step][ptid] = []
                         self.args_map[function_name][step][ptid].append(trace_record)
-            
+
+            if function_name.str.contains("__enter__", na=False) \
+                or function_name.str.contains("__exit__", na=False) \
+                or function_name.str.contains(".__init__", na=False):
+                if not function_name.str.contains("torch.autograd.grad_mode", na=False) \
+                    and not function_name.str.contains("torch.autograd.profiler.record_function", na=False):
+                    if function_name.contains("__init__", na=False) and trace_type == TraceLineType.FUNC_CALL_PRE:
+                        context_manager_name = function_name.removesuffix(".__init__")
+                        ptname = (process_id, thread_id, context_manager_name)
+                        if ptname not in self.context_map:
+                            self.context_map[ptname] = []
+                        self.context_map[ptname].append(trace_record)
+                        
+                    elif function_name.contains("__enter__", na=False) and trace_type == TraceLineType.FUNC_CALL_POST:
+                        context_manager_name = function_name.removesuffix(".__enter__")
+                        ptname = (process_id, thread_id, context_manager_name)
+                        closest_init_record = None
+                        closet_init_time = None
+                        if ptname in self.init_map:
+                            for init_record in reversed(self.init_map[ptname]):
+                                if init_record["time"] < trace_record["time"]:
+                                    if closest_init_time is None or init_record["time"] > closest_init_time:
+                                        closest_init_time = init_record["time"]
+                                        closest_init_record = init_record
+
+                        start_time = trace_record["time"]
+                        args = closest_init_record["args"]
+                        kwargs = closest_init_record["kwargs"]
+                                    
+                        if not safe_isnan(args):
+                            signature = load_signature_from_class_method_name(
+                                closest_init_record["function"]
+                            )
+
+                            binded_args_and_kwargs = bind_args_kwargs_to_signature(
+                                args, kwargs, signature
+                            )
+                        else:
+                            # create an empty BindedFuncInput if args is NaN, as it indicates
+                            # that we did not record the args and kwargs for this function call
+                            binded_args_and_kwargs = BindedFuncInput({})
+
+                        if ptid not in self.context_map:
+                            self.context_map[ptid] = {}
+                        if context_manager_name not in self.context_map[ptid]:
+                            self.context_map[ptid][context_manager_name] = []
+                        self.context_map[ptid][context_manager_name].append(
+                            ContextManagerState(
+                                name=context_manager_name,
+                                ptid=ptid,
+                                liveness=Liveness(start_time, None),
+                                input=binded_args_and_kwargs,
+                            )
+                        )
+                    elif function_name.contains("__exit__", na=False) and trace_type == TraceLineType.FUNC_CALL_PRE:
+                        context_manager_name = function_name.removesuffix(".__exit__")
+                        contextmanagerstate = None
+                        if ptname in self.context_map:
+                            for state in reversed(self.context_map[ptname][context_manager_name]):
+                                if state.liveness.start_time < trace_record["time"]:
+                                    break
+                                if state.liveness.end_time is not None:
+                                    break
+                                contextmanagerstate = state
+                        contextmanagerstate.liveness.end_time = trace_record["time"]                                    
+
     def _set_read_time(self, trace_record):
         with self.cond:
             self.checker_data.read_time_map[self.file_path] = trace_record["time"]
