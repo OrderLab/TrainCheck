@@ -1460,7 +1460,7 @@ class Invariant:
         """
         Get the needed variables, APIs, and arguments for the invariant.
         """
-        return self.relation.get_needed_variables(self), self.relation.get_needed_apis(self), self.relation.get_needed_args(self)
+        return self.relation.get_needed_variables(self), self.relation.get_needed_api(self), self.relation.needed_args_map(self)
 
 
 class CheckerResult:
