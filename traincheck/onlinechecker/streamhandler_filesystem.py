@@ -195,15 +195,15 @@ class StreamLogHandler(FileSystemEventHandler):
                     if ".__init__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
                         context_manager_name = function_name.removesuffix(".__init__")
                         ptname = (process_id, thread_id, context_manager_name)
-                        if ptname not in self.context_map:
-                            self.context_map[ptname] = []
-                        self.context_map[ptname].append(trace_record)
+                        if ptname not in self.init_map:
+                            self.init_map[ptname] = []
+                        self.init_map[ptname].append(trace_record)
 
                     elif ".__enter__" in function_name and trace_type == TraceLineType.FUNC_CALL_POST:
                         context_manager_name = function_name.removesuffix(".__enter__")
                         ptname = (process_id, thread_id, context_manager_name)
                         closest_init_record = None
-                        closet_init_time = None
+                        closest_init_time = None
                         if ptname in self.init_map:
                             for init_record in reversed(self.init_map[ptname]):
                                 if init_record["time"] < trace_record["time"]:
@@ -243,14 +243,17 @@ class StreamLogHandler(FileSystemEventHandler):
                     elif ".__exit__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
                         context_manager_name = function_name.removesuffix(".__exit__")
                         contextmanagerstate = None
-                        if ptname in self.context_map:
-                            for state in reversed(self.context_map[ptname][context_manager_name]):
-                                if state.liveness.start_time < trace_record["time"]:
-                                    break
-                                if state.liveness.end_time is not None:
-                                    break
-                                contextmanagerstate = state
-                        contextmanagerstate.liveness.end_time = trace_record["time"] 
+                        if ptid in self.context_map:
+                            if context_manager_name in self.context_map[ptid]:
+                                for state in reversed(self.context_map[ptid][context_manager_name]):
+                                    print(state)
+                                    if state.liveness.start_time < trace_record["time"]:
+                                        break
+                                    if state.liveness.end_time is not None:
+                                        break
+                                    contextmanagerstate = state
+                        if contextmanagerstate is not None:
+                            contextmanagerstate.liveness.end_time = trace_record["time"] 
 
     def _set_read_time(self, trace_record):
         with self.cond:
