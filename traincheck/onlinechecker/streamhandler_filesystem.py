@@ -188,19 +188,18 @@ class StreamLogHandler(FileSystemEventHandler):
                             self.args_map[function_name][step][ptid] = []
                         self.args_map[function_name][step][ptid].append(trace_record)
 
-            if function_name.str.contains("__enter__", na=False) \
-                or function_name.str.contains("__exit__", na=False) \
-                or function_name.str.contains(".__init__", na=False):
-                if not function_name.str.contains("torch.autograd.grad_mode", na=False) \
-                    and not function_name.str.contains("torch.autograd.profiler.record_function", na=False):
-                    if function_name.contains("__init__", na=False) and trace_type == TraceLineType.FUNC_CALL_PRE:
+
+            if ".__enter__" in function_name or ".__exit__" in function_name or ".__init__" in function_name:
+                if not "torch.autograd.grad_mode" in function_name \
+                    and not "torch.autograd.profiler.record_function" in function_name:
+                    if ".__init__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
                         context_manager_name = function_name.removesuffix(".__init__")
                         ptname = (process_id, thread_id, context_manager_name)
                         if ptname not in self.context_map:
                             self.context_map[ptname] = []
                         self.context_map[ptname].append(trace_record)
-                        
-                    elif function_name.contains("__enter__", na=False) and trace_type == TraceLineType.FUNC_CALL_POST:
+
+                    elif ".__enter__" in function_name and trace_type == TraceLineType.FUNC_CALL_POST:
                         context_manager_name = function_name.removesuffix(".__enter__")
                         ptname = (process_id, thread_id, context_manager_name)
                         closest_init_record = None
@@ -241,7 +240,7 @@ class StreamLogHandler(FileSystemEventHandler):
                                 input=binded_args_and_kwargs,
                             )
                         )
-                    elif function_name.contains("__exit__", na=False) and trace_type == TraceLineType.FUNC_CALL_PRE:
+                    elif ".__exit__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
                         context_manager_name = function_name.removesuffix(".__exit__")
                         contextmanagerstate = None
                         if ptname in self.context_map:
@@ -251,7 +250,7 @@ class StreamLogHandler(FileSystemEventHandler):
                                 if state.liveness.end_time is not None:
                                     break
                                 contextmanagerstate = state
-                        contextmanagerstate.liveness.end_time = trace_record["time"]                                    
+                        contextmanagerstate.liveness.end_time = trace_record["time"] 
 
     def _set_read_time(self, trace_record):
         with self.cond:
