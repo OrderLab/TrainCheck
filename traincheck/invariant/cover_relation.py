@@ -23,7 +23,7 @@ from traincheck.invariant.lead_relation import (
     get_func_names_to_deal_with,
 )
 from traincheck.invariant.precondition import find_precondition
-from traincheck.onlinechecker.utils import Checker_data
+from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
 
@@ -740,7 +740,12 @@ class FunctionCoverRelation(Relation):
         start_time = None
         end_time = trace_record["time"]
 
-        if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
+        with checker_data.lock:
+            [trace_record] = set_meta_vars_online([trace_record], checker_data)
+
+        if not inv.precondition.verify(
+            [trace_record], EXP_GROUP_NAME, None
+        ):
             return OnlineCheckerResult(
                 trace=None,
                 invariant=inv,
@@ -754,7 +759,9 @@ class FunctionCoverRelation(Relation):
                 time = func_event.post_record["time"]
                 if time >= end_time:
                     continue
-                if not inv.precondition.verify([func_event.pre_record], EXP_GROUP_NAME, None):
+                if not inv.precondition.verify(
+                    set_meta_vars_online([func_event.pre_record], checker_data), EXP_GROUP_NAME, None
+                ):
                     continue
                 if start_time is None or time > start_time:
                     start_time = time

@@ -17,7 +17,7 @@ from traincheck.invariant.base_cls import (
     VarTypeParam,
 )
 from traincheck.invariant.precondition import find_precondition
-from traincheck.onlinechecker.utils import Checker_data
+from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import Liveness, VarInstId
 
@@ -619,7 +619,7 @@ class ConsistencyRelation(Relation):
                             )
                             if not compare_result:
                                 if inv.precondition.verify(
-                                    [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
+                                    set_meta_vars_online([check_attr.traces[-1], attr.traces[-1]], checker_data), VAR_GROUP_NAME, None
                                 ):
                                     return OnlineCheckerResult(
                                         trace=[check_attr.traces[-1], attr.traces[-1]],
@@ -628,7 +628,7 @@ class ConsistencyRelation(Relation):
                                     )
                         else:
                             if inv.precondition.verify(
-                                [check_attr.traces[-1], attr.traces[-1]], VAR_GROUP_NAME, None
+                                set_meta_vars_online([check_attr.traces[-1], attr.traces[-1]], checker_data), VAR_GROUP_NAME, None
                             ):
                                 compare_result = ConsistencyRelation.evaluate(
                                     [check_attr.value, attr.value]

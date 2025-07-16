@@ -34,6 +34,7 @@ from traincheck.onlinechecker.utils import (
     Checker_data, 
     get_var_ids_unchanged_but_causally_related,
     get_var_raw_event_before_time,
+    set_meta_vars_online,
 )
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import (
@@ -1224,6 +1225,7 @@ Defaulting to skip the var preconditon check for now.
                 )
             func_pre_record = func_call_event.pre_record
             func_post_record = func_call_event.post_record
+            [func_pre_record] = set_meta_vars_online([func_pre_record], checker_data)
 
         pre_time = func_pre_record["time"]
         post_time = func_post_record["time"]
@@ -1340,10 +1342,13 @@ Defaulting to skip the var preconditon check for now.
                 ]
                 for unchanged_var_state in unchanged_var_states:
                     # verify that no precondition is met for the unchanged vars
-                    # MARK: precondition 2
-                    # TODO: check unchanged_var_state or [unchanged_var_state]
+                    # MARK: precondition 2                    
+                    with checker_data.lock:
+                        [unchanged_var_state] = set_meta_vars_online(
+                            [unchanged_var_state], checker_data
+                        )
                     if not preconditions.verify(
-                        unchanged_var_state, VAR_GROUP_NAME, None
+                        [unchanged_var_state], VAR_GROUP_NAME, None
                     ):
                         var_unchanged_check_passed = False
                         break

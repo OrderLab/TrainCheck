@@ -9,6 +9,7 @@ from watchdog.events import FileSystemEventHandler
 
 from traincheck.config import config
 from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.instrumentor.types import PTID
 from traincheck.trace.utils import (
     BindedFuncInput,
     bind_args_kwargs_to_signature,
@@ -188,72 +189,81 @@ class StreamLogHandler(FileSystemEventHandler):
                             self.args_map[function_name][step][ptid] = []
                         self.args_map[function_name][step][ptid].append(trace_record)
 
-
             if ".__enter__" in function_name or ".__exit__" in function_name or ".__init__" in function_name:
                 if not "torch.autograd.grad_mode" in function_name \
                     and not "torch.autograd.profiler.record_function" in function_name:
-                    if ".__init__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
-                        context_manager_name = function_name.removesuffix(".__init__")
-                        ptname = (process_id, thread_id, context_manager_name)
-                        if ptname not in self.init_map:
-                            self.init_map[ptname] = []
-                        self.init_map[ptname].append(trace_record)
+                    self._set_context_map(trace_record)
 
-                    elif ".__enter__" in function_name and trace_type == TraceLineType.FUNC_CALL_POST:
-                        context_manager_name = function_name.removesuffix(".__enter__")
-                        ptname = (process_id, thread_id, context_manager_name)
-                        closest_init_record = None
-                        closest_init_time = None
-                        if ptname in self.init_map:
-                            for init_record in reversed(self.init_map[ptname]):
-                                if init_record["time"] < trace_record["time"]:
-                                    if closest_init_time is None or init_record["time"] > closest_init_time:
-                                        closest_init_time = init_record["time"]
-                                        closest_init_record = init_record
+            
 
-                        start_time = trace_record["time"]
-                        args = closest_init_record["args"]
-                        kwargs = closest_init_record["kwargs"]
+    def _set_context_map(self, trace_record):
+        function_name = trace_record["function"]
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
+        ptid = PTID(process_id, thread_id)
+        ptname = (process_id, thread_id, function_name)
+        trace_type = trace_record["type"]
+        if ".__init__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
+            context_manager_name = function_name.removesuffix(".__init__")
+            ptname = (process_id, thread_id, context_manager_name)
+            if ptname not in self.init_map:
+                self.init_map[ptname] = []
+            self.init_map[ptname].append(trace_record)
+
+        elif ".__enter__" in function_name and trace_type == TraceLineType.FUNC_CALL_POST:
+            context_manager_name = function_name.removesuffix(".__enter__")
+            ptname = (process_id, thread_id, context_manager_name)
+            closest_init_record = None
+            closest_init_time = None
+            if ptname in self.init_map:
+                for init_record in reversed(self.init_map[ptname]):
+                    if init_record["time"] < trace_record["time"]:
+                        if closest_init_time is None or init_record["time"] > closest_init_time:
+                            closest_init_time = init_record["time"]
+                            closest_init_record = init_record
+
+            start_time = trace_record["time"]
+            args = closest_init_record["args"]
+            kwargs = closest_init_record["kwargs"]
                                     
-                        if not safe_isnan(args):
-                            signature = load_signature_from_class_method_name(
-                                closest_init_record["function"]
-                            )
+            if not safe_isnan(args):
+                signature = load_signature_from_class_method_name(
+                    closest_init_record["function"]
+                )
 
-                            binded_args_and_kwargs = bind_args_kwargs_to_signature(
-                                args, kwargs, signature
-                            )
-                        else:
-                            # create an empty BindedFuncInput if args is NaN, as it indicates
-                            # that we did not record the args and kwargs for this function call
-                            binded_args_and_kwargs = BindedFuncInput({})
+                binded_args_and_kwargs = bind_args_kwargs_to_signature(
+                    args, kwargs, signature
+                )
+            else:
+                # create an empty BindedFuncInput if args is NaN, as it indicates
+                # that we did not record the args and kwargs for this function call
+                binded_args_and_kwargs = BindedFuncInput({})
 
-                        if ptid not in self.context_map:
-                            self.context_map[ptid] = {}
-                        if context_manager_name not in self.context_map[ptid]:
-                            self.context_map[ptid][context_manager_name] = []
-                        self.context_map[ptid][context_manager_name].append(
-                            ContextManagerState(
-                                name=context_manager_name,
-                                ptid=ptid,
-                                liveness=Liveness(start_time, None),
-                                input=binded_args_and_kwargs,
-                            )
-                        )
-                    elif ".__exit__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
-                        context_manager_name = function_name.removesuffix(".__exit__")
-                        contextmanagerstate = None
-                        if ptid in self.context_map:
-                            if context_manager_name in self.context_map[ptid]:
-                                for state in reversed(self.context_map[ptid][context_manager_name]):
-                                    print(state)
-                                    if state.liveness.start_time < trace_record["time"]:
-                                        break
-                                    if state.liveness.end_time is not None:
-                                        break
-                                    contextmanagerstate = state
-                        if contextmanagerstate is not None:
-                            contextmanagerstate.liveness.end_time = trace_record["time"] 
+            if ptid not in self.context_map:
+                self.context_map[ptid] = {}
+            if context_manager_name not in self.context_map[ptid]:
+                self.context_map[ptid][context_manager_name] = []
+            self.context_map[ptid][context_manager_name].append(
+                ContextManagerState(
+                    name=context_manager_name,
+                    ptid=ptid,
+                    liveness=Liveness(start_time, None),
+                    input=binded_args_and_kwargs,
+                )
+            )
+        elif ".__exit__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
+            context_manager_name = function_name.removesuffix(".__exit__")
+            contextmanagerstate = None
+            if ptid in self.context_map:
+                if context_manager_name in self.context_map[ptid]:
+                    for state in reversed(self.context_map[ptid][context_manager_name]):
+                        if state.liveness.start_time < trace_record["time"]:
+                            break
+                        if state.liveness.end_time is not None:
+                            break
+                        contextmanagerstate = state
+            if contextmanagerstate is not None:
+                contextmanagerstate.liveness.end_time = trace_record["time"] 
 
     def _set_read_time(self, trace_record):
         with self.cond:

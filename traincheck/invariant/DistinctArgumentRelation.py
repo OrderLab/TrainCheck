@@ -16,7 +16,7 @@ from traincheck.invariant.base_cls import (  # GroupedPreconditions,
     Relation,
 )
 from traincheck.invariant.precondition import find_precondition
-from traincheck.onlinechecker.utils import Checker_data
+from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
 from traincheck.utils import safe_isnan
 
@@ -489,6 +489,9 @@ class DistinctArgumentRelation(Relation):
         func_name = func_param.api_full_name
 
         assert func_name == trace_record["function"], "Function name in the invariant should match the function name in the trace record."
+
+        with checker_data.lock:
+            [trace_record] = set_meta_vars_online([trace_record], checker_data)
 
         if not inv.precondition.verify(
             [trace_record], EXP_GROUP_NAME, None

@@ -22,7 +22,7 @@ from traincheck.invariant.base_cls import (
     make_hashable,
 )
 from traincheck.invariant.precondition import find_precondition
-from traincheck.onlinechecker.utils import Checker_data
+from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import (
     FuncCallEvent,
@@ -623,11 +623,12 @@ class ConsistentOutputRelation(Relation):
         with checker_data.lock:
             func_call_event = checker_data.pt_map[ptname][func_call_id]
             func_pre_record = func_call_event.pre_record
+            [func_pre_record] = set_meta_vars_online([func_pre_record], checker_data)
 
         check_passed = True
 
         if inv.precondition.verify(
-            func_pre_record, "pre_event", None
+            [func_pre_record], "pre_event", None
         ):        
             returned_tensors = get_returned_tensors(func_call_event)
             if len(returned_tensors) == 0:
@@ -1015,6 +1016,7 @@ class ConsistentInputOutputRelation(Relation):
         with checker_data.lock:
             func_call_event = checker_data.pt_map[ptname][func_call_id]
             func_pre_record = func_call_event.pre_record
+            [func_pre_record] = set_meta_vars_online([func_pre_record], checker_data)
 
         check_passed = True
 
@@ -1496,13 +1498,16 @@ class ThresholdRelation(Relation):
         with checker_data.lock:
             func_call_event = checker_data.pt_map[ptname][func_id]
             func_pre_record = func_call_event.pre_record
+            [func_pre_record] = set_meta_vars_online([func_pre_record], checker_data)
 
         assert not isinstance(func_call_event, (FuncCallExceptionEvent, IncompleteFuncCallEvent)), "The function call event should not be an exception or incomplete."
 
         check_passed = True
 
         # check for precondition here
-        if inv.precondition.verify([func_pre_record], "pre_event", None):
+        if inv.precondition.verify(
+            [func_pre_record], "pre_event", None
+        ):
             check_passed = False
             threshold_value = input_param.get_value_from_arguments(
                 Arguments(

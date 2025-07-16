@@ -2,6 +2,7 @@ import copy
 import queue
 import threading
 
+from traincheck.instrumentor.types import PTID
 from traincheck.trace.types import (
     FuncCallEvent,
     VarChangeEvent,
@@ -226,25 +227,24 @@ def get_var_raw_event_before_time(
 def get_meta_vars_online(
     time: float, precess_id:int, thread_id:int, checker_data: Checker_data
 ):
-    ptid = (precess_id, thread_id)
+    ptid = PTID(precess_id, thread_id)
     active_context_managers = []
     meta_vars = {}
 
-    with checker_data.lock:
-        if ptid not in checker_data.context_map:
-            return None
-        context_managers = checker_data.context_map[ptid]
-        for context_manager_name, context_manager_states in context_managers.items():
-            for context_manager_state in reversed(context_manager_states):
-                if context_manager_state.liveness.start_time <= time \
-                    and (
-                        context_manager_state.liveness.end_time is None
-                        or context_manager_state.liveness.end_time >= time
-                    ):
-                    if context_manager_state.liveness.end_time is None:
-                        active_context_managers.append(copy.deepcopy(context_manager_state))
-                    else:
-                        active_context_managers.append(context_manager_state)
+    if ptid not in checker_data.context_map:
+        return None
+    context_managers = checker_data.context_map[ptid]
+    for context_manager_name, context_manager_states in context_managers.items():
+        for context_manager_state in reversed(context_manager_states):
+            if context_manager_state.liveness.start_time <= time \
+                and (
+                    context_manager_state.liveness.end_time is None
+                    or context_manager_state.liveness.end_time >= time
+                ):
+                if context_manager_state.liveness.end_time is None:
+                    active_context_managers.append(copy.deepcopy(context_manager_state))
+                else:
+                    active_context_managers.append(context_manager_state)
     
     prefix = "context_managers"
     for _, context_manager in enumerate(active_context_managers):
@@ -253,6 +253,27 @@ def get_meta_vars_online(
         ]
 
     return meta_vars
+
+def set_meta_vars_online(
+        records: list, checker_data: Checker_data
+):
+    earliest_time = None
+    earliest_process_id = None
+    earliest_thread_id = None
+    for record in records:
+        if earliest_time is None or record["time"] < earliest_time:
+            earliest_time = record["time"]
+            earliest_process_id = record["process_id"]
+            earliest_thread_id = record["thread_id"]
+    meta_vars = get_meta_vars_online(
+        earliest_time, earliest_process_id, earliest_thread_id, checker_data
+    )
+
+    if meta_vars:
+        for key in meta_vars:
+            for i in range(len(records)):
+                records[i][f"meta_vars.{key}"] = meta_vars[key]
+    return records
     
 
 # use for time analysis
