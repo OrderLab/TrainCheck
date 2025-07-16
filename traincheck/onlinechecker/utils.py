@@ -241,10 +241,7 @@ def get_meta_vars_online(
                     context_manager_state.liveness.end_time is None
                     or context_manager_state.liveness.end_time >= time
                 ):
-                if context_manager_state.liveness.end_time is None:
-                    active_context_managers.append(copy.deepcopy(context_manager_state))
-                else:
-                    active_context_managers.append(context_manager_state)
+                active_context_managers.append(context_manager_state)
     
     prefix = "context_managers"
     for _, context_manager in enumerate(active_context_managers):
