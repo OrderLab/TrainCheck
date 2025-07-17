@@ -1450,9 +1450,6 @@ class Invariant:
         logging.getLogger(__name__).info(
             f"Checking invariant: {self.text_description} of relation {self.relation}"
         )
-        print(
-            f"Checking invariant: {self.text_description} of relation {self.relation}"
-        )
         return self.relation.static_check_all(trace, self, check_relation_first)
 
     def online_check(

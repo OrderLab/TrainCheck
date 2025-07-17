@@ -230,26 +230,47 @@ class FunctionCoverRelation(Relation):
                             ].negative_examples.add_example(example)
                     continue
 
-                flag_A = None
-                for event in events_list:
-                    if event["type"] != "function_call (pre)":
-                        continue
+                events_A_pre = [
+                    event
+                    for event in events_list
+                    if event["type"] == "function_call (pre)"
+                    and event["function"] == func_A
+                ]
+                events_B_pre = [
+                    event
+                    for event in events_list
+                    if event["type"] == "function_call (pre)"
+                    and event["function"] == func_B
+                ]
 
-                    if func_A == event["function"]:
-                        flag_A = event["time"]
+                event_A_idx = 0
+                event_B_idx = 0
 
-                    if func_B == event["function"]:
-                        example = Example()
-                        example.add_group(EXP_GROUP_NAME, [event])
-                        if flag_A is None:
-                            hypothesis_with_examples[
-                                (func_A, func_B)
-                            ].negative_examples.add_example(example)
-                        else:
-                            hypothesis_with_examples[
-                                (func_A, func_B)
-                            ].positive_examples.add_example(example)
-                            flag_A = None  # reset flag_A
+                while event_B_idx < len(events_B_pre):
+                    event_B = events_B_pre[event_B_idx]
+
+                    # Find the latest A before B
+                    latest_A_event = None
+                    while (
+                        event_A_idx < len(events_A_pre)
+                        and events_A_pre[event_A_idx]["time"] < event_B["time"]
+                    ):
+                        latest_A_event = events_A_pre[event_A_idx]
+                        event_A_idx += 1
+
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_B])
+
+                    if latest_A_event is None:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].negative_examples.add_example(example)
+                    else:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].positive_examples.add_example(example)
+
+                    event_B_idx += 1
 
         print("End adding examples")
 
@@ -385,22 +406,44 @@ class FunctionCoverRelation(Relation):
                     continue
 
                 # check
-                flag_A = None
-                for event in events_list:
-                    if event["type"] != "function_call (pre)":
-                        continue
 
-                    if func_A == event["function"]:
-                        flag_A = event["time"]
+                events_A_pre = [
+                    event
+                    for event in events_list
+                    if event["type"] == "function_call (pre)"
+                    and event["function"] == func_A
+                ]
+                events_B_pre = [
+                    event
+                    for event in events_list
+                    if event["type"] == "function_call (pre)"
+                    and event["function"] == func_B
+                ]
 
-                    if func_B == event["function"]:
-                        example = Example()
-                        example.add_group(EXP_GROUP_NAME, [event])
-                        if flag_A is None:
-                            hypothesis.negative_examples.add_example(example)
-                        else:
-                            hypothesis.positive_examples.add_example(example)
-                            flag_A = None  # reset flag_A
+                event_A_idx = 0
+                event_B_idx = 0
+
+                while event_B_idx < len(events_B_pre):
+                    event_B = events_B_pre[event_B_idx]
+
+                    # Find the latest A before B
+                    latest_A_event = None
+                    while (
+                        event_A_idx < len(events_A_pre)
+                        and events_A_pre[event_A_idx]["time"] < event_B["time"]
+                    ):
+                        latest_A_event = events_A_pre[event_A_idx]
+                        event_A_idx += 1
+
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_B])
+
+                    if latest_A_event is None:
+                        hypothesis.negative_examples.add_example(example)
+                    else:
+                        hypothesis.positive_examples.add_example(example)
+
+                    event_B_idx += 1
 
         print("End collecting iteration...")
 
@@ -645,29 +688,50 @@ class FunctionCoverRelation(Relation):
                     continue
 
                 # check
-                unmatched_A_exist = False
-                for event in events_list:
-                    if event["type"] != "function_call (pre)":
+
+                events_A_pre = [
+                    event
+                    for event in events_list
+                    if event["type"] == "function_call (pre)"
+                    and event["function"] == func_A
+                ]
+                events_B_pre = [
+                    event
+                    for event in events_list
+                    if event["type"] == "function_call (pre)"
+                    and event["function"] == func_B
+                ]
+
+                event_A_idx = 0
+                event_B_idx = 0
+
+                while event_B_idx < len(events_B_pre):
+                    event_B = events_B_pre[event_B_idx]
+
+                    if not inv.precondition.verify([event_B], EXP_GROUP_NAME, trace):
+                        event_B_idx += 1
                         continue
 
-                    if func_A == event["function"]:
-                        unmatched_A_exist = True
+                    inv_triggered = True
 
-                    if func_B == event["function"]:
-                        if not inv.precondition.verify([event], EXP_GROUP_NAME, trace):
-                            continue
+                    # Find the latest A before B
+                    latest_A_event = None
+                    while (
+                        event_A_idx < len(events_A_pre)
+                        and events_A_pre[event_A_idx]["time"] < event_B["time"]
+                    ):
+                        latest_A_event = events_A_pre[event_A_idx]
+                        event_A_idx += 1
 
-                        inv_triggered = True
-                        if unmatched_A_exist is False:
-                            inv_triggered = True
-                            return CheckerResult(
-                                trace=[event],
-                                invariant=inv,
-                                check_passed=False,
-                                triggered=True,
-                            )
-                        else:
-                            unmatched_A_exist = False  # consumed the last A, a new A should be found before the next B
+                    if latest_A_event is None:
+                        return CheckerResult(
+                            trace=[event_B],
+                            invariant=inv,
+                            check_passed=False,
+                            triggered=True,
+                        )
+
+                    event_B_idx += 1
 
         # FIXME: triggered is always False for passing invariants
         return CheckerResult(
