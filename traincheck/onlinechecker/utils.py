@@ -251,6 +251,7 @@ def get_meta_vars_online(
 
     return meta_vars
 
+# TODO: move set_meta_vars from online check part to set map part
 def set_meta_vars_online(
         records: list, checker_data: Checker_data
 ):

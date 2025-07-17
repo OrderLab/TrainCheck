@@ -192,8 +192,6 @@ def check(invariants, traces, trace_folders, output_dir: str, check_relation_fir
                                         f.write("\n")
                             except Exception as e:
                                 logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
-                                # TODO: delete raise
-                                raise e
                                 
         elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
             apiparam = APIParam(trace_record["function"])
@@ -213,8 +211,6 @@ def check(invariants, traces, trace_folders, output_dir: str, check_relation_fir
                                 f.write("\n")
                     except Exception as e:
                         logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
-                        # TODO: delete raise
-                        raise e
                         
 
 def stop_checker():
@@ -235,7 +231,7 @@ def stop_checker():
     # for inv, count in failed_inv.items():
     #     logger.info(f"Invariant {inv} violated {count} times")
     logger.info(f"Violations are stored")
-    
+
 
 def main():
     parser = argparse.ArgumentParser(
