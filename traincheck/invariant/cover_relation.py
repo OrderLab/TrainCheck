@@ -15,6 +15,7 @@ from traincheck.invariant.base_cls import (
     Hypothesis,
     Invariant,
     OnlineCheckerResult,
+    Param,
     Relation,
 )
 from traincheck.invariant.lead_relation import (
@@ -675,35 +676,36 @@ class FunctionCoverRelation(Relation):
             check_passed=True,
             triggered=inv_triggered,
         )
-    
+
     @staticmethod
-    def get_mapping_key(inv: Invariant) -> list[APIParam]:
+    def get_mapping_key(inv: Invariant) -> list[Param]:
         params = []
-        for i in range(len(inv.params)-1):
-            params.append(inv.params[i+1])
+        for i in range(len(inv.params) - 1):
+            params.append(inv.params[i + 1])
         return params
-    
+
     @staticmethod
     def get_needed_variables(inv):
         return None
-    
+
     @staticmethod
     def get_needed_api(inv: Invariant):
         api_name_list = []
         for param in inv.params:
+            assert isinstance(param, APIParam)
             api_name_list.append(param.api_full_name)
         return api_name_list
-    
+
     @staticmethod
     def needed_args_map(inv):
         return None
-    
+
     @staticmethod
     def online_check(
-        check_relation_first: bool, 
-        inv: Invariant, 
-        trace_record: dict, 
-        checker_data: Checker_data
+        check_relation_first: bool,
+        inv: Invariant,
+        trace_record: dict,
+        checker_data: Checker_data,
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
             return OnlineCheckerResult(
@@ -711,7 +713,7 @@ class FunctionCoverRelation(Relation):
                 invariant=inv,
                 check_passed=True,
             )
-        
+
         assert inv.precondition is not None, "Invariant should have a precondition."
 
         checker_param = APIParam(trace_record["function"])
@@ -721,19 +723,20 @@ class FunctionCoverRelation(Relation):
                 if i == 0:
                     cover_param = None
                     break
-                cover_param = inv.params[i-1]
+                cover_param = inv.params[i - 1]
                 break
-            
-        if cover_param is None: 
+
+        if cover_param is None:
             return OnlineCheckerResult(
                 trace=None,
                 invariant=inv,
                 check_passed=True,
             )
-        
+
+        assert isinstance(cover_param, APIParam)
+
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
-        ptid = (process_id, thread_id)
         func_name = trace_record["function"]
         ptname = (process_id, thread_id, func_name)
 
@@ -743,14 +746,12 @@ class FunctionCoverRelation(Relation):
         with checker_data.lock:
             [trace_record] = set_meta_vars_online([trace_record], checker_data)
 
-        if not inv.precondition.verify(
-            [trace_record], EXP_GROUP_NAME, None
-        ):
+        if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
             return OnlineCheckerResult(
                 trace=None,
                 invariant=inv,
                 check_passed=True,
-            )   
+            )
 
         with checker_data.lock:
             for func_id, func_event in checker_data.pt_map[ptname].items():
@@ -760,7 +761,9 @@ class FunctionCoverRelation(Relation):
                 if time >= end_time:
                     continue
                 if not inv.precondition.verify(
-                    set_meta_vars_online([func_event.pre_record], checker_data), EXP_GROUP_NAME, None
+                    set_meta_vars_online([func_event.pre_record], checker_data),
+                    EXP_GROUP_NAME,
+                    None,
                 ):
                     continue
                 if start_time is None or time > start_time:
@@ -770,7 +773,6 @@ class FunctionCoverRelation(Relation):
             start_time = 0
 
         cover_func_name = cover_param.api_full_name
-        found_cover_func = False
         cover_ptname = (process_id, thread_id, cover_func_name)
         with checker_data.lock:
             if cover_ptname in checker_data.pt_map:
@@ -780,7 +782,6 @@ class FunctionCoverRelation(Relation):
                     pre_time = func_event.pre_record["time"]
                     post_time = func_event.post_record["time"]
                     if pre_time >= start_time and post_time <= end_time:
-                        found_cover_func = True
                         return OnlineCheckerResult(
                             trace=None,
                             invariant=inv,

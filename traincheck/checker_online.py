@@ -8,20 +8,19 @@ import sys
 import time
 
 from traincheck.config import config
-from traincheck.invariant import Invariant, read_inv_file
+from traincheck.invariant import read_inv_file
 from traincheck.invariant.base_cls import (
     APIParam,
     Invariant,
     Param,
     VarTypeParam,
 )
-from traincheck.trace import MDNONEJSONEncoder
-from traincheck.trace.types import VarInstId
 from traincheck.onlinechecker.streamhandler_filesystem import run_stream_monitor
 from traincheck.onlinechecker.utils import Checker_data
+from traincheck.trace import MDNONEJSONEncoder
+from traincheck.trace.types import VarInstId
 
-
-OBSERVER = None 
+OBSERVER = None
 KILLING_PROCESS = (
     False  # True indicates that SIGTERM has been sent to the running process
 )
@@ -30,6 +29,7 @@ FAILED_INV = dict()
 
 ORIGINAL_SIGINT_HANDLER = signal.getsignal(signal.SIGINT)
 ORIGINAL_SIGTERM_HANDLER = signal.getsignal(signal.SIGTERM)
+
 
 def handle_SIGINT(signum, frame):
     global KILLING_PROCESS
@@ -65,6 +65,7 @@ def handle_SIGTERM(signum, frame):
     else:
         exit(143)
 
+
 curr_excepthook = sys.excepthook
 
 
@@ -77,6 +78,7 @@ def register_hook_closing_program():
     signal.signal(signal.SIGTERM, handle_SIGTERM)
     signal.signal(signal.SIGINT, handle_SIGINT)
     sys.excepthook = kill_running_process_on_except
+
 
 def sort_inv_file(invariants):
     """Sort the invariants by their parameters. Also collect the needed data for online checking.
@@ -92,8 +94,8 @@ def sort_inv_file(invariants):
     logger.info("Total %d invariants read from file: %s", len(invs), invariants)
     logger.info("Sorting invariants by parameters")
 
-    param_to_invs : dict[Param, list[Invariant]] = {}
-    vartype_to_invs : dict[str, dict[str, list[Invariant]]] = {}
+    param_to_invs: dict[Param, list[Invariant]] = {}
+    vartype_to_invs: dict[str, dict[str, list[Invariant]]] = {}
     needed_vars = set()
     needed_apis = set()
     needed_args_map = set()
@@ -122,15 +124,20 @@ def sort_inv_file(invariants):
                 param_to_invs[param].append(inv)
     logger.info("Sorting done.")
     needed_data = (needed_vars, needed_apis, needed_args_map)
-    return param_to_invs, vartype_to_invs, needed_data 
+    return param_to_invs, vartype_to_invs, needed_data
+
 
 def get_violated_pair_hash(trace_pair):
     from traincheck.invariant.base_cls import make_hashable
+
     h1 = hash(make_hashable(trace_pair[0]))
     h2 = hash(make_hashable(trace_pair[1]))
     return tuple(sorted((h1, h2), reverse=True))
 
-def check(invariants, traces, trace_folders, output_dir: str, check_relation_first: bool):
+
+def check(
+    invariants, traces, trace_folders, output_dir: str, check_relation_first: bool
+):
     global OBSERVER
     global NUM_VIOLATIONS
     global FAILED_INV
@@ -146,7 +153,7 @@ def check(invariants, traces, trace_folders, output_dir: str, check_relation_fir
     OBSERVER = run_stream_monitor(traces, trace_folders, checker_data)
 
     output_file = os.path.join(output_dir, "failed.log")
-    violated_pairs = dict()
+    violated_pairs = dict[Invariant, set[tuple[int, int]]]()
 
     while True:
         trace_record = checker_data.check_queue.get()
@@ -154,7 +161,7 @@ def check(invariants, traces, trace_folders, output_dir: str, check_relation_fir
             logger.debug("Check queue is empty")
         if trace_record is None:
             continue
-            
+
         with checker_data.cond:
             while True:
                 if trace_record["time"] > checker_data.min_read_time:
@@ -165,14 +172,23 @@ def check(invariants, traces, trace_folders, output_dir: str, check_relation_fir
                     break
 
         if "var_name" in trace_record and trace_record["var_name"] is not None:
-            varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
+            varid = VarInstId(
+                trace_record["process_id"],
+                trace_record["var_name"],
+                trace_record["var_type"],
+            )
             if varid.var_type in vartype_to_invs:
                 for attr_name, invs in vartype_to_invs[varid.var_type].items():
                     attr_name = config.VAR_ATTR_PREFIX + attr_name
-                    if attr_name in trace_record and trace_record[attr_name] is not None:
+                    if (
+                        attr_name in trace_record
+                        and trace_record[attr_name] is not None
+                    ):
                         for inv in invs:
                             try:
-                                result = inv.online_check(trace_record, checker_data, check_relation_first)
+                                result = inv.online_check(
+                                    trace_record, checker_data, check_relation_first
+                                )
                                 if not result.check_passed:
                                     violated_pair = get_violated_pair_hash(result.trace)
                                     if inv not in violated_pairs:
@@ -185,39 +201,62 @@ def check(invariants, traces, trace_folders, output_dir: str, check_relation_fir
                                         FAILED_INV[inv] = 0
                                     FAILED_INV[inv] += 1
                                     NUM_VIOLATIONS += 1
-                                    result.set_id_and_detection_time(NUM_VIOLATIONS, time.monotonic_ns())
-                                    logger.error(f"Voilated id {NUM_VIOLATIONS}:\nInvariant {inv} violated near time {trace_record['time']}")
+                                    result.set_id_and_detection_time(
+                                        NUM_VIOLATIONS, time.monotonic_ns()
+                                    )
+                                    logger.error(
+                                        f"Violated id {NUM_VIOLATIONS}:\nInvariant {inv} violated near time {trace_record['time']}"
+                                    )
                                     with open(output_file, "a") as f:
-                                        json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                                        json.dump(
+                                            result.to_dict(),
+                                            f,
+                                            indent=4,
+                                            cls=MDNONEJSONEncoder,
+                                        )
                                         f.write("\n")
                             except Exception as e:
-                                logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
-                                
-        elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
+                                logger.error(
+                                    f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}"
+                                )
+
+        elif (
+            "func_call_id" in trace_record and trace_record["func_call_id"] is not None
+        ):
             apiparam = APIParam(trace_record["function"])
             if apiparam in param_to_invs:
                 for inv in param_to_invs[apiparam]:
                     try:
-                        result = inv.online_check(trace_record, checker_data, check_relation_first)
+                        result = inv.online_check(
+                            trace_record, checker_data, check_relation_first
+                        )
                         if not result.check_passed:
                             if inv not in FAILED_INV:
                                 FAILED_INV[inv] = 0
                             FAILED_INV[inv] += 1
                             NUM_VIOLATIONS += 1
-                            result.set_id_and_detection_time(NUM_VIOLATIONS, time.monotonic_ns())
-                            logger.error(f"Voilated id {NUM_VIOLATIONS}:\nInvariant {inv} violated near time {trace_record['time']}")
+                            result.set_id_and_detection_time(
+                                NUM_VIOLATIONS, time.monotonic_ns()
+                            )
+                            logger.error(
+                                f"Violated id {NUM_VIOLATIONS}:\nInvariant {inv} violated near time {trace_record['time']}"
+                            )
                             with open(output_file, "a") as f:
-                                json.dump(result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
+                                json.dump(
+                                    result.to_dict(), f, indent=4, cls=MDNONEJSONEncoder
+                                )
                                 f.write("\n")
                     except Exception as e:
-                        logger.error(f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}")
-                        
+                        logger.error(
+                            f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}"
+                        )
+
 
 def stop_checker():
     global OBSERVER
     if OBSERVER is None:
         return
-    
+
     OBSERVER.stop()
     OBSERVER.join()
 
@@ -230,7 +269,7 @@ def stop_checker():
     logger.info(f"Total {len(FAILED_INV)} invariants violated:")
     # for inv, count in failed_inv.items():
     #     logger.info(f"Invariant {inv} violated {count} times")
-    logger.info(f"Violations are stored")
+    logger.info("Violations are stored")
 
 
 def main():
@@ -321,8 +360,15 @@ def main():
     # copy the invariants to the output folder
     for inv_file in args.invariants:
         os.system(f"cp {inv_file} {args.output_dir}/invariants.json")
-    
-    check(args.invariants, args.traces, args.trace_folders, args.output_dir, args.check_relation_first)
-                
+
+    check(
+        args.invariants,
+        args.traces,
+        args.trace_folders,
+        args.output_dir,
+        args.check_relation_first,
+    )
+
+
 if __name__ == "__main__":
     main()

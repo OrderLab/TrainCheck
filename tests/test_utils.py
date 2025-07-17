@@ -16,6 +16,7 @@ def test_typename_builtin_function():
     assert typename(len) == "len"
     assert typename(print) == "print"
 
+
 def test_typename_tensor_and_parameter():
     t = torch.tensor([1.0])
     assert typename(t) == t.type()

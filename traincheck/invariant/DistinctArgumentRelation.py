@@ -13,6 +13,7 @@ from traincheck.invariant.base_cls import (  # GroupedPreconditions,
     Hypothesis,
     Invariant,
     OnlineCheckerResult,
+    Param,
     Relation,
 )
 from traincheck.invariant.precondition import find_precondition
@@ -451,29 +452,29 @@ class DistinctArgumentRelation(Relation):
             check_passed=True,
             triggered=True,
         )
-    
+
     @staticmethod
-    def get_mapping_key(inv: Invariant) -> list[APIParam]:
+    def get_mapping_key(inv: Invariant) -> list[Param]:
         return [inv.params[0]]
-    
+
     @staticmethod
     def get_needed_variables(inv: Invariant):
         return None
-    
+
     @staticmethod
     def get_needed_api(inv: Invariant):
         return None
-    
+
     @staticmethod
     def needed_args_map(inv):
         return [inv.params[0].api_full_name]
-    
+
     @staticmethod
     def online_check(
-        check_relation_first: bool, 
-        inv: Invariant, 
-        trace_record: dict, 
-        checker_data: Checker_data
+        check_relation_first: bool,
+        inv: Invariant,
+        trace_record: dict,
+        checker_data: Checker_data,
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
             return OnlineCheckerResult(
@@ -481,21 +482,23 @@ class DistinctArgumentRelation(Relation):
                 invariant=inv,
                 check_passed=True,
             )
-        
+
         assert inv.precondition is not None, "Invariant should have a precondition."
-        
+
         func_param = inv.params[0]
-        assert isinstance(func_param, APIParam), "Invariant parameters should be APIParam."
+        assert isinstance(
+            func_param, APIParam
+        ), "Invariant parameters should be APIParam."
         func_name = func_param.api_full_name
 
-        assert func_name == trace_record["function"], "Function name in the invariant should match the function name in the trace record."
+        assert (
+            func_name == trace_record["function"]
+        ), "Function name in the invariant should match the function name in the trace record."
 
         with checker_data.lock:
             [trace_record] = set_meta_vars_online([trace_record], checker_data)
 
-        if not inv.precondition.verify(
-            [trace_record], EXP_GROUP_NAME, None
-        ):
+        if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
             return OnlineCheckerResult(
                 trace=None,
                 invariant=inv,
@@ -519,7 +522,7 @@ class DistinctArgumentRelation(Relation):
                                 invariant=inv,
                                 check_passed=False,
                             )
-                        
+
             for PT_pair in check_func_list.keys():
                 for event1, event2 in combinations(check_func_list[PT_pair], 2):
                     if is_arguments_list_same(event1["args"], event2["args"]):
@@ -528,10 +531,10 @@ class DistinctArgumentRelation(Relation):
                             invariant=inv,
                             check_passed=False,
                         )
-                
+
         return OnlineCheckerResult(
             trace=None,
-            invariant=inv,  
+            invariant=inv,
             check_passed=True,
         )
 

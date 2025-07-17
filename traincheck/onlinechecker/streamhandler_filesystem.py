@@ -1,23 +1,23 @@
 import json
 import logging
 import os
-import queue
 import re
 import time
-from watchdog.observers.polling import PollingObserver
+
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers.polling import PollingObserver
 
 from traincheck.config import config
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.instrumentor.types import PTID
+from traincheck.trace.types import AttrState, ContextManagerState, Liveness, VarInstId
 from traincheck.trace.utils import (
     BindedFuncInput,
     bind_args_kwargs_to_signature,
-    flatten_dict, 
+    flatten_dict,
     load_signature_from_class_method_name,
     replace_none_with_md_none,
 )
-from traincheck.trace.types import AttrState, ContextManagerState, Liveness, VarInstId
 from traincheck.utils import safe_isnan
 
 from .utils import Checker_data, OnlineFuncCallEvent
@@ -25,9 +25,10 @@ from .utils import Checker_data, OnlineFuncCallEvent
 
 class StreamLogHandler(FileSystemEventHandler):
     """A file system handler to monitor the trace log file changes."""
+
     def __init__(self, file_path, checker_data: Checker_data):
         self.file_path = file_path
-        self.fp = open(file_path, 'r')
+        self.fp = open(file_path, "r")
 
         self.queue = checker_data.check_queue
 
@@ -48,13 +49,13 @@ class StreamLogHandler(FileSystemEventHandler):
         self.lock = checker_data.lock
         self.cond = checker_data.cond
         self.checker_data = checker_data
-        
+
         logger = logging.getLogger(__name__)
         self.logger = logger
 
         self._save_initial_content()
 
-        self.fp.seek(0, 2) 
+        self.fp.seek(0, 2)
 
     def _save_initial_content(self):
         self.logger.info(f"Processing initial content from {self.file_path}")
@@ -62,7 +63,7 @@ class StreamLogHandler(FileSystemEventHandler):
         lines = self.fp.readlines()
         if not lines:
             return
-        
+
         self._handle_line(lines)
         self.logger.info(f"Initial content from {self.file_path} processed.")
 
@@ -77,24 +78,28 @@ class StreamLogHandler(FileSystemEventHandler):
             trace_record = None
             try:
                 flat_dict = flatten_dict(
-                        json.loads(line, object_hook=replace_none_with_md_none),
-                        skip_fields=["args", "kwargs", "return_values"],
-                    )
+                    json.loads(line, object_hook=replace_none_with_md_none),
+                    skip_fields=["args", "kwargs", "return_values"],
+                )
                 trace_record = flat_dict
                 self._set_maps(trace_record)
                 self.queue.put(trace_record)
 
             except Exception as e:
-                self.logger.error(f"Error processing line in {self.file_path}: {e}. Line content: {line}")
+                self.logger.error(
+                    f"Error processing line in {self.file_path}: {e}. Line content: {line}"
+                )
                 continue
 
     def _set_maps(self, trace_record):
         """Set the variable map and function call map based on the trace record."""
         if "var_name" in trace_record and trace_record["var_name"] is not None:
             self._set_var_map(trace_record)
-        elif "func_call_id" in trace_record and trace_record["func_call_id"] is not None:   
+        elif (
+            "func_call_id" in trace_record and trace_record["func_call_id"] is not None
+        ):
             self._set_func_map(trace_record)
-        
+
         self._set_read_time(trace_record)
 
     def _set_var_map(self, trace_record):
@@ -102,7 +107,11 @@ class StreamLogHandler(FileSystemEventHandler):
             var_name = trace_record["var_name"]
             var_type = trace_record["var_type"]
             if var_name in self.needed_vars or var_type in self.needed_vars:
-                varid = VarInstId(trace_record["process_id"], trace_record["var_name"], trace_record["var_type"])
+                varid = VarInstId(
+                    trace_record["process_id"],
+                    trace_record["var_name"],
+                    trace_record["var_type"],
+                )
                 if varid not in self.varid_map:
                     self.varid_map[varid] = {}
 
@@ -110,13 +119,13 @@ class StreamLogHandler(FileSystemEventHandler):
                     self.process_to_vars[varid.process_id] = set()
 
                 self.process_to_vars[varid.process_id].add(varid)
-                    
+
                 for attr_name, value in trace_record.items():
                     if value is None:
                         continue
 
                     if attr_name.startswith(config.VAR_ATTR_PREFIX):
-                        attr_name = attr_name[len(config.VAR_ATTR_PREFIX):]
+                        attr_name = attr_name[len(config.VAR_ATTR_PREFIX) :]
                     else:
                         continue
 
@@ -134,8 +143,10 @@ class StreamLogHandler(FileSystemEventHandler):
                     if attr_name not in self.varid_map[varid]:
                         self.varid_map[varid][attr_name] = []
                     else:
-                        self.varid_map[varid][attr_name][-1].liveness.end_time = trace_record["time"]
-                        
+                        self.varid_map[varid][attr_name][-1].liveness.end_time = (
+                            trace_record["time"]
+                        )
+
                     self.varid_map[varid][attr_name].append(
                         AttrState(
                             curr_value,
@@ -143,7 +154,7 @@ class StreamLogHandler(FileSystemEventHandler):
                             [trace_record],
                         )
                     )
-                                
+
                 if trace_record["var_type"] is not None:
                     if trace_record["var_type"] not in self.type_map:
                         self.type_map[trace_record["var_type"]] = set()
@@ -163,17 +174,23 @@ class StreamLogHandler(FileSystemEventHandler):
                     self.pt_map[ptname] = {}
                 if func_call_id not in self.pt_map[ptname]:
                     # TODO: check whether dict is necessary here, can be a list?
-                    self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent(function_name)
+                    self.pt_map[ptname][func_call_id] = OnlineFuncCallEvent(
+                        function_name
+                    )
                 if trace_type == TraceLineType.FUNC_CALL_PRE:
                     self.pt_map[ptname][func_call_id].pre_record = trace_record
                     self.pt_map[ptname][func_call_id].args = trace_record["args"]
                     self.pt_map[ptname][func_call_id].kwargs = trace_record["kwargs"]
                 elif trace_type == TraceLineType.FUNC_CALL_POST:
                     self.pt_map[ptname][func_call_id].post_record = trace_record
-                    self.pt_map[ptname][func_call_id].return_values = trace_record["return_values"]
+                    self.pt_map[ptname][func_call_id].return_values = trace_record[
+                        "return_values"
+                    ]
                 elif trace_type == TraceLineType.FUNC_CALL_POST_EXCEPTION:
                     self.pt_map[ptname][func_call_id].post_record = trace_record
-                    self.pt_map[ptname][func_call_id].exception = trace_record["exception"]
+                    self.pt_map[ptname][func_call_id].exception = trace_record[
+                        "exception"
+                    ]
 
             if trace_type == TraceLineType.FUNC_CALL_PRE:
                 if function_name in self.checker_data.needed_args_map:
@@ -189,12 +206,16 @@ class StreamLogHandler(FileSystemEventHandler):
                             self.args_map[function_name][step][ptid] = []
                         self.args_map[function_name][step][ptid].append(trace_record)
 
-            if ".__enter__" in function_name or ".__exit__" in function_name or ".__init__" in function_name:
-                if not "torch.autograd.grad_mode" in function_name \
-                    and not "torch.autograd.profiler.record_function" in function_name:
+            if (
+                ".__enter__" in function_name
+                or ".__exit__" in function_name
+                or ".__init__" in function_name
+            ):
+                if (
+                    "torch.autograd.grad_mode" not in function_name
+                    and "torch.autograd.profiler.record_function" not in function_name
+                ):
                     self._set_context_map(trace_record)
-
-            
 
     def _set_context_map(self, trace_record):
         function_name = trace_record["function"]
@@ -210,7 +231,9 @@ class StreamLogHandler(FileSystemEventHandler):
                 self.init_map[ptname] = []
             self.init_map[ptname].append(trace_record)
 
-        elif ".__enter__" in function_name and trace_type == TraceLineType.FUNC_CALL_POST:
+        elif (
+            ".__enter__" in function_name and trace_type == TraceLineType.FUNC_CALL_POST
+        ):
             context_manager_name = function_name.removesuffix(".__enter__")
             ptname = (process_id, thread_id, context_manager_name)
             closest_init_record = None
@@ -218,14 +241,17 @@ class StreamLogHandler(FileSystemEventHandler):
             if ptname in self.init_map:
                 for init_record in reversed(self.init_map[ptname]):
                     if init_record["time"] < trace_record["time"]:
-                        if closest_init_time is None or init_record["time"] > closest_init_time:
+                        if (
+                            closest_init_time is None
+                            or init_record["time"] > closest_init_time
+                        ):
                             closest_init_time = init_record["time"]
                             closest_init_record = init_record
 
             start_time = trace_record["time"]
             args = closest_init_record["args"]
             kwargs = closest_init_record["kwargs"]
-                                    
+
             if not safe_isnan(args):
                 signature = load_signature_from_class_method_name(
                     closest_init_record["function"]
@@ -263,19 +289,20 @@ class StreamLogHandler(FileSystemEventHandler):
                             break
                         contextmanagerstate = state
             if contextmanagerstate is not None:
-                contextmanagerstate.liveness.end_time = trace_record["time"] 
+                contextmanagerstate.liveness.end_time = trace_record["time"]
 
     def _set_read_time(self, trace_record):
         with self.cond:
             self.checker_data.read_time_map[self.file_path] = trace_record["time"]
             recalc_needed = (
-               self.checker_data.min_read_path == self.file_path
+                self.checker_data.min_read_path == self.file_path
                 or self.checker_data.min_read_time is None
             )
             if recalc_needed:
                 pre_min_read_time = self.checker_data.min_read_time
                 self.checker_data.min_read_path, self.checker_data.min_read_time = min(
-                    self.checker_data.read_time_map.items(), default=(None, None))
+                    self.checker_data.read_time_map.items(), default=(None, None)
+                )
                 if pre_min_read_time != self.checker_data.min_read_time:
                     self.checker_data.cond.notify_all()
 

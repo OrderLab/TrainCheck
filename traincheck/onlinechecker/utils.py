@@ -1,17 +1,16 @@
-import copy
 import queue
 import threading
 
 from traincheck.instrumentor.types import PTID
 from traincheck.trace.types import (
     FuncCallEvent,
-    VarChangeEvent,
     VarInstId,
 )
 
+
 class Checker_data:
-    """Data structure for online checker threads. Holds the needed data and the queue for processing.
-    """
+    """Data structure for online checker threads. Holds the needed data and the queue for processing."""
+
     def __init__(self, needed_data):
         needed_vars, needed_apis, needed_args_map = needed_data
         self.needed_vars = needed_vars
@@ -34,8 +33,10 @@ class Checker_data:
         self.lock = threading.Lock()
         self.cond = threading.Condition(self.lock)
 
+
 class OnlineFuncCallEvent(FuncCallEvent):
     """A function call event for online checking."""
+
     def __init__(self, func_name):
         self.func_name = func_name
         self.pre_record = None
@@ -46,7 +47,6 @@ class OnlineFuncCallEvent(FuncCallEvent):
         self.kwargs = None
         self.return_values = None
 
-
     def get_traces(self):
         return [self.pre_record, self.post_record]
 
@@ -56,12 +56,13 @@ class OnlineFuncCallEvent(FuncCallEvent):
     def __eq__(self, other) -> bool:
         return super().__eq__(other)
 
+
 def get_var_ids_unchanged_but_causally_related(
     func_call_id: str,
-    var_type: str | None = None,
-    attr_name: str | None = None,
-    trace_record: dict = None,
-    checker_data: Checker_data = None,
+    var_type: str,
+    attr_name: str,
+    trace_record: dict,
+    checker_data: Checker_data,
 ) -> list[VarInstId]:
     """Find all variables that are causally related to a function call but not changed within the function call.
 
@@ -84,9 +85,7 @@ def get_var_ids_unchanged_but_causally_related(
         ]
     if attr_name is not None:
         changed_vars = [
-            var_change
-            for var_change in changed_vars
-            if var_change[1] == attr_name
+            var_change for var_change in changed_vars if var_change[1] == attr_name
         ]
 
     for var_id in related_vars:
@@ -95,6 +94,7 @@ def get_var_ids_unchanged_but_causally_related(
         related_vars_not_changed.append(var_id)
     return related_vars_not_changed
 
+
 def get_causally_related_vars(
     func_call_id, trace_record, checker_data
 ) -> set[VarInstId]:
@@ -102,7 +102,6 @@ def get_causally_related_vars(
     By causally related, we mean that the variables have been accessed or modified by the object (with another method) that the function call is made on.
     """
 
-    ptid = (trace_record["process_id"], trace_record["thread_id"])
     process_id = trace_record["process_id"]
     thread_id = trace_record["thread_id"]
     func_name = trace_record["function"]
@@ -151,13 +150,14 @@ def get_causally_related_vars(
 
     return causally_related_var_ids
 
+
 def query_var_changes_within_func_call(
     func_call_id: str,
     var_type: str,
     attr_name: str,
     trace_record: dict,
     checker_data: Checker_data,
-) -> list[VarChangeEvent]:
+) -> list:
     """Extract all variable change events from the trace, within the duration of a specific function call."""
     process_id = trace_record["process_id"]
     thread_id = trace_record["thread_id"]
@@ -188,7 +188,7 @@ def query_var_changes_within_time_and_process(
     attr_name: str,
     process_id: int,
     checker_data: Checker_data,
-) -> list[VarChangeEvent]:
+) -> list:
     """Extract all variable change events from the trace, within a specific time range and process."""
     events = []
     with checker_data.lock:
@@ -224,10 +224,14 @@ def get_var_raw_event_before_time(
 
     return raw_events
 
+
 def get_meta_vars_online(
-    time: float, precess_id:int, thread_id:int, checker_data: Checker_data
+    time,
+    process_id,
+    thread_id,
+    checker_data,
 ):
-    ptid = PTID(precess_id, thread_id)
+    ptid = PTID(process_id, thread_id)
     active_context_managers = []
     meta_vars = {}
 
@@ -236,13 +240,12 @@ def get_meta_vars_online(
     context_managers = checker_data.context_map[ptid]
     for context_manager_name, context_manager_states in context_managers.items():
         for context_manager_state in reversed(context_manager_states):
-            if context_manager_state.liveness.start_time <= time \
-                and (
-                    context_manager_state.liveness.end_time is None
-                    or context_manager_state.liveness.end_time >= time
-                ):
+            if context_manager_state.liveness.start_time <= time and (
+                context_manager_state.liveness.end_time is None
+                or context_manager_state.liveness.end_time >= time
+            ):
                 active_context_managers.append(context_manager_state)
-    
+
     prefix = "context_managers"
     for _, context_manager in enumerate(active_context_managers):
         meta_vars[f"{prefix}.{context_manager.name}"] = context_manager.to_dict()[
@@ -251,10 +254,9 @@ def get_meta_vars_online(
 
     return meta_vars
 
+
 # TODO: move set_meta_vars from online check part to set map part
-def set_meta_vars_online(
-        records: list, checker_data: Checker_data
-):
+def set_meta_vars_online(records: list, checker_data: Checker_data):
     earliest_time = None
     earliest_process_id = None
     earliest_thread_id = None
@@ -272,7 +274,7 @@ def set_meta_vars_online(
             for i in range(len(records)):
                 records[i][f"meta_vars.{key}"] = meta_vars[key]
     return records
-    
+
 
 # use for time analysis
 # timing_info = {}

@@ -15,6 +15,7 @@ from traincheck.invariant.base_cls import (
     Hypothesis,
     Invariant,
     OnlineCheckerResult,
+    Param,
     Relation,
 )
 from traincheck.invariant.precondition import find_precondition
@@ -847,33 +848,34 @@ class FunctionLeadRelation(Relation):
         )
 
     @staticmethod
-    def get_mapping_key(inv: Invariant) -> list[APIParam]:
-        params =[]
-        for i in range(len(inv.params)-1):
+    def get_mapping_key(inv: Invariant) -> list[Param]:
+        params = []
+        for i in range(len(inv.params) - 1):
             params.append(inv.params[i])
         return params
-    
+
     @staticmethod
     def get_needed_variables(inv):
         return None
-    
+
     @staticmethod
     def get_needed_api(inv: Invariant):
         api_name_list = []
         for param in inv.params:
+            assert isinstance(param, APIParam)
             api_name_list.append(param.api_full_name)
         return api_name_list
-    
+
     @staticmethod
     def needed_args_map(inv):
         return None
 
     @staticmethod
     def online_check(
-        check_relation_first: bool, 
-        inv: Invariant, 
-        trace_record: dict, 
-        checker_data: Checker_data
+        check_relation_first: bool,
+        inv: Invariant,
+        trace_record: dict,
+        checker_data: Checker_data,
     ):
         if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
             return OnlineCheckerResult(
@@ -881,9 +883,9 @@ class FunctionLeadRelation(Relation):
                 invariant=inv,
                 check_passed=True,
             )
-        
+
         assert inv.precondition is not None, "Invariant should have a precondition."
-        
+
         checker_param = APIParam(trace_record["function"])
         lead_param = None
         for i in range(len(inv.params)):
@@ -891,18 +893,19 @@ class FunctionLeadRelation(Relation):
                 if i == len(inv.params) - 1:
                     lead_param = None
                     break
-                lead_param = inv.params[i+1]
+                lead_param = inv.params[i + 1]
                 break
-        if lead_param is None: 
+        if lead_param is None:
             return OnlineCheckerResult(
                 trace=None,
                 invariant=inv,
                 check_passed=True,
             )
-        
+
+        assert isinstance(lead_param, APIParam)
+
         process_id = trace_record["process_id"]
         thread_id = trace_record["thread_id"]
-        ptid = (process_id, thread_id)
         func_name = trace_record["function"]
         ptname = (process_id, thread_id, func_name)
 
@@ -912,9 +915,7 @@ class FunctionLeadRelation(Relation):
         with checker_data.lock:
             [trace_record] = set_meta_vars_online([trace_record], checker_data)
 
-        if not inv.precondition.verify(
-            [trace_record], EXP_GROUP_NAME, None
-        ):
+        if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
             return OnlineCheckerResult(
                 trace=None,
                 invariant=inv,
@@ -929,7 +930,9 @@ class FunctionLeadRelation(Relation):
                 if time >= end_time:
                     continue
                 if not inv.precondition.verify(
-                    set_meta_vars_online([func_event.pre_record], checker_data), EXP_GROUP_NAME, None
+                    set_meta_vars_online([func_event.pre_record], checker_data),
+                    EXP_GROUP_NAME,
+                    None,
                 ):
                     continue
                 if start_time is None or time > start_time:
@@ -943,7 +946,6 @@ class FunctionLeadRelation(Relation):
             )
 
         lead_func_name = lead_param.api_full_name
-        found_cover_func = False
         lead_ptname = (process_id, thread_id, lead_func_name)
         with checker_data.lock:
             if lead_ptname in checker_data.pt_map:
@@ -953,13 +955,12 @@ class FunctionLeadRelation(Relation):
                     pre_time = func_event.pre_record["time"]
                     post_time = func_event.post_record["time"]
                     if pre_time >= start_time and post_time <= end_time:
-                        found_cover_func = True
                         return OnlineCheckerResult(
                             trace=None,
                             invariant=inv,
                             check_passed=True,
                         )
-                
+
         return OnlineCheckerResult(
             trace=[trace_record],
             invariant=inv,

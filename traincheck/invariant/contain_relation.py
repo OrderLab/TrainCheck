@@ -31,7 +31,7 @@ from traincheck.invariant.base_cls import (
 from traincheck.invariant.precondition import find_precondition
 from traincheck.invariant.symbolic_value import generalize_values
 from traincheck.onlinechecker.utils import (
-    Checker_data, 
+    Checker_data,
     get_var_ids_unchanged_but_causally_related,
     get_var_raw_event_before_time,
     set_meta_vars_online,
@@ -77,12 +77,13 @@ def can_func_be_bound_method(
             return False
     return True
 
+
 def can_func_be_bound_method_online(
     trace_record: dict,
     checker_data: Checker_data,
     func_name: str,
-    var_type: str | None = None,
-    attr_name: str | None = None,
+    var_type: str,
+    attr_name: str,
 ) -> bool:
     func_id = trace_record["func_call_id"]
     if not get_var_ids_unchanged_but_causally_related(
@@ -1156,11 +1157,11 @@ Defaulting to skip the var preconditon check for now.
             check_passed=True,
             triggered=inv_triggered,
         )
-    
+
     @staticmethod
     def get_mapping_key(inv: Invariant) -> list[Param]:
         return [inv.params[0]]
-    
+
     @staticmethod
     def get_needed_variables(inv: Invariant):
         param = inv.params[1]
@@ -1170,22 +1171,23 @@ Defaulting to skip the var preconditon check for now.
             return [param.var_name]
         elif isinstance(param, APIParam):
             return None
-        
+
     @staticmethod
     def get_needed_api(inv: Invariant):
+        assert isinstance(inv.params[0], APIParam)
         if isinstance(inv.params[1], APIParam):
             return [inv.params[0].api_full_name, inv.params[1].api_full_name]
         return [inv.params[0].api_full_name]
-    
+
     @staticmethod
     def needed_args_map(inv):
         return None
 
     @staticmethod
     def online_check(
-        check_relation_first: bool, 
-        inv: Invariant, 
-        trace_record: dict, 
+        check_relation_first: bool,
+        inv: Invariant,
+        trace_record: dict,
         checker_data: Checker_data,
     ):
         if (
@@ -1197,7 +1199,7 @@ Defaulting to skip the var preconditon check for now.
                 invariant=inv,
                 check_passed=True,
             )
-        
+
         assert (
             len(inv.params) == 2
         ), f"Expected 2 parameters for APIContainRelation, one for the parent function name, and one for the child event name: {inv.params[0].to_dict()}"
@@ -1231,6 +1233,9 @@ Defaulting to skip the var preconditon check for now.
         post_time = func_post_record["time"]
 
         preconditions = inv.precondition
+        assert (
+            preconditions is not None
+        ), "Expected the precondition to be set for the invariant"
 
         skip_var_unchanged_check = (
             VAR_GROUP_NAME not in preconditions.get_group_names()
@@ -1263,7 +1268,9 @@ Defaulting to skip the var preconditon check for now.
                         if isinstance(child_param, VarNameParam):
                             if varid.var_name != child_param.var_name:
                                 continue
-                        attr_name = child_param.attr_name
+                            attr_name = child_param.attr_name
+                        elif isinstance(child_param, VarTypeParam):
+                            attr_name = child_param.attr_name
                         for i in reversed(
                             range(1, len(checker_data.varid_map[varid][attr_name]))
                         ):
@@ -1289,22 +1296,18 @@ Defaulting to skip the var preconditon check for now.
                         found_expected_child_event = True
                         break
 
-                if not preconditions.verify(
-                    [func_pre_record], PARENT_GROUP_NAME, None
-                ):
+                if not preconditions.verify([func_pre_record], PARENT_GROUP_NAME, None):
                     precondition_check_passed = False
 
             else:
-                if preconditions.verify(
-                    [func_pre_record], PARENT_GROUP_NAME, None
-                ):
+                if preconditions.verify([func_pre_record], PARENT_GROUP_NAME, None):
                     for event in events:
                         if child_param.check_event_match_online(event):
                             found_expected_child_event = True
                             break
                 else:
                     precondition_check_passed = False
-            
+
             if not precondition_check_passed:
                 return OnlineCheckerResult(
                     trace=None,
@@ -1342,7 +1345,7 @@ Defaulting to skip the var preconditon check for now.
                 ]
                 for unchanged_var_state in unchanged_var_states:
                     # verify that no precondition is met for the unchanged vars
-                    # MARK: precondition 2                    
+                    # MARK: precondition 2
                     with checker_data.lock:
                         [unchanged_var_state] = set_meta_vars_online(
                             [unchanged_var_state], checker_data
@@ -1352,14 +1355,14 @@ Defaulting to skip the var preconditon check for now.
                     ):
                         var_unchanged_check_passed = False
                         break
-                
+
             if not var_unchanged_check_passed:
                 return OnlineCheckerResult(
                     trace=[func_pre_record],
                     invariant=inv,
                     check_passed=False,
                 )
-                
+
         elif isinstance(child_param, APIParam):
             events = []
             api_full_name = child_param.api_full_name
@@ -1367,7 +1370,10 @@ Defaulting to skip the var preconditon check for now.
             with checker_data.lock:
                 if child_event_ptname in checker_data.pt_map:
                     for child_event in checker_data.pt_map[child_event_ptname].values():
-                        if child_event.pre_record is None or child_event.post_record is None:
+                        if (
+                            child_event.pre_record is None
+                            or child_event.post_record is None
+                        ):
                             continue
                         child_pre_time = child_event.pre_record["time"]
                         child_post_time = child_event.post_record["time"]
@@ -1385,21 +1391,17 @@ Defaulting to skip the var preconditon check for now.
                         check_passed = True
                         break
 
-                if not preconditions.verify(
-                    [func_pre_record], PARENT_GROUP_NAME, None
-                ):
+                if not preconditions.verify([func_pre_record], PARENT_GROUP_NAME, None):
                     check_passed = True
             else:
-                if preconditions.verify(
-                    [func_pre_record], PARENT_GROUP_NAME, None
-                ):
+                if preconditions.verify([func_pre_record], PARENT_GROUP_NAME, None):
                     for event in events:
                         if child_param.check_event_match_online(event):
                             check_passed = True
                             break
                 else:
                     check_passed = True
-            
+
             if not check_passed:
                 return OnlineCheckerResult(
                     trace=[func_pre_record],
@@ -1409,7 +1411,7 @@ Defaulting to skip the var preconditon check for now.
 
         return OnlineCheckerResult(
             trace=None,
-            invariant=inv,  
+            invariant=inv,
             check_passed=True,
         )
 
