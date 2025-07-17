@@ -9,12 +9,7 @@ import time
 
 from traincheck.config import config
 from traincheck.invariant import read_inv_file
-from traincheck.invariant.base_cls import (
-    APIParam,
-    Invariant,
-    Param,
-    VarTypeParam,
-)
+from traincheck.invariant.base_cls import APIParam, Invariant, Param, VarTypeParam
 from traincheck.onlinechecker.streamhandler_filesystem import run_stream_monitor
 from traincheck.onlinechecker.utils import Checker_data
 from traincheck.trace import MDNONEJSONEncoder

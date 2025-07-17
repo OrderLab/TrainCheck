@@ -2,10 +2,7 @@ import queue
 import threading
 
 from traincheck.instrumentor.types import PTID
-from traincheck.trace.types import (
-    FuncCallEvent,
-    VarInstId,
-)
+from traincheck.trace.types import FuncCallEvent, VarInstId
 
 
 class Checker_data:
