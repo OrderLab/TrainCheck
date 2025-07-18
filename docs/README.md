@@ -1,5 +1,3 @@
-Copyright ©️ 2025 The Regents of the University of Michigan
-
 <div align="center">
 <picture>
   <img alt="TrainCheck logo" width="55%" src="./assets/images/traincheck_logo.png">
