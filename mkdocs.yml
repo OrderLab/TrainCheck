@@ -1,0 +1,9 @@
+site_name: TrainCheck
+theme:
+  name: readthedocs
+nav:
+- Home: README.md
+- "Installation Guide": ./installation-guide.md
+- "5 Minute Quick Start": ./5-min-tutorial.md
+- "Technical Documentation": ./technical-doc.md
+- "Usage Tips": usage-guide.md

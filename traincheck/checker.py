@@ -42,7 +42,6 @@ def check_engine(
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
         logger.info("=====================================")
-        # logger.debug("Checking invariant %s on trace %s", inv, trace)
         res = inv.check(trace, check_relation_first)
         res.calc_and_set_time_precentage(trace.get_start_time(), trace.get_end_time())
         logger.info("Invariant %s on trace %s: %s", inv, trace, res)
@@ -147,7 +146,7 @@ def main():
     for inv_file in args.invariants:
         os.system(f"cp {inv_file} {args.output_dir}/invariants.json")
 
-    logger.info("Reading invaraints from %s", "\n".join(args.invariants))
+    logger.info("Reading invariants from %s", "\n".join(args.invariants))
     invs = read_inv_file(args.invariants)
 
     traces = []
