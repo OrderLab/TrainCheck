@@ -2,14 +2,14 @@ Copyright ©️ 2025 The Regents of the University of Michigan
 
 <div align="center">
 <picture>
-  <img alt="TrainCheck logo" width="55%" src="./docs/assets/images/traincheck_logo.png">
+  <img alt="TrainCheck logo" width="55%" src="./assets/images/traincheck_logo.png">
 </picture>
 <h1>TrainCheck: Training with Confidence</h1>
 
+</div>
+
 [![format and types](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml)
 [![Chat on Discord](https://img.shields.io/discord/1362661016760090736?label=Discord&logo=discord&style=flat)](https://discord.gg/ZvYewjsQ9D)
-
-</div>
 
 
 **TrainCheck** is a lightweight tool for proactively catching **silent errors** in deep learning training runs. It detects correctness issues, such as code bugs and faulty hardware, early and pinpoints their root cause.
@@ -35,7 +35,7 @@ TrainCheck performs three core functions:
 
 This picture illustrates the TrainCheck workflow:
 
-![Workflow](docs/assets/images/workflow.png)
+![Workflow](assets/images/workflow.png)
 
 Under the hood, TrainCheck decomposes into three CLI tools:
 - **Instrumentor** (`traincheck-collect`)
@@ -47,16 +47,16 @@ Under the hood, TrainCheck decomposes into three CLI tools:
 
 ## 🔥 Try TrainCheck
 
-Work through [5‑Minute Experience with TrainCheck](./docs/5-min-tutorial.md). You’ll learn how to:
+Work through [5‑Minute Experience with TrainCheck](./5-min-tutorial.md). You’ll learn how to:
    - Instrument a training script and collect a trace  
    - Automatically infer invariants  
    - Uncover silent bugs in the training script
 
 ## Documentation
 
-- **[Installation Guide](./docs/installation-guide.md)**
-- **[Usage Guide: Scenarios and Limitations](./docs/usage-guide.md)**
-- **[TrainCheck Technical Doc](./docs/technical-doc.md)**
+- **[Installation Guide](./installation-guide.md)**
+- **[Usage Guide: Scenarios and Limitations](./usage-guide.md)**
+- **[TrainCheck Technical Doc](./technical-doc.md)**
 - **[TrainCheck Dev RoadMap](./ROADMAP.md)**
 
 ## Status
@@ -91,4 +91,4 @@ If TrainCheck is relevant to your work, please cite our paper:
 
 ## Artifact Evaluation
 
-🕵️‍♀️ OSDI AE members, please see [TrainCheck AE Guide](./docs/ae.md).
+🕵️‍♀️ OSDI AE members, please see [TrainCheck AE Guide](./ae.md).
