@@ -167,6 +167,39 @@ def get_func_data_per_PT(trace: Trace, function_pool: Iterable[str]):
     return function_times, function_id_map, listed_events
 
 
+def get_func_A_B_events(events_list: List[dict[str, Any]], func_A: str, func_B: str):
+    events_A = [event for event in events_list if event["function"] == func_A]
+    events_A_pre = [
+        event for event in events_A if event["type"] == "function_call (pre)"
+    ]
+    events_A_post = [
+        event
+        for event in events_A
+        if event["type"] == "function_call (post)"
+        or event["type"] == "function_call (post) (exception)"
+    ]
+    events_B = [event for event in events_list if event["function"] == func_B]
+    events_B_pre = [
+        event for event in events_B if event["type"] == "function_call (pre)"
+    ]
+    events_B_post = [
+        event
+        for event in events_B
+        if event["type"] == "function_call (post)"
+        or event["type"] == "function_call (post) (exception)"
+    ]
+    return (events_A_pre, events_A_post, events_B_pre, events_B_post)
+
+
+def get_post_func_event(events_list: List[dict[str, Any]], func_call_id: str):
+    event_posts = [
+        event for event in events_list if event["func_call_id"] == func_call_id
+    ]
+    assert event_posts is not None, "Post event not found"
+    event_post = event_posts[0]
+    return event_post
+
+
 def is_complete_subgraph(
     path: List[APIParam], new_node: APIParam, graph: Dict[APIParam, List[APIParam]]
 ) -> bool:
@@ -367,18 +400,9 @@ class FunctionLeadRelation(Relation):
                     continue
 
                 # find all A and B events in the current process and thread
-                events_A_pre = [
-                    event
-                    for event in events_list
-                    if event["type"] == "function_call (pre)"
-                    and event["function"] == func_A
-                ]
-                events_B_pre = [
-                    event
-                    for event in events_list
-                    if event["type"] == "function_call (pre)"
-                    and event["function"] == func_B
-                ]
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
                 # print(f"Found {len(events_A_pre)} A events and {len(events_B_pre)} B events")
 
                 event_A_idx = 0
@@ -387,13 +411,17 @@ class FunctionLeadRelation(Relation):
                 pre_event_A_idx = None
                 pre_event_A_time = None
 
+                last_example = None
+
                 for event_A_pre in events_A_pre:
                     invocation_id = event_A_pre["func_call_id"]
-                    event_A_post = trace.get_post_func_call_record(invocation_id)
-                    assert event_A_post is not None, "Post event not found"
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
                     pre_event_A_idx = event_A_idx
                     pre_event_A_time = event_A_post["time"]
                     event_A_idx += 1
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_A_pre])
+                    last_example = example
                     break
 
                 assert pre_event_A_idx is not None
@@ -408,8 +436,18 @@ class FunctionLeadRelation(Relation):
                         # If we have exhausted all B events, skip the rest of A events
                         break
 
-                    event_A_post = trace.get_post_func_call_record(invocation_id)
-                    assert event_A_post is not None, "Post event not found"
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
+
+                    if event_A_pre["time"] <= pre_event_A_time:
+                        if last_example is not None:
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].negative_examples.add_example(last_example)
+
+                        pre_event_A_idx = event_A_idx
+                        pre_event_A_time = event_A_post["time"]
+                        event_A_idx += 1
+                        last_example = example
 
                     found_B_after_A = False
                     # First A post time <= B pre time  <= B post time <= next A pre time
@@ -425,8 +463,9 @@ class FunctionLeadRelation(Relation):
                             continue
 
                         B_invocation_id = event_B_pre["func_call_id"]
-                        event_B_post = trace.get_post_func_call_record(B_invocation_id)
-                        assert event_B_post is not None, "Post event not found"
+                        event_B_post = get_post_func_event(
+                            events_B_post, B_invocation_id
+                        )
                         if event_B_post["time"] > event_A_pre["time"]:
                             event_B_idx += 1
                             continue
@@ -435,19 +474,21 @@ class FunctionLeadRelation(Relation):
                         event_B_idx += 1
                         break
 
-                    if found_B_after_A:
-                        # Check if there's a B event after the current A event
-                        hypothesis_with_examples[
-                            (func_A, func_B)
-                        ].positive_examples.add_example(example)
-                    else:
-                        hypothesis_with_examples[
-                            (func_A, func_B)
-                        ].negative_examples.add_example(example)
+                    if last_example is not None:
+                        if found_B_after_A:
+                            # Check if there's a B event after the current A event
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].positive_examples.add_example(last_example)
+                        else:
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].negative_examples.add_example(last_example)
 
                     pre_event_A_idx = event_A_idx
                     pre_event_A_time = event_A_post["time"]
                     event_A_idx += 1
+                    last_example = example
                 # add the rest of the A events as negative examples
                 for event_A_pre in events_A_pre[event_A_idx:]:
                     example = Example()
@@ -460,7 +501,6 @@ class FunctionLeadRelation(Relation):
 
         return list(hypothesis_with_examples.values())
 
-    # TODO: fix
     @staticmethod
     def collect_examples(trace, hypothesis):
         """Generate examples for a hypothesis on trace."""
@@ -593,23 +633,35 @@ class FunctionLeadRelation(Relation):
                             hypothesis.negative_examples.add_example(last_example)
                     continue
 
-                events_A_pre = [
-                    event
-                    for event in events_list
-                    if event["type"] == "function_call (pre)"
-                    and event["function"] == func_A
-                ]
-                events_B_pre = [
-                    event
-                    for event in events_list
-                    if event["type"] == "function_call (pre)"
-                    and event["function"] == func_B
-                ]
+                    # find all A and B events in the current process and thread
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
+                # print(f"Found {len(events_A_pre)} A events and {len(events_B_pre)} B events")
 
                 event_A_idx = 0
                 event_B_idx = 0
 
+                pre_event_A_idx = None
+                pre_event_A_time = None
+
+                last_example = None
+
                 for event_A_pre in events_A_pre:
+                    invocation_id = event_A_pre["func_call_id"]
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
+                    pre_event_A_idx = event_A_idx
+                    pre_event_A_time = event_A_post["time"]
+                    event_A_idx += 1
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_A_pre])
+                    last_example = example
+                    break
+
+                assert pre_event_A_idx is not None
+                assert pre_event_A_time is not None
+
+                for event_A_pre in events_A_pre[event_A_idx:]:
                     invocation_id = event_A_pre["func_call_id"]
                     example = Example()
                     example.add_group(EXP_GROUP_NAME, [event_A_pre])
@@ -618,32 +670,62 @@ class FunctionLeadRelation(Relation):
                         # If we have exhausted all B events, skip the rest of A events
                         break
 
-                    event_A_post = trace.get_post_func_call_record(invocation_id)
-                    assert event_A_post is not None, "Post event not found"
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
 
-                    found_B_after_A = False
-                    while (
-                        event_B_idx < len(events_B_pre)
-                        and events_B_pre[event_B_idx]["time"] < event_A_post["time"]
-                    ):
-                        event_B_idx += (
-                            1  # Skip B events that occurred before the current A event
+                    if event_A_pre["time"] <= pre_event_A_time:
+                        hypothesis[(func_A, func_B)].negative_examples.add_example(
+                            last_example
                         )
 
-                    if event_B_idx < len(events_B_pre):
-                        # Check if there's a B event after the current A event
+                        pre_event_A_idx = event_A_idx
+                        pre_event_A_time = event_A_post["time"]
+                        event_A_idx += 1
+                        last_example = example
+
+                    found_B_after_A = False
+                    # First A post time <= B pre time  <= B post time <= next A pre time
+                    while event_B_idx < len(events_B_pre):
+                        event_B_pre = events_B_pre[event_B_idx]
+                        event_B_time = event_B_pre["time"]
+
+                        if event_B_time > event_A_pre["time"]:
+                            break
+
+                        if event_B_time <= pre_event_A_time:
+                            event_B_idx += 1
+                            continue
+
+                        B_invocation_id = event_B_pre["func_call_id"]
+                        event_B_post = get_post_func_event(
+                            events_B_post, B_invocation_id
+                        )
+                        if event_B_post["time"] > event_A_pre["time"]:
+                            event_B_idx += 1
+                            continue
+
                         found_B_after_A = True
-                        hypothesis.positive_examples.add_example(example)
+                        event_B_idx += 1
+                        break
 
-                    if not found_B_after_A:
-                        hypothesis.negative_examples.add_example(example)
+                    if found_B_after_A:
+                        # Check if there's a B event after the current A event
+                        hypothesis[(func_A, func_B)].positive_examples.add_example(
+                            last_example
+                        )
+                    else:
+                        hypothesis[(func_A, func_B)].negative_examples.add_example(
+                            last_example
+                        )
 
+                    pre_event_A_idx = event_A_idx
+                    pre_event_A_time = event_A_post["time"]
                     event_A_idx += 1
+                    last_example = example
                 # add the rest of the A events as negative examples
                 for event_A_pre in events_A_pre[event_A_idx:]:
                     example = Example()
                     example.add_group(EXP_GROUP_NAME, [event_A_pre])
-                    hypothesis.negative_examples.add_example(example)
+                    hypothesis[(func_A, func_B)].negative_examples.add_example(example)
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
@@ -722,7 +804,6 @@ class FunctionLeadRelation(Relation):
         """
         return True
 
-    # TODO: fix
     @staticmethod
     def static_check_all(
         trace: Trace, inv: Invariant, check_relation_first: bool
@@ -888,22 +969,31 @@ class FunctionLeadRelation(Relation):
                     # if we have not returned in this branch, lets check the next process and thread
                     continue
 
-                events_A_pre = [
-                    event
-                    for event in events_list
-                    if event["type"] == "function_call (pre)"
-                    and event["function"] == func_A
-                ]
-                events_B_pre = [
-                    event
-                    for event in events_list
-                    if event["type"] == "function_call (pre)"
-                    and event["function"] == func_B
-                ]
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
 
+                event_A_idx = 0
                 event_B_idx = 0
 
+                pre_event_A = None
+                pre_event_A_time = None
+
                 for event_A_pre in events_A_pre:
+                    if not inv.precondition.verify(
+                        [event_A_pre], EXP_GROUP_NAME, trace
+                    ):
+                        event_A_idx += 1
+                        continue
+                    inv_triggered = True
+                    invocation_id = event_A_pre["func_call_id"]
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
+                    pre_event_A = event_A_pre
+                    pre_event_A_time = event_A_post["time"]
+                    event_A_idx += 1
+                    break
+
+                for event_A_pre in events_A_pre[event_A_idx:]:
                     if not inv.precondition.verify(
                         [event_A_pre], EXP_GROUP_NAME, trace
                     ):
@@ -911,31 +1001,44 @@ class FunctionLeadRelation(Relation):
 
                     inv_triggered = True
 
-                    event_A_post = trace.get_post_func_call_record(
-                        event_A_pre["func_call_id"]
+                    event_A_post = get_post_func_event(
+                        events_A_post, event_A_pre["func_call_id"]
                     )
-                    assert event_A_post is not None, "Post event not found"
 
                     found_B_after_A = False
-                    while (
-                        event_B_idx < len(events_B_pre)
-                        and events_B_pre[event_B_idx]["time"] < event_A_post["time"]
-                    ):
-                        event_B_idx += (
-                            1  # Skip B events that occurred before the current A event
-                        )
+                    while event_B_idx < len(events_B_pre):
+                        event_B_pre = events_B_pre[event_B_idx]
+                        event_B_time = event_B_pre["time"]
 
-                    if event_B_idx < len(events_B_pre):
-                        # Check if there's a B event after the current A event
+                        if event_B_time > event_A_pre["time"]:
+                            break
+
+                        if event_B_time <= pre_event_A_time:
+                            event_B_idx += 1
+                            continue
+
+                        B_invocation_id = event_B_pre["func_call_id"]
+                        event_B_post = get_post_func_event(
+                            events_B_post, B_invocation_id
+                        )
+                        if event_B_post["time"] > event_A_pre["time"]:
+                            event_B_idx += 1
+                            continue
+
                         found_B_after_A = True
+                        event_B_idx += 1
+                        break
 
                     if not found_B_after_A:
+                        assert pre_event_A is not None
                         return CheckerResult(
-                            trace=[event_A_pre],
+                            trace=[pre_event_A],
                             invariant=inv,
                             check_passed=False,
                             triggered=True,
                         )
+                    pre_event_A_time = event_A_post["time"]
+                    pre_event_A = event_A_pre
 
         return CheckerResult(
             trace=None,
