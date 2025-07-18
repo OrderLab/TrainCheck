@@ -384,7 +384,22 @@ class FunctionLeadRelation(Relation):
                 event_A_idx = 0
                 event_B_idx = 0
 
+                pre_event_A_idx = None
+                pre_event_A_time = None
+
                 for event_A_pre in events_A_pre:
+                    invocation_id = event_A_pre["func_call_id"]
+                    event_A_post = trace.get_post_func_call_record(invocation_id)
+                    assert event_A_post is not None, "Post event not found"
+                    pre_event_A_idx = event_A_idx
+                    pre_event_A_time = event_A_post["time"]
+                    event_A_idx += 1
+                    break
+
+                assert pre_event_A_idx is not None
+                assert pre_event_A_time is not None
+
+                for event_A_pre in events_A_pre[event_A_idx:]:
                     invocation_id = event_A_pre["func_call_id"]
                     example = Example()
                     example.add_group(EXP_GROUP_NAME, [event_A_pre])
@@ -397,26 +412,41 @@ class FunctionLeadRelation(Relation):
                     assert event_A_post is not None, "Post event not found"
 
                     found_B_after_A = False
-                    while (
-                        event_B_idx < len(events_B_pre)
-                        and events_B_pre[event_B_idx]["time"] < event_A_post["time"]
-                    ):
-                        event_B_idx += (
-                            1  # Skip B events that occurred before the current A event
-                        )
+                    # First A post time <= B pre time  <= B post time <= next A pre time
+                    while event_B_idx < len(events_B_pre):
+                        event_B_pre = events_B_pre[event_B_idx]
+                        event_B_time = event_B_pre["time"]
 
-                    if event_B_idx < len(events_B_pre):
-                        # Check if there's a B event after the current A event
+                        if event_B_time > event_A_pre["time"]:
+                            break
+
+                        if event_B_time <= pre_event_A_time:
+                            event_B_idx += 1
+                            continue
+
+                        B_invocation_id = event_B_pre["func_call_id"]
+                        event_B_post = trace.get_post_func_call_record(B_invocation_id)
+                        assert event_B_post is not None, "Post event not found"
+                        if event_B_post["time"] > event_A_pre["time"]:
+                            event_B_idx += 1
+                            continue
+
                         found_B_after_A = True
+                        event_B_idx += 1
+                        break
+
+                    if found_B_after_A:
+                        # Check if there's a B event after the current A event
                         hypothesis_with_examples[
                             (func_A, func_B)
                         ].positive_examples.add_example(example)
-
-                    if not found_B_after_A:
+                    else:
                         hypothesis_with_examples[
                             (func_A, func_B)
                         ].negative_examples.add_example(example)
 
+                    pre_event_A_idx = event_A_idx
+                    pre_event_A_time = event_A_post["time"]
                     event_A_idx += 1
                 # add the rest of the A events as negative examples
                 for event_A_pre in events_A_pre[event_A_idx:]:
@@ -430,6 +460,7 @@ class FunctionLeadRelation(Relation):
 
         return list(hypothesis_with_examples.values())
 
+    # TODO: fix
     @staticmethod
     def collect_examples(trace, hypothesis):
         """Generate examples for a hypothesis on trace."""
@@ -691,6 +722,7 @@ class FunctionLeadRelation(Relation):
         """
         return True
 
+    # TODO: fix
     @staticmethod
     def static_check_all(
         trace: Trace, inv: Invariant, check_relation_first: bool
