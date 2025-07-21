@@ -71,7 +71,9 @@ class StreamLogHandler(FileSystemEventHandler):
         if os.path.abspath(event.src_path) != os.path.abspath(self.file_path):
             return
         self.logger.debug(f"File {self.file_path} modified at {time.monotonic_ns()}")
-        self._handle_line(self.fp)
+        new_lines = self.fp.readlines()
+        if new_lines:
+            self._handle_line(new_lines)
 
     def _handle_line(self, lines):
         for line in lines:

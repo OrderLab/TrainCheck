@@ -403,7 +403,6 @@ class FunctionLeadRelation(Relation):
                 events_A_pre, events_A_post, events_B_pre, events_B_post = (
                     get_func_A_B_events(events_list, func_A, func_B)
                 )
-                # print(f"Found {len(events_A_pre)} A events and {len(events_B_pre)} B events")
 
                 event_A_idx = 0
                 event_B_idx = 0
@@ -426,6 +425,20 @@ class FunctionLeadRelation(Relation):
 
                 assert pre_event_A_idx is not None
                 assert pre_event_A_time is not None
+                assert last_example is not None
+
+                if event_A_idx >= len(events_A_pre):
+                    max_time = events_B_post["time"].max()
+                    if pre_event_A_time <= max_time:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].positive_examples.add_example(last_example)
+                    else:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].negative_examples.add_example(last_example)
+
+                    continue
 
                 for event_A_pre in events_A_pre[event_A_idx:]:
                     invocation_id = event_A_pre["func_call_id"]
@@ -448,6 +461,7 @@ class FunctionLeadRelation(Relation):
                         pre_event_A_time = event_A_post["time"]
                         event_A_idx += 1
                         last_example = example
+                        continue
 
                     found_B_after_A = False
                     # First A post time <= B pre time  <= B post time <= next A pre time
@@ -658,6 +672,19 @@ class FunctionLeadRelation(Relation):
                     last_example = example
                     break
 
+                if event_A_idx >= len(events_A_pre):
+                    max_time = events_B_post["time"].max()
+                    if pre_event_A_time <= max_time:
+                        hypothesis[(func_A, func_B)].positive_examples.add_example(
+                            last_example
+                        )
+                    else:
+                        hypothesis[(func_A, func_B)].negative_examples.add_example(
+                            last_example
+                        )
+
+                    continue
+
                 assert pre_event_A_idx is not None
                 assert pre_event_A_time is not None
 
@@ -681,6 +708,7 @@ class FunctionLeadRelation(Relation):
                         pre_event_A_time = event_A_post["time"]
                         event_A_idx += 1
                         last_example = example
+                        continue
 
                     found_B_after_A = False
                     # First A post time <= B pre time  <= B post time <= next A pre time
@@ -999,7 +1027,15 @@ class FunctionLeadRelation(Relation):
                     ):
                         continue
 
-                    inv_triggered = True
+                    if pre_event_A_time is not None:
+                        if event_A_pre["time"] <= pre_event_A_time:
+                            assert pre_event_A is not None
+                            return CheckerResult(
+                                trace=[pre_event_A],
+                                invariant=inv,
+                                check_passed=False,
+                                triggered=True,
+                            )
 
                     event_A_post = get_post_func_event(
                         events_A_post, event_A_pre["func_call_id"]

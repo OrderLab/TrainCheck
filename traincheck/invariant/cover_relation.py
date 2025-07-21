@@ -20,9 +20,10 @@ from traincheck.invariant.base_cls import (
 )
 from traincheck.invariant.lead_relation import (
     check_same_level,
+    get_func_A_B_events,
     get_func_data_per_PT,
     get_func_names_to_deal_with,
-    get_func_A_B_events,
+    get_post_func_event,
 )
 from traincheck.invariant.precondition import find_precondition
 from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
@@ -40,15 +41,6 @@ def is_complete_subgraph(
         if new_node not in graph[node]:
             return False
     return True
-
-
-def get_pre_func_event(events_list: List[dict[str, Any]], func_call_id: str):
-    event_pres = [
-        event for event in events_list if event["func_call_id"] == func_call_id
-    ]
-    assert event_pres is not None, "Pre event not found"
-    event_pre = event_pres[-1]
-    return event_pre
 
 
 def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIParam]]:
@@ -240,141 +232,81 @@ class FunctionCoverRelation(Relation):
                             ].negative_examples.add_example(example)
                     continue
 
-                '''events_A_pre = [
-                    event
-                    for event in events_list
-                    if event["type"] == "function_call (pre)"
-                    and event["function"] == func_A
-                ]
-                events_B_pre = [
-                    event
-                    for event in events_list
-                    if event["type"] == "function_call (pre)"
-                    and event["function"] == func_B
-                ]'''
                 # find all A and B events in the current process and thread
                 events_A_pre, events_A_post, events_B_pre, events_B_post = (
                     get_func_A_B_events(events_list, func_A, func_B)
                 )
 
+                event_A_idx = 0
                 event_B_idx = 0
-                event_A_idx = len(events_A_post) - 1
 
-                post_event_B_idx = None
-                post_event_B_time = None
+                pre_event_B_time = None
 
-                last_example = None
-
-                for event_B_post in reversed(events_B_post):
-                    invocation_id = event_B_post["func_call_id"]
-                    event_B_pre = get_pre_func_event(events_B_pre, invocation_id)
-                    post_event_B_idx = event_B_idx
-                    post_event_B_time = event_B_pre["time"]
-                    event_B_idx += 1
+                for event_B_pre in events_B_pre[event_B_idx:]:
+                    invocation_id = event_B_pre["func_call_id"]
                     example = Example()
-                    example.add_group(EXP_GROUP_NAME, [event_B_post])
-                    last_example = example
-                    break
+                    example.add_group(EXP_GROUP_NAME, [event_B_pre])
 
-                assert post_event_B_idx is not None
-                assert post_event_B_time is not None
-
-                for event_B_post in reversed(events_B_post[:-event_B_idx]):
-                    invocation_id = event_B_post["func_call_id"]
-                    example = Example()
-                    example.add_group(EXP_GROUP_NAME, [event_B_post])
-
-                    if event_A_idx < 0:
+                    if event_A_idx >= len(events_A_pre):
                         # If we have exhausted all A events, skip the rest of B events
                         break
 
-                    event_B_pre = get_pre_func_event(events_B_pre, invocation_id)
+                    event_B_post = get_post_func_event(events_B_post, invocation_id)
 
-                    if event_B_post["time"] >= post_event_B_time:
-                        if last_example is not None:
+                    if pre_event_B_time is not None:
+                        if event_B_pre["time"] <= pre_event_B_time:
                             hypothesis_with_examples[
-                                (func_B, func_A)
-                            ].negative_examples.add_example(last_example)
+                                (func_A, func_B)
+                            ].negative_examples.add_example(example)
 
-                        post_event_B_idx = event_B_idx
-                        post_event_B_time = event_B_pre["time"]
-                        event_B_idx += 1
-                        last_example = example
-
-                    found_A_before_B = False
-                    # This B pre time >= A post time  >= A pre time >= prev B post time
-                    while event_A_idx >= 0:
-                        event_A_post = events_A_post[event_A_idx]
-                        event_A_time = event_A_post["time"]
-
-                        if event_A_time < event_B_post["time"]:
-                            break
-
-                        if event_A_time >= post_event_B_time:
-                            event_A_idx -= 1
+                            pre_event_B_time = event_B_post["time"]
+                            event_B_idx += 1
                             continue
 
-                        A_invocation_id = event_A_post["func_call_id"]
-                        event_A_pre = get_pre_func_event(
-                            events_A_pre, A_invocation_id
+                    found_A_before_B = False
+                    # First B post time <= A pre time  <= A post time <= next B pre time
+                    while event_A_idx < len(events_A_pre):
+                        event_A_pre = events_A_pre[event_A_idx]
+                        event_A_time = event_A_pre["time"]
+
+                        if event_A_time > event_B_pre["time"]:
+                            break
+
+                        if pre_event_B_time is not None:
+                            if event_A_time <= pre_event_B_time:
+                                event_A_idx += 1
+                                continue
+
+                        A_invocation_id = event_A_pre["func_call_id"]
+                        event_A_post = get_post_func_event(
+                            events_A_post, A_invocation_id
                         )
-                        if event_A_pre["time"] < event_B_post["time"]:
-                            event_A_idx -= 1
+                        if event_A_post["time"] > event_B_pre["time"]:
+                            event_A_idx += 1
                             continue
 
                         found_A_before_B = True
-                        event_A_idx -= 1
+                        event_A_idx += 1
                         break
 
-                    if last_example is not None:
-                        if found_A_before_B:
-                            # Check if there's a A event after the current B event
-                            hypothesis_with_examples[
-                                (func_B, func_A)
-                            ].positive_examples.add_example(last_example)
-                        else:
-                            hypothesis_with_examples[
-                                (func_B, func_A)
-                            ].negative_examples.add_example(last_example)
-
-                    post_event_B_idx = event_B_idx
-                    post_event_B_time = event_B_pre["time"]
-                    event_B_idx += 1
-                    last_example = example
-                # add the rest of the B events as negative examples
-                for event_B_post in reversed(events_B_post[:-event_B_idx]):
-                    example = Example()
-                    example.add_group(EXP_GROUP_NAME, [event_B_post])
-                    hypothesis_with_examples[
-                        (func_B, func_A)
-                    ].negative_examples.add_example(example)
-
-                '''while event_B_idx < len(events_B_pre):
-                    event_B = events_B_pre[event_B_idx]
-
-                    # Find the latest A before B
-                    latest_A_event = None
-                    while (
-                        event_A_idx < len(events_A_pre)
-                        and events_A_pre[event_A_idx]["time"] < event_B["time"]
-                    ):
-                        latest_A_event = events_A_pre[event_A_idx]
-                        event_A_idx += 1
-
-                    example = Example()
-                    example.add_group(EXP_GROUP_NAME, [event_B])
-
-                    if latest_A_event is None:
-                        hypothesis_with_examples[
-                            (func_A, func_B)
-                        ].negative_examples.add_example(example)
-                    else:
+                    if found_A_before_B:
                         hypothesis_with_examples[
                             (func_A, func_B)
                         ].positive_examples.add_example(example)
+                    else:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].negative_examples.add_example(example)
 
-                    event_B_idx += 1'''
-                    
+                    pre_event_B_time = event_B_post["time"]
+                    event_B_idx += 1
+                # add the rest of the A events as negative examples
+                for event_B_pre in events_B_pre[event_B_idx:]:
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_B_pre])
+                    hypothesis_with_examples[
+                        (func_A, func_B)
+                    ].negative_examples.add_example(example)
 
         print("End adding examples")
 
@@ -511,98 +443,79 @@ class FunctionCoverRelation(Relation):
                             hypothesis.negative_examples.add_example(example)
                     continue
 
-                # find all A and B events in the current process and thread
+                    # find all A and B events in the current process and thread
                 events_A_pre, events_A_post, events_B_pre, events_B_post = (
                     get_func_A_B_events(events_list, func_A, func_B)
                 )
 
+                event_A_idx = 0
                 event_B_idx = 0
-                event_A_idx = len(events_A_post) - 1
 
-                post_event_B_idx = None
-                post_event_B_time = None
+                pre_event_B_time = None
 
-                last_example = None
-
-                for event_B_post in reversed(events_B_post):
-                    invocation_id = event_B_post["func_call_id"]
-                    event_B_pre = get_pre_func_event(events_B_pre, invocation_id)
-                    post_event_B_idx = event_B_idx
-                    post_event_B_time = event_B_pre["time"]
-                    event_B_idx += 1
+                for event_B_pre in events_B_pre[event_B_idx:]:
+                    invocation_id = event_B_pre["func_call_id"]
                     example = Example()
-                    example.add_group(EXP_GROUP_NAME, [event_B_post])
-                    last_example = example
-                    break
+                    example.add_group(EXP_GROUP_NAME, [event_B_pre])
 
-                assert post_event_B_idx is not None
-                assert post_event_B_time is not None
-
-                for event_B_post in reversed(events_B_post[:-event_B_idx]):
-                    invocation_id = event_B_post["func_call_id"]
-                    example = Example()
-                    example.add_group(EXP_GROUP_NAME, [event_B_post])
-
-                    if event_A_idx < 0:
+                    if event_A_idx >= len(events_A_pre):
                         # If we have exhausted all A events, skip the rest of B events
                         break
 
-                    event_B_pre = get_pre_func_event(events_B_pre, invocation_id)
+                    event_B_post = get_post_func_event(events_B_post, invocation_id)
 
-                    if event_B_post["time"] >= post_event_B_time:
-                        hypothesis_with_examples[(func_B, func_A)].negative_examples.add_example(
-                            last_example
-                        )
+                    if pre_event_B_time is not None:
+                        if event_B_pre["time"] <= pre_event_B_time:
+                            hypothesis[(func_A, func_B)].negative_examples.add_example(
+                                example
+                            )
 
-                        post_event_B_idx = event_B_idx
-                        post_event_B_time = event_B_pre["time"]
-                        event_B_idx += 1
-                        last_example = example
-
-                    found_A_before_B = False
-                    # This B pre time >= A post time  >= A pre time >= prev B post time
-                    while event_A_idx >= 0:
-                        event_A_post = events_A_post[event_A_idx]
-                        event_A_time = event_A_post["time"]
-
-                        if event_A_time < event_B_post["time"]:
-                            break
-
-                        if event_A_time >= post_event_B_time:
-                            event_A_idx -= 1
+                            pre_event_B_time = event_B_post["time"]
+                            event_B_idx += 1
                             continue
 
-                        A_invocation_id = event_A_post["func_call_id"]
-                        event_A_pre = get_pre_func_event(
-                            events_A_pre, A_invocation_id
+                    found_A_before_B = False
+                    # First B post time <= A pre time  <= A post time <= next B pre time
+                    while event_A_idx < len(events_A_pre):
+                        event_A_pre = events_A_pre[event_A_idx]
+                        event_A_time = event_A_pre["time"]
+
+                        if event_A_time > event_B_pre["time"]:
+                            break
+
+                        if pre_event_B_time is not None:
+                            if event_A_time <= pre_event_B_time:
+                                event_A_idx += 1
+                                continue
+
+                        A_invocation_id = event_A_pre["func_call_id"]
+                        event_A_post = get_post_func_event(
+                            events_A_post, A_invocation_id
                         )
-                        if event_A_pre["time"] < event_B_post["time"]:
-                            event_A_idx -= 1
+                        if event_A_post["time"] > event_B_pre["time"]:
+                            event_A_idx += 1
                             continue
 
                         found_A_before_B = True
-                        event_A_idx -= 1
+                        event_A_idx += 1
                         break
 
                     if found_A_before_B:
-                        # Check if there's a A event after the current B event
-                        hypothesis_with_examples[(func_B, func_A)].positive_examples.add_example(
-                            last_example
+                        hypothesis[(func_A, func_B)].positive_examples.add_example(
+                            example
                         )
                     else:
-                        hypothesis_with_examples[(func_B, func_A)].negative_examples.add_example(
-                            last_example
+                        hypothesis[(func_A, func_B)].negative_examples.add_example(
+                            example
                         )
 
-                    post_event_B_idx = event_B_idx
-                    post_event_B_time = event_B_pre["time"]
+                    pre_event_B_time = event_B_post["time"]
                     event_B_idx += 1
-                    last_example = example
                 # add the rest of the A events as negative examples
-                for event_B_post in reversed(events_B_post[:-event_B_idx]):
+                for event_B_pre in events_B_pre[event_B_idx:]:
                     example = Example()
-                    example.add_group(EXP_GROUP_NAME, [event_B_post])
-                    hypothesis_with_examples[(func_B, func_A)].negative_examples.add_example(example)
+                    example.add_group(EXP_GROUP_NAME, [event_B_pre])
+                    hypothesis[(func_A, func_B)].negative_examples.add_example(example)
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
@@ -846,80 +759,67 @@ class FunctionCoverRelation(Relation):
                     # if we have not returned in this branch, lets check the next process and thread
                     continue
 
-                # find all A and B events in the current process and thread
                 events_A_pre, events_A_post, events_B_pre, events_B_post = (
                     get_func_A_B_events(events_list, func_A, func_B)
                 )
 
+                event_A_idx = 0
                 event_B_idx = 0
-                event_A_idx = len(events_A_post) - 1
 
-                post_event_B = None
-                post_event_B_time = None
+                pre_event_B_time = None
 
-                # last_example = None
-
-                for event_B_post in reversed(events_B_post):
+                for event_B_pre in events_B_pre[event_B_idx:]:
                     if not inv.precondition.verify(
-                        [event_B_post], EXP_GROUP_NAME, trace
-                    ):
-                        event_B_idx += 1
-                        continue
-                    inv_triggered = True
-                    invocation_id = event_B_post["func_call_id"]
-                    event_B_pre = get_pre_func_event(events_B_pre, invocation_id)
-                    post_event_B = event_B_post
-                    post_event_B_time = event_B_pre["time"]
-                    event_B_idx += 1
-                    break
-
-                for event_B_post in reversed(events_B_post[:-event_B_idx]):
-                    if not inv.precondition.verify(
-                        [event_B_post], EXP_GROUP_NAME, trace
+                        [event_B_pre], EXP_GROUP_NAME, trace
                     ):
                         continue
-                    
-                    inv_triggered = True
 
-                    event_B_pre = get_pre_func_event(
-                        events_B_pre, event_B_post["func_call_id"]
+                    if pre_event_B_time is not None:
+                        if event_B_pre["time"] <= pre_event_B_time:
+                            return CheckerResult(
+                                trace=[event_B_pre],
+                                invariant=inv,
+                                check_passed=False,
+                                triggered=True,
+                            )
+
+                    event_B_post = get_post_func_event(
+                        events_B_post, event_B_pre["func_call_id"]
                     )
 
                     found_A_before_B = False
-                    # This B pre time >= A post time  >= A pre time >= prev B post time
-                    while event_A_idx >= 0:
-                        event_A_post = events_A_post[event_A_idx]
-                        event_A_time = event_A_post["time"]
+                    while event_A_idx < len(events_A_pre):
+                        event_A_pre = events_A_pre[event_A_idx]
+                        event_A_time = event_A_pre["time"]
 
-                        if event_A_time < event_B_post["time"]:
+                        if event_A_time > event_B_pre["time"]:
                             break
 
-                        if event_A_time >= post_event_B_time:
-                            event_A_idx -= 1
-                            continue
+                        if pre_event_B_time is not None:
+                            if event_A_time <= pre_event_B_time:
+                                event_A_idx += 1
+                                continue
 
-                        A_invocation_id = event_A_post["func_call_id"]
-                        event_A_pre = get_pre_func_event(
-                            events_A_pre, A_invocation_id
+                        A_invocation_id = event_A_pre["func_call_id"]
+                        event_A_post = get_post_func_event(
+                            events_A_post, A_invocation_id
                         )
-                        if event_A_pre["time"] < event_B_post["time"]:
-                            event_A_idx -= 1
+                        if event_A_post["time"] > event_B_pre["time"]:
+                            event_A_idx += 1
                             continue
 
                         found_A_before_B = True
-                        event_A_idx -= 1
+                        event_A_idx += 1
                         break
 
                     if not found_A_before_B:
-                        assert post_event_B is not None
                         return CheckerResult(
-                            trace=[post_event_B],
+                            trace=[event_B_pre],
                             invariant=inv,
                             check_passed=False,
                             triggered=True,
                         )
-                    post_event_B_time = event_B_pre["time"]
-                    post_event_B = event_B_post
+                    pre_event_B_time = event_B_post["time"]
 
         return CheckerResult(
             trace=None,
