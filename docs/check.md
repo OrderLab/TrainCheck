@@ -2,7 +2,7 @@
 
 `traincheck-check` is the **final stage** of the TrainCheck workflow. It verifies a set of invariants against trace files or streams from target programs, reporting any detected violations—helping you catch silent issues in your ML training pipelines.
 
-## 🔧 Current Status
+## 🔧 Supported Modes
 
 `traincheck-check` is designed to support two modes:
 
@@ -10,9 +10,7 @@
    Perform invariant checking on completed trace files after the training job finishes. ✅ *[Fully Supported]*
 
 - **Online Checking**:  
-   Perform real-time checking while the target training job is running. 🚧 *[In Development]*
-
-At present, only **offline checking** is available. Support for online mode is actively being developed.
+   Perform real-time checking while the target training job is running. ✅ *[Now Supported]*
 
 ## How to Use: Offline Checking
 
@@ -29,7 +27,20 @@ For details on result format and interpretation, refer to [5. Detection & Diagno
 
 ## How to Use: Online Checking
 
-**🚧 Coming Soon**
-Support for real-time, online checking is under construction. This mode will allow TrainCheck to monitor running training jobs and surface invariant violations as they happen.
+Run the following command:
 
-Stay tuned for updates in future releases.
+```bash
+traincheck-onlinecheck -f <trace_folder> -i <path_to_invariant_file>
+```
+
+- `-f <trace_folder>`: Path to the folder where traces are:
+  - Already collected, or
+  - **Actively being collected** by `traincheck-collect` during the training job.
+
+- `-i <path_to_invariant_file>`: Path to the JSON file containing inferred invariants.
+
+> ⚠️ **Important Notes**:
+>
+> - `traincheck-onlinecheck` continuously monitors the trace folder and checks invariants in real time.
+> - It does not exit automatically – you must manually terminate it with `Ctrl+C` when checking is complete.
+> - It is designed to run concurrently with `traincheck-collect`.
