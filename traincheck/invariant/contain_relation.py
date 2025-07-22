@@ -1159,11 +1159,11 @@ Defaulting to skip the var preconditon check for now.
         )
 
     @staticmethod
-    def get_mapping_key(inv: Invariant) -> list[Param]:
+    def _get_identifying_params(inv: Invariant) -> list[Param]:
         return [inv.params[0]]
 
     @staticmethod
-    def get_needed_variables(inv: Invariant):
+    def _get_variables_to_check(inv: Invariant):
         param = inv.params[1]
         if isinstance(param, VarTypeParam):
             return [param.var_type]
@@ -1173,14 +1173,14 @@ Defaulting to skip the var preconditon check for now.
             return None
 
     @staticmethod
-    def get_needed_api(inv: Invariant):
+    def _get_apis_to_check(inv: Invariant):
         assert isinstance(inv.params[0], APIParam)
         if isinstance(inv.params[1], APIParam):
             return [inv.params[0].api_full_name, inv.params[1].api_full_name]
         return [inv.params[0].api_full_name]
 
     @staticmethod
-    def needed_args_map(inv):
+    def _get_api_args_map_to_check(inv):
         return None
 
     @staticmethod

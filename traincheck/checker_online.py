@@ -93,19 +93,21 @@ def sort_inv_file(invariants):
     vartype_to_invs: dict[str, dict[str, list[Invariant]]] = {}
     needed_vars = set()
     needed_apis = set()
-    needed_args_map = set()
+    _get_api_args_map_to_check = set()
     for inv in invs:
         assert (
             inv.precondition is not None
         ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
-        params = inv.get_mapping_key()
-        needed_var, needed_api, needed_args_api = inv.get_needed_data()
+        params = inv._get_identifying_params()
+        needed_var, needed_api, needed_args_api = (
+            inv._get_information_sources_to_check()
+        )
         if needed_var is not None:
             needed_vars.update(needed_var)
         if needed_api is not None:
             needed_apis.update(needed_api)
         if needed_args_api is not None:
-            needed_args_map.update(needed_args_api)
+            _get_api_args_map_to_check.update(needed_args_api)
         for param in params:
             if isinstance(param, VarTypeParam):
                 if param.var_type not in vartype_to_invs:
@@ -118,7 +120,7 @@ def sort_inv_file(invariants):
                     param_to_invs[param] = []
                 param_to_invs[param].append(inv)
     logger.info("Sorting done.")
-    needed_data = (needed_vars, needed_apis, needed_args_map)
+    needed_data = (needed_vars, needed_apis, _get_api_args_map_to_check)
     return param_to_invs, vartype_to_invs, needed_data
 
 

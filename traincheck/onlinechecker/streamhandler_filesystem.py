@@ -43,7 +43,7 @@ class StreamLogHandler(FileSystemEventHandler):
 
         self.needed_vars = checker_data.needed_vars
         self.needed_apis = checker_data.needed_apis
-        self.needed_args_map = checker_data.needed_args_map
+        self._get_api_args_map_to_check = checker_data._get_api_args_map_to_check
 
         self.min_read_time = checker_data.min_read_time
         self.lock = checker_data.lock
@@ -195,7 +195,7 @@ class StreamLogHandler(FileSystemEventHandler):
                     ]
 
             if trace_type == TraceLineType.FUNC_CALL_PRE:
-                if function_name in self.checker_data.needed_args_map:
+                if function_name in self.checker_data._get_api_args_map_to_check:
                     if "args" in trace_record:
                         if "meta_vars.step" not in trace_record:
                             trace_record["meta_vars.step"] = -1

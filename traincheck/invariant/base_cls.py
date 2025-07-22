@@ -1463,18 +1463,25 @@ class Invariant:
             check_relation_first, self, trace, checker_data
         )
 
-    def get_mapping_key(self) -> list[Param]:
-        """Get a key that can be used to map the parameters to the invariant."""
-        return self.relation.get_mapping_key(self)
+    def _get_identifying_params(self) -> list[Param]:
+        """Retrieves the identifying parameters for the invariant instance.
 
-    def get_needed_data(self):
+        This internal method is used to obtain the parameters that uniquely identify
+        the invariant in the context of online checking. These parameters are essential
+        for grouping invariants that pertain to the same API calls or variables, thereby
+        improving the efficiency of invariant management and evaluation.
+
+        Returns:
+            list[Param]: A list of parameters that uniquely identify the invariant.
         """
-        Get the needed variables, APIs, and arguments for the invariant.
-        """
+        return self.relation._get_identifying_params(self)
+
+    def _get_information_sources_to_check(self):
+        """Retrieves the information sources that the invariant will need to check."""
         return (
-            self.relation.get_needed_variables(self),
-            self.relation.get_needed_api(self),
-            self.relation.needed_args_map(self),
+            self.relation._get_variables_to_check(self),
+            self.relation._get_apis_to_check(self),
+            self.relation._get_api_args_map_to_check(self),
         )
 
 
@@ -1884,25 +1891,25 @@ class Relation(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def get_mapping_key(inv: Invariant) -> list[Param]:
+    def _get_identifying_params(inv: Invariant) -> list[Param]:
         """Given an invariant, should return a list of Param objects that should be checked."""
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def get_needed_variables(inv: Invariant):
+    def _get_variables_to_check(inv: Invariant):
         """Given an invariant, should return a list of variable names or variable type that are needed to check the invariant."""
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def get_needed_api(inv: Invariant):
+    def _get_apis_to_check(inv: Invariant):
         """Given an invariant, should return a list of API names that are needed to check the invariant."""
         pass
 
     @staticmethod
     @abc.abstractmethod
-    def needed_args_map(inv: Invariant):
+    def _get_api_args_map_to_check(inv: Invariant):
         """Given an invariant, should return a list of API names that needs the args map."""
         pass
 

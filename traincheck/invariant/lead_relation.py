@@ -1084,18 +1084,18 @@ class FunctionLeadRelation(Relation):
         )
 
     @staticmethod
-    def get_mapping_key(inv: Invariant) -> list[Param]:
+    def _get_identifying_params(inv: Invariant) -> list[Param]:
         params = []
         for i in range(len(inv.params) - 1):
             params.append(inv.params[i])
         return params
 
     @staticmethod
-    def get_needed_variables(inv):
+    def _get_variables_to_check(inv):
         return None
 
     @staticmethod
-    def get_needed_api(inv: Invariant):
+    def _get_apis_to_check(inv: Invariant):
         api_name_list = []
         for param in inv.params:
             assert isinstance(param, APIParam)
@@ -1103,7 +1103,7 @@ class FunctionLeadRelation(Relation):
         return api_name_list
 
     @staticmethod
-    def needed_args_map(inv):
+    def _get_api_args_map_to_check(inv):
         return None
 
     @staticmethod

@@ -454,19 +454,19 @@ class DistinctArgumentRelation(Relation):
         )
 
     @staticmethod
-    def get_mapping_key(inv: Invariant) -> list[Param]:
+    def _get_identifying_params(inv: Invariant) -> list[Param]:
         return [inv.params[0]]
 
     @staticmethod
-    def get_needed_variables(inv: Invariant):
+    def _get_variables_to_check(inv: Invariant):
         return None
 
     @staticmethod
-    def get_needed_api(inv: Invariant):
+    def _get_apis_to_check(inv: Invariant):
         return None
 
     @staticmethod
-    def needed_args_map(inv):
+    def _get_api_args_map_to_check(inv):
         return [inv.params[0].api_full_name]
 
     @staticmethod

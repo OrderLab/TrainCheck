@@ -529,23 +529,23 @@ class ConsistencyRelation(Relation):
         )
 
     @staticmethod
-    def get_mapping_key(inv: Invariant) -> list[Param]:
+    def _get_identifying_params(inv: Invariant) -> list[Param]:
         if inv.params[0] == inv.params[1]:
             return [inv.params[0]]
         return [inv.params[0], inv.params[1]]
 
     @staticmethod
-    def get_needed_variables(inv):
+    def _get_variables_to_check(inv):
         if inv.params[0].var_type == inv.params[1].var_type:
             return [inv.params[0].var_type]
         return [inv.params[0].var_type, inv.params[1].var_type]
 
     @staticmethod
-    def get_needed_api(inv: Invariant):
+    def _get_apis_to_check(inv: Invariant):
         return None
 
     @staticmethod
-    def needed_args_map(inv):
+    def _get_api_args_map_to_check(inv):
         return None
 
     @staticmethod
