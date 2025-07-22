@@ -12,12 +12,15 @@ from traincheck.invariant.base_cls import (
     FailedHypothesis,
     Hypothesis,
     Invariant,
+    OnlineCheckerResult,
+    Param,
     Relation,
     VarTypeParam,
 )
 from traincheck.invariant.precondition import find_precondition
+from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
-from traincheck.trace.types import Liveness
+from traincheck.trace.types import Liveness, VarInstId
 
 tracker_var_field_prefix = "attributes."
 
@@ -523,6 +526,148 @@ class ConsistencyRelation(Relation):
             invariant=inv,
             check_passed=True,
             triggered=inv_triggered,
+        )
+
+    @staticmethod
+    def _get_identifying_params(inv: Invariant) -> list[Param]:
+        if inv.params[0] == inv.params[1]:
+            return [inv.params[0]]
+        return [inv.params[0], inv.params[1]]
+
+    @staticmethod
+    def _get_variables_to_check(inv):
+        if inv.params[0].var_type == inv.params[1].var_type:
+            return [inv.params[0].var_type]
+        return [inv.params[0].var_type, inv.params[1].var_type]
+
+    @staticmethod
+    def _get_apis_to_check(inv: Invariant):
+        return None
+
+    @staticmethod
+    def _get_api_args_map_to_check(inv):
+        return None
+
+    @staticmethod
+    def online_check(
+        check_relation_first: bool,
+        inv: Invariant,
+        trace_record: dict,
+        checker_data: Checker_data,
+    ):
+        assert len(inv.params) == 2, "Invariant should have exactly two parameters."
+        assert inv.precondition is not None, "Invariant should have a precondition."
+
+        logger = logging.getLogger(__name__)
+
+        param1 = inv.params[0]
+        param2 = inv.params[1]
+        assert isinstance(param1, VarTypeParam) and isinstance(
+            param2, VarTypeParam
+        ), "Invariant parameters should be VarTypeParam."
+
+        varid = VarInstId(
+            trace_record["process_id"],
+            trace_record["var_name"],
+            trace_record["var_type"],
+        )
+
+        def get_check_attr(param, varid):
+            if param.var_type != varid.var_type:
+                return None
+            if (
+                param.attr_name not in checker_data.varid_map[varid]
+                or len(checker_data.varid_map[varid][param.attr_name]) < 2
+            ):
+                return None
+            for attr in reversed(checker_data.varid_map[varid][param.attr_name]):
+                if attr.liveness.start_time < trace_record["time"]:
+                    return attr
+
+            return None
+
+        with checker_data.lock:
+            check_attr1 = get_check_attr(param1, varid)
+            check_attr2 = get_check_attr(param2, varid)
+        if param1 == param2:
+            check_attr2 = None
+
+        for check_attr, ref_param in [(check_attr1, param2), (check_attr2, param1)]:
+            if check_attr is None:
+                continue
+            with checker_data.lock:
+                if ref_param.var_type not in checker_data.type_map:
+                    logger.debug(
+                        f"Variable type {ref_param.var_type} not found in checker_data"
+                    )
+                    continue
+
+                for var2 in checker_data.type_map[ref_param.var_type]:
+                    if var2 == varid:
+                        continue
+                    if checker_data.varid_map[var2][ref_param.attr_name] is None:
+                        logger.debug(
+                            f"Attribute {ref_param.attr_name} not found in variable {var2}"
+                        )
+                        continue
+
+                    for attr in reversed(
+                        checker_data.varid_map[var2][ref_param.attr_name]
+                    ):
+                        if attr.liveness.start_time > trace_record["time"]:
+                            continue
+                        if attr.liveness.end_time is None:
+                            continue
+                        if attr.liveness.end_time <= check_attr.liveness.start_time:
+                            break
+                        if attr.liveness.start_time >= check_attr.liveness.end_time:
+                            continue
+                        overlap = calc_liveness_overlap(
+                            check_attr.liveness, attr.liveness
+                        )
+                        if overlap <= config.LIVENESS_OVERLAP_THRESHOLD:
+                            continue
+                        if check_relation_first:
+                            compare_result = ConsistencyRelation.evaluate(
+                                [check_attr.value, attr.value]
+                            )
+                            if not compare_result:
+                                if inv.precondition.verify(
+                                    set_meta_vars_online(
+                                        [check_attr.traces[-1], attr.traces[-1]],
+                                        checker_data,
+                                    ),
+                                    VAR_GROUP_NAME,
+                                    None,
+                                ):
+                                    return OnlineCheckerResult(
+                                        trace=[check_attr.traces[-1], attr.traces[-1]],
+                                        invariant=inv,
+                                        check_passed=False,
+                                    )
+                        else:
+                            if inv.precondition.verify(
+                                set_meta_vars_online(
+                                    [check_attr.traces[-1], attr.traces[-1]],
+                                    checker_data,
+                                ),
+                                VAR_GROUP_NAME,
+                                None,
+                            ):
+                                compare_result = ConsistencyRelation.evaluate(
+                                    [check_attr.value, attr.value]
+                                )
+                                if not compare_result:
+                                    return OnlineCheckerResult(
+                                        trace=[check_attr.traces[-1], attr.traces[-1]],
+                                        invariant=inv,
+                                        check_passed=False,
+                                    )
+
+        return OnlineCheckerResult(
+            trace=None,
+            invariant=inv,
+            check_passed=True,
         )
 
     @staticmethod

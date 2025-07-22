@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Set, Tuple
 
 from tqdm import tqdm
 
+from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
     APIParam,
     CheckerResult,
@@ -13,9 +14,12 @@ from traincheck.invariant.base_cls import (
     GroupedPreconditions,
     Hypothesis,
     Invariant,
+    OnlineCheckerResult,
+    Param,
     Relation,
 )
 from traincheck.invariant.precondition import find_precondition
+from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
 
@@ -111,10 +115,8 @@ def get_func_data_per_PT(trace: Trace, function_pool: Iterable[str]):
     function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = (
         {}
     )  # map from (process_id, thread_id) to function name to function call ids
-    listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = (
-        {}
-    )  # map from (process_id, thread_id) to all events
-    # for all func_ids, get their corresponding events
+    listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
+
     events = trace.events
 
     filtered_events = events[events["function"].isin(function_pool)]
@@ -165,6 +167,39 @@ def get_func_data_per_PT(trace: Trace, function_pool: Iterable[str]):
     return function_times, function_id_map, listed_events
 
 
+def get_func_A_B_events(events_list: List[dict[str, Any]], func_A: str, func_B: str):
+    events_A = [event for event in events_list if event["function"] == func_A]
+    events_A_pre = [
+        event for event in events_A if event["type"] == "function_call (pre)"
+    ]
+    events_A_post = [
+        event
+        for event in events_A
+        if event["type"] == "function_call (post)"
+        or event["type"] == "function_call (post) (exception)"
+    ]
+    events_B = [event for event in events_list if event["function"] == func_B]
+    events_B_pre = [
+        event for event in events_B if event["type"] == "function_call (pre)"
+    ]
+    events_B_post = [
+        event
+        for event in events_B
+        if event["type"] == "function_call (post)"
+        or event["type"] == "function_call (post) (exception)"
+    ]
+    return (events_A_pre, events_A_post, events_B_pre, events_B_post)
+
+
+def get_post_func_event(events_list: List[dict[str, Any]], func_call_id: str):
+    event_posts = [
+        event for event in events_list if event["func_call_id"] == func_call_id
+    ]
+    assert event_posts is not None, "Post event not found"
+    event_post = event_posts[0]
+    return event_post
+
+
 def is_complete_subgraph(
     path: List[APIParam], new_node: APIParam, graph: Dict[APIParam, List[APIParam]]
 ) -> bool:
@@ -197,9 +232,6 @@ def merge_relations(pairs: List[Tuple[APIParam, APIParam]]) -> List[List[APIPara
     start_nodes: List[APIParam] = [node for node in indegree if indegree[node] == 0]
 
     paths: List[List[APIParam]] = []
-
-    def is_subset(path1: List[APIParam], path2: List[APIParam]) -> bool:
-        return set(path1).issubset(set(path2))
 
     def add_path(new_path: List[APIParam]) -> None:
         nonlocal paths
@@ -367,36 +399,117 @@ class FunctionLeadRelation(Relation):
                             ].negative_examples.add_example(example)
                     continue
 
-                time_last_unmatched_A = None
-                last_pre_record_A = None
+                # find all A and B events in the current process and thread
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
+
+                event_A_idx = 0
+                event_B_idx = 0
+
+                pre_event_A_idx = None
+                pre_event_A_time = None
+
                 last_example = None
-                hypothesis = hypothesis_with_examples[(func_A, func_B)]
-                for event in events_list:
-                    if event["type"] != "function_call (pre)":
+
+                for event_A_pre in events_A_pre:
+                    invocation_id = event_A_pre["func_call_id"]
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
+                    pre_event_A_idx = event_A_idx
+                    pre_event_A_time = event_A_post["time"]
+                    event_A_idx += 1
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_A_pre])
+                    last_example = example
+                    break
+
+                assert pre_event_A_idx is not None
+                assert pre_event_A_time is not None
+                assert last_example is not None
+
+                if event_A_idx >= len(events_A_pre):
+                    max_time = events_B_post["time"].max()
+                    if pre_event_A_time <= max_time:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].positive_examples.add_example(last_example)
+                    else:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].negative_examples.add_example(last_example)
+
+                    continue
+
+                for event_A_pre in events_A_pre[event_A_idx:]:
+                    invocation_id = event_A_pre["func_call_id"]
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_A_pre])
+
+                    if event_B_idx >= len(events_B_pre):
+                        # If we have exhausted all B events, skip the rest of A events
+                        break
+
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
+
+                    if event_A_pre["time"] <= pre_event_A_time:
+                        if last_example is not None:
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].negative_examples.add_example(last_example)
+
+                        pre_event_A_idx = event_A_idx
+                        pre_event_A_time = event_A_post["time"]
+                        event_A_idx += 1
+                        last_example = example
                         continue
 
-                    if func_A == event["function"]:
-                        if time_last_unmatched_A:
-                            # the last A has not been followed by a B, a negative example:
-                            assert last_example
-                            hypothesis.negative_examples.add_example(last_example)
+                    found_B_after_A = False
+                    # First A post time <= B pre time  <= B post time <= next A pre time
+                    while event_B_idx < len(events_B_pre):
+                        event_B_pre = events_B_pre[event_B_idx]
+                        event_B_time = event_B_pre["time"]
 
-                        time_last_unmatched_A = event["time"]
-                        last_pre_record_A = event
-                        last_example = Example()
-                        last_example.add_group(EXP_GROUP_NAME, [last_pre_record_A])
+                        if event_B_time > event_A_pre["time"]:
+                            break
 
-                    if func_B == event["function"]:
-                        if time_last_unmatched_A:
-                            assert (
-                                last_example
-                            ), "Raising an alarm for an A without B, but A's record is None, likely a bug"
-                            hypothesis.positive_examples.add_example(last_example)
-                            time_last_unmatched_A = None
+                        if event_B_time <= pre_event_A_time:
+                            event_B_idx += 1
+                            continue
 
-                if time_last_unmatched_A is not None:
-                    assert last_example
-                    hypothesis.negative_examples.add_example(last_example)
+                        B_invocation_id = event_B_pre["func_call_id"]
+                        event_B_post = get_post_func_event(
+                            events_B_post, B_invocation_id
+                        )
+                        if event_B_post["time"] > event_A_pre["time"]:
+                            event_B_idx += 1
+                            continue
+
+                        found_B_after_A = True
+                        event_B_idx += 1
+                        break
+
+                    if last_example is not None:
+                        if found_B_after_A:
+                            # Check if there's a B event after the current A event
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].positive_examples.add_example(last_example)
+                        else:
+                            hypothesis_with_examples[
+                                (func_A, func_B)
+                            ].negative_examples.add_example(last_example)
+
+                    pre_event_A_idx = event_A_idx
+                    pre_event_A_time = event_A_post["time"]
+                    event_A_idx += 1
+                    last_example = example
+                # add the rest of the A events as negative examples
+                for event_A_pre in events_A_pre[event_A_idx:]:
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_A_pre])
+                    hypothesis_with_examples[
+                        (func_A, func_B)
+                    ].negative_examples.add_example(example)
 
         print("End adding examples")
 
@@ -534,34 +647,113 @@ class FunctionLeadRelation(Relation):
                             hypothesis.negative_examples.add_example(last_example)
                     continue
 
-                time_last_unmatched_A = None
-                last_pre_record_A = None
+                    # find all A and B events in the current process and thread
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
+                # print(f"Found {len(events_A_pre)} A events and {len(events_B_pre)} B events")
+
+                event_A_idx = 0
+                event_B_idx = 0
+
+                pre_event_A_idx = None
+                pre_event_A_time = None
+
                 last_example = None
-                for event in events_list:
-                    if event["type"] != "function_call (pre)":
+
+                for event_A_pre in events_A_pre:
+                    invocation_id = event_A_pre["func_call_id"]
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
+                    pre_event_A_idx = event_A_idx
+                    pre_event_A_time = event_A_post["time"]
+                    event_A_idx += 1
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_A_pre])
+                    last_example = example
+                    break
+
+                if event_A_idx >= len(events_A_pre):
+                    max_time = events_B_post["time"].max()
+                    if pre_event_A_time <= max_time:
+                        hypothesis[(func_A, func_B)].positive_examples.add_example(
+                            last_example
+                        )
+                    else:
+                        hypothesis[(func_A, func_B)].negative_examples.add_example(
+                            last_example
+                        )
+
+                    continue
+
+                assert pre_event_A_idx is not None
+                assert pre_event_A_time is not None
+
+                for event_A_pre in events_A_pre[event_A_idx:]:
+                    invocation_id = event_A_pre["func_call_id"]
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_A_pre])
+
+                    if event_B_idx >= len(events_B_pre):
+                        # If we have exhausted all B events, skip the rest of A events
+                        break
+
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
+
+                    if event_A_pre["time"] <= pre_event_A_time:
+                        hypothesis[(func_A, func_B)].negative_examples.add_example(
+                            last_example
+                        )
+
+                        pre_event_A_idx = event_A_idx
+                        pre_event_A_time = event_A_post["time"]
+                        event_A_idx += 1
+                        last_example = example
                         continue
 
-                    if func_A == event["function"]:
-                        if time_last_unmatched_A:
-                            # the last A has not been followed by a B, a negative example:
-                            assert last_example
-                            hypothesis.negative_examples.add_example(last_example)
+                    found_B_after_A = False
+                    # First A post time <= B pre time  <= B post time <= next A pre time
+                    while event_B_idx < len(events_B_pre):
+                        event_B_pre = events_B_pre[event_B_idx]
+                        event_B_time = event_B_pre["time"]
 
-                        time_last_unmatched_A = event["time"]
-                        last_pre_record_A = event
-                        last_example = Example()
-                        last_example.add_group(EXP_GROUP_NAME, [last_pre_record_A])
+                        if event_B_time > event_A_pre["time"]:
+                            break
 
-                    if func_B == event["function"]:
-                        if time_last_unmatched_A:
-                            assert (
-                                last_example
-                            ), "Raising an alarm for an A without B, but A's record is None, likely a bug"
-                            hypothesis.positive_examples.add_example(last_example)
-                            time_last_unmatched_A = None
+                        if event_B_time <= pre_event_A_time:
+                            event_B_idx += 1
+                            continue
 
-                if time_last_unmatched_A is not None:
-                    hypothesis.negative_examples.add_example(last_example)
+                        B_invocation_id = event_B_pre["func_call_id"]
+                        event_B_post = get_post_func_event(
+                            events_B_post, B_invocation_id
+                        )
+                        if event_B_post["time"] > event_A_pre["time"]:
+                            event_B_idx += 1
+                            continue
+
+                        found_B_after_A = True
+                        event_B_idx += 1
+                        break
+
+                    if found_B_after_A:
+                        # Check if there's a B event after the current A event
+                        hypothesis[(func_A, func_B)].positive_examples.add_example(
+                            last_example
+                        )
+                    else:
+                        hypothesis[(func_A, func_B)].negative_examples.add_example(
+                            last_example
+                        )
+
+                    pre_event_A_idx = event_A_idx
+                    pre_event_A_time = event_A_post["time"]
+                    event_A_idx += 1
+                    last_example = example
+                # add the rest of the A events as negative examples
+                for event_A_pre in events_A_pre[event_A_idx:]:
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_A_pre])
+                    hypothesis[(func_A, func_B)].negative_examples.add_example(example)
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
@@ -805,42 +997,210 @@ class FunctionLeadRelation(Relation):
                     # if we have not returned in this branch, lets check the next process and thread
                     continue
 
-                # check
-                has_B_showup_for_last_A = True  # initialize the flag to True
-                last_A_pre_record = None
-                for event in events_list:
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
 
-                    if event["type"] != "function_call (pre)":
+                event_A_idx = 0
+                event_B_idx = 0
+
+                pre_event_A = None
+                pre_event_A_time = None
+
+                for event_A_pre in events_A_pre:
+                    if not inv.precondition.verify(
+                        [event_A_pre], EXP_GROUP_NAME, trace
+                    ):
+                        event_A_idx += 1
+                        continue
+                    inv_triggered = True
+                    invocation_id = event_A_pre["func_call_id"]
+                    event_A_post = get_post_func_event(events_A_post, invocation_id)
+                    pre_event_A = event_A_pre
+                    pre_event_A_time = event_A_post["time"]
+                    event_A_idx += 1
+                    break
+
+                for event_A_pre in events_A_pre[event_A_idx:]:
+                    if not inv.precondition.verify(
+                        [event_A_pre], EXP_GROUP_NAME, trace
+                    ):
                         continue
 
-                    if func_A == event["function"]:
-                        if not inv.precondition.verify([event], EXP_GROUP_NAME, trace):
-                            continue
-
-                        inv_triggered = True
-
-                        if has_B_showup_for_last_A:
-                            # check passed for the last A, reset the flag
-                            has_B_showup_for_last_A = False
-                            last_A_pre_record = event
-                            continue
-                        else:
-                            # we encountered an new A, but the last A has not been followed by a B
-                            assert last_A_pre_record is not None
+                    if pre_event_A_time is not None:
+                        if event_A_pre["time"] <= pre_event_A_time:
+                            assert pre_event_A is not None
                             return CheckerResult(
-                                trace=[last_A_pre_record],
+                                trace=[pre_event_A],
                                 invariant=inv,
                                 check_passed=False,
                                 triggered=True,
                             )
-                    if func_B == event["function"]:
-                        has_B_showup_for_last_A = True
+
+                    event_A_post = get_post_func_event(
+                        events_A_post, event_A_pre["func_call_id"]
+                    )
+
+                    found_B_after_A = False
+                    while event_B_idx < len(events_B_pre):
+                        event_B_pre = events_B_pre[event_B_idx]
+                        event_B_time = event_B_pre["time"]
+
+                        if event_B_time > event_A_pre["time"]:
+                            break
+
+                        if event_B_time <= pre_event_A_time:
+                            event_B_idx += 1
+                            continue
+
+                        B_invocation_id = event_B_pre["func_call_id"]
+                        event_B_post = get_post_func_event(
+                            events_B_post, B_invocation_id
+                        )
+                        if event_B_post["time"] > event_A_pre["time"]:
+                            event_B_idx += 1
+                            continue
+
+                        found_B_after_A = True
+                        event_B_idx += 1
+                        break
+
+                    if not found_B_after_A:
+                        assert pre_event_A is not None
+                        return CheckerResult(
+                            trace=[pre_event_A],
+                            invariant=inv,
+                            check_passed=False,
+                            triggered=True,
+                        )
+                    pre_event_A_time = event_A_post["time"]
+                    pre_event_A = event_A_pre
 
         return CheckerResult(
             trace=None,
             invariant=inv,
             check_passed=True,
             triggered=inv_triggered,
+        )
+
+    @staticmethod
+    def _get_identifying_params(inv: Invariant) -> list[Param]:
+        params = []
+        for i in range(len(inv.params) - 1):
+            params.append(inv.params[i])
+        return params
+
+    @staticmethod
+    def _get_variables_to_check(inv):
+        return None
+
+    @staticmethod
+    def _get_apis_to_check(inv: Invariant):
+        api_name_list = []
+        for param in inv.params:
+            assert isinstance(param, APIParam)
+            api_name_list.append(param.api_full_name)
+        return api_name_list
+
+    @staticmethod
+    def _get_api_args_map_to_check(inv):
+        return None
+
+    @staticmethod
+    def online_check(
+        check_relation_first: bool,
+        inv: Invariant,
+        trace_record: dict,
+        checker_data: Checker_data,
+    ):
+        if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        assert inv.precondition is not None, "Invariant should have a precondition."
+
+        checker_param = APIParam(trace_record["function"])
+        lead_param = None
+        for i in range(len(inv.params)):
+            if inv.params[i] == checker_param:
+                if i == len(inv.params) - 1:
+                    lead_param = None
+                    break
+                lead_param = inv.params[i + 1]
+                break
+        if lead_param is None:
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        assert isinstance(lead_param, APIParam)
+
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
+        func_name = trace_record["function"]
+        ptname = (process_id, thread_id, func_name)
+
+        start_time = None
+        end_time = trace_record["time"]
+
+        with checker_data.lock:
+            [trace_record] = set_meta_vars_online([trace_record], checker_data)
+
+        if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        with checker_data.lock:
+            for func_id, func_event in checker_data.pt_map[ptname].items():
+                if func_event.post_record is None:
+                    continue
+                time = func_event.post_record["time"]
+                if time >= end_time:
+                    continue
+                if not inv.precondition.verify(
+                    set_meta_vars_online([func_event.pre_record], checker_data),
+                    EXP_GROUP_NAME,
+                    None,
+                ):
+                    continue
+                if start_time is None or time > start_time:
+                    start_time = time
+
+        if start_time is None:
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        lead_func_name = lead_param.api_full_name
+        lead_ptname = (process_id, thread_id, lead_func_name)
+        with checker_data.lock:
+            if lead_ptname in checker_data.pt_map:
+                for func_id, func_event in checker_data.pt_map[lead_ptname].items():
+                    if func_event.pre_record is None or func_event.post_record is None:
+                        continue
+                    pre_time = func_event.pre_record["time"]
+                    post_time = func_event.post_record["time"]
+                    if pre_time >= start_time and post_time <= end_time:
+                        return OnlineCheckerResult(
+                            trace=None,
+                            invariant=inv,
+                            check_passed=True,
+                        )
+
+        return OnlineCheckerResult(
+            trace=[trace_record],
+            invariant=inv,
+            check_passed=False,
         )
 
     @staticmethod

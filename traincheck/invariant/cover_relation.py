@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Set, Tuple
 
 from tqdm import tqdm
 
+from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
     APIParam,
     CheckerResult,
@@ -13,14 +14,19 @@ from traincheck.invariant.base_cls import (
     GroupedPreconditions,
     Hypothesis,
     Invariant,
+    OnlineCheckerResult,
+    Param,
     Relation,
 )
 from traincheck.invariant.lead_relation import (
     check_same_level,
+    get_func_A_B_events,
     get_func_data_per_PT,
     get_func_names_to_deal_with,
+    get_post_func_event,
 )
 from traincheck.invariant.precondition import find_precondition
+from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
 
@@ -226,26 +232,81 @@ class FunctionCoverRelation(Relation):
                             ].negative_examples.add_example(example)
                     continue
 
-                flag_A = None
-                for event in events_list:
-                    if event["type"] != "function_call (pre)":
-                        continue
+                # find all A and B events in the current process and thread
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
 
-                    if func_A == event["function"]:
-                        flag_A = event["time"]
+                event_A_idx = 0
+                event_B_idx = 0
 
-                    if func_B == event["function"]:
-                        example = Example()
-                        example.add_group(EXP_GROUP_NAME, [event])
-                        if flag_A is None:
+                pre_event_B_time = None
+
+                for event_B_pre in events_B_pre[event_B_idx:]:
+                    invocation_id = event_B_pre["func_call_id"]
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_B_pre])
+
+                    if event_A_idx >= len(events_A_pre):
+                        # If we have exhausted all A events, skip the rest of B events
+                        break
+
+                    event_B_post = get_post_func_event(events_B_post, invocation_id)
+
+                    if pre_event_B_time is not None:
+                        if event_B_pre["time"] <= pre_event_B_time:
                             hypothesis_with_examples[
                                 (func_A, func_B)
                             ].negative_examples.add_example(example)
-                        else:
-                            hypothesis_with_examples[
-                                (func_A, func_B)
-                            ].positive_examples.add_example(example)
-                            flag_A = None  # reset flag_A
+
+                            pre_event_B_time = event_B_post["time"]
+                            event_B_idx += 1
+                            continue
+
+                    found_A_before_B = False
+                    # First B post time <= A pre time  <= A post time <= next B pre time
+                    while event_A_idx < len(events_A_pre):
+                        event_A_pre = events_A_pre[event_A_idx]
+                        event_A_time = event_A_pre["time"]
+
+                        if event_A_time > event_B_pre["time"]:
+                            break
+
+                        if pre_event_B_time is not None:
+                            if event_A_time <= pre_event_B_time:
+                                event_A_idx += 1
+                                continue
+
+                        A_invocation_id = event_A_pre["func_call_id"]
+                        event_A_post = get_post_func_event(
+                            events_A_post, A_invocation_id
+                        )
+                        if event_A_post["time"] > event_B_pre["time"]:
+                            event_A_idx += 1
+                            continue
+
+                        found_A_before_B = True
+                        event_A_idx += 1
+                        break
+
+                    if found_A_before_B:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].positive_examples.add_example(example)
+                    else:
+                        hypothesis_with_examples[
+                            (func_A, func_B)
+                        ].negative_examples.add_example(example)
+
+                    pre_event_B_time = event_B_post["time"]
+                    event_B_idx += 1
+                # add the rest of the A events as negative examples
+                for event_B_pre in events_B_pre[event_B_idx:]:
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_B_pre])
+                    hypothesis_with_examples[
+                        (func_A, func_B)
+                    ].negative_examples.add_example(example)
 
         print("End adding examples")
 
@@ -344,7 +405,8 @@ class FunctionCoverRelation(Relation):
             ), "Invariant parameters should be APIParam."
             function_pool_temp.append(func.api_full_name)
 
-        function_pool = list(set(function_pool).intersection(function_pool_temp))
+        # function_pool = list(set(function_pool).intersection(function_pool_temp))
+        function_pool = set(function_pool).intersection(function_pool_temp)
 
         if len(function_pool) == 0:
             print(
@@ -353,7 +415,8 @@ class FunctionCoverRelation(Relation):
             return
 
         print("Starting collecting iteration...")
-        for i in tqdm(range(invariant_length - 1)):
+        # for i in tqdm(range(invariant_length - 1)):
+        for i in range(invariant_length - 1):
             param_A = inv.params[i]
             param_B = inv.params[i + 1]
 
@@ -380,25 +443,79 @@ class FunctionCoverRelation(Relation):
                             hypothesis.negative_examples.add_example(example)
                     continue
 
-                # check
-                flag_A = None
-                for event in events_list:
-                    if event["type"] != "function_call (pre)":
-                        continue
+                    # find all A and B events in the current process and thread
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
 
-                    if func_A == event["function"]:
-                        flag_A = event["time"]
+                event_A_idx = 0
+                event_B_idx = 0
 
-                    if func_B == event["function"]:
-                        example = Example()
-                        example.add_group(EXP_GROUP_NAME, [event])
-                        if flag_A is None:
-                            hypothesis.negative_examples.add_example(example)
-                        else:
-                            hypothesis.positive_examples.add_example(example)
-                            flag_A = None  # reset flag_A
+                pre_event_B_time = None
 
-        print("End collecting iteration...")
+                for event_B_pre in events_B_pre[event_B_idx:]:
+                    invocation_id = event_B_pre["func_call_id"]
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_B_pre])
+
+                    if event_A_idx >= len(events_A_pre):
+                        # If we have exhausted all A events, skip the rest of B events
+                        break
+
+                    event_B_post = get_post_func_event(events_B_post, invocation_id)
+
+                    if pre_event_B_time is not None:
+                        if event_B_pre["time"] <= pre_event_B_time:
+                            hypothesis[(func_A, func_B)].negative_examples.add_example(
+                                example
+                            )
+
+                            pre_event_B_time = event_B_post["time"]
+                            event_B_idx += 1
+                            continue
+
+                    found_A_before_B = False
+                    # First B post time <= A pre time  <= A post time <= next B pre time
+                    while event_A_idx < len(events_A_pre):
+                        event_A_pre = events_A_pre[event_A_idx]
+                        event_A_time = event_A_pre["time"]
+
+                        if event_A_time > event_B_pre["time"]:
+                            break
+
+                        if pre_event_B_time is not None:
+                            if event_A_time <= pre_event_B_time:
+                                event_A_idx += 1
+                                continue
+
+                        A_invocation_id = event_A_pre["func_call_id"]
+                        event_A_post = get_post_func_event(
+                            events_A_post, A_invocation_id
+                        )
+                        if event_A_post["time"] > event_B_pre["time"]:
+                            event_A_idx += 1
+                            continue
+
+                        found_A_before_B = True
+                        event_A_idx += 1
+                        break
+
+                    if found_A_before_B:
+                        hypothesis[(func_A, func_B)].positive_examples.add_example(
+                            example
+                        )
+                    else:
+                        hypothesis[(func_A, func_B)].negative_examples.add_example(
+                            example
+                        )
+
+                    pre_event_B_time = event_B_post["time"]
+                    event_B_idx += 1
+                # add the rest of the A events as negative examples
+                for event_B_pre in events_B_pre[event_B_idx:]:
+                    example = Example()
+                    example.add_group(EXP_GROUP_NAME, [event_B_pre])
+                    hypothesis[(func_A, func_B)].negative_examples.add_example(example)
 
     @staticmethod
     def infer(trace: Trace) -> Tuple[List[Invariant], List[FailedHypothesis]]:
@@ -620,12 +737,13 @@ class FunctionCoverRelation(Relation):
                     continue
 
                 if func_A not in same_level_func[(process_id, thread_id)][func_B]:
-                    # no A invoked, all B should be invalid
+                    # all B invocations in this process and thread are negative examples
+                    # directly find the first B and return the result
                     for event in events_list:
-                        if (
-                            event["type"] == "function_call (pre)"
-                            and event["function"] == func_B
-                        ):
+                        if event["type"] != "function_call (pre)":
+                            continue
+
+                        if func_B == event["function"]:
                             if not inv.precondition.verify(
                                 [event], EXP_GROUP_NAME, trace
                             ):
@@ -638,39 +756,192 @@ class FunctionCoverRelation(Relation):
                                 check_passed=False,
                                 triggered=True,
                             )
+                    # if we have not returned in this branch, lets check the next process and thread
                     continue
 
-                # check
-                unmatched_A_exist = False
-                for event in events_list:
-                    if event["type"] != "function_call (pre)":
+                events_A_pre, events_A_post, events_B_pre, events_B_post = (
+                    get_func_A_B_events(events_list, func_A, func_B)
+                )
+
+                event_A_idx = 0
+                event_B_idx = 0
+
+                pre_event_B_time = None
+
+                for event_B_pre in events_B_pre[event_B_idx:]:
+                    if not inv.precondition.verify(
+                        [event_B_pre], EXP_GROUP_NAME, trace
+                    ):
                         continue
 
-                    if func_A == event["function"]:
-                        unmatched_A_exist = True
-
-                    if func_B == event["function"]:
-                        if not inv.precondition.verify([event], EXP_GROUP_NAME, trace):
-                            continue
-
-                        inv_triggered = True
-                        if unmatched_A_exist is False:
-                            inv_triggered = True
+                    if pre_event_B_time is not None:
+                        if event_B_pre["time"] <= pre_event_B_time:
                             return CheckerResult(
-                                trace=[event],
+                                trace=[event_B_pre],
                                 invariant=inv,
                                 check_passed=False,
                                 triggered=True,
                             )
-                        else:
-                            unmatched_A_exist = False  # consumed the last A, a new A should be found before the next B
 
-        # FIXME: triggered is always False for passing invariants
+                    event_B_post = get_post_func_event(
+                        events_B_post, event_B_pre["func_call_id"]
+                    )
+
+                    found_A_before_B = False
+                    while event_A_idx < len(events_A_pre):
+                        event_A_pre = events_A_pre[event_A_idx]
+                        event_A_time = event_A_pre["time"]
+
+                        if event_A_time > event_B_pre["time"]:
+                            break
+
+                        if pre_event_B_time is not None:
+                            if event_A_time <= pre_event_B_time:
+                                event_A_idx += 1
+                                continue
+
+                        A_invocation_id = event_A_pre["func_call_id"]
+                        event_A_post = get_post_func_event(
+                            events_A_post, A_invocation_id
+                        )
+                        if event_A_post["time"] > event_B_pre["time"]:
+                            event_A_idx += 1
+                            continue
+
+                        found_A_before_B = True
+                        event_A_idx += 1
+                        break
+
+                    if not found_A_before_B:
+                        return CheckerResult(
+                            trace=[event_B_pre],
+                            invariant=inv,
+                            check_passed=False,
+                            triggered=True,
+                        )
+                    pre_event_B_time = event_B_post["time"]
+
         return CheckerResult(
             trace=None,
             invariant=inv,
             check_passed=True,
             triggered=inv_triggered,
+        )
+
+    @staticmethod
+    def _get_identifying_params(inv: Invariant) -> list[Param]:
+        params = []
+        for i in range(len(inv.params) - 1):
+            params.append(inv.params[i + 1])
+        return params
+
+    @staticmethod
+    def _get_variables_to_check(inv):
+        return None
+
+    @staticmethod
+    def _get_apis_to_check(inv: Invariant):
+        api_name_list = []
+        for param in inv.params:
+            assert isinstance(param, APIParam)
+            api_name_list.append(param.api_full_name)
+        return api_name_list
+
+    @staticmethod
+    def _get_api_args_map_to_check(inv):
+        return None
+
+    @staticmethod
+    def online_check(
+        check_relation_first: bool,
+        inv: Invariant,
+        trace_record: dict,
+        checker_data: Checker_data,
+    ):
+        if trace_record["type"] != TraceLineType.FUNC_CALL_PRE:
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        assert inv.precondition is not None, "Invariant should have a precondition."
+
+        checker_param = APIParam(trace_record["function"])
+        cover_param = None
+        for i in range(len(inv.params)):
+            if inv.params[i] == checker_param:
+                if i == 0:
+                    cover_param = None
+                    break
+                cover_param = inv.params[i - 1]
+                break
+
+        if cover_param is None:
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        assert isinstance(cover_param, APIParam)
+
+        process_id = trace_record["process_id"]
+        thread_id = trace_record["thread_id"]
+        func_name = trace_record["function"]
+        ptname = (process_id, thread_id, func_name)
+
+        start_time = None
+        end_time = trace_record["time"]
+
+        with checker_data.lock:
+            [trace_record] = set_meta_vars_online([trace_record], checker_data)
+
+        if not inv.precondition.verify([trace_record], EXP_GROUP_NAME, None):
+            return OnlineCheckerResult(
+                trace=None,
+                invariant=inv,
+                check_passed=True,
+            )
+
+        with checker_data.lock:
+            for func_id, func_event in checker_data.pt_map[ptname].items():
+                if func_event.post_record is None:
+                    continue
+                time = func_event.post_record["time"]
+                if time >= end_time:
+                    continue
+                if not inv.precondition.verify(
+                    set_meta_vars_online([func_event.pre_record], checker_data),
+                    EXP_GROUP_NAME,
+                    None,
+                ):
+                    continue
+                if start_time is None or time > start_time:
+                    start_time = time
+
+        if start_time is None:
+            start_time = 0
+
+        cover_func_name = cover_param.api_full_name
+        cover_ptname = (process_id, thread_id, cover_func_name)
+        with checker_data.lock:
+            if cover_ptname in checker_data.pt_map:
+                for func_id, func_event in checker_data.pt_map[cover_ptname].items():
+                    if func_event.pre_record is None or func_event.post_record is None:
+                        continue
+                    pre_time = func_event.pre_record["time"]
+                    post_time = func_event.post_record["time"]
+                    if pre_time >= start_time and post_time <= end_time:
+                        return OnlineCheckerResult(
+                            trace=None,
+                            invariant=inv,
+                            check_passed=True,
+                        )
+        return OnlineCheckerResult(
+            trace=[trace_record],
+            invariant=inv,
+            check_passed=False,
         )
 
     @staticmethod
