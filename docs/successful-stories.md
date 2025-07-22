@@ -2,7 +2,7 @@
 
 TrainCheck proactively detects silent failures in deep learning training by inferring and checking invariants. Below are real-world cases where TrainCheck caught critical bugs that would have otherwise wasted months of compute and effort.
 
----
+> This page contains a few silent errors that TrainCheck caught in real-world scenarios, for a complete list of errors, please check our research paper [Training with Confidence: Catching Silent Errors in Deep Learning Training with Automated Proactive Checks](https://www.arxiv.org/abs/2506.14813)
 
 ## 🧨 Case 1: Silent Weight Divergence in BLOOM-176B
 
