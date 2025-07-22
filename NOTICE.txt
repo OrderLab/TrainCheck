@@ -1,0 +1,28 @@
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+This product also includes software from the following open-source projects:
+
+* astor (BSD-3-Clause)
+  https://github.com/berkerpeksag/astor
+
+* PyTorch (BSD-style license)
+  https://github.com/pytorch/pytorch
+
+* tqdm (MIT / MPL-2.0)
+  https://github.com/tqdm/tqdm
+
+* numba (BSD-2-Clause)
+  https://github.com/numba/numba
+
+* pandas (BSD-3-Clause)
+  https://github.com/pandas-dev/pandas
+
+* PyYAML (MIT)
+  https://github.com/yaml/pyyaml
+
+* orjson (Apache-2.0 / MIT)
+  https://github.com/ijl/orjson
+
+* NumPy (BSD-3-Clause)
+  https://github.com/numpy/numpy

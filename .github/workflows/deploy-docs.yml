@@ -20,6 +20,6 @@ jobs:
           python-version: 3.x
       - name: Install dependencies
         run: |
-          pip install mkdocs mkdocs-readthedocs-theme
+          pip install mkdocs
       - name: Deploy docs
         run: mkdocs gh-deploy --force
