@@ -14,7 +14,7 @@
 
 TrainCheck has detected silent errors in a wide range of real-world training scenarios, from large-scale LLM pretraining (such as BLOOM-176B) to small-scale tutorial runs by deep learning beginners.
 
-📌 For a list of successful cases, see: TODO
+📌 For a list of successful cases, see our [Success Stories](./successful-stories.md).
 
 ## What It Does
 
