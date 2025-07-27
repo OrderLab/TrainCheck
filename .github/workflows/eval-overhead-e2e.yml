@@ -97,3 +97,8 @@ jobs:
           git add docs/benchmarks.md
           git commit -m "Update benchmark plots for $COMMIT_HASH" || echo "No changes to commit"
           git push origin main
+
+      - name: Deploy docs
+        run: |
+          pip install mkdocs
+          mkdocs gh-deploy --force
