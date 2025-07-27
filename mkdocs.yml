@@ -8,3 +8,4 @@ nav:
 - "Success Stories": ./successful-stories.md
 - "Technical Documentation": ./technical-doc.md
 - "Usage Tips": usage-guide.md
+- "Performance Benchmarks": ./benchmarks.md

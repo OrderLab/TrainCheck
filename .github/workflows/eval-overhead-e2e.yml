@@ -5,14 +5,12 @@ on:
       - main
     paths:
       - '.github/workflows/**'
-      - 'eval_scripts/perf_benchmark/**'
       - 'traincheck/instrumentor/**'
       - 'traincheck/proxy_wrapper/**'
       - 'traincheck/collect_trace.py'
   pull_request:
     paths:
       - '.github/workflows/**'
-      - 'eval_scripts/perf_benchmark/**'
       - 'traincheck/instrumentor/**'
       - 'traincheck/proxy_wrapper/**'
       - 'traincheck/collect_trace.py'
@@ -30,6 +28,14 @@ jobs:
     name: Run Overhead Benchmarks
     steps:
       - uses: actions/checkout@v4
+        name: Checkout TrainCheck
+      
+      - uses: actions/checkout@v4
+        name: Checkout TrainCheck-Benchmarks
+        with:
+          repository: OrderLab/TrainCheck-Benchmarks
+          path: benchmarks
+      
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -37,42 +43,57 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          ls .
-          pwd
-          pip install -r eval_scripts/requirements.txt
-          pip install -r eval_scripts/requirements-torch222-cuda121.txt
+          pip install -r benchmarks/instr-overhead/requirements.txt
+          pip install -r benchmarks/instr-overhead/requirements-torch222-cuda121.txt
           pip install -e .
 
       - name: Run benchmark
         run: |
-          cd eval_scripts/perf_benchmark
+          cd benchmarks/instr-overhead
           xonsh run_all.xsh --res_folder perf_benchmark_results
       
       - name: Run analysis scripts
         run: |
-          cd eval_scripts/perf_benchmark
+          cd benchmarks/instr-overhead
           xonsh analysis.xsh --res_folder perf_benchmark_results
 
       - name: Generate plots
         run: |
-          cd eval_scripts/perf_benchmark
+          cd benchmarks/instr-overhead
           COMMIT_HASH=$(git rev-parse --short HEAD)
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          python3 plot_micro.py -i perf_benchmark_results/wrapper_overhead_micro.csv -o ./overhead_micro.pdf -t "$COMMIT_HASH - $COMMIT_MESSAGE"
-          python3 plot_e2e.py -i perf_benchmark_results/overhead_e2e.csv -o ./overhead_macro.pdf -t "$COMMIT_HASH - $COMMIT_MESSAGE"
+          python3 plot_micro.py -i perf_benchmark_results/wrapper_overhead_micro.csv -o ./overhead_micro.png -t "$COMMIT_HASH - $COMMIT_MESSAGE"
+          python3 plot_e2e.py -i perf_benchmark_results/overhead_e2e.csv -o ./overhead_macro.png -t "$COMMIT_HASH - $COMMIT_MESSAGE"
 
-      - name: Commit and push plots to gh-pages
+      - name: Update docs with benchmark plots
         run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
           COMMIT_HASH=$(git rev-parse --short HEAD)
+          
+          # Copy plots to docs assets
+          cp benchmarks/instr-overhead/overhead_micro.png docs/assets/images/
+          cp benchmarks/instr-overhead/overhead_macro.png docs/assets/images/
+          
+          # Create or update benchmark page
+          cat > docs/benchmarks.md << EOF
+          # Performance Benchmarks
+          
+          Latest benchmark results (updated: $TIMESTAMP, commit: $COMMIT_HASH)
+          
+          ## Instrumentation Overhead - Micro Benchmarks
+          ![Micro Benchmark Results](assets/images/overhead_micro.png)
+          
+          ## End-to-End Performance Impact
+          ![E2E Benchmark Results](assets/images/overhead_macro.png)
+          
+          These benchmarks are automatically generated from the [TrainCheck-Benchmarks](https://github.com/OrderLab/TrainCheck-Benchmarks) repository.
+          EOF
+          
+          # Commit and push changes
           git config user.email "jyuxuan@umich.edu"
           git config user.name "Yuxuan Jiang"
-          git config pull.rebase true
-          git fetch
-          git checkout gh-pages
-          git pull
-          cp eval_scripts/perf_benchmark/overhead_micro.pdf dev/bench
-          cp eval_scripts/perf_benchmark/overhead_macro.pdf dev/bench
-          git add dev/bench/overhead_micro.pdf
-          git add dev/bench/overhead_macro.pdf
-          git commit -m "Update benchmark plots for $COMMIT_HASH"
-          git push origin gh-pages
+          git add docs/assets/images/overhead_micro.png
+          git add docs/assets/images/overhead_macro.png
+          git add docs/benchmarks.md
+          git commit -m "Update benchmark plots for $COMMIT_HASH" || echo "No changes to commit"
+          git push origin main
