@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Eval: Silent Issue Detection - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Eval: Silent Issue Detection";
+        var mkdocs_page_input_path = "ae-eval-s5.1-silent-issue-detection.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Eval: Silent Issue Detection</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="eval-silent-issue-detection">Eval: Silent Issue Detection</h1>
+<p>⏳ <strong>Estimated Completion Time</strong>: ~30 minutes</p>
+<h2 id="goal">🎯 Goal</h2>
+<p>TrainCheck detects <strong>18 real-world silent issues</strong> in our evaluation. Your goal in this artifact evaluation is to <strong>verify detection for the subset of issues that are currently AE-supported</strong> (see <a href="#-bug-summary-table">bug table</a> below).</p>
+<p>For each supported bug, you should confirm:</p>
+<p>✅ <strong>TrainCheck successfully detects the issue</strong> by reporting one or more invariant violations on the provided trace.</p>
+<p>The artifact provides all necessary resources to automate this confirmation.<br />
+Additional insights—such as when the issue is triggered and how the violation aligns with the root cause—can be explored by examining the scripts, logs, or violation reports, though they are not required for core validation.</p>
+<h2 id="resources-provided">📂 Resources Provided</h2>
+<p>All files are located in the <a href="https://github.com/OrderLab/TrainCheck-Evaluation-Workloads"><code>TrainCheck-Evaluation-Workloads</code></a> repository.</p>
+<table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Curated Invariants</strong></td>
+<td>Small set of known-effective invariants per bug.</td>
+</tr>
+<tr>
+<td><strong>Pre-collected Traces</strong></td>
+<td>Captured execution traces from the buggy pipelines.</td>
+</tr>
+<tr>
+<td><strong>Silent Issue Reproduction Scripts and Descriptions</strong></td>
+<td>https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/tree/main/silent-issue-detection/bug-reprod-scripts</td>
+</tr>
+</tbody>
+</table>
+<h3 id="silent-issue-summary-table">🐛 Silent Issue Summary Table</h3>
+<table>
+<thead>
+<tr>
+<th><strong>Bug ID</strong></th>
+<th><strong>Failure Location</strong></th>
+<th><strong>AE?</strong></th>
+<th><strong>AE Limitation (if any)</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>baichuan2-86</code></td>
+<td>HW/Driver</td>
+<td>✅ Yes</td>
+<td>Similar root cause as pytorch-84803, reuses pytorch-104336 trace</td>
+</tr>
+<tr>
+<td><code>deepspeed-1801</code></td>
+<td>Framework</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>deepspeed-5794</code></td>
+<td>Framework</td>
+<td>❌ No</td>
+<td>Invariant relation still under evaluation</td>
+</tr>
+<tr>
+<td><code>lightning-thunder-725</code></td>
+<td>Framework</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mmpretrain-702</code></td>
+<td>Framework</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pytorch-51800</code></td>
+<td>Framework</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pytorch-84803</code></td>
+<td>HW/Driver</td>
+<td>✅ Yes</td>
+<td>Different root cause, but low-level manifest is similar, reuses pytorch-104336 trace</td>
+</tr>
+<tr>
+<td><code>pytorch-96600</code></td>
+<td>HW/Driver</td>
+<td>✅ Yes</td>
+<td>Similar root cause as pytorch-84803 reuses pytorch-104336 trace</td>
+</tr>
+<tr>
+<td><code>pytorch-104336</code></td>
+<td>Framework</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pytorch-115607</code></td>
+<td>Compiler</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>pytorch-forum-84911</code></td>
+<td>User Code</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>stackoverflow-60335387</code></td>
+<td>User Code</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>stackoverflow-67180955</code></td>
+<td>Framework</td>
+<td>❌ No</td>
+<td>Requires older Python version no longer supported</td>
+</tr>
+<tr>
+<td><code>transformers-17877</code></td>
+<td>Framework</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>transformers-23723</code></td>
+<td>Framework</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>transformers-33844</code></td>
+<td>Framework</td>
+<td>✅ Yes</td>
+<td></td>
+</tr>
+<tr>
+<td><code>transformers-34204</code></td>
+<td>Framework</td>
+<td>❌ No</td>
+<td>Invariant support still in progress</td>
+</tr>
+<tr>
+<td><code>x-jxmnop-ddp-out-of-sync</code></td>
+<td>User Code</td>
+<td>✅ Yes</td>
+<td>Reuses pytorch-104336 trace</td>
+</tr>
+</tbody>
+</table>
+<p>We currently support <strong>15 out of 18 bugs</strong> for artifact evaluation.<br />
+You have already detected <code>pytorch-forum-84911</code> in our 5-min tutorial. You will need to detect the rest of the 14 bugs.</p>
+<p>Bugs not included in this AE release typically depend on:
+- Unsupported or unstable library versions
+- Very old Python environments
+- Invariant support still in development</p>
+<p>Additionally, a few bugs stem from very specific issues such as faulty hardware, which are inherently difficult to reproduce.
+For such cases—and for bugs that share the same root cause/manifest—we may provide a <strong>shared/simulated trace</strong> and a <strong>shared invariant</strong> that is reused across multiple bug IDs.</p>
+<h2 id="reproducing-silent-issue-detection">🧪 Reproducing Silent Issue Detection</h2>
+<blockquote>
+<p>All steps described below assumes you are already in the <code>TrainCheck-Evaluation-Workloads</code> repo. If not, clone the repository and go to it.
+<code>bash
+git clone https://github.com/OrderLab/TrainCheck-Evaluation-Workloads.git
+cd TrainCheck-Evaluation-Workloads</code></p>
+</blockquote>
+<ol>
+<li>
+<p>Make sure you have a working TrainCheck installation by following <a href="../installation-guide/">TrainCheck Installation Guide</a>.</p>
+</li>
+<li>
+<p>Execute <code>ae_detection.sh</code> to automatically apply invariants to the pre-collected trace. This script generates results into a folder named <code>checker_output</code>.
+   <code>bash
+   cd silent-issue-detection
+   bash ae_detection.sh</code></p>
+</li>
+</ol>
+<h2 id="expected-results">Expected Results</h2>
+<p>The <code>checker_output</code> folder contains checkering results for each trace.</p>
+<pre><code class="language-bash">(base) ➜  checker_output git:(main) tree .
+.
+├── invariants.json
+├── trace_deepspeed-1801
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_mmpretrain-702
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_pytorch-104336
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_pytorch-115607
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_pytorch-51800
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_stackoverflow-60335387
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_transformers-17877
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_transformers-23723
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+├── trace_transformers-33844
+│   ├── failed.log
+│   ├── not_triggered.log
+│   └── passed.log
+└── trace_x-jxmnop-ddp-out-of-sync
+    ├── failed.log
+    ├── not_triggered.log
+    └── passed.log
+</code></pre>
+<p>You want to make sure <strong>all <code>failed.log</code> files are non-empty</strong>, indicating silent errors detected in these traces.</p>
+<hr />
+<p>Optionally, we provided a <code>reference_checker_output</code> folder containing the expected detection results. You can compare the checking results you get versus our reference results.</p>
+<p>When you do this comparison, do keep in mind that your results and our reference results will not be exactly the same, as TrainCheck does not enforce (1) the order of checking when multiple checkable entities are available at the same time, which may lead to invariants violated on different processes or different pairs of variables, (2) the order of fields when serializing checker results. </p>
+<p>Thus, if you do the comparison in a mechanical way (e.g. via <code>diff -r checker_output reference_checker_output</code>), you might see outputs like this. The differences are expected and benign.</p>
+<pre><code class="language-bash">(base) ➜  silent-issue-detection git:(main) diff -r checker_output reference_checker_output
+diff --color -r checker_output/trace_pytorch-104336/failed.log reference_checker_output/trace_pytorch-104336/failed.log
+75,76c75,76
+&lt;     &quot;detection_time&quot;: 2437523672783,
+&lt;     &quot;detection_time_percentage&quot;: 0.11841431018590723,
+---
+&gt;     &quot;detection_time&quot;: 2437539087694,
+&gt;     &quot;detection_time_percentage&quot;: 0.11851643004648255,
+81,82c81,82
+&lt;             &quot;process_id&quot;: 9539,
+&lt;             &quot;thread_id&quot;: 140711397648192,
+---
+&gt;             &quot;process_id&quot;: 9591,
+&gt;             &quot;thread_id&quot;: 140324043503424,
+86c86
+&lt;             &quot;attributes._ML_DAIKON_data_ID&quot;: 140704882109040,
+---
+&gt;             &quot;attributes._ML_DAIKON_data_ID&quot;: 140317529048544,
+116,117c116,117
+&lt;             &quot;time&quot;: 2437523672783,
+&lt;             &quot;meta_vars._DATA_PARALLEL_RANK&quot;: 4.0,
+---
+&gt;             &quot;time&quot;: 2437504805077,
+&gt;             &quot;meta_vars._DATA_PARALLEL_RANK&quot;: 5.0,
+123,124c123,124
+&lt;             &quot;process_id&quot;: 9429,
+&lt;             &quot;thread_id&quot;: 140050208577344,
+---
+&gt;             &quot;process_id&quot;: 9747,
+&gt;             &quot;thread_id&quot;: 140028492969792,
+128c128
+&lt;             &quot;attributes._ML_DAIKON_data_ID&quot;: 140043703504144,
+---
+&gt;             &quot;attributes._ML_DAIKON_data_ID&quot;: 140021978318304,
+158,159c158,159
+&lt;             &quot;time&quot;: 2437502499438,
+&lt;             &quot;meta_vars._DATA_PARALLEL_RANK&quot;: 2.0,
+---
+&gt;             &quot;time&quot;: 2437539087694,
+&gt;             &quot;meta_vars._DATA_PARALLEL_RANK&quot;: 7.0,
+diff --color -r checker_output/trace_pytorch-115607/failed.log reference_checker_output/trace_pytorch-115607/failed.log
+43,44c43,44
+&lt;                                     &quot;init&quot;,
+&lt;                                     &quot;testing&quot;
+---
+&gt;                                     &quot;testing&quot;,
+&gt;                                     &quot;init&quot;
+78,80d77
+&lt;             &quot;exception&quot;: NaN,
+&lt;             &quot;exception_msg&quot;: NaN,
+&lt;             &quot;proxy_obj_names&quot;: NaN,
+113c110,113
+&lt;             &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN
+---
+&gt;             &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN,
+&gt;             &quot;exception&quot;: NaN,
+&gt;             &quot;exception_msg&quot;: NaN,
+&gt;             &quot;proxy_obj_names&quot;: NaN
+180,182d179
+&lt;             &quot;exception&quot;: NaN,
+&lt;             &quot;exception_msg&quot;: NaN,
+&lt;             &quot;proxy_obj_names&quot;: NaN,
+215c212,215
+&lt;             &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN
+---
+&gt;             &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN,
+&gt;             &quot;exception&quot;: NaN,
+&gt;             &quot;exception_msg&quot;: NaN,
+&gt;             &quot;proxy_obj_names&quot;: NaN
+261,262c261,262
+&lt;                                     &quot;init&quot;,
+&lt;                                     &quot;testing&quot;
+---
+&gt;                                     &quot;testing&quot;,
+&gt;                                     &quot;init&quot;
+296,298d295
+&lt;             &quot;exception&quot;: NaN,
+&lt;             &quot;exception_msg&quot;: NaN,
+&lt;             &quot;proxy_obj_names&quot;: NaN,
+331c328,331
+&lt;             &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN
+---
+&gt;             &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN,
+&gt;             &quot;exception&quot;: NaN,
+&gt;             &quot;exception_msg&quot;: NaN,
+&gt;             &quot;proxy_obj_names&quot;: NaN
+diff --color -r checker_output/trace_pytorch-51800/failed.log reference_checker_output/trace_pytorch-51800/failed.log
+34,56d33
+&lt;             &quot;func_call_id&quot;: &quot;b39a4a81b2c24473ba916ab1832fbf12_19876858668012869&quot;,
+&lt;             &quot;thread_id&quot;: 140254285555520,
+&lt;             &quot;process_id&quot;: 3499981,
+&lt;             &quot;meta_vars.step&quot;: 0,
+&lt;             &quot;type&quot;: &quot;function_call (pre)&quot;,
+&lt;             &quot;function&quot;: &quot;torch.nn.modules.module.Module.eval&quot;,
+&lt;             &quot;is_bound_method&quot;: true,
+&lt;             &quot;obj_id&quot;: 140250960790096,
+&lt;             &quot;args&quot;: {
+&lt;                 &quot;0&quot;: {
+&lt;                     &quot;__main__.SimpleCNN&quot;: {
+&lt;                         &quot;call_super_init&quot;: false,
+&lt;                         &quot;dump_patches&quot;: false,
+&lt;                         &quot;training&quot;: true
+&lt;                     }
+&lt;                 }
+&lt;             },
+&lt;             &quot;kwargs&quot;: {},
+&lt;             &quot;time&quot;: 19876858668088743,
+&lt;             &quot;return_values&quot;: NaN,
+&lt;             &quot;exception&quot;: NaN,
+&lt;             &quot;exception_msg&quot;: NaN,
+&lt;             &quot;proxy_obj_names&quot;: NaN,
+60a38,41
+&gt;             &quot;process_id&quot;: 3499981,
+&gt;             &quot;thread_id&quot;: 140254285555520,
+&gt;             &quot;time&quot;: 19876858668088743,
+&gt;             &quot;meta_vars.step&quot;: 0,
+89c70,89
+&lt;             &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN
+---
+&gt;             &quot;type&quot;: &quot;function_call (pre)&quot;,
+&gt;             &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN,
+&gt;             &quot;func_call_id&quot;: &quot;b39a4a81b2c24473ba916ab1832fbf12_19876858668012869&quot;,
+&gt;             &quot;function&quot;: &quot;torch.nn.modules.module.Module.eval&quot;,
+&gt;             &quot;is_bound_method&quot;: true,
+&gt;             &quot;obj_id&quot;: 140250960790096,
+&gt;             &quot;args&quot;: {
+&gt;                 &quot;0&quot;: {
+&gt;                     &quot;__main__.SimpleCNN&quot;: {
+&gt;                         &quot;call_super_init&quot;: false,
+&gt;                         &quot;dump_patches&quot;: false,
+&gt;                         &quot;training&quot;: true
+&gt;                     }
+&gt;                 }
+&gt;             },
+&gt;             &quot;kwargs&quot;: {},
+&gt;             &quot;return_values&quot;: NaN,
+&gt;             &quot;exception&quot;: NaN,
+&gt;             &quot;exception_msg&quot;: NaN,
+&gt;             &quot;proxy_obj_names&quot;: NaN
+diff --color -r checker_output/trace_transformers-33844/failed.log reference_checker_output/trace_transformers-33844/failed.log
+244,246d243
+&lt;                 &quot;enabled&quot;: {
+&lt;                     &quot;bool&quot;: true
+&lt;                 },
+250a248,250
+&gt;                     &quot;bool&quot;: true
+&gt;                 },
+&gt;                 &quot;enabled&quot;: {
+diff --color -r checker_output/trace_x-jxmnop-ddp-out-of-sync/failed.log reference_checker_output/trace_x-jxmnop-ddp-out-of-sync/failed.log
+81,82c81,82
+&lt;             &quot;process_id&quot;: 89557,
+&lt;             &quot;thread_id&quot;: 140661207828288,
+---
+&gt;             &quot;process_id&quot;: 89558,
+&gt;             &quot;thread_id&quot;: 140625926412096,
+85c85
+&lt;             &quot;meta_vars._DATA_PARALLEL_RANK&quot;: &quot;0&quot;,
+---
+&gt;             &quot;meta_vars._DATA_PARALLEL_RANK&quot;: &quot;1&quot;,
+87c87
+&lt;             &quot;attributes._ML_DAIKON_data_ID&quot;: 140656561409856,
+---
+&gt;             &quot;attributes._ML_DAIKON_data_ID&quot;: 140621279056480,
+117c117
+&lt;             &quot;time&quot;: 123297988837864,
+---
+&gt;             &quot;time&quot;: 123299970638648,
+123,124c123,124
+&lt;             &quot;process_id&quot;: 89558,
+&lt;             &quot;thread_id&quot;: 140625926412096,
+---
+&gt;             &quot;process_id&quot;: 89557,
+&gt;             &quot;thread_id&quot;: 140661207828288,
+127c127
+&lt;             &quot;meta_vars._DATA_PARALLEL_RANK&quot;: &quot;1&quot;,
+---
+&gt;             &quot;meta_vars._DATA_PARALLEL_RANK&quot;: &quot;0&quot;,
+129c129
+&lt;             &quot;attributes._ML_DAIKON_data_ID&quot;: 140621279058160,
+---
+&gt;             &quot;attributes._ML_DAIKON_data_ID&quot;: 140656561411776,
+159c159
+&lt;             &quot;time&quot;: 123299970638648,
+---
+&gt;             &quot;time&quot;: 123297988837864,
+</code></pre>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

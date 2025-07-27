@@ -1,0 +1,1 @@
+python3 mnist.py --epochs 3

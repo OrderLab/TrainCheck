@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Success Stories - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Success Stories";
+        var mkdocs_page_input_path = "successful-stories.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Success Stories</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#case-1-silent-weight-divergence-in-bloom-176b">🧨 Case 1: Silent Weight Divergence in BLOOM-176B</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#case-2-silent-gradient-application-failure">🧠 Case 2: Silent Gradient Application Failure</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#case-3-the-flat-loss-mystery">❓ Case 3: The Flat Loss Mystery</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Success Stories</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="traincheck-real-world-success-stories">✅ TrainCheck: Real-World Success Stories</h1>
+<p>TrainCheck proactively detects silent failures in deep learning training by inferring and checking invariants. Below are real-world cases where TrainCheck caught critical bugs that would have otherwise wasted months of compute and effort.</p>
+<blockquote>
+<p>This page highlights several silent errors that TrainCheck detected in real-world scenarios. For a comprehensive list of issues and detailed analysis, see our research paper: <a href="https://www.arxiv.org/abs/2506.14813">Training with Confidence: Catching Silent Errors in Deep Learning Training with Automated Proactive Checks</a>.</p>
+</blockquote>
+<h2 id="case-1-silent-weight-divergence-in-bloom-176b">🧨 Case 1: Silent Weight Divergence in BLOOM-176B</h2>
+<p><strong>The Story:</strong> While training the BLOOM-176B model, a subtle optimizer bug caused model weights to silently diverge across GPUs. All standard metrics and logs appeared normal, masking the critical issue.</p>
+<ul>
+<li><strong>The Risk:</strong> 3.5 months of training time on 384 A100 GPUs, with invalid checkpoints.</li>
+<li><strong>The Delay:</strong> It took developers 15 days to notice and diagnose the problem.</li>
+<li><strong>TrainCheck's Role:</strong> TrainCheck would have <strong>instantly</strong> detected this divergence with its parameter consistency invariant, saving the project from a massive setback.</li>
+</ul>
+<p><em>Source: <a href="https://github.com/bigscience-workshop/bigscience/blob/master/train/tr11-176B-ml/chronicles.md#2022-03-24-grad-clip-tp-sync-bug-fixing">BigScience BLOOM-176B Training Chronicles</a></em></p>
+<hr />
+<h2 id="case-2-silent-gradient-application-failure">🧠 Case 2: Silent Gradient Application Failure</h2>
+<p><strong>The Story:</strong> A user reported their model performance degrading over time, even though the gradient norm seemed stable. The community suspected issues with learning rates, data, or hardware.</p>
+<ul>
+<li><strong>The Root Cause:</strong> Gradients were not being applied to the model weights due to incorrect logic in a multi-GPU wrapper.</li>
+<li><strong>TrainCheck's Role:</strong> TrainCheck immediately flagged the root cause, revealing that despite gradient calculations, no actual model updates were happening.</li>
+</ul>
+<p><em>Source: <a href="https://x.com/_MattJiang_/status/1942338254906261616">Community Discussion on X</a></em></p>
+<hr />
+<h2 id="case-3-the-flat-loss-mystery">❓ Case 3: The Flat Loss Mystery</h2>
+<p><strong>The Story:</strong> A user experienced a completely flat loss curve, indicating the model was not learning at all. The cause was unclear, with suspicions pointing to the model architecture or optimizer configuration.</p>
+<ul>
+<li><strong>The Root Cause:</strong> The model and optimizer were incorrectly wrapped for Fully Sharded Data Parallel (FSDP) training, preventing <code>optimizer.step()</code> from updating model parameters.</li>
+<li><strong>TrainCheck's Role:</strong> TrainCheck identified the problem instantly by verifying that <code>zero_grad()</code> and <code>step()</code> calls resulted in <strong>zero actual model changes</strong>.</li>
+</ul>
+<p><em>Source: <a href="https://github.com/huggingface/accelerate/issues/2665">HuggingFace Accelerate Issue #2665</a></em></p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../5-min-tutorial/" class="btn btn-neutral float-left" title="5 Minute Quick Start"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../technical-doc/" class="btn btn-neutral float-right" title="Technical Documentation">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../5-min-tutorial/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../technical-doc/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

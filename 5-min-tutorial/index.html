@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>5 Minute Quick Start - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "5 Minute Quick Start";
+        var mkdocs_page_input_path = "5-min-tutorial.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">5 Minute Quick Start</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#background-whats-wrong-with-84911">Background: What’s wrong with 84911?</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#detecting-diagnosing-84911">Detecting &amp; Diagnosing 84911</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#1-download-example-scripts">1. Download example scripts</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#2-instrument-collect-trace-from-mnistpy-1-minute">2. Instrument &amp; collect trace from mnist.py (~1 minute)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#3-infer-invariants-from-mnistpy-1-4-minutes">3. Infer Invariants from mnist.py (~1-4 minutes)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#4-check-for-silent-issues-in-84911py-with-invariants-5-10-minutes">4. Check for silent issues in 84911.py with invariants (~5-10 minutes)</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#5-detection-diagnosis">5. Detection &amp; Diagnosis</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">5 Minute Quick Start</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="quick-start-traincheck-tutorial">Quick Start: TrainCheck Tutorial</h1>
+<p>In this tutorial, you will use TrainCheck to detect &amp; diagnose the real‑world silent issue in <a href="https://discuss.pytorch.org/t/obtaining-abnormal-changes-in-loss-and-accuracy/84911">PyTorch‑Forum‑84911: Obtaining abnormal changes in loss and accuracy</a>, with invariants inferred from PyTorch’s official MNIST example. We’ll refer to this buggy pipeline simply as '84911'.</p>
+<p><strong>Estimated time</strong>: ~5 minutes (plus model/inference overhead)</p>
+<p><strong>Prerequisites</strong><br />
+- <a href="../installation-guide/">A working TrainCheck installation</a><br />
+- <code>efficientnet_pytorch</code> (install via <code>pip3 install efficientnet_pytorch</code>)<br />
+- A Linux machine with a CUDA‑enabled GPU<br />
+  - 💡 Tip: If you don’t have a CUDA GPU, you can still run this tutorial on CPU—it’ll just take longer.</p>
+<h2 id="background-whats-wrong-with-84911">Background: What’s wrong with 84911?</h2>
+<p>The author attempts to finetune a pretrained <code>EfficientNet_b0</code> model for image classification but notices that—even after many epochs—the training loss barely improves (x‑axis = epoch, y‑axis = loss):</p>
+<div style="text-align: center;">
+    <img src="https://discuss.pytorch.org/uploads/default/original/3X/4/7/47252703dfeb2062b0a581df5572071657aa82c5.png" alt="loss curve v.s. epochs" style="max-width: 400px; height: auto;">
+</div>
+
+<p>It appears from the plot that the model is still being trained, but somehow it is just not improving meaningfully. 
+The original issue post discussed adjusting learning rate, and training for longer epochs. However, the issue remained unresolved.</p>
+<p>We have diagnosed the root cause for you. You can look at it now or come at it yourself with the help of TrainCheck.</p>
+<details>
+<summary>Click here to reveal the root cause.</summary><br>
+
+The developer, for some reason, sets `requires_grad` to `False` for all parameters except for batch normalization layers, yet only initializes the optimizer with the final fully-connected layer.
+
+
+<pre><code class="language-bash">for name,param in model_transfer.module.named_parameters():
+    if(&quot;bn&quot; not in name):
+        param.requires_grad = False
+
+for param in model_transfer.module._fc.parameters():
+    param.requires_grad = False
+
+...
+optimizer_transfer = optim.Adam(model_transfer.module._fc.parameters(), lr=0.001)
+</code></pre>
+
+
+This freeze logic leaves virtually no trainable parameters. Since batch normalization layers still update their running mean/variance each forward pass, the loss/accuracy curves drift slightly instead of remaining flat—masking the lack of actual learning. Logging metrics only once per epoch further hides the anomalies, so the initialization bug only becomes apparent after several epochs have already run.
+</details>
+
+<h2 id="detecting-diagnosing-84911">Detecting &amp; Diagnosing 84911</h2>
+<p>We will infer invariants from the mnist.py, a very simple PyTorch-official pipeline that trains a 2-layer CNN on MNIST, to showcase TrainCheck's capability.</p>
+<h3 id="1-download-example-scripts">1. Download example scripts</h3>
+<pre><code class="language-bash">cd ~
+mkdir traincheck-tutorial &amp;&amp; cd traincheck-tutorial
+wget https://raw.githubusercontent.com/OrderLab/traincheck/main/docs/assets/code/mnist.py
+wget https://raw.githubusercontent.com/OrderLab/traincheck/main/docs/assets/code/84911.py
+</code></pre>
+<p>💡 If the wget links above fail (e.g. due to branch changes or access issues), you can also download the files manually from:
+- <a href="../assets/code/mnist.py">mnist.py</a>
+- <a href="../assets/code/84911.py">84911.py</a></p>
+<h3 id="2-instrument-collect-trace-from-mnistpy-1-minute">2. <strong>Instrument &amp; collect trace from <code>mnist.py</code></strong> (~1 minute)</h3>
+<pre><code class="language-bash">traincheck-collect \
+  --pyscript mnist.py \
+  --models-to-track model \
+  --output-dir traincheck_mnist_trace
+</code></pre>
+<p>This instruments torch and model in <code>mnist.py</code>, runs it with default arguments, and writes JSON trace files into <code>traincheck_mnist_trace/</code> (≈ 1 minute). You’ll see the training logs and any benign PyTorch warnings on stdout.</p>
+<h3 id="3-infer-invariants-from-mnistpy-1-4-minutes">3. <strong>Infer Invariants from <code>mnist.py</code></strong> (~1-4 minutes)</h3>
+<p>We will infer invariants from the trace we just collected using the command below.</p>
+<pre><code class="language-bash">traincheck-infer -f ./traincheck_mnist_trace
+</code></pre>
+<p>This will produce an invariants.json file (one JSON Line per invariant). Verify the count:</p>
+<pre><code class="language-bash">wc -l invariants.json  # should output ~913
+</code></pre>
+<p>The generated invariants capture API invocation order, event expectations, and input-output relationships. Since the trace comes from a single, simple script, some invariants may overfit—we’ll cover filtering in the next steps.</p>
+<h3 id="4-check-for-silent-issues-in-84911py-with-invariants-5-10-minutes">4. Check for silent issues in <strong>84911.py</strong> with invariants (~5-10 minutes)</h3>
+<blockquote>
+<p><strong>Note</strong>: For this quickstart, we do offline checking for simplicity.</p>
+</blockquote>
+<pre><code class="language-bash"># trace the buggy pipeline (~5 minutes)
+traincheck-collect \
+  --pyscript 84911.py \
+  --models-to-track model_transfer \
+  --output-dir traincheck_84911_trace
+
+# run the checker (~2–6 minutes)
+traincheck-check \
+  --trace-folders traincheck_84911_trace \
+  --invariants invariants.json
+</code></pre>
+<p>The output of the traincheck-check command will contain this in the end:</p>
+<pre><code class="language-bash">Checking finished. 913 invariants checked
+Total failed invariants: 25/913
+Total passed invariants: 888/913 # number here includes both passed and not triggered invariants
+Total invariants that are not triggered: 552/913
+</code></pre>
+<p>361 invariants were checked on <code>84911.py</code>, and 25 got violated.</p>
+<p>The checker writes the full results to a folder named <code>traincheck_checker_results_&lt;timestamp&gt;</code>, containing the results (<code>failed.log</code>, <code>not_triggered.log</code>, <code>passed.log</code>, depending if an invariant is violated, not checked at all, or checked and passed.), and a copy of <code>invariants.json</code>.</p>
+<h3 id="5-detection-diagnosis">5. Detection &amp; Diagnosis</h3>
+<p>Ready to play detective? 🔍 TrainCheck flagged <strong>25 invariant violations</strong> right at the start of training—well before the fluctuating loss/accuracy pattern was observed. Let’s interpret the results first and then if you want to learn more.</p>
+<p><strong>1. Quick filter</strong><br />
+- <strong>Event‑order invariants noise</strong> (20/25 failures):<br />
+  - <code>FunctionCoverRelation</code> and <code>FunctionLeadRelation</code> invariants (basically specifying API invocation orders) overfit our single demo trace.<br />
+  - Examples: strict ordering of <code>torch.distributed.is_initialized</code> (6 invariants violated but we are not even doing distributed training in 84911!) or <code>torch.cuda.is_initialized</code> (another 7 invariants violated but shouldn't matter at all for training).
+  - <strong>Ignore these</strong>.</p>
+<p><strong>2. Spot the real issues</strong><br />
+- <strong>APIContainRelation</strong> invariant violations (5/25):<br />
+  1. <code>Optimizer.zero_grad</code> did <strong>not</strong> reset <code>.grad</code> from non-zero to zero/None.<br />
+     - Implies either no gradients were ever populated or zeroing silently failed.<br />
+  2. <code>Adadelta.step</code> did <strong>not</strong> update <code>.data</code> of any parameters.<br />
+     - Indicates the optimizer had <strong>no trainable parameters</strong> to touch.  </p>
+<p><strong>🧩 Putting it all together: The optimizer wasn’t updating anything because… the parameters it received had requires_grad=False. Go to <a href="#background-whats-wrong-with-84911">Background: What’s wrong in 84911?</a> to see the full root cause confirmed and explained.</strong></p>
+<details>
+<summary>🙋 Click here to learn how to inspect the raw results</summary><br>
+
+Open the `failed_*.log` file—TrainCheck writes each violated invariant as a standalone JSON object. For example:
+
+
+<pre><code class="language-json">{
+  &quot;invariant&quot;: { … },
+  &quot;check_passed&quot;: false,
+  &quot;triggered&quot;: true,
+  &quot;detection_time&quot;: 18343040207314524,
+  &quot;detection_time_percentage&quot;: 0.1805434802294184,
+  &quot;trace&quot;: [
+    {
+      &quot;func_call_id&quot;: &quot;...&quot;,
+      &quot;meta_vars.step&quot;: 1,
+      &quot;function&quot;: &quot;torch.optim.optimizer.Optimizer.zero_grad&quot;,
+      …
+    }
+    ...
+  ]
+}
+</code></pre>
+
+
+- `"invariant"` shows the invariant that this result correspond to, and 
+- `"trace"` corresponds to the specific trace that caused the violation.
+- `"check_passed": false` means that the invariant has been violated.
+- `"triggered": true` means that the invariant has been checked at least once, which is always the case if the invariant is violated.
+- `"detection_time"` is the timestamp when the violation happened.
+- `"detection_percentage"` is the percentage of this timestamp in the entire duration of the training, and gives a rough impression of how early the detection is. We are working on providing a field `"detection_step"` that pinpoints on which step the issue is detected. For now, to get "step", you can look at the `"trace"` field and look for step numbers in `"meta_vars"`.
+
+For example, the "`optimizer.zero_grad` did **not** reset `.grad` from non-zero to zero/None" is represented as:
+
+
+<pre><code class="language-json">{
+    &quot;invariant&quot;: {
+        &quot;relation&quot;: &quot;APIContainRelation&quot;,
+        &quot;params&quot;: [
+            {
+                &quot;param_type&quot;: &quot;APIParam&quot;,
+                &quot;api_full_name&quot;: &quot;torch.optim.optimizer.Optimizer.zero_grad&quot;
+            },
+            {
+                &quot;param_type&quot;: &quot;VarTypeParam&quot;,
+                &quot;var_type&quot;: &quot;torch.nn.Parameter&quot;,
+                &quot;attr_name&quot;: &quot;grad&quot;,
+                &quot;pre_value&quot;: &quot;non_zero&quot;,
+                &quot;post_value&quot;: null
+            }
+        ],
+        &quot;precondition&quot;: {
+            &quot;parent_func_call_pre&quot;: {
+                &quot;inverted&quot;: true,
+                &quot;preconditions&quot;: [
+                    {
+                        &quot;clauses&quot;: [
+                            {
+                                &quot;type&quot;: &quot;constant&quot;,
+                                &quot;prop_name&quot;: &quot;meta_vars.step&quot;,
+                                &quot;additional_path&quot;: &quot;None&quot;,
+                                &quot;prop_dtype&quot;: &quot;int&quot;,
+                                &quot;values&quot;: [
+                                    0
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        &quot;clauses&quot;: [
+                            {
+                                &quot;type&quot;: &quot;constant&quot;,
+                                &quot;prop_name&quot;: &quot;meta_vars.stage&quot;,
+                                &quot;additional_path&quot;: &quot;None&quot;,
+                                &quot;prop_dtype&quot;: &quot;str&quot;,
+                                &quot;values&quot;: [
+                                    &quot;testing&quot;,
+                                    &quot;init&quot;
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        },
+        &quot;num_positive_examples&quot;: 20,
+        &quot;num_negative_examples&quot;: 1
+    },
+    &quot;check_passed&quot;: false,
+    &quot;triggered&quot;: true,
+    &quot;detection_time&quot;: 18343039144178123,
+    &quot;detection_time_percentage&quot;: 0.16245728748900484,
+    &quot;trace&quot;: [
+        {
+            &quot;func_call_id&quot;: &quot;3f7265b362c34725b412cf693ceea8f3_18343039144122325&quot;,
+            &quot;thread_id&quot;: 140156043466560,
+            &quot;process_id&quot;: 1263911,
+            &quot;meta_vars.step&quot;: 1,
+            &quot;type&quot;: &quot;function_call (pre)&quot;,
+            &quot;function&quot;: &quot;torch.optim.optimizer.Optimizer.zero_grad&quot;,
+            &quot;is_bound_method&quot;: true,
+            &quot;obj_id&quot;: 140152527083248,
+            &quot;args&quot;: {
+                &quot;0&quot;: {
+                    &quot;torch.optim.adadelta.Adadelta&quot;: {}
+                }
+            },
+            &quot;kwargs&quot;: {},
+            &quot;time&quot;: 18343039144178123,
+            &quot;return_values&quot;: NaN,
+            &quot;var_name&quot;: NaN,
+            &quot;var_type&quot;: NaN,
+            &quot;mode&quot;: NaN,
+            &quot;dump_loc&quot;: NaN,
+            &quot;attributes._ML_DAIKON_data_ID&quot;: NaN,
+            &quot;attributes.data&quot;: NaN,
+            &quot;attributes.dtype&quot;: NaN,
+            &quot;attributes.grad&quot;: NaN,
+            &quot;attributes.grad_fn&quot;: NaN,
+            &quot;attributes.is_cpu&quot;: NaN,
+            &quot;attributes.is_cuda&quot;: NaN,
+            &quot;attributes.is_ipu&quot;: NaN,
+            &quot;attributes.is_leaf&quot;: NaN,
+            &quot;attributes.is_meta&quot;: NaN,
+            &quot;attributes.is_mkldnn&quot;: NaN,
+            &quot;attributes.is_mps&quot;: NaN,
+            &quot;attributes.is_mtia&quot;: NaN,
+            &quot;attributes.is_nested&quot;: NaN,
+            &quot;attributes.is_ort&quot;: NaN,
+            &quot;attributes.is_quantized&quot;: NaN,
+            &quot;attributes.is_sparse&quot;: NaN,
+            &quot;attributes.is_sparse_csr&quot;: NaN,
+            &quot;attributes.is_vulkan&quot;: NaN,
+            &quot;attributes.is_xla&quot;: NaN,
+            &quot;attributes.is_xpu&quot;: NaN,
+            &quot;attributes.itemsize&quot;: NaN,
+            &quot;attributes.name&quot;: NaN,
+            &quot;attributes.nbytes&quot;: NaN,
+            &quot;attributes.ndim&quot;: NaN,
+            &quot;attributes.requires_grad&quot;: NaN,
+            &quot;attributes.retains_grad&quot;: NaN,
+            &quot;attributes.shape&quot;: NaN,
+            &quot;attributes._ML_DAIKON_grad_ID&quot;: NaN,
+            &quot;exception&quot;: NaN,
+            &quot;exception_msg&quot;: NaN,
+            &quot;proxy_obj_names&quot;: NaN
+        }
+    ]
+}
+</code></pre>
+
+
+The invariant specifies that `torch.optim.optimizer.Optimizer.zero_grad` (*the first invariant parameter*) invocations must change `.grad` from a non-zero value to `null` (*the second invariant parameter*), except during the very first iteration (*i.e. before any backward pass when no `.grad` exists, as per the invariant precondition*). We then inspect the trace record where the invariant is violated: `meta_vars.step` is 1, indicating detection occurred in the second training iteration. You can review the other results in the same way.
+
+The `NaN` values denote missing fields and can be safely ignored.
+
+</details>
+
+<hr />
+<p>🎉 You just used TrainCheck to catch a real-world silent bug before it impacted training!</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../installation-guide/" class="btn btn-neutral float-left" title="Installation Guide"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../successful-stories/" class="btn btn-neutral float-right" title="Success Stories">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../installation-guide/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../successful-stories/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

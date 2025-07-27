@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="description" content="None" />
+      <link rel="shortcut icon" href="img/favicon.ico" />
+    <title>TrainCheck</title>
+    <link rel="stylesheet" href="css/theme.css" />
+    <link rel="stylesheet" href="css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Home";
+        var mkdocs_page_input_path = "README.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href="." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Home</a>
+    <ul class="current">
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href=".">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Home</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <div align="center">
+<picture>
+  <img alt="TrainCheck logo" width="55%" src="./assets/images/traincheck_logo.png">
+</picture>
+<h1>TrainCheck: Training with Confidence</h1>
+
+</div>
+
+<p><a href="https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml"><img alt="format and types" src="https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml/badge.svg" /></a>
+<a href="https://discord.gg/ZvYewjsQ9D"><img alt="Chat on Discord" src="https://img.shields.io/discord/1362661016760090736?label=Discord&amp;logo=discord&amp;style=flat" /></a></p>
+<p><strong>TrainCheck</strong> is a lightweight tool for proactively catching <strong>silent errors</strong> in deep learning training runs. It detects correctness issues, such as code bugs and faulty hardware, early and pinpoints their root cause.</p>
+<p>TrainCheck has detected silent errors in a wide range of real-world training scenarios, from large-scale LLM pretraining (such as BLOOM-176B) to small-scale tutorial runs by deep learning beginners.</p>
+<p>📌 For a list of successful cases, see our <a href="successful-stories/">Success Stories</a>.</p>
+<h2 id="what-it-does">What It Does</h2>
+<p>TrainCheck uses <strong>training invariants</strong>, which are semantic rules that describe expected behavior during training, to detect bugs as they happen. These invariants can be extracted from any correct run, including those produced by official examples and tutorials. There is no need to curate inputs or write manual assertions.</p>
+<p>TrainCheck performs three core functions:</p>
+<ol>
+<li>
+<p><strong>Instruments your training code</strong><br />
+   Inserts lightweight tracing into existing scripts (such as <a href="https://github.com/pytorch/examples">pytorch/examples</a> or <a href="https://github.com/huggingface/transformers/tree/main/examples">transformers</a>) with minimal code changes.</p>
+</li>
+<li>
+<p><strong>Learns invariants from correct runs</strong><br />
+   Discovers expected relationships across APIs, tensors, and training steps to build a model of normal behavior.</p>
+</li>
+<li>
+<p><strong>Checks new or modified runs</strong><br />
+   Validates behavior against the learned invariants and flags silent errors, such as missing gradient clipping, weight desynchronization, or broken mixed precision, right when they occur.</p>
+</li>
+</ol>
+<p>This picture illustrates the TrainCheck workflow:</p>
+<p><img alt="Workflow" src="assets/images/workflow.png" /></p>
+<p>Under the hood, TrainCheck decomposes into three CLI tools:
+- <strong>Instrumentor</strong> (<code>traincheck-collect</code>)
+  Wraps target training programs with lightweight tracing logic. It produces an instrumented version of the target program that logs API calls and model states without altering training semantics.
+- <strong>Inference Engine</strong> (<code>traincheck-infer</code>)
+  Consumes one or more trace logs from successful runs to infer training invariants.
+- <strong>Checker</strong> (<code>traincheck-check</code>)
+  Runs alongside or after new training jobs to verify that each recorded event satisfies the inferred invariants.</p>
+<h2 id="try-traincheck">🔥 Try TrainCheck</h2>
+<p>Work through <a href="5-min-tutorial/">5‑Minute Experience with TrainCheck</a>. You’ll learn how to:
+   - Instrument a training script and collect a trace<br />
+   - Automatically infer invariants<br />
+   - Uncover silent bugs in the training script</p>
+<h2 id="documentation">Documentation</h2>
+<ul>
+<li><strong><a href="installation-guide/">Installation Guide</a></strong></li>
+<li><strong><a href="usage-guide/">Usage Guide: Scenarios and Limitations</a></strong></li>
+<li><strong><a href="technical-doc/">TrainCheck Technical Doc</a></strong></li>
+<li><strong><a href="./ROADMAP.md">TrainCheck Dev RoadMap</a></strong></li>
+</ul>
+<h2 id="status">Status</h2>
+<p>TrainCheck is under active development. Please join our 💬 <a href="https://discord.gg/VwxpJDvB">Discord server</a> or file a GitHub issue for support. 
+We welcome feedback and contributions from early adopters.</p>
+<h2 id="contributing">Contributing</h2>
+<p>We welcome and value any contributions and collaborations. Please check out <a href="./CONTRIBUTING.md">Contributing to TrainCheck</a> for how to get involved.</p>
+<h2 id="license">License</h2>
+<p>TrainCheck is licensed under the <a href="./LICENSE">Apache License 2.0</a>.</p>
+<h2 id="citation">Citation</h2>
+<p>If TrainCheck is relevant to your work, please cite our paper:</p>
+<pre><code class="language-bib">@inproceedings{TrainCheckOSDI2025,
+  author = {Jiang, Yuxuan and Zhou, Ziming and Xu, Boyu and Liu, Beijie and Xu, Runhui and Huang, Peng},
+  title = {Training with Confidence: Catching Silent Errors in Deep Learning Training with Automated Proactive Checks},
+  booktitle = {Proceedings of the 19th USENIX Symposium on Operating Systems Design and Implementation},
+  series = {OSDI '25},
+  month = {July},
+  year = {2025},
+  address = {Boston, MA, USA},
+  publisher = {USENIX Association},
+}
+</code></pre>
+<h2 id="artifact-evaluation">Artifact Evaluation</h2>
+<p>🕵️‍♀️ OSDI AE members, please see <a href="ae/">TrainCheck AE Guide</a>.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="installation-guide/" class="btn btn-neutral float-right" title="Installation Guide">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+      <span><a href="installation-guide/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = ".";</script>
+    <script src="js/theme_extra.js"></script>
+    <script src="js/theme.js"></script>
+      <script src="search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
+
+<!--
+MkDocs version : 1.6.1
+Build Date UTC : 2025-07-27 18:22:15.560861+00:00
+-->
