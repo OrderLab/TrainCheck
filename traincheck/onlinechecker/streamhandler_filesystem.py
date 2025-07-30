@@ -184,6 +184,7 @@ class StreamLogHandler(FileSystemEventHandler):
                     self.pt_map[ptname][func_call_id].args = trace_record["args"]
                     self.pt_map[ptname][func_call_id].kwargs = trace_record["kwargs"]
                 elif trace_type == TraceLineType.FUNC_CALL_POST:
+                    assert self.pt_map[ptname][func_call_id].pre_record is not None
                     self.pt_map[ptname][func_call_id].post_record = trace_record
                     self.pt_map[ptname][func_call_id].return_values = trace_record[
                         "return_values"
