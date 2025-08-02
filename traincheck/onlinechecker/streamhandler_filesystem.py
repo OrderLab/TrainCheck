@@ -184,6 +184,7 @@ class StreamLogHandler(FileSystemEventHandler):
                     self.pt_map[ptname][func_call_id].args = trace_record["args"]
                     self.pt_map[ptname][func_call_id].kwargs = trace_record["kwargs"]
                 elif trace_type == TraceLineType.FUNC_CALL_POST:
+                    assert self.pt_map[ptname][func_call_id].pre_record is not None
                     self.pt_map[ptname][func_call_id].post_record = trace_record
                     self.pt_map[ptname][func_call_id].return_values = trace_record[
                         "return_values"
@@ -324,7 +325,7 @@ def run_stream_monitor(traces, trace_folders, checker_data: Checker_data):
 
     if trace_folders is not None:
         for trace_folder in trace_folders:
-            for file in os.listdir(trace_folder):
+            for file in sorted(os.listdir(trace_folder)):
                 if file.startswith("trace_") or file.endswith("proxy_log.json"):
                     file_path = os.path.join(trace_folder, file)
                     handler = StreamLogHandler(file_path, checker_data)

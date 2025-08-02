@@ -1034,7 +1034,7 @@ class ConsistentInputOutputRelation(Relation):
                 if input_value != output_value:
                     check_passed = False
             except (IndexError, KeyError):
-                logger.warning(
+                logger.debug(
                     f"Could not find the value to be checked in input or output tensors for the hypothesis {inv}, skipping this function call."
                 )
 

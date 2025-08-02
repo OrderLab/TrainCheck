@@ -1,0 +1,52 @@
+name: Correctness Checks
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'traincheck/invariant/**'
+      - 'traincheck/onlinechecker/**'
+      - 'traincheck/checker_online.py'
+      - 'traincheck/checker.py'
+
+permissions:
+  contents: write
+  deployments: write
+  pull-requests: write
+
+jobs:
+  correctness-check:
+    runs-on: self-hosted
+
+    name: Run Correctness Checks
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        name: Checkout TrainCheck-Benchmarks
+        with:
+          repository: OrderLab/TrainCheck-Benchmarks
+          path: benchmarks
+          lfs: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+    
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run correctness script
+        run: |
+          cd benchmarks/correctness_check
+          python3 correct_check.py
+
+      - name: Clear check files
+        run: |
+          cd benchmarks/correctness_check
+          rm -rf trace_*
+          rm -rf traincheck_*
