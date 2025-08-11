@@ -6,7 +6,7 @@ In this tutorial, you will use TrainCheck to detect & diagnose the real‑world 
 
 **Prerequisites**  
 - [A working TrainCheck installation](./installation-guide.md)  
-- `efficientnet_pytorch` (install via `pip3 install efficientnet_pytorch`)  
+- `efficientnet_pytorch` and `torchvision` (install via `pip3 install efficientnet_pytorch torchvision`)  
 - A Linux machine with a CUDA‑enabled GPU  
   - 💡 Tip: If you don’t have a CUDA GPU, you can still run this tutorial on CPU—it’ll just take longer.
 

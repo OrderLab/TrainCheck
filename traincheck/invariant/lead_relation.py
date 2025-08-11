@@ -428,7 +428,7 @@ class FunctionLeadRelation(Relation):
                 assert last_example is not None
 
                 if event_A_idx >= len(events_A_pre):
-                    max_time = events_B_post["time"].max()
+                    max_time = max([event["time"] for event in events_B_post])
                     if pre_event_A_time <= max_time:
                         hypothesis_with_examples[
                             (func_A, func_B)
@@ -673,7 +673,7 @@ class FunctionLeadRelation(Relation):
                     break
 
                 if event_A_idx >= len(events_A_pre):
-                    max_time = events_B_post["time"].max()
+                    max_time = max([event["time"] for event in events_B_post])
                     if pre_event_A_time <= max_time:
                         hypothesis[(func_A, func_B)].positive_examples.add_example(
                             last_example
