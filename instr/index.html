@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Instrumentation &amp; Trace Representation - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Instrumentation \u0026amp; Trace Representation";
+        var mkdocs_page_input_path = "instr.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Instrumentation &amp; Trace Representation</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="instrumentation-trace-representation">Instrumentation &amp; Trace Representation</h1>
+<p><code>traincheck-collect</code> is the starting point of TrainCheck's workflow. It instruments your PyTorch training script to capture runtime behavior, generating detailed execution traces for later invariant inference and issue detection.</p>
+<p>This document explains how to use <code>traincheck-collect</code> effectively.<br />
+TrainCheck dynamically wraps key PyTorch APIs and monitors model states—<strong>no modifications to your original training code are required</strong>.</p>
+<p>Use <code>traincheck-collect</code> when you need to:
+- Generate traces from <strong>reference pipelines</strong> for invariant inference.
+- Collect traces from <strong>target pipelines</strong> to detect silent issues using pre-inferred invariants.</p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ol>
+<li><a href="#instrumentation--trace-representation">Introduction</a></li>
+<li><a href="#-basic-usage">🔧 Basic Usage</a></li>
+<li><a href="#configuration-file-example">Configuration File Example</a></li>
+<li><a href="#running-traincheck-collect">Running traincheck-collect</a></li>
+<li><a href="#selective-instrumentation-for-checking">Selective Instrumentation for Checking</a></li>
+<li><a href="#output-structure">Output Structure</a></li>
+<li><a href="#overriding-configuration-via-cli">Overriding Configuration via CLI</a></li>
+<li><a href="#adding-meta-variables-to-traces">Adding Meta Variables to Traces</a></li>
+<li><a href="#learn-how-meta-variables-improve-invariant-inference">How Meta Variables Improve Inference</a></li>
+<li><a href="#-examples-of-useful-meta-variables">Examples of Useful Meta Variables</a></li>
+<li><a href="#how-to-annotate-meta-variables">How to Annotate Meta Variables</a></li>
+<li><a href="#trace-representation">Trace Representation</a></li>
+<li><a href="#instrumentation-mechanisms">Instrumentation Mechanisms</a></li>
+<li><a href="#advanced-usage">Advanced Usage</a>  <!-- Placeholder for your future section --></li>
+<li><a href="#algorithms-overview">Algorithms Overview</a>  <!-- Placeholder for your future section --></li>
+<li><a href="#troubleshooting--faqs">Troubleshooting &amp; FAQs</a>  <!-- Optional but useful for AE --></li>
+</ol>
+<h2 id="basic-usage">🔧 Basic Usage</h2>
+<p><code>traincheck-collect</code> requires three types of input:</p>
+<ol>
+<li><strong>Python script</strong> to instrument.</li>
+<li><strong>Launch arguments</strong> (if any) for executing the script.</li>
+<li><strong>Instrumentation-specific configurations</strong>.</li>
+</ol>
+<p>You can provide these inputs either directly via the command line or through a configuration file.<br />
+▶️ <strong>Recommendation</strong>: Use a configuration file for clarity and reusability.</p>
+<p>Here’s an example configuration:</p>
+<pre><code class="language-yaml">pyscript: ./mnist.py        # Python entry point of your training program.
+shscript: ./run.sh          # [Optional] Shell script to launch with custom arguments or environment setup.
+modules_to_instr:           # Libraries to instrument. Defaults to ['torch'] if omitted.
+  - torch
+models_to_track:            # [Optional] Variable names of models to track. Leave empty to disable model tracking.
+  - model
+model_tracker_style: proxy  # [Optional] Tracking method: &quot;proxy&quot; (default) or &quot;sampler&quot;.
+copy_all_files: false       # [Optional] Set true if your code relies on relative paths (e.g., local datasets/configs).
+</code></pre>
+<p>You can find example configurations and training programs in:
+    •   <a href="./assets/examples/traincheck-collect/mnist-config/">MNIST Example</a>
+    •   <a href="./assets/examples/traincheck-collect/gpt2-pretrain-config/">GPT-2 Pretrain Example</a></p>
+<p>Run TrainCheck trace collection with:  </p>
+<pre><code class="language-bash">traincheck-collect --use-config --config &lt;path-to-config-file&gt;
+</code></pre>
+<p>This command instruments the specified libraries and model variables, then executes your program.
+(Details on instrumentation mechanisms and limitations will follow in the next section. TODO)</p>
+<h3 id="selective-instrumentation-for-checking">Selective Instrumentation for Checking</h3>
+<p>When checking for silent issues, <code>traincheck-collect</code> supports selective instrumentation to improve efficiency.
+Simply provide the invariants file:</p>
+<pre><code class="language-bash">traincheck-collect --use-config --config &lt;path-to-config&gt; --invariants &lt;path-to-inv-file&gt;
+</code></pre>
+<p>TrainCheck will automatically adjust instrumentation granularity based on the provided invariants.</p>
+<h3 id="output-structure">Output Structure</h3>
+<p>By default, TrainCheck creates a folder named:</p>
+<pre><code class="language-bash">traincheck_run_&lt;pyscript_name&gt;_&lt;instr_libs&gt;_&lt;timestamp&gt;
+</code></pre>
+<p>This folder contains:
+- Collected traces
+- Instrumented scripts and execution logs (if the program completes successfully)</p>
+<p>You can also provide any additional arguments not specified in the configuration through the commandline interface, such as</p>
+<h3 id="overriding-configuration-via-cli">Overriding Configuration via CLI</h3>
+<p>You can override or supplement configuration settings by providing additional arguments directly via the command line. For example:</p>
+<pre><code class="language-bash"># Write trace files to ./trace_training instead of using the default auto-generated folder name
+traincheck-collect --use-config --config &lt;path-to-config-file&gt; --output-dir trace_training
+</code></pre>
+<p>To view all available command-line arguments and configuration options, run:</p>
+<pre><code class="language-bash">traincheck-collect --help
+</code></pre>
+<p><strong>Note</strong>: When using a configuration file, replace hyphens (-) in argument names with underscores (_).
+For example:
+- Command-line: <code>--output-dir trace_training</code>
+- Configuration file: <code>output_dir: trace_training</code></p>
+<h2 id="adding-meta-variables-to-traces">Adding Meta Variables to Traces</h2>
+<p>You can enhance your traces by providing <strong>custom meta variables</strong>—semantic information about your program's execution. These annotations improve the <strong>quality and precision</strong> of inferred invariants by offering context that might not be directly observable from raw traces.</p>
+<details>
+<summary>Learn how meta variables improve invariant inference</summary>
+
+TrainCheck infers **preconditions** for each invariant—these are predicates that distinguish between positive and negative examples in the trace.  
+- A **positive example** is a trace segment where the invariant holds.  
+- A **negative example** is where it is violated.
+
+Many invariants are inherently **conditional**, meaning they only hold true under certain contexts (e.g., during training but not initialization). TrainCheck tries to automatically discover such conditions.
+
+However, trace data alone may lack sufficient context. This is where **meta variables** come in—they inject semantic hints (like execution phase or step number) to guide smarter inference.
+
+</details>
+
+<h3 id="examples-of-useful-meta-variables">✨ Examples of Useful Meta Variables</h3>
+<ol>
+<li><strong><code>stage</code></strong> — Indicates whether a trace record belongs to initialization, training, or evaluation.</li>
+<li><strong><code>step_id</code></strong> — The current training step or iteration number.</li>
+<li><strong>Custom arguments</strong> — Any domain-specific flags or parameters relevant to your training logic.</li>
+</ol>
+<h3 id="how-to-annotate-meta-variables">How to Annotate Meta Variables</h3>
+<p>📌 <strong>[To Be Documented]</strong><br />
+Instructions for defining and injecting meta variables into traces will be provided in a future update.</p>
+<h2 id="trace-representation">Trace Representation</h2>
+<p>📌 <strong>[To Be Documented]</strong> </p>
+<h2 id="instrumentation-mechanisms">Instrumentation Mechanisms</h2>
+<p>📌 <strong>[To Be Documented]</strong><br />
+Details about TrainCheck’s instrumentation strategies, supported APIs, and limitations will be covered here later.</p>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

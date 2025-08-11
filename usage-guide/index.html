@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Usage Tips - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Usage Tips";
+        var mkdocs_page_input_path = "usage-guide.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul class="current">
+                <li class="toctree-l1 current"><a class="reference internal current" href="#">Usage Tips</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#quick-start">🚀 Quick Start</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#common-use-cases">✅ Common Use Cases</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#tips-for-effective-use">🧠 Tips for Effective Use</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#current-limitations">🚧 Current Limitations</a>
+    </li>
+    </ul>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Usage Tips</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="traincheck-usage-guide">🧪 TrainCheck: Usage Guide</h1>
+<p>TrainCheck helps detect and diagnose silent errors in deep learning training runs—issues that don't crash your code but silently break correctness.</p>
+<h2 id="quick-start">🚀 Quick Start</h2>
+<p>Check out the <a href="./docs/5-min.md">5-minute guide</a> for a minimal working example.</p>
+<h2 id="common-use-cases">✅ Common Use Cases</h2>
+<p>TrainCheck is useful when your training process doesn’t converge, behaves inconsistently, or silently fails. It can help you:</p>
+<ul>
+<li><strong>Monitor</strong> long-running training jobs and catch issues early</li>
+<li><strong>Debug</strong> finished runs and pinpoint where things went wrong</li>
+<li><strong>Sanity-check</strong> new pipelines, code changes, or infrastructure upgrades</li>
+</ul>
+<p>TrainCheck detects a range of correctness issues—like misused APIs, incorrect training logic, or hardware faults—without requiring labels or modifications to your training code.</p>
+<p><strong>While TrainCheck focuses on correctness, it’s also useful for <em>ruling out bugs</em> so you can focus on algorithm design with confidence.</strong></p>
+<h2 id="tips-for-effective-use">🧠 Tips for Effective Use</h2>
+<ol>
+<li>
+<p><strong>Use short runs to reduce overhead.</strong><br />
+   If your hardware is stable, you can validate just the beginning of training. Use smaller models and fewer iterations to speed up turnaround time.</p>
+</li>
+<li>
+<p><strong>Choose good reference runs for inference.</strong>  </p>
+</li>
+<li>If you have a past run of the same code that worked well, just use that.</li>
+<li>You can also use small-scale example pipelines that cover different features of the framework (e.g., various optimizers, mixed precision, optional flags).</li>
+<li>
+<p>If you're debugging a new or niche feature with limited history, try using the official example as a reference. Even if the example is not bug-free, invariant violations can still highlight behavioral differences between your run and the example, helping you debug faster.</p>
+</li>
+<li>
+<p><strong>Minimize scale when collecting traces.</strong>  </p>
+</li>
+<li>Shrink the pipeline by using a smaller model, running for only ~10 iterations, and using the minimal necessary compute setup (e.g., 2 nodes for distributed training).</li>
+</ol>
+<h2 id="current-limitations">🚧 Current Limitations</h2>
+<ul>
+<li>
+<p><strong>Eager mode only.</strong> TrainCheck instrumentor currently works only in PyTorch eager mode. Features like <code>torch.compile</code> are disabled during instrumentation.</p>
+</li>
+<li>
+<p><strong>Not fully real-time (yet).</strong> Invariant checking is semi-online. Full real-time support is planned but not yet available.</p>
+</li>
+</ul>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../technical-doc/" class="btn btn-neutral float-left" title="Technical Documentation"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../benchmarks/" class="btn btn-neutral float-right" title="Performance Benchmarks">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../technical-doc/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../benchmarks/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Invariant Inference &amp; Representation - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Invariant Inference \u0026amp; Representation";
+        var mkdocs_page_input_path = "infer.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Invariant Inference &amp; Representation</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="invariant-inference-representation">Invariant Inference &amp; Representation</h1>
+<p><code>traincheck-infer</code> is part of the <strong>inference stage</strong> of the TrainCheck workflow. It consumes trace files collected from correct training runs and infers behavioral invariants that describe expected runtime behavior. These invariants are later used by <code>traincheck-check</code> to detect violations in other training pipelines.</p>
+<h2 id="table-of-contents">📚 Table of Contents</h2>
+<ul>
+<li><a href="#-basic-usage">🔧 Basic Usage</a></li>
+<li><a href="#️-advanced-usage">⚙️ Advanced Usage</a></li>
+<li><a href="#-invariant-concepts">📘 Invariant Concepts</a></li>
+<li><a href="#-practical-guidelines-choosing-input-pipelines">🧪 Guidelines: Choosing Input Pipelines</a></li>
+<li><a href="#-tips-performance-and-stability">🧠 Tips: Performance and Stability</a></li>
+<li><a href="TODO">🔗 Next Step</a></li>
+</ul>
+<h2 id="basic-usage">🔧 Basic Usage</h2>
+<p>In most cases, you only need to specify one or more folders (generated by <code>traincheck-collect</code>) containing trace files using the <code>-f</code> or <code>--trace-folders</code> flag:</p>
+<pre><code class="language-bash">traincheck-infer -f ./traincheck_mnist_trace ./traincheck_84911_trace ..
+</code></pre>
+<p>You can provide multiple folders to aggregate traces from different correct runs or programs. This helps TrainCheck generalize better and avoid overfitting to any single pipeline, reducing false positives during checking—especially when the inferred invariants are applied to unrelated or structurally different pipelines.</p>
+<p>This command will infer invariants from all trace folders provided, and output invariants into <code>invariants.json</code>.</p>
+<h2 id="advanced-usage">⚙️ Advanced Usage</h2>
+<p>traincheck-infer provides additional flags for customization and debugging. Some concepts such as "relation" will be explained later.</p>
+<ol>
+<li><code>-o, --output</code>: Specify a custom file name for the invariants.</li>
+<li>
+<p><code>--disable-relation</code> / <code>--enable-relation</code>: Control which types of invariants to infer. This is useful for reducing noise or targeting specific checks.
+    ```bash
+    # Disable ordering-based invariants
+    traincheck-infer -f ./traces --disable-relation FunctionLeadRelation FunctionCoverRelation</p>
+<h1 id="enable-only-contain-and-variable-consistency-invariants">Enable only contain and variable consistency invariants</h1>
+<p>traincheck-infer -f ./traces --enable-relation APIContainRelation ConsistencyRelation
+```</p>
+<blockquote>
+<p>See <a href="../traincheck/invariant/relation_pool.py">traincheck.invariant.relation_pool</a> for a complete list of invariants.
+3. <code>-b, --backend</code>: Select the data processing engine for trace handling.
+- <code>pandas</code> (default): stable and well-tested.
+- <code>polars</code>: faster for large traces (experimental)
+- <code>dict</code>: pure Python dictionary backend (experimental)</p>
+</blockquote>
+</li>
+</ol>
+<blockquote>
+<p>Other flags (e.g. <code>--debug</code>, <code>-t --traces</code>) are available via traincheck-infer --help, but are rarely needed unless you are debugging or developing TrainCheck itself.</p>
+</blockquote>
+<h2 id="invariant-concepts">📘 Invariant Concepts</h2>
+<p>TrainCheck infers <strong>invariants</strong> — logical properties that are consistently held during correct training runs. These invariants are used to define the <em>expected</em> behavior of a training pipeline, and later help detect silent issues when applied to other runs.</p>
+<p>Each invariant describes a specific pattern of behavior observed in the trace, such as:
+- Attribute changes during a function call (e.g., <code>.grad</code> becomes <code>None</code> in <code>zero_grad()</code>)
+- Ordering relationships between API calls (e.g., <code>zero_grad()</code> should occur before <code>step()</code>)
+- Consistency among values across different parameters (e.g., shared parameters should have the same value across devices during distributed training)</p>
+<h3 id="invariant-representation">Invariant Representation</h3>
+<p>An invariant is defined by three things:
+1. <strong>relation</strong>: the relationship this invariant encodes, can be viewed as an invariant template. Each relation has a separate inference algorithm defined (e.g., <a href="../traincheck/invariant/consistency_relation.py">ConsistencyRelation.infer</a>)
+2. <strong>params</strong>: descriptors for entities that should obey the relationship.
+3. <strong>precondition</strong>: a logical predicate defining the context when an invariant can be applied.</p>
+<p>In the actual json representation of invariants in the <code>traincheck-infer</code> output, an invariant looks like this.</p>
+<pre><code class="language-json">{
+  &quot;text_description&quot;: &quot;torch.optim.optimizer.Optimizer.zero_grad contains VarChangeEvent torch.nn.Parameter, pre_value: non_zero, post_value: None&quot;,
+  &quot;relation&quot;: &quot;APIContainRelation&quot;,
+  &quot;params&quot;: [
+    {
+      &quot;param_type&quot;: &quot;APIParam&quot;,
+      &quot;api_full_name&quot;: &quot;torch.optim.optimizer.Optimizer.zero_grad&quot;
+    },
+    {
+      &quot;param_type&quot;: &quot;VarTypeParam&quot;,
+      &quot;var_type&quot;: &quot;torch.nn.Parameter&quot;,
+      &quot;attr_name&quot;: &quot;grad&quot;,
+      &quot;pre_value&quot;: &quot;non_zero&quot;,
+      &quot;post_value&quot;: null
+    }
+  ],
+  &quot;precondition&quot;: {
+    &quot;parent_func_call_pre&quot;: {
+      &quot;inverted&quot;: true,
+      &quot;preconditions&quot;: [
+        {
+          &quot;clauses&quot;: [
+            {
+              &quot;type&quot;: &quot;constant&quot;,
+              &quot;prop_name&quot;: &quot;meta_vars.step&quot;,
+              &quot;additional_path&quot;: &quot;None&quot;,
+              &quot;prop_dtype&quot;: &quot;int&quot;,
+              &quot;values&quot;: [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          &quot;clauses&quot;: [
+            {
+              &quot;type&quot;: &quot;constant&quot;,
+              &quot;prop_name&quot;: &quot;meta_vars.stage&quot;,
+              &quot;additional_path&quot;: &quot;None&quot;,
+              &quot;prop_dtype&quot;: &quot;str&quot;,
+              &quot;values&quot;: [
+                &quot;init&quot;,
+                &quot;testing&quot;
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  &quot;num_positive_examples&quot;: 200,
+  &quot;num_negative_examples&quot;: 1
+}
+</code></pre>
+<p>This invariant encodes the expectation that calling torch.optim.optimizer.Optimizer.zero_grad() should reset gradients — that is, the .grad attribute of torch.nn.Parameter objects should transition from a non-zero value to null (i.e., None or missing).
+- <strong>text_description:</strong></p>
+<pre><code>A human-readable summary of the invariant.
+&gt; Note: This field is generated using a best-effort strategy and may not fully reflect the invariant’s semantics. In some cases, it may be missing or incomplete. 📆 We are planning to further formalize this field in the future.
+</code></pre>
+<ul>
+<li>
+<p><strong>relation: "APIContainRelation"</strong></p>
+<p>An event is expected to happen within the duration of an API invocation.</p>
+</li>
+<li>
+<p><strong>params:</strong></p>
+<ul>
+<li>An API call: <code>zero_grad()</code> on a PyTorch optimizer</li>
+<li>An attribute: <code>.grad</code> on a <code>torch.nn.Parameter</code>, which should change from a non-zero value (<code>"pre_value": "non_zero"</code>) to null (<code>"post_value": null</code>) during the call</li>
+</ul>
+</li>
+<li>
+<p><strong>precondition:</strong>
+    This invariant only applies <strong>outside</strong> the following contexts:</p>
+<ul>
+<li>The first step of training (<code>meta_vars.step == 0</code>)</li>
+<li>The init or testing stages (<code>meta_vars.stage in {"init", "testing"}</code>)<blockquote>
+<p>These are specified as inverted preconditions, meaning the invariant does not apply during those times (e.g., it’s okay to not clear .grad on the first step when nothing has been backpropagated yet).</p>
+</blockquote>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>num_positive_examples: 20</strong>
+    This behavior was observed and confirmed 200 times in the reference traces.</p>
+</li>
+<li>
+<p><strong>num_negative_examples: 1</strong>
+    The invariant failed once — in this case, during the first training iteration, when .grad had not yet been populated before the zero_grad() call.
+    &gt; <strong>🎯 This behavior is expected and correctly handled by the precondition, which excludes step 0.</strong></p>
+</li>
+</ul>
+<h3 id="invariant-inference-workflow">Invariant Inference Workflow</h3>
+<p>At a high level, TrainCheck performs invariant inference in three stages:</p>
+<ol>
+<li>
+<p>Hypothesis Generation</p>
+<p>For each supported relation type, TrainCheck scans the provided traces and generates hypotheses by identifying patterns where a potential invariant could exist (i.e., when matching examples are observed).</p>
+</li>
+<li>
+<p>Example Collection</p>
+<p>For every hypothesis, TrainCheck performs a full scan across all provided traces to gather positive examples (where the hypothesized invariant holds) and negative examples (where it does not).</p>
+</li>
+<li>
+<p>Precondition Deduction</p>
+<p>TrainCheck analyzes the collected examples to infer a distinguishing predicate—a logical condition that holds true for all positive examples and false for negative ones. This predicate becomes the invariant’s precondition, reducing false positives during checking.</p>
+</li>
+</ol>
+<p>⚙️ For full details on the inference algorithms, please refer to our OSDI’25 paper (documentation is in progress).</p>
+<h2 id="practical-guidelines-choosing-input-pipelines">🧪 Practical Guidelines: Choosing Input Pipelines</h2>
+<p>When selecting input pipelines for invariant inference, there are two main considerations:</p>
+<ol>
+<li>
+<p><strong>Representativeness</strong></p>
+<p>You want your input pipelines to be diverse enough to infer a representative set of invariants. This helps:
+- Avoid overfitting to specific patterns.
+- Ensure that inferred invariants and preconditions remain accurate across varying scenarios.</p>
+<p>For example, if none of your input pipelines use mixed precision, TrainCheck might infer invariants like:</p>
+<blockquote>
+<p>"For mathematical operations, the output dtype must equal the input dtype."</p>
+</blockquote>
+<p>However, if mixed precision pipelines are included, TrainCheck will refine such invariants by adding preconditions like:</p>
+<blockquote>
+<p>"This applies only when a torch.autocast context manager is not active."</p>
+</blockquote>
+<p><strong>⚡ How many pipelines should you include?</strong> It depends on how different your target pipeline is from available reference pipelines:
+- If the target is a minor variant of a known-good pipeline, using just that reference may suffice.
+- If the target pipeline introduces new frameworks, tasks, or architectures, include a broader set of inputs to improve generalization.</p>
+</li>
+<li>
+<p><strong>Inference Time</strong></p>
+<p>Inference time is generally not a major concern, since inference happens offline. However, due to the repetitive nature of training loops, you can safely shorten reference runs without sacrificing invariant quality.</p>
+<p>In practice:
+- For all bugs detected by TrainCheck so far, we limited inference traces to at most 100 iterations.
+- Shortened runs have shown no significant impact on the usefulness or accuracy of inferred invariants.</p>
+</li>
+</ol>
+<h3 id="core-principles-a-summary">Core Principles – A Summary</h3>
+<ul>
+<li>Focus on the diversity of input traces — capturing different configurations, behaviors, or modes of operation.</li>
+<li>The length or size of traces matters far less.</li>
+<li>Efficient inference is achievable with short, representative runs.</li>
+</ul>
+<h2 id="implementation-limitations">Implementation Limitations</h2>
+<p>TrainCheck operates on large traces with a dynamic schema, where variable types and fields can change over time. This, combined with the need for cross-trace comparisons, limits the use of typical data storage solutions like SQL databases or optimized DataFrame libraries (e.g., Polars), which require fixed schemas.</p>
+<p>To handle this, we use in-process Pandas DataFrames backed by NumPy. While effective, this approach is currently single-threaded due to Python’s GIL, leaving room for future performance improvements.</p>
+<p>We are exploring options such as shared-memory DataFrames, schema standardization, or schemaless databases (e.g., MongoDB) if data transmission overhead proves manageable.</p>
+<blockquote>
+<p>Note: While data sharding could improve parallelism, it would overcomplicate cross-trace and cross-time analysis and is better handled at the storage layer rather than within inference logic.</p>
+</blockquote>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

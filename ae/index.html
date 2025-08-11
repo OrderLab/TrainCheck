@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>TrainCheck Artifact Evaluation Guide - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "TrainCheck Artifact Evaluation Guide";
+        var mkdocs_page_input_path = "ae.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">TrainCheck Artifact Evaluation Guide</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="traincheck-artifact-evaluation-guide">TrainCheck Artifact Evaluation Guide</h1>
+<p>Welcome to the artifact evaluation guide for <strong>TrainCheck</strong> (OSDI'25). This document outlines the procedures needed to reproduce our results and guides you through the key experiments presented in the paper.</p>
+<blockquote>
+<p><strong>Note:</strong> We may update both the main TrainCheck repository and the evaluation workloads repository during the evaluation period.<br />
+Please make sure to <strong>pull the latest version</strong> of each repository before proceeding.</p>
+</blockquote>
+<h2 id="checklist">✅ Checklist</h2>
+<ul>
+<li>[ ] Environment set up (Python, dependencies, 2 CUDA GPUs with ≥ 12GiB memory each)</li>
+<li>[ ] Installed <code>xonsh</code> via <code>pip3 install 'xonsh[full]'</code> in the conda environment</li>
+<li>[ ] Ran <strong><a href="../ae-eval-s5.1-silent-issue-detection/">Silent Issue Detection</a></strong> experiment</li>
+<li>[ ] Ran <strong><a href="../ae-eval-s5.3-transferability/">Invariant Transferability</a></strong> evaluation</li>
+<li>[ ] Ran <strong><a href="../ae-eval-s5.4-fp-rate/">False Positive Rate</a></strong> evaluation</li>
+<li>[ ] Ran <strong><a href="../ae-eval-s5.5-perf-overhead/">Performance Overhead</a></strong> measurement</li>
+<li>[ ] Verified outputs match expected results (tolerances noted per experiment)</li>
+</ul>
+<h2 id="resources-you-need">📎 Resources You Need</h2>
+<p>In addition to this guide, you will need the following resources throughout the evaluation process:</p>
+<ol>
+<li><a href="../5-min-tutorial/"><strong>5-Minute Tutorial</strong></a> — A quick walkthrough that introduces TrainCheck’s workflow using a real-world bug.</li>
+<li><a href="../installation-guide/"><strong>TrainCheck Installation Guide</strong></a> — Step-by-step instructions for setting up TrainCheck.</li>
+<li><a href="../technical-doc/"><strong>Technical Usage Guide</strong></a> — Detailed documentation on how to use TrainCheck, configure instrumentation, and interpret outputs.</li>
+<li><a href="https://github.com/OrderLab/TrainCheck-Evaluation-Workloads"><strong>Evaluation Workloads Repository</strong></a> — Contains all evaluation workloads and automation scripts used in the experiments.</li>
+</ol>
+<h2 id="overview">Overview</h2>
+<p><strong>TrainCheck</strong> is an invariant-based tool for detecting silent correctness issues in PyTorch training pipelines.</p>
+<p>This artifact enables reproduction of the four main evaluation results from the paper:</p>
+<ul>
+<li><strong><a href="../ae-eval-s5.1-silent-issue-detection/">Silent Issue Detection (Section 5.1)</a></strong></li>
+<li><strong><a href="../ae-eval-s5.3-transferability/">Invariant Transferability (Section 5.3)</a></strong></li>
+<li><strong><a href="../ae-eval-s5.4-fp-rate/">False Positive Rate (Section 5.4)</a></strong></li>
+<li><strong><a href="../ae-eval-s5.5-perf-overhead/">Performance Overhead (Section 5.5)</a></strong></li>
+</ul>
+<p>To get familiar with TrainCheck, we recommend starting with the <a href="../5-min-tutorial/"><strong>5-Minute Tutorial</strong></a>, which walks you through detecting a real-world bug from Section 5.1.</p>
+<h3 id="recommended-evaluation-order">⏱️ Recommended Evaluation Order</h3>
+<p>We suggest running the evaluations in the following order, based on automation level and runtime requirements:</p>
+<ol>
+<li>Kick the tires – <a href="../5-min-tutorial/">5 min tutorial with TrainCheck</a></li>
+<li>Performance Overhead (~10 minutes)</li>
+<li>False Positive Rate (~1.5 hours)</li>
+<li>Transferability (~30 minutes)</li>
+<li>Silent Issue Detection (~ variate, should be able to finish within one day)</li>
+</ol>
+<h2 id="environment-requirements">Environment Requirements</h2>
+<p>Many of our experiment scripts are written in xonsh, a shell that combines Python and Bash.
+Please install it with:</p>
+<pre><code class="language-bash">conda activate traincheck
+pip3 install 'xonsh[full]'
+</code></pre>
+<p>For a full and efficient AE experience, we recommend the following setup:
+- 🖥 1 machine with 2× CUDA-enabled GPUs
+- Each GPU should have at least 12 GiB memory.
+- Compatible with CUDA 11.8 or 12.1
+- 🧠 32 host memory (recommended)</p>
+<h3 id="recommended-hardware-chameleon-cloud">🔧 Recommended Hardware: Chameleon Cloud</h3>
+<p>Most experiments require <strong>2× CUDA-enabled GPUs</strong> with support for <strong>CUDA 11.8+</strong>. While some workloads can run on GPUs with as little as 2 GiB memory, the main experiments (e.g., Section 5.1) benefit from higher-capacity GPUs.</p>
+<p>We recommend using the <code>compute_liqid</code> node type on <a href="https://www.chameleoncloud.org">Chameleon Cloud</a>:</p>
+<ul>
+<li>
+<p>✅ <code>liqid01</code> and <code>liqid02</code>:<br />
+  These nodes each have <strong>2× A100 GPUs (40 GiB)</strong> and allow you to reproduce <strong>all results</strong> in the paper.</p>
+</li>
+<li>
+<p>🆗 Other <code>compute_liqid</code> nodes with <strong>1× A100 GPU</strong>:<br />
+  These are sufficient for all <strong>single-GPU experiments</strong> and let you reproduce <strong>~90%</strong> of results.</p>
+</li>
+</ul>
+<p>Please consult the estimated runtimes in each evaluation section before making reservations.<br />
+⏱️ If working full-time on the artifact, <strong>2 days should be sufficient</strong>, but we recommend reserving <strong>at least 5 days</strong> to allow for possible setup delays or debugging.</p>
+<h3 id="software-notes">Software Notes</h3>
+<ol>
+<li>
+<p>If you’re using Chameleon instances:</p>
+<ul>
+<li>Please start your machine with an Ubuntu 22.04 image that includes recent GPU drivers.</li>
+<li>We recommend using the <code>CC-Ubuntu22.04-CUDA</code> OS image.</li>
+</ul>
+</li>
+<li>
+<p>Follow <a href="../installation-guide/">Installation Guide</a> to install TrainCheck.</p>
+</li>
+</ol>
+<p>⏭️ Once your environment is set up, we recommend starting with the <a href="../5-min-tutorial/">5-Minute Tutorial with TrainCheck</a>.
+It will help you get familiar with the workflow and also verify that your installation is working correctly.</p>
+<h2 id="kick-the-tires-try-traincheck-in-5-minutes">🚀 Kick-the-Tires: Try TrainCheck in 5 Minutes</h2>
+<p>Get started quickly by using TrainCheck to detect and diagnosis a real-world bug report: <a href="https://discuss.pytorch.org/t/obtaining-abnormal-changes-in-loss-and-accuracy/84911">PyTorch-FORUM-84911</a>.</p>
+<p>See details in <a href="../5-min-tutorial/">5-min-tutorial</a>.</p>
+<h2 id="start-full-artifact-evaluation">📊 Start Full Artifact Evaluation</h2>
+<p>Follow the below specific instructions to reproduce our evaluation results:</p>
+<ol>
+<li><a href="../ae-eval-s5.5-perf-overhead/">Section 5.5: Performance Overhead</a></li>
+<li><a href="../ae-eval-s5.4-fp-rate/">Section 5.4: False Positives</a></li>
+<li><a href="../ae-eval-s5.3-transferability/">Section 5.3: Invariant Transferability</a></li>
+<li><a href="../ae-eval-s5.1-silent-issue-detection/">Section 5.1: Silent Issue Detection</a></li>
+</ol>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>

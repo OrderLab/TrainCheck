@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>TrainCheck Checker Usage Guide - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "TrainCheck Checker Usage Guide";
+        var mkdocs_page_input_path = "check.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">TrainCheck Checker Usage Guide</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="traincheck-checker-usage-guide">TrainCheck Checker Usage Guide</h1>
+<p><code>traincheck-check</code> is the <strong>final stage</strong> of the TrainCheck workflow. It verifies a set of invariants against trace files or streams from target programs, reporting any detected violations—helping you catch silent issues in your ML training pipelines.</p>
+<h2 id="checking-modes">🔧 Checking Modes</h2>
+<p>TrainCheck supports two checking modes:</p>
+<ul>
+<li>
+<p><strong>Post-training Checking (<code>traincheck-check</code>)</strong>:<br />
+   Perform invariant checking on completed trace files after the training job finishes. ✅</p>
+</li>
+<li>
+<p><strong>On-the-fly Checking (<code>traincheck-onlinecheck</code>):</strong>
+   Perform real-time checking while the target training job is running. ✅</p>
+</li>
+</ul>
+<h2 id="how-to-use-on-the-fly-checking">How to Use: On-the-fly Checking</h2>
+<p>While training is in progress with <code>traincheck-collect</code>, run the following command:</p>
+<pre><code class="language-bash">traincheck-onlinecheck -f &lt;trace_folder&gt; -i &lt;path_to_invariant_file&gt;
+</code></pre>
+<ul>
+<li><code>-f &lt;trace_folder&gt;</code>: Path to the folder where traces are:</li>
+<li>Already collected, or</li>
+<li>
+<p><strong>Actively being collected</strong> by <code>traincheck-collect</code> during the training job.</p>
+</li>
+<li>
+<p><code>-i &lt;path_to_invariant_file&gt;</code>: Path to the JSON file containing inferred invariants.</p>
+</li>
+</ul>
+<h2 id="how-to-use-post-training-checking">How to Use: Post-training Checking</h2>
+<p>Run the following command:</p>
+<pre><code class="language-bash">traincheck-check -f &lt;trace_folder&gt; -i &lt;path_to_invariant_file&gt;
+</code></pre>
+<ul>
+<li><code>-f &lt;trace_folder&gt;</code>: Path to the folder containing traces collected by <code>traincheck-collect</code>.</li>
+<li><code>-i &lt;path_to_invariant_file&gt;</code>: Path to the JSON file containing inferred invariants.</li>
+</ul>
+<h2 id="interpreting-the-results">Interpreting the Results</h2>
+<p>After running either checking mode, TrainCheck will output a summary of detected invariant violations. Each violation entry typically includes:</p>
+<ul>
+<li><strong>Trace file or stream name</strong>: Identifies where the issue was found.</li>
+<li><strong>Invariant description</strong>: Details the specific invariant that was violated.</li>
+<li><strong>Violation details</strong>: Provides context, such as the step or epoch where the violation occurred.</li>
+</ul>
+<p>Review these results to pinpoint silent errors or unexpected behaviors in your ML training pipeline. For more information on result formats and how to diagnose issues, see <a href="../5-min-tutorial/#5-detection--diagnosis">5. Detection &amp; Diagnosis</a> in the <strong>5-Minute Tutorial</strong>.</p>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
