@@ -1,11 +1,12 @@
 import ast
+import io
 import logging
 import re
 import tokenize
-import io
-from traincheck.config.config import INSTR_MODULES_TO_INSTR
 from collections import deque
 from typing import Dict, Set
+
+from traincheck.config.config import INSTR_MODULES_TO_INSTR
 
 logger = logging.getLogger(__name__)
 
