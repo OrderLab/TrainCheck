@@ -535,7 +535,7 @@ def annotate_stage(
     testing_lines: Set[int] = set()
     checkpointing_lines: Set[int] = set()
 
-    q = deque(maxlen=3)
+    q: deque = deque(maxlen=3)
     for tok in tokenize.generate_tokens(io.StringIO(source).readline):
         q.append(tok)
         if len(q) < 2:
@@ -576,7 +576,7 @@ def annotate_stage(
             line_to_stage[ln] = "testing"
 
     lines = source.splitlines(keepends=True)
-    new_lines = []
+    new_lines: list[str] = []
     inserted_count = {
         "training": 0,
         "testing": 0,
@@ -596,7 +596,9 @@ def annotate_stage(
                 ("annotate_stage" in prev)
                 and (f'"{stage}"' in prev or f"'{stage}'" in prev)
             ):
-                indent = re.match(r"\s*", line).group(0)
+                if (m := re.match(r"\s*", line)) is None:
+                    raise ValueError("pattern not found")
+                indent = m.group(0)
                 new_lines.append(f'{indent}annotate_stage("{stage}")\n')
                 inserted_count[stage] += 1
                 logger.info(
