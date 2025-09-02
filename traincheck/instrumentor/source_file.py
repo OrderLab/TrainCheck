@@ -618,8 +618,8 @@ def annotate_stage(
     new_src = "".join(new_lines)
 
     def _find_annotate_import_idx(lines):
-        for idx, l in enumerate(lines):
-            if re.match(r"^\s*from\s+traincheck\s+import\s+annotate_stage\s*$", l):
+        for idx, line in enumerate(lines):
+            if re.match(r"^\s*from\s+traincheck\s+import\s+annotate_stage\s*$", line):
                 return idx
         return -1
 
