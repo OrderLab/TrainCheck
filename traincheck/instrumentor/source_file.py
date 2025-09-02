@@ -509,6 +509,7 @@ def instrument_model_tracker_sampler(
 def annotate_stage(
     source: str,
 ) -> str:
+    """DEBT: Refactor the source tree exploration part with a AST-based approach"""
 
     def _ctx(msg: str) -> str:
         return f"[annotate_stage] {msg}"
