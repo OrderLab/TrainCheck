@@ -183,6 +183,13 @@ class TracePandas(Trace):
             self.events.groupby("func_call_id").size().reset_index(name="count")
         )
 
+        multiple_func_call_ids = func_call_groups[func_call_groups["count"] > 2][
+            "func_call_id"
+        ]
+        assert (
+            len(multiple_func_call_ids) == 0
+        ), "more than 2 events for one func call id"
+
         incomplete_func_call_ids = func_call_groups[func_call_groups["count"] == 1][
             "func_call_id"
         ]
