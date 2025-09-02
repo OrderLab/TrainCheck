@@ -776,8 +776,8 @@ def annotate_stage(
                 "Automatic insertion failed: no annotate_stage(...) found or added. Manual insertion required."
             )
         )
-                "annotate_stage insertion failed; see logs for details."
-            )
+        raise RuntimeError(
+            _ctx("annotate_stage insertion failed; see logs for details.")
         )
 
     return new_src
