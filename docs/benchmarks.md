@@ -1,6 +1,6 @@
 # Performance Benchmarks
 
-Latest benchmark results (updated: 2025-08-02 06:42:04 UTC, commit: df52322)
+Latest benchmark results (updated: 2025-09-02 15:16:32 UTC, commit: 2528f19)
 
 ## Instrumentation Overhead - Micro Benchmarks
 ![Micro Benchmark Results](assets/images/overhead_micro.png)
