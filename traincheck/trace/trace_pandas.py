@@ -868,9 +868,9 @@ class TracePandas(Trace):
                                 safe_isnan(attr_values[attr_name][-1].value)
                                 and safe_isnan(curr_value)
                             ):
-                                attr_values[attr_name][
-                                    -1
-                                ].liveness.end_time = state_change["time"]
+                                attr_values[attr_name][-1].liveness.end_time = (
+                                    state_change["time"]
+                                )
                                 attr_values[attr_name].append(
                                     AttrState(
                                         curr_value,
