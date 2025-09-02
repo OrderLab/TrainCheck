@@ -565,7 +565,14 @@ def annotate_stage(
         if at_attr("save") and not orig_has["checkpointing"]:
             checkpointing_lines.add(b.start[0])
 
-    priority = {"training": 3, "testing": 2, "checkpointing": 1}
+    TRAINING_PRIORITY = 3
+    TESTING_PRIORITY = 2
+    CHECKPOINTING_PRIORITY = 1
+    priority = {
+        "training": TRAINING_PRIORITY,
+        "testing": TESTING_PRIORITY,
+        "checkpointing": CHECKPOINTING_PRIORITY,
+    }
     line_to_stage: Dict[int, str] = {}
     for ln in checkpointing_lines:
         line_to_stage[ln] = "checkpointing"
@@ -677,11 +684,13 @@ def annotate_stage(
                 t = s.lstrip()
                 return t.startswith('"""') or t.startswith("'''")
 
+            def is_single_line_triple_quoted_string(line: str, quote: str) -> bool:
+                """Return True if the line is a single-line triple-quoted string using the given quote."""
+                return line.count(quote) >= 2 and line.lstrip().startswith(quote)
+
             if insert_at < len(nl) and _is_triple_quote(nl[insert_at]):
                 quote = '"""' if nl[insert_at].lstrip().startswith('"""') else "'''"
-                if nl[insert_at].count(quote) >= 2 and nl[
-                    insert_at
-                ].lstrip().startswith(quote):
+                if is_single_line_triple_quoted_string(nl[insert_at], quote):
                     insert_at += 1
                 else:
                     insert_at += 1
@@ -767,9 +776,7 @@ def annotate_stage(
                 "Automatic insertion failed: no annotate_stage(...) found or added. Manual insertion required."
             )
         )
-        raise RuntimeError(
-            _ctx(
-                "Automatic insertion failed: no annotate_stage(...) found or added. Manual insertion required."
+                "annotate_stage insertion failed; see logs for details."
             )
         )
 
