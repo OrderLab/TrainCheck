@@ -7,6 +7,7 @@
 [![format and types](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml)
 [![format and types](https://github.com/OrderLab/traincheck/actions/workflows/correctness_checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/correctness_checks.yml)
 [![Chat on Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZvYewjsQ9D)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OrderLab/TrainCheck)
 
 </div>
 
