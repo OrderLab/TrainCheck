@@ -45,7 +45,7 @@ def _is_fake_like(t: torch.Tensor) -> bool:
 
 class ProxyParameter(torch.nn.Parameter):
     def __new__(cls, data, var_name=""):
-        if isinstance(data, ProxyParameter):
+        if not isinstance(data, torch.nn.Parameter):
             return data
 
         return torch.Tensor._make_subclass(cls, data.detach(), data.requires_grad)
@@ -62,6 +62,11 @@ class ProxyParameter(torch.nn.Parameter):
 
     def __deepcopy__(self, memo):
         data = self.data
+        if not isinstance(data, ProxyParameter):
+            return torch.nn.Parameter(
+                data.clone(memory_format=torch.preserve_format),
+                self.requires_grad,
+            )
         return type(self)(
             data.clone(memory_format=torch.preserve_format),
             self.requires_grad,
