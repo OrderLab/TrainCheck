@@ -23,29 +23,39 @@ from .proxy_handler import PROXY_SUPPORT_OBJ_TYPES
 from .utils import print_debug
 
 
-def _is_fake_like(t: torch.Tensor) -> bool:
+def in_dynamo() -> bool:
     try:
-        from torch._subclasses.fake_tensor import FakeTensor
+        import torch._dynamo as dynamo
 
-        if isinstance(t, FakeTensor):
+        return bool(dynamo.is_compiling())
+    except Exception:
+        return False
+
+
+def is_fake_tensor(x: torch.Tensor) -> bool:
+    try:
+        from torch._subclasses.fake_tensor import FakeTensor  # 2.x
+
+        if isinstance(x, FakeTensor):
             return True
     except Exception:
         pass
-    if getattr(t, "fake_mode", None) is not None:
+    if getattr(x, "fake_mode", None) is not None:
         return True
-    if getattr(t, "_is_fake", False):
+    if getattr(x, "_is_fake", False):
         return True
-    ty = type(t)
-    if "fake" in (
-        getattr(ty, "__name__", "").lower() + getattr(ty, "__module__", "").lower()
-    ):
-        return True
-    return False
+
+    return isinstance(x, torch.Tensor) and x.device.type == "meta"
 
 
 class ProxyParameter(torch.nn.Parameter):
     def __new__(cls, data, var_name=""):
-        if not isinstance(data, torch.nn.Parameter):
+        if in_dynamo() or is_fake_tensor(data):
+            if isinstance(data, nn.Parameter):
+                return data
+            return nn.Parameter(data, requires_grad=data.requires_grad)
+
+        if isinstance(data, ProxyParameter):
             return data
 
         return torch.Tensor._make_subclass(cls, data.detach(), data.requires_grad)
@@ -62,19 +72,17 @@ class ProxyParameter(torch.nn.Parameter):
 
     def __deepcopy__(self, memo):
         data = self.data
-        if not isinstance(data, ProxyParameter):
-            return torch.nn.Parameter(
-                data.clone(memory_format=torch.preserve_format),
-                self.requires_grad,
-            )
+        if in_dynamo() or is_fake_tensor(self):
+            return self
         return type(self)(
             data.clone(memory_format=torch.preserve_format),
-            self.requires_grad,
             var_name=self.varname,
         )
 
 
 def proxy_parameter(module: nn.Module, parent_name: str = ""):
+    if in_dynamo():
+        return
     for name, t in list(module.named_parameters(recurse=False)):
         module._parameters[name] = ProxyParameter(t, parent_name + "." + name)
     for name, child in module.named_children():
