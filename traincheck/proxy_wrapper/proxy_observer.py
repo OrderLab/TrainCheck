@@ -2,18 +2,26 @@ import functools
 import typing
 
 from traincheck.config.config import should_disable_proxy_dumping
+from traincheck.proxy_wrapper.subclass import ProxyParameter
 from traincheck.utils import typename
 
 if typing.TYPE_CHECKING:
     from traincheck.proxy_wrapper.proxy import Proxy
+    from traincheck.proxy_wrapper.subclass import ProxyParameter
+
 from .proxy_basics import is_proxied, unproxy_func
 
 
 def observe_proxy_var(
-    var: "Proxy",
+    var: typing.Union["Proxy", "ProxyParameter"],
     phase,
     observe_api_name: str,
 ):
+    # TODO: After fully implement the ProxyParameter, don't need this check
+    if isinstance(var, ProxyParameter):
+        var.dump_trace(phase=phase, dump_loc=observe_api_name)
+        return
+
     # update the proxy object's timestamp
     var.update_timestamp()
 
@@ -37,9 +45,9 @@ def add_observer_to_func(original_function, unproxy=False):
             # if the arg is list or tuple, check if it contains proxied object
             if type(arg) in [list, tuple]:
                 for element in arg:
-                    if is_proxied(element):
+                    if is_proxied(element) or isinstance(element, ProxyParameter):
                         proxied_vars.append(element)
-            if is_proxied(arg):
+            if is_proxied(arg) or isinstance(arg, ProxyParameter):
                 proxied_vars.append(arg)
 
         # pre observe

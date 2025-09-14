@@ -79,6 +79,9 @@ class ProxyParameter(torch.nn.Parameter):
             var_name=self.varname,
         )
 
+    def dump_trace(self, phase, dump_loc):
+        print(f"parameter: {self.varname}, phase = {phase}, dump_loc = {dump_loc}")
+
 
 def proxy_parameter(module: nn.Module, parent_name: str = ""):
     if in_dynamo():
