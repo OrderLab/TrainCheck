@@ -17,10 +17,6 @@ def observe_proxy_var(
     phase,
     observe_api_name: str,
 ):
-    # TODO: After fully implement the ProxyParameter, don't need this check
-    if isinstance(var, ProxyParameter):
-        var.dump_trace(phase=phase, dump_loc=observe_api_name)
-        return
 
     # update the proxy object's timestamp
     var.update_timestamp()
