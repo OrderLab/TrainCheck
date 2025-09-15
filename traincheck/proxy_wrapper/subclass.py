@@ -101,6 +101,7 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO
         # self.__dict__["meta_vars"] = {}
         # self.__dict__["is_traincheck_proxied_obj"] = True
+        self.__dict__["is_traincheck_proxyparameter"] = True
         # TODO
         # self.__dict__["recurse"] = recurse
         self.__dict__["var_name"] = var_name
@@ -112,7 +113,7 @@ class ProxyParameter(torch.nn.Parameter):
 
         self.__dict__["last_update_timestamp"] = current_time
 
-        print(f"init: {self.var_name}")
+        # print(f"init: {self.var_name}")
         if should_dump_trace:
             if from_call:
                 phase = "call"
@@ -125,12 +126,12 @@ class ProxyParameter(torch.nn.Parameter):
             self.dump_trace(phase=phase, dump_loc="initing")
 
     def __setattr__(self, name, value):
-        print(f"paremeter: {self.var_name}, name = {name}, value = {value}")
+        # print(f"paremeter: {self.var_name}, name = {name}, value = {value}")
+        super().__setattr__(name, value)
         self.dump_trace(
             phase="update",
             dump_loc=f"__setattr__ (attribute '{name}')",
         )
-        return super().__setattr__(name, value)
 
     def __deepcopy__(self, memo):
         data = self.data
@@ -154,7 +155,7 @@ class ProxyParameter(torch.nn.Parameter):
         pass
 
     def dump_trace(self, phase, dump_loc):
-        print(f"parameter: {self.var_name}, phase = {phase}, dump_loc = {dump_loc}")
+        # print(f"parameter: {self.var_name}, phase = {phase}, dump_loc = {dump_loc}")
         # TODO
         var_name = self.__dict__["var_name"]
         # assert var_name is not None  # '' is allowed as a var_name (root object)
@@ -180,7 +181,7 @@ class ProxyParameter(torch.nn.Parameter):
             var_type="torch.nn.Parameter",
             change_type=phase,
             # TODO: verify dump_attributes
-            var_attributes=dump_attributes(self, self.data),
+            var_attributes=dump_attributes(self, self),
             dump_loc=dump_loc,
         )
 

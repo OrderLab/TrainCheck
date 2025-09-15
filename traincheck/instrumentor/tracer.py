@@ -29,7 +29,11 @@ from traincheck.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
-from traincheck.proxy_wrapper.proxy_basics import is_proxied, unproxy_func
+from traincheck.proxy_wrapper.proxy_basics import (
+    is_proxied,
+    is_proxyparamtetr,
+    unproxy_func,
+)
 from traincheck.proxy_wrapper.proxy_config import enable_C_level_observer
 from traincheck.proxy_wrapper.proxy_registry import get_global_registry
 from traincheck.utils import get_timestamp_ns, get_unique_id, typename
@@ -215,7 +219,7 @@ def global_wrapper(
 
         def find_proxy_in_args(args):
             for i, arg in enumerate(args):
-                if is_proxied(arg):
+                if is_proxied(arg) or is_proxyparamtetr(arg):
                     proxy_in_args.append(arg)
                 elif type(arg) in [list, tuple]:
                     find_proxy_in_args(arg)
@@ -234,9 +238,14 @@ def global_wrapper(
             if "proxy_obj_names" not in pre_record:
                 pre_record["proxy_obj_names"] = []
             for proxy in proxy_in_args:
-                pre_record["proxy_obj_names"].append(
-                    [proxy.__dict__["var_name"], type(proxy._obj).__name__]
-                )
+                if is_proxyparamtetr(proxy):
+                    pre_record["proxy_obj_names"].append(
+                        [proxy.__dict__["var_name"], "Parameter"]
+                    )
+                else:
+                    pre_record["proxy_obj_names"].append(
+                        [proxy.__dict__["var_name"], type(proxy._obj).__name__]
+                    )
     if dump_args:
         dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
         pre_record["args"] = dict_args_kwargs["args"]

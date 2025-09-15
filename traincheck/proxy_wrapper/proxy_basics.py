@@ -14,6 +14,15 @@ def is_proxied(obj):
     return False
 
 
+def is_proxyparamtetr(obj):
+    try:
+        if obj is not None and "is_traincheck_proxyparameter" in obj.__dict__:
+            return True
+    except Exception:
+        return False
+    return False
+
+
 def unproxy_arg(arg, inspect_torch_module=False):
 
     if is_proxied(arg):

@@ -21,6 +21,7 @@ from traincheck.proxy_wrapper.hash import tensor_hash
 from traincheck.proxy_wrapper.proxy_config import (
     attribute_black_list,
     primitive_types,
+    proxy_attribute,
     tensor_dump_format,
 )
 from traincheck.utils import get_timestamp_ns, typename
@@ -333,6 +334,9 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
             and attr_name.startswith("_")
             and not attr_name.startswith("_ML_DAIKON")
         ):
+            continue
+
+        if attr_name in proxy_attribute:
             continue
 
         if attr_name in attribute_black_list:
