@@ -444,7 +444,7 @@ def main():
     scan_proxy_in_args = not args.disable_scan_proxy_in_args
 
     # if no proxy tracking specified in the arguments, disable the scan_proxy_in_args
-    if not args.models_to_track or args.model_tracker_style != "proxy":
+    if not args.models_to_track or args.model_tracker_style == "sampler":
         scan_proxy_in_args = False
 
     if args.invariants:

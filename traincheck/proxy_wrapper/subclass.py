@@ -72,7 +72,7 @@ class ProxyParameter(torch.nn.Parameter):
             if isinstance(data, nn.Parameter):
                 return data
             return nn.Parameter(data, requires_grad=data.requires_grad)
-
+        # TODO: verify
         if isinstance(data, ProxyParameter):
             return data
 
