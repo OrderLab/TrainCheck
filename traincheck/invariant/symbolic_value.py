@@ -117,9 +117,9 @@ def generalize_values(values: list[type]) -> MD_NONE | type | str:
         min_value = min(all_non_none_values)  # type: ignore
         max_value = max(all_non_none_values)  # type: ignore
 
-        # assert (
-        #     min_value != max_value
-        # ), "Min and max values are the same, you don't need to generalize the values"
+        assert (
+            min_value != max_value
+        ), "Min and max values are the same, you don't need to generalize the values"
         if min_value > 0:
             return ABOVE_ZERO
         elif min_value >= 0:

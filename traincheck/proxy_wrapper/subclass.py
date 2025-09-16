@@ -128,6 +128,7 @@ class ProxyParameter(torch.nn.Parameter):
     def __setattr__(self, name, value):
         # print(f"paremeter: {self.var_name}, name = {name}, value = {value}")
         super().__setattr__(name, value)
+        self.update_timestamp()
         self.dump_trace(
             phase="update",
             dump_loc=f"__setattr__ (attribute '{name}')",
