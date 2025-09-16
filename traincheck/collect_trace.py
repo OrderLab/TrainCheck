@@ -350,7 +350,7 @@ def main():
     parser.add_argument(
         "--model-tracker-style",
         type=str,
-        choices=["sampler", "proxy"],
+        choices=["sampler", "proxy", "proxyparameter"],
         default="proxy",
     )
     parser.add_argument(
