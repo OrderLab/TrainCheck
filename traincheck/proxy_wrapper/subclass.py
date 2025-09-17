@@ -1,26 +1,17 @@
-import copy
 import logging
 import os
 import threading
-import time
-import types
-from typing import Dict
 
 import torch
 from torch import nn
 
-import traincheck.config.config as general_config
-import traincheck.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
-import traincheck.proxy_wrapper.proxy_methods as proxy_methods
 from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
-from traincheck.utils import get_timestamp_ns, typename
+from traincheck.utils import get_timestamp_ns
 
 from .dumper import json_dumper as dumper
-from .proxy_basics import unproxy_arg, unproxy_args_kwargs
-from .proxy_handler import PROXY_SUPPORT_OBJ_TYPES
 
 # from .proxy_registry import get_global_registry
-from .utils import print_debug
+# from .utils import print_debug
 
 
 def in_dynamo() -> bool:
