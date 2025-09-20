@@ -298,7 +298,9 @@ def instrument_all_model_assignments(
         )
 
     else:
-        raise ValueError(f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler']")
+        raise ValueError(
+            f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler', 'proxyparameter']"
+        )
 
     # find all assignment statements to `model`
     assignments = []
