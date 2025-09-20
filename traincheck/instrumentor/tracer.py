@@ -31,7 +31,7 @@ from traincheck.instrumentor.replace_functions import (
 )
 from traincheck.proxy_wrapper.proxy_basics import (
     is_proxied,
-    is_proxyparamtetr,
+    is_proxyparameter,
     unproxy_func,
 )
 from traincheck.proxy_wrapper.proxy_config import enable_C_level_observer
@@ -219,7 +219,7 @@ def global_wrapper(
 
         def find_proxy_in_args(args):
             for i, arg in enumerate(args):
-                if is_proxied(arg) or is_proxyparamtetr(arg):
+                if is_proxied(arg) or is_proxyparameter(arg):
                     proxy_in_args.append(arg)
                 elif type(arg) in [list, tuple]:
                     find_proxy_in_args(arg)
@@ -238,7 +238,7 @@ def global_wrapper(
             if "proxy_obj_names" not in pre_record:
                 pre_record["proxy_obj_names"] = []
             for proxy in proxy_in_args:
-                if is_proxyparamtetr(proxy):
+                if is_proxyparameter(proxy):
                     pre_record["proxy_obj_names"].append(
                         [proxy.__dict__["var_name"], "Parameter"]
                     )

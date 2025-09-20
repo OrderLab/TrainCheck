@@ -18,13 +18,14 @@ from traincheck.config.config import (
 
 # if torch.cuda.is_available():
 from traincheck.proxy_wrapper.hash import tensor_hash
+from traincheck.proxy_wrapper.proxy_basics import is_fake_tensor
 from traincheck.proxy_wrapper.proxy_config import (
     attribute_black_list,
     primitive_types,
     proxy_attribute,
     tensor_dump_format,
 )
-from traincheck.utils import get_timestamp_ns, typename
+from traincheck.utils import get_timestamp_ns, typename, typename_compile
 
 DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
 THREAD_DATA = threading.local()
@@ -45,12 +46,48 @@ skip_type_due_to_recursion: dict[type, int] = {}
 logger = logging.getLogger(__name__)
 
 
+def _json_default(o):
+    try:
+        if type(o).__name__ in ("SymInt", "SymFloat", "SymBool"):
+            return str(o)
+
+        if isinstance(o, torch.device):
+            return str(o)
+        if isinstance(o, torch.dtype):
+            return str(o)
+        if isinstance(o, torch.Size):
+            out = []
+            for d in o:
+                try:
+                    out.append(int(d))
+                except Exception:
+                    out.append(str(d))
+            return out
+    except Exception:
+        pass
+
+    if isinstance(o, set):
+        return list(o)
+    if isinstance(o, tuple):
+        return list(o)
+
+    try:
+        import numpy as np
+
+        if isinstance(o, (np.generic,)):
+            return o.item()
+    except Exception:
+        pass
+
+    return repr(o)
+
+
 def serialize(obj_dict: dict[str, object | str]) -> str:
     try:
-        return orjson.dumps(obj_dict).decode("utf-8")
+        return orjson.dumps(obj_dict, default=_json_default).decode("utf-8")
     except Exception:
         # if orjson fails (e.g. cannot handle ints larger than 64-bit), fallback to json
-        return json.dumps(obj_dict)
+        return json.dumps(obj_dict, default=_json_default)
 
 
 def monitor_main_thread(main_thread, stop_event):
@@ -350,12 +387,17 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
 
         attr = safe_getattr(var, attr_name)
         if attr is NOT_FOUND:
-            logger.warning(
-                f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it for all following dumps for this attribute."
-            )
-            if var_type not in skip_attrs_due_to_errs:
-                skip_attrs_due_to_errs[var_type] = set()
-            skip_attrs_due_to_errs[var_type].add(attr_name)
+            if not (
+                attr_name == "data"
+                and isinstance(var, torch.Tensor)
+                and not include_tensor_data
+            ):
+                logger.warning(
+                    f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it for all following dumps for this attribute."
+                )
+                if var_type not in skip_attrs_due_to_errs:
+                    skip_attrs_due_to_errs[var_type] = set()
+                skip_attrs_due_to_errs[var_type].add(attr_name)
             continue
 
         attr_name = str(attr_name)
@@ -399,7 +441,25 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
     return result
 
 
+def convert_fake_tensor_to_dict(var):
+    try:
+        shape = tuple(var.shape)
+    except Exception:
+        shape = None
+    try:
+        dtype = str(var.dtype)
+    except Exception:
+        dtype = None
+    return {
+        "fake": True,
+        "shape": shape,
+        "dtype": dtype,
+    }
+
+
 def obj_to_serializable(obj, dump_config=None) -> dict[str, object]:
+    if is_fake_tensor(obj):
+        return {typename_compile(obj): convert_fake_tensor_to_dict(obj)}
     if (
         type(obj) in skip_type_due_to_recursion
         and skip_type_due_to_recursion[type(obj)] > RECURSION_ERR_THRESHOLD
@@ -432,6 +492,9 @@ def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
       and it does not dump the `data` attribute of a tensor.
     If you want to dump the `data` attribute of a tensor, use `convert_var_to_dict` and set `include_tensor_data=True`.
     """
+
+    if is_fake_tensor(obj):
+        return {typename_compile(obj): convert_fake_tensor_to_dict(obj)}
 
     if issubclass(type(obj), dict) and type(obj) != dict:  # noqa E721
         return obj_to_serializable(obj, dump_config=dump_config)

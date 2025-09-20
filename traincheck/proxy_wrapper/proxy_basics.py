@@ -4,9 +4,47 @@ import inspect
 
 import astor
 
+from traincheck.config.config import COMPILE_INTERNAL_MODULE
+
+
+def is_compile_internal_module(obj):
+    mod = getattr(type(obj), "__module__", "") or ""
+    if any(mod.startswith(p) for p in COMPILE_INTERNAL_MODULE):
+        return True
+    name = type(obj).__name__
+    if mod.startswith("torch._dynamo") and name != "OptimizedModule":
+        return True
+    return False
+
+
+def is_fake_tensor(x) -> bool:
+    try:
+        from torch._subclasses.fake_tensor import FakeTensor
+        from torch.fx import Proxy as FxProxy
+
+        if isinstance(x, FakeTensor):
+            return True
+        if isinstance(x, FxProxy):
+            return True
+    except Exception:
+        pass
+
+    try:
+        if is_compile_internal_module(x):
+            return True
+    except Exception:
+        return True
+
+    try:
+        return x.device.type == "meta"
+    except Exception:
+        return True
+
 
 def is_proxied(obj):
     try:
+        if is_fake_tensor(obj):
+            return False
         if obj is not None and "is_traincheck_proxied_obj" in obj.__dict__:
             return True
     except Exception:
@@ -14,8 +52,10 @@ def is_proxied(obj):
     return False
 
 
-def is_proxyparamtetr(obj):
+def is_proxyparameter(obj):
     try:
+        if is_fake_tensor(obj):
+            return False
         if obj is not None and "is_traincheck_proxyparameter" in obj.__dict__:
             return True
     except Exception:

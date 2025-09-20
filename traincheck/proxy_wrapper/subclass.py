@@ -9,6 +9,7 @@ from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from traincheck.utils import get_timestamp_ns
 
 from .dumper import json_dumper as dumper
+from .proxy_basics import is_fake_tensor
 
 # from .proxy_registry import get_global_registry
 # from .utils import print_debug
@@ -21,22 +22,6 @@ def in_dynamo() -> bool:
         return bool(dynamo.is_compiling())
     except Exception:
         return False
-
-
-def is_fake_tensor(x: torch.Tensor) -> bool:
-    try:
-        from torch._subclasses.fake_tensor import FakeTensor  # 2.x
-
-        if isinstance(x, FakeTensor):
-            return True
-    except Exception:
-        pass
-    if getattr(x, "fake_mode", None) is not None:
-        return True
-    if getattr(x, "_is_fake", False):
-        return True
-
-    return isinstance(x, torch.Tensor) and x.device.type == "meta"
 
 
 class ProxyParameter(torch.nn.Parameter):
@@ -59,13 +44,13 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO
         # from_copy=False,
     ):
+        if isinstance(data, ProxyParameter):
+            return data
         if in_dynamo() or is_fake_tensor(data):
             if isinstance(data, nn.Parameter):
                 return data
             return nn.Parameter(data, requires_grad=data.requires_grad)
         # TODO: verify
-        if isinstance(data, ProxyParameter):
-            return data
 
         return torch.Tensor._make_subclass(cls, data.detach(), data.requires_grad)
 

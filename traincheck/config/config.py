@@ -249,3 +249,12 @@ ALL_STAGE_NAMES = {
     "preprocessing",
     "postprocessing",
 }
+
+COMPILE_INTERNAL_MODULE = (
+    "torch.fx",
+    # "torch._dynamo",
+    "torch._inductor",
+    "torch._subclasses",
+    "torch._higher_order_ops",
+    "torch.utils._sympy",
+)
