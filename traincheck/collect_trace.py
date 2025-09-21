@@ -371,6 +371,11 @@ def main():
         action="store_true",
         help="Disable automatic variable instrumentation, necessary when the default behavior of the instrumentor is not desired (e.g. cause segmentation fault)",
     )
+    parser.add_argument(
+        "--use-torch-compile",
+        action="store_true",
+        help="Indicate wthether use torch.compile to speed the model, necessary to realize compatibility",
+    )
 
     args = parser.parse_args()
 
@@ -481,6 +486,7 @@ disabling model tracking."""
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
             no_auto_var_instr=args.no_auto_var_instr,
+            use_torch_compile=args.use_torch_compile,
         )
     else:
         source_code = instrumentor.instrument_file(
@@ -496,6 +502,7 @@ disabling model tracking."""
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
             no_auto_var_instr=args.no_auto_var_instr,
+            use_torch_compile=args.use_torch_compile,
         )
 
     if args.copy_all_files:

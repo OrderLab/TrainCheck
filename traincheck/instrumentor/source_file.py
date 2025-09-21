@@ -810,6 +810,7 @@ def instrument_file(
     output_dir: str,
     instr_descriptors: bool,
     no_auto_var_instr: bool,
+    use_torch_compile: bool,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -847,6 +848,11 @@ if os.environ.get("ML_DAIKON_DEBUG") == "1":
 import traincheck.config.config as general_config
 general_config.INSTR_DESCRIPTORS = {instr_descriptors}
 """
+    if use_torch_compile:
+        torch_compile_config_update = """
+general_config.USE_TORCH_COMPILE = True
+"""
+        general_config_update = general_config_update + torch_compile_config_update
     # TODO: move the INSTR_DESCRIPTORS to the instr_opts file
 
     if models_to_track:
