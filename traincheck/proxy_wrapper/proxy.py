@@ -369,7 +369,7 @@ class Proxy:
 
             self.dump_trace(
                 phase="update",
-                dump_loc=f"__setattr__ (attribute '{name}')",
+                dump_loc=f"__setattr__ (attribute '{name}' to {value}')",
             )
 
     def __getitem__(self, key):

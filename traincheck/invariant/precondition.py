@@ -537,7 +537,6 @@ def find_precondition_from_single_group(
         if len(example) == 0:
             raise ValueError("Empty example found in positive examples")
 
-        # HACK: in ConsistencyRelation in order to avoid the field used in the invariant, we need to skip the field in the precondition. It is up to the caller to provide the keys to skip. We should try to refactor this to have a more generic solution.
         earliest_time = example[0]["time"]
         process_id = example[0]["process_id"]
         thread_id = example[0]["thread_id"]
