@@ -46,13 +46,49 @@ class ProxyParameter(torch.nn.Parameter):
     ):
         if isinstance(data, ProxyParameter):
             return data
+
         if in_dynamo() or is_fake_tensor(data):
+            # we do not proxy the parameter if we are in dynamo or the tensor is a fake tensor
             if isinstance(data, nn.Parameter):
                 return data
             return nn.Parameter(data, requires_grad=data.requires_grad)
-        # TODO: verify
 
-        return torch.Tensor._make_subclass(cls, data.detach(), data.requires_grad)
+        requires_grad = getattr(data, "requires_grad", False)
+        tensor_grad = getattr(data, "grad", None)
+
+        # When wrapping an existing Parameter we need to preserve any Python level
+        # attributes (e.g. hooks, user defined flags, ``grad``) so that the proxy
+        # behaves identically to the original parameter. ``Parameter.__new__``
+        # returns a fresh instance, so we snapshot the metadata from ``data`` and
+        # replay it on the new ProxyParameter via the base Tensor ``__setattr__``
+        # to avoid triggering the logging logic implemented in this class.
+        snapshot: dict = {}
+
+        if isinstance(data, nn.Parameter):
+            snapshot = dict(getattr(data, "__dict__", {}))
+            base_tensor = data.detach()
+        elif isinstance(data, torch.Tensor):
+            base_tensor = data.detach()
+        else:
+            base_tensor = torch.as_tensor(data)
+
+        proxied = super().__new__(cls, base_tensor, requires_grad=requires_grad)
+
+        if snapshot:
+            tensor_setattr = torch.Tensor.__setattr__
+            for name, value in snapshot.items():
+                if name == "grad":
+                    continue
+                try:
+                    tensor_setattr(proxied, name, value)
+                except AttributeError:
+                    # Some slots (e.g. torch internals) are read-only; skip them.
+                    continue
+
+        if tensor_grad is not None:
+            torch.Tensor.__setattr__(proxied, "grad", tensor_grad)
+
+        return proxied
 
     def __init__(
         self,
@@ -107,7 +143,7 @@ class ProxyParameter(torch.nn.Parameter):
         self.update_timestamp()
         self.dump_trace(
             phase="update",
-            dump_loc=f"__setattr__ (attribute '{name}')",
+            dump_loc=f"__setattr__ (attribute '{name}' to {value})",
         )
 
     def __deepcopy__(self, memo):
