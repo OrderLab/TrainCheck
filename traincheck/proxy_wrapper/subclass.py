@@ -5,10 +5,11 @@ import threading
 import torch
 from torch import nn
 
+from traincheck.instrumentor.dumper import dump_trace_VAR
+from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from traincheck.utils import get_timestamp_ns
 
-from .dumper import json_dumper as dumper
 from .proxy_basics import is_fake_tensor
 
 # from .proxy_registry import get_global_registry
@@ -26,9 +27,6 @@ def in_dynamo() -> bool:
 
 class ProxyParameter(torch.nn.Parameter):
     loglevel = logging.INFO
-    jsondumper = dumper(
-        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR", "."), "proxy_log.json")  # type: ignore
-    )
 
     def __new__(
         cls,
@@ -143,7 +141,7 @@ class ProxyParameter(torch.nn.Parameter):
         self.update_timestamp()
         self.dump_trace(
             phase="update",
-            dump_loc=f"__setattr__ (attribute '{name}' to {value})",
+            dump_loc=f"__setattr__ (attribute '{name}')",
         )
 
     def __deepcopy__(self, memo):
@@ -184,18 +182,19 @@ class ProxyParameter(torch.nn.Parameter):
 
         # TODO
         # if not isinstance(obj, torch.nn.Module):
-        self.jsondumper.dump_json(
-            process_id=self.process_id,
-            thread_id=self.thread_id,
-            time=last_update_timestamp,
-            meta_vars=get_meta_vars(self),
-            var_name=var_name,
-            # TODO
-            var_type="torch.nn.Parameter",
-            change_type=phase,
-            # TODO: verify dump_attributes
-            var_attributes=dump_attributes(self, self),
-            dump_loc=dump_loc,
+        dump_trace_VAR(
+            {
+                "process_id": self.process_id,
+                "thread_id": self.thread_id,
+                "time": last_update_timestamp,
+                "meta_vars": get_meta_vars(self),
+                "var_name": var_name,
+                "var_type": "torch.nn.Parameter",
+                "mode": phase,
+                "dump_loc": dump_loc,
+                "attributes": dump_attributes(self, self),
+                "type": TraceLineType.STATE_CHANGE,
+            }
         )
 
 
