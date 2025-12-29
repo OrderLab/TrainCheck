@@ -350,7 +350,7 @@ def main():
     parser.add_argument(
         "--model-tracker-style",
         type=str,
-        choices=["sampler", "proxy"],
+        choices=["sampler", "proxy", "subclass"],
         default="proxy",
     )
     parser.add_argument(
@@ -370,6 +370,11 @@ def main():
         "--no-auto-var-instr",
         action="store_true",
         help="Disable automatic variable instrumentation, necessary when the default behavior of the instrumentor is not desired (e.g. cause segmentation fault)",
+    )
+    parser.add_argument(
+        "--use-torch-compile",
+        action="store_true",
+        help="Indicate wthether use torch.compile to speed the model, necessary to realize compatibility",
     )
 
     args = parser.parse_args()
@@ -444,7 +449,7 @@ def main():
     scan_proxy_in_args = not args.disable_scan_proxy_in_args
 
     # if no proxy tracking specified in the arguments, disable the scan_proxy_in_args
-    if not args.models_to_track or args.model_tracker_style != "proxy":
+    if not args.models_to_track or args.model_tracker_style == "sampler":
         scan_proxy_in_args = False
 
     if args.invariants:
@@ -481,6 +486,7 @@ disabling model tracking."""
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
             no_auto_var_instr=args.no_auto_var_instr,
+            use_torch_compile=args.use_torch_compile,
         )
     else:
         source_code = instrumentor.instrument_file(
@@ -496,6 +502,7 @@ disabling model tracking."""
             output_dir=output_dir,
             instr_descriptors=args.instr_descriptors,
             no_auto_var_instr=args.no_auto_var_instr,
+            use_torch_compile=args.use_torch_compile,
         )
 
     if args.copy_all_files:

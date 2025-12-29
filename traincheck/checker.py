@@ -153,7 +153,7 @@ def main():
     trace_parent_folders = []
     if args.traces is not None:
         logger.info("Reading traces from %s", "\n".join(args.traces))
-        trace_parent_folders = [os.path.basename(os.path.commonpath(args.traces[0]))]
+        trace_parent_folders = [os.path.basename(os.path.commonpath(args.traces))]
         traces.append(read_trace_file(args.traces))
     if args.trace_folders is not None:
         for trace_folder in args.trace_folders:

@@ -271,7 +271,7 @@ def get_child_parent_map(root) -> dict[ast.AST, ast.AST]:
 
 
 def instrument_all_model_assignments(
-    source_code: str, model_name: str, mode: str
+    source_code: str, model_name: str, mode: str | None
 ) -> str:
     """
     Finds all assignment statements to `model` and inserts a Proxy statement or a VarSampler statement
@@ -292,8 +292,15 @@ def instrument_all_model_assignments(
         instr_statement = ast.parse(
             f"{model_name}_sampler = VarSampler({model_name}, var_name='{model_name}')"
         )
+    elif mode == "subclass":
+        instr_statement = ast.parse(
+            f"proxy_parameter({model_name}, logdir=proxy_config.proxy_log_dir, parent_name='{model_name}')"
+        )
+
     else:
-        raise ValueError(f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler']")
+        raise ValueError(
+            f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler', 'subclass']"
+        )
 
     # find all assignment statements to `model`
     assignments = []
@@ -348,6 +355,7 @@ def instrument_model_tracker_proxy(
     models_to_track: list[str],
     adjusted_proxy_config: list[dict[str, int | bool | str]],
     no_auto_var_instr: bool,
+    model_tracker_style: str | None,
 ):
     auto_observer_config: dict[str, int | bool | str] = adjusted_proxy_config[0]
     proxy_basic_config: dict[str, int | bool | str] = adjusted_proxy_config[1]
@@ -373,8 +381,13 @@ from traincheck.proxy_wrapper.proxy_config import tensor_dump_format
 tensor_dump_format.update({tensor_dump_format})
 """
 
-    proxy_start_code += """
+    if model_tracker_style == "proxy":
+        proxy_start_code += """
 from traincheck.proxy_wrapper.proxy import Proxy
+"""
+    else:
+        proxy_start_code += """
+from traincheck.proxy_wrapper.subclass import proxy_parameter
 """
 
     if auto_observer_config["enable_auto_observer"]:
@@ -435,7 +448,7 @@ for log_file in log_files:
     if not no_auto_var_instr:
         for model in models_to_track:
             instrumented_source = instrument_all_model_assignments(
-                instrumented_source, model, "proxy"
+                instrumented_source, model, model_tracker_style
             )
 
     code_head, code_tail = get_code_head_and_tail(instrumented_source)
@@ -797,6 +810,7 @@ def instrument_file(
     output_dir: str,
     instr_descriptors: bool,
     no_auto_var_instr: bool,
+    use_torch_compile: bool,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -833,20 +847,28 @@ if os.environ.get("ML_DAIKON_DEBUG") == "1":
     general_config_update = f"""
 import traincheck.config.config as general_config
 general_config.INSTR_DESCRIPTORS = {instr_descriptors}
+general_config.MODEL_TRACKER_STYLE = {model_tracker_style!r}
 """
+    if use_torch_compile:
+        torch_compile_config_update = """
+general_config.USE_TORCH_COMPILE = True
+"""
+        general_config_update = general_config_update + torch_compile_config_update
     # TODO: move the INSTR_DESCRIPTORS to the instr_opts file
 
     if models_to_track:
         assert model_tracker_style in [
             "proxy",
             "sampler",
-        ], f"Invalid model tracker style: {model_tracker_style}, must be one of ['proxy', 'sampler']"
-        if model_tracker_style == "proxy":
+            "subclass",
+        ], f"Invalid model tracker style: {model_tracker_style}, must be one of ['proxy', 'sampler', 'subclass']"
+        if model_tracker_style == "proxy" or model_tracker_style == "subclass":
             instrumented_source = instrument_model_tracker_proxy(
                 instrumented_source,
                 models_to_track,
                 adjusted_proxy_config,
                 no_auto_var_instr,
+                model_tracker_style,
             )
         else:
             instrumented_source = instrument_model_tracker_sampler(

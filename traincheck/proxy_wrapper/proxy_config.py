@@ -49,3 +49,14 @@ tensor_attribute_black_list = [
     "real",
 ]
 attribute_black_list = tensor_attribute_black_list
+# TODO
+proxy_attribute = [
+    "process_id",
+    "thread_id",
+    "logdir",
+    "log_level",
+    "loglevel",
+    "is_traincheck_proxyparameter",
+    "var_name",
+    "last_update_timestamp",
+]

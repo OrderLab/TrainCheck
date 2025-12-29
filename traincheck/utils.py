@@ -35,6 +35,14 @@ def safe_getattr(obj, attr, default=None):
         raise
 
 
+def typename_compile(o):
+    try:
+        mod = getattr(type(o), "__module__", "") or ""
+        return f"{mod}.{type(o).__name__}"
+    except Exception:
+        return "compile_stage"
+
+
 def typename(o, is_runtime=False):
     if isinstance(o, torch.nn.Parameter):
         return "torch.nn.Parameter"
