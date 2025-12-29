@@ -48,7 +48,7 @@ modules_to_instr:           # Libraries to instrument. Defaults to ['torch'] if 
   - torch
 models_to_track:            # [Optional] Variable names of models to track. Leave empty to disable model tracking.
   - model
-model_tracker_style: proxy  # [Optional] Tracking method: "proxy" (default) or "sampler".
+model_tracker_style: proxy  # [Optional] Tracking method: "proxy" (default), "subclass", or "sampler".
 copy_all_files: false       # [Optional] Set true if your code relies on relative paths (e.g., local datasets/configs).
 ```
 
