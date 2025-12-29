@@ -140,7 +140,224 @@ def to_dict_return_value(result) -> dict | list[dict]:
     return result_dict
 
 
-def global_wrapper(
+def global_wrapper_subclass(
+    original_function: Callable,
+    original_function_name: str,
+    is_bound_method: bool,
+    scan_proxy_in_args: bool,
+    dump_stack_trace: bool,
+    dump_args: bool,
+    dump_args_config,
+    dump_ret: bool,
+    dump_ret_config,
+    *args,
+    **kwargs,
+):
+    """Instrumentation for APIs
+
+    Pre-call Phase
+    1. Log the pre-call information
+
+    Call Phase
+    1. Calls the original function
+    2. If an exception is raised, log the exception and re-raise it
+
+    Post-call Phase
+    1. Log the post-call information
+    """
+
+    global DISABLE_WRAPPER
+    global PROCESS_ID
+
+    if DISABLE_WRAPPER:
+        return original_function(*args, **kwargs)
+
+    if COLLECT_OVERHEAD_METRICS:
+        ENTER_PERF_TIME = time.perf_counter()
+
+    func_call_id = get_unique_id()
+    process_id, thread_id = get_process_thread_id()
+    increment_step_if_needed(
+        original_function, original_function_name, is_bound_method, args
+    )
+
+    pre_meta_vars = get_meta_vars()
+
+    if IS_INSTRUMENTING:
+        return original_function(
+            *args, **kwargs
+        )  # don't instrument while instrumenting
+
+    pre_record = {
+        "func_call_id": func_call_id,
+        "thread_id": thread_id,
+        "process_id": process_id,
+        "meta_vars": pre_meta_vars,
+        "type": TraceLineType.FUNC_CALL_PRE,
+        "function": original_function_name,
+        "is_bound_method": is_bound_method,
+        "obj_id": None if not is_bound_method else id(args[0]),
+    }
+
+    if dump_stack_trace:
+        pre_record["stack_trace"] = traceback.format_stack()
+
+    if scan_proxy_in_args:
+        proxy_in_args = []
+
+        def find_proxy_in_args(args):
+            for i, arg in enumerate(args):
+                if is_proxied(arg) or is_proxyparameter(arg):
+                    proxy_in_args.append(arg)
+                elif type(arg) in [list, tuple]:
+                    find_proxy_in_args(arg)
+                elif isinstance(arg, types.GeneratorType) and not isinstance(
+                    arg, tuple
+                ):
+                    arg_list = list(arg)
+                    args[i] = iter(arg_list)
+                    find_proxy_in_args(arg_list)
+
+        args = list(args)  # type: ignore[assignment]
+        find_proxy_in_args(args)
+        args = tuple(args)
+
+        if proxy_in_args:
+            if "proxy_obj_names" not in pre_record:
+                pre_record["proxy_obj_names"] = []
+            for proxy in proxy_in_args:
+                if is_proxyparameter(proxy):
+                    pre_record["proxy_obj_names"].append(
+                        [proxy.__dict__["var_name"], "Parameter"]
+                    )
+                else:
+                    pre_record["proxy_obj_names"].append(
+                        [proxy.__dict__["var_name"], type(proxy._obj).__name__]
+                    )
+    if dump_args:
+        dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
+        pre_record["args"] = dict_args_kwargs["args"]
+        pre_record["kwargs"] = dict_args_kwargs["kwargs"]
+    dump_trace_API(pre_record)
+
+    try:
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_ENTER_PERF_TIME = time.perf_counter()
+        result = original_function(*args, **kwargs)
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_EXIT_PERF_TIME = time.perf_counter()
+    except Exception as e:
+        if COLLECT_OVERHEAD_METRICS:
+            ORIG_EXIT_PERF_TIME = time.perf_counter()
+
+        dump_trace_API(
+            {
+                "func_call_id": func_call_id,
+                "thread_id": thread_id,
+                "process_id": process_id,
+                "meta_vars": pre_meta_vars,
+                "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                "function": original_function_name,
+                "exception": typename(e, is_runtime=True),
+                "exception_msg": str(e),
+                "is_bound_method": is_bound_method,
+                "obj_id": None if not is_bound_method else id(args[0]),
+            },
+        )
+
+        if COLLECT_OVERHEAD_METRICS:
+            EXIT_PERF_TIME = time.perf_counter()
+            print(
+                f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+            )
+        raise e
+
+    post_record = {
+        "func_call_id": func_call_id,
+        "thread_id": thread_id,
+        "process_id": process_id,
+        "meta_vars": pre_meta_vars,
+        "type": TraceLineType.FUNC_CALL_POST,
+        "function": original_function_name,
+        "is_bound_method": is_bound_method,
+        "obj_id": None if not is_bound_method else id(args[0]),
+    }
+
+    result_to_dump = result
+
+    # if the current function name is transformers.generate, then we will dump the response tokens only, let's see.
+    # a concrete name: "transformers.models.whisper.modeling_whisper.WhisperForConditionalGeneration.generate"
+    # we want a pattern that abstracts the specific model name
+    pattern = "transformers.models.*.generate"
+    # find matches in the pattern
+    import re
+
+    if (
+        GENERATE_START_TOKEN_ID is not None
+        and re.match(pattern, original_function_name)
+        and isinstance(result, torch.Tensor)
+    ):
+        print(f"Found match for {original_function_name}")
+        # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
+        response_starting_indices = []
+        for i in range(result.size(0)):
+            # try to find the match of the start token ids in the response
+            response = result[i]
+            # Find all indices where the start_token_id matches
+            matches = (response == GENERATE_START_TOKEN_ID).nonzero(as_tuple=True)[0]
+            indexes = matches.tolist()
+            if len(indexes) == 0:
+                # No occurrences found
+                print(
+                    f"start_token_id ({GENERATE_START_TOKEN_ID}) not found in response {i}"
+                )
+                start_index = -1  # Handle case where token is not found
+            elif len(indexes) > 1:
+                # Multiple occurrences found, raise an error
+                raise ValueError(
+                    f"Multiple occurrences of start_token_id ({GENERATE_START_TOKEN_ID}) found in response {i}: {matches.tolist()}"
+                )
+            else:
+                # Single occurrence found, get the index
+                start_index = indexes[0]
+                if not GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN:
+                    start_index += 1
+
+            response_starting_indices.append(start_index)
+
+        # compute the length of each response
+        response_lengths = []
+        for i in range(result.size(0)):
+            response = result[i]
+            start_index = response_starting_indices[i]
+            if start_index == -1:
+                response_lengths.append(0)
+            else:
+                response_lengths.append(response.size(0) - start_index)
+
+        result_to_dump = result.detach()
+        setattr(
+            result_to_dump,
+            "_ML_DAIKON_RESPONSE_STARTING_INDICES",
+            response_starting_indices,
+        )
+        setattr(result_to_dump, "_ML_DAIKON_RESPONSE_LENGTHS", response_lengths)
+
+        print(response_starting_indices)
+        print(response_lengths)
+    if dump_ret:
+        post_record["return_values"] = to_dict_return_value(result_to_dump)
+    dump_trace_API(post_record)
+
+    if COLLECT_OVERHEAD_METRICS:
+        EXIT_PERF_TIME = time.perf_counter()
+        print(
+            f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+        )
+    return result
+
+
+def global_wrapper_proxy(
     original_function: Callable,
     original_function_name: str,
     is_bound_method: bool,
@@ -157,20 +374,7 @@ def global_wrapper(
     *args,
     **kwargs,
 ):
-    """Instrumentation for APIs
-
-    Pre-call Phase
-    1. Log the pre-call information
-    2. Unproxy the arguments if the function is a C level function -- Proxy objects passed to built-in functions will cause segfault
-    3. Add additional 'observer' (monitoring whether the input arguments have changed after the function call) to the function if specified
-
-    Call Phase
-    1. Calls the original function
-    2. If an exception is raised, log the exception and re-raise it
-
-    Post-call Phase
-    1. Log the post-call information
-    """
+    """Instrumentation for APIs with proxy-specific handling."""
 
     # if "step" in original_function_name and not "scheduler" in original_function_name:
     #     print("step function called" + original_function_name)
@@ -401,9 +605,11 @@ def global_wrapper(
     return result
 
 
-def core_wrapper(original_function, is_builtin, handle_proxy, *args, **kwargs):
-    """same as global_wrapper but without the logging, will have lower overhead than global_wrapper
-    We use this wrapper on the functions that are not helpful for invariant inference,  but still needs to be instrumented to handle proxy classes
+def core_wrapper_proxy(original_function, is_builtin, handle_proxy, *args, **kwargs):
+    """Same as global_wrapper_proxy but without logging.
+
+    We use this wrapper on functions that are not helpful for invariant inference,
+    but still need proxy-safe handling.
     """
     global DISABLE_WRAPPER
     if DISABLE_WRAPPER:
@@ -436,20 +642,34 @@ def wrapper(
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
-            return global_wrapper(  # the wrapper cannot be invoked with named parameters as *args has to be after the named parameters
+            if handle_proxy:
+                return global_wrapper_proxy(
+                    original_function,
+                    original_function_name,
+                    is_bound_method,
+                    is_builtin,
+                    scan_proxy_in_args,
+                    dump_stack_trace,
+                    dump_args,
+                    dump_args_config,
+                    dump_ret,
+                    dump_ret_config,
+                    handle_proxy,
+                    trigger_proxy_state_dump,
+                    proxy_state_dump_config,
+                    *args,
+                    **kwargs,
+                )
+            return global_wrapper_subclass(
                 original_function,
                 original_function_name,
                 is_bound_method,
-                is_builtin,
                 scan_proxy_in_args,
                 dump_stack_trace,
                 dump_args,
                 dump_args_config,
                 dump_ret,
                 dump_ret_config,
-                handle_proxy,
-                trigger_proxy_state_dump,
-                proxy_state_dump_config,
                 *args,
                 **kwargs,
             )
@@ -460,7 +680,7 @@ def wrapper(
 
             @functools.wraps(original_function)
             def wrapped(*args, **kwargs):
-                return core_wrapper(
+                return core_wrapper_proxy(
                     original_function, is_builtin, handle_proxy, *args, **kwargs
                 )
 
@@ -850,9 +1070,13 @@ class Instrumentor:
         """Get the wrapped function for the provided function object,
         based on the instrumentation options provided in instr_opts.json.
         """
-        used_proxy = True  # TODO: dump instr_opts when doing full instr as well so we can determine whether to handle proxy based on the specific instrumentation args
+        tracker_style = (
+            self.instr_opts.model_tracker_style
+            if self.instr_opts is not None
+            else config.MODEL_TRACKER_STYLE
+        )
+        used_proxy = tracker_style == "proxy"
         if self.instr_opts is not None:
-            used_proxy = self.instr_opts.model_tracker_style == "proxy"
             func_name = typename(func_obj)
             if func_name not in self.instr_opts.funcs_instr_opts:
                 return wrapper(

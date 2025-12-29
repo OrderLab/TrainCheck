@@ -89,6 +89,7 @@ ANALYSIS_SKIP_FUNC_NAMES = [
 ]
 
 INSTR_OPTS = None  # TODO: set defaults for this variable
+MODEL_TRACKER_STYLE: str | None = None
 
 # var dumper related error-backoff configs
 TYPE_ERR_THRESHOLD = 3
@@ -105,8 +106,9 @@ class InstrOpt:
         assert model_tracker_style in [
             "sampler",
             "proxy",
+            "subclass",
             None,
-        ], "model_tracker_style should be one of ['sampler', 'proxy', None]"
+        ], "model_tracker_style should be one of ['sampler', 'proxy', 'subclass', None]"
 
         self.funcs_instr_opts: dict[str, dict[str, bool | dict]] = func_instr_opts
         self.model_tracker_style = model_tracker_style

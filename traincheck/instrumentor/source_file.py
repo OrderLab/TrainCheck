@@ -292,14 +292,14 @@ def instrument_all_model_assignments(
         instr_statement = ast.parse(
             f"{model_name}_sampler = VarSampler({model_name}, var_name='{model_name}')"
         )
-    elif mode == "proxyparameter":
+    elif mode == "subclass":
         instr_statement = ast.parse(
             f"proxy_parameter({model_name}, logdir=proxy_config.proxy_log_dir, parent_name='{model_name}')"
         )
 
     else:
         raise ValueError(
-            f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler', 'proxyparameter']"
+            f"Invalid mode: {mode}. Must be one of ['proxy', 'sampler', 'subclass']"
         )
 
     # find all assignment statements to `model`
@@ -847,6 +847,7 @@ if os.environ.get("ML_DAIKON_DEBUG") == "1":
     general_config_update = f"""
 import traincheck.config.config as general_config
 general_config.INSTR_DESCRIPTORS = {instr_descriptors}
+general_config.MODEL_TRACKER_STYLE = {model_tracker_style!r}
 """
     if use_torch_compile:
         torch_compile_config_update = """
@@ -859,9 +860,9 @@ general_config.USE_TORCH_COMPILE = True
         assert model_tracker_style in [
             "proxy",
             "sampler",
-            "proxyparameter",
-        ], f"Invalid model tracker style: {model_tracker_style}, must be one of ['proxy', 'sampler']"
-        if model_tracker_style == "proxy" or model_tracker_style == "proxyparameter":
+            "subclass",
+        ], f"Invalid model tracker style: {model_tracker_style}, must be one of ['proxy', 'sampler', 'subclass']"
+        if model_tracker_style == "proxy" or model_tracker_style == "subclass":
             instrumented_source = instrument_model_tracker_proxy(
                 instrumented_source,
                 models_to_track,
