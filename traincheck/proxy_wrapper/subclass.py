@@ -5,6 +5,7 @@ import threading
 import torch
 from torch import nn
 
+from traincheck.config.config import should_disable_proxy_dumping
 from traincheck.instrumentor.dumper import dump_trace_VAR
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
@@ -124,7 +125,7 @@ class ProxyParameter(torch.nn.Parameter):
         self.__dict__["last_update_timestamp"] = current_time
 
         # print(f"init: {self.var_name}")
-        if should_dump_trace:
+        if should_dump_trace and not should_disable_proxy_dumping():
             if from_call:
                 phase = "call"
 
@@ -139,17 +140,20 @@ class ProxyParameter(torch.nn.Parameter):
         # print(f"paremeter: {self.var_name}, name = {name}, value = {value}")
         super().__setattr__(name, value)
         self.update_timestamp()
+        if should_disable_proxy_dumping():
+            return
         self.dump_trace(
             phase="update",
             dump_loc=f"__setattr__ (attribute '{name}')",
         )
 
     def __deepcopy__(self, memo):
-        data = self.data
+        data = self.detach().clone(memory_format=torch.preserve_format)
+        data.requires_grad_(self.requires_grad)
         if in_dynamo() or is_fake_tensor(self):
             return self
         return type(self)(
-            data.clone(memory_format=torch.preserve_format),
+            data,
             var_name=self.var_name,
         )
 
