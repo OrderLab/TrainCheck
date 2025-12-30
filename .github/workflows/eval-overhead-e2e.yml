@@ -50,7 +50,7 @@ jobs:
       - name: Run benchmark
         run: |
           cd benchmarks/instr-overhead
-          xonsh run_all.xsh --track_variables --res_folder perf_benchmark_results
+          xonsh run_all.xsh --track-variables --res_folder perf_benchmark_results
       
       - name: Run analysis scripts
         run: |
