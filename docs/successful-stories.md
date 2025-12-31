@@ -35,3 +35,14 @@ TrainCheck proactively detects silent failures in deep learning training by infe
 - **TrainCheck's Role:** TrainCheck identified the problem instantly by verifying that `zero_grad()` and `step()` calls resulted in **zero actual model changes**.
 
 *Source: [HuggingFace Accelerate Issue #2665](https://github.com/huggingface/accelerate/issues/2665)*
+
+---
+
+## 🧩 Case 4: The Bug That Taught Me PyTorch
+
+**The Story:** A training run looked healthy at first glance, but the model was not learning as expected. The symptoms were subtle and resembled the classic 84911-style failure mode.
+
+- **The Root Cause:** A silent training logic issue that prevented expected parameter updates under certain conditions.
+- **TrainCheck's Role:** TrainCheck can surface this by checking that critical API calls actually lead to parameter state changes.
+
+*Source: [the bug that taught me more about PyTorch than years of using it](https://elanapearl.github.io/blog/2025/the-bug-that-taught-me-pytorch/)*
