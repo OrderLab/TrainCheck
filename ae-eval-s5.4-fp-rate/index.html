@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Eval: False Positive Rate - TrainCheck</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Eval: False Positive Rate";
+        var mkdocs_page_input_path = "ae-eval-s5.4-fp-rate.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> TrainCheck
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../installation-guide/">Installation Guide</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../5-min-tutorial/">5 Minute Quick Start</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../successful-stories/">Success Stories</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../technical-doc/">Technical Documentation</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../usage-guide/">Usage Tips</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../benchmarks/">Performance Benchmarks</a>
+                </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">TrainCheck</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+      <li class="breadcrumb-item active">Eval: False Positive Rate</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="eval-false-positive-rate">Eval: False Positive Rate</h1>
+<p>⏳ Estimated Completion Time: 2 hour.
+- Trace Collection: ~10 minutes
+- Invariant Inference &amp; Checking: ~1.5 hours</p>
+<h2 id="goal">🎯 Goal</h2>
+<p>This evaluation measures the false positive rate of alarms reported by TrainCheck's invariants.<br />
+The target results are discussed in the main text of <strong>Section 5.4</strong> of the paper.</p>
+<h2 id="resources-scripts">📂 Resources &amp; Scripts</h2>
+<ul>
+<li><strong>Automation Scripts</strong>:</li>
+<li><a href="https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/blob/main/fp_rate/ae_fp.py"><code>TrainCheck-Evaluation-Workloads/fp_rate/ae_fp.py</code></a>: The script to collect traces, perform invariant inference, and check invariants on supposedly-correct programs to see if there are any false alarms.</li>
+<li>
+<p><a href="https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/blob/main/fp_rate/compute_fp_rate.py"><code>TrainCheck-Evaluation-Workloads/fp_rate/compute_fp_rate.py</code></a>: The script to compute false positive rates from the invariant checking results.</p>
+</li>
+<li>
+<p><strong>Workloads</strong>:</p>
+</li>
+<li>The evaluation uses official PyTorch training pipelines located at <a href="https://github.com/OrderLab/TrainCheck-Evaluation-Workloads/tree/main/fp_rate/workloads"><code>TrainCheck-Evaluation-Workloads/fp_rate/workloads</code></a>.
+    We have shortened the training runs for faster execution.
+    For AE purposes, you do not need to modify or understand the workload code—<code>ae_fp.py</code> will automatically handle the entire process.</li>
+</ul>
+<h2 id="how-to-run">🛠 How to Run</h2>
+<blockquote>
+<p>All steps described below assumes you are already in the <code>TrainCheck-Evaluation-Workloads</code> repo. If not, clone the repository and go to it.
+<code>bash
+git clone https://github.com/OrderLab/TrainCheck-Evaluation-Workloads.git
+cd TrainCheck-Evaluation-Workloads</code></p>
+</blockquote>
+<ol>
+<li>
+<p>Make sure you have a working TrainCheck installation by following <a href="../installation-guide/">TrainCheck Installation Guide</a>.</p>
+</li>
+<li>
+<p>Install necessary dependencies for the false positive evaluation workloads.
+    <code>bash
+    conda activate traincheck # change this if you installed TrainCheck in a different environment.
+    cd fp_rate
+    pip3 install -r requirements.txt</code></p>
+</li>
+<li>
+<p>Execute <code>ae_fp.py</code> to collect traces, perform invariant inference, and check the invariants on validation programs.</p>
+<p>The workload <code>ddp-multigpu</code> will need 2 GPUs. We have provided the trace for <code>ddp-multigpu</code> in case you do not have two GPUs.</p>
+<p>If you need to use our pre-computed trace for <code>ddp-multigpu</code>, remove the <code>--overwrite-existing-results</code> argument.
+<code>bash
+python3 ae_fp.py --bench workloads</code></p>
+<p>Or, if you have a machine with 2 GPUs, execute the below command, such that the original results will be re-computed.
+<code>bash
+python3 ae_fp.py --bench workloads --overwrite-existing-results</code></p>
+</li>
+<li>
+<p>Execute <code>compute_fp_rate.py</code> to compute the false positive rates.</p>
+<p><code>bash
+python3 compute_fp_rate.py</code></p>
+</li>
+</ol>
+<h2 id="what-to-expect-during-execution">👀 What to Expect During Execution</h2>
+<p>The <code>ae_fp.py</code> script is long running. It performs three tasks at same time. 
+1. It collects trace for all the workloads.
+2. It infers invariants for three setups in Section 5.4.
+3. It checks inferred invariants on the validation workloads.</p>
+<p>The experiments might fail if environment installation issues or disruption happens. When you run into problems, please refer to <a href="#️-notes--troubleshooting">⚠️ Notes &amp; Troubleshooting</a>.</p>
+<h2 id="notes-troubleshooting">⚠️ Notes &amp; Troubleshooting</h2>
+<p>The script will automatically detect any errors in any (1) trace collection, (2) inference tasks, (3) checking tasks. If you encounter any trace collection issues, please check for any missing environment dependencies.</p>
+<p>If you encounter any issues on invariant inference tasks or invariant checking tasks, please try to rerun the experiment by adding <code>--overwrite-existing-results</code> or delete all <code>trace_*</code> folders except for <code>trace_ddp-multigpu</code>.</p>
+<p>If you see persistent issues, it will likely be a environment issue or software bug. Please contact us for help.</p>
+<h2 id="how-to-verify-the-results">🧐 How to verify the results?</h2>
+<p>The <code>compute_fp_rate.py</code> script generates a file called <code>fp_rates.csv</code> under the current directory. Looking like this</p>
+<pre><code class="language-csv">setup,fp_rate
+1-input,0.3105
+4-input,0.1127
+6-input,0.1066
+</code></pre>
+<p>These values correspond to the results reported in Section 5.4 of the paper.
+You should verify that the false positive rates are similar or lower. Since the OSDI submission, we have fixed multiple bugs in TrainCheck, so the false positive rates are expected to be significantly lower in most cases.</p>
+<p>In our run of the script, we obtained the following results:</p>
+<pre><code class="language-csv">setup,fp_rate
+1-input,0.039
+4-input,0.021
+6-input,0.015
+</code></pre>
+              
+            </div>
+          </div><footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
