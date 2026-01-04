@@ -8,9 +8,9 @@ from torch.optim.lr_scheduler import StepLR
 from torchvision import datasets, transforms
 
 from traincheck import annotate_stage
-from traincheck.instrumentor import meta_vars
+from traincheck.instrumentor import META_VARS
 
-meta_vars["step"] = -1
+META_VARS["step"] = -1
 
 
 class Net(nn.Module):
@@ -43,7 +43,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
     annotate_stage("training")  # ML_DAIKON: stage annotation
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        meta_vars["step"] += 1
+        META_VARS["step"] += 1
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)

@@ -12,8 +12,8 @@ from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.utils import get_timestamp_ns
 
 from .proxy_basics import is_fake_tensor
+from .proxy_registry import get_global_registry
 
-# from .proxy_registry import get_global_registry
 # from .utils import print_debug
 
 
@@ -165,9 +165,9 @@ class ProxyParameter(torch.nn.Parameter):
         # Proxy.var_dict[self.__dict__["var_name"]].last_update_timestamp = current_time
 
     def register_object(self):
-        # get_global_registry().add_var(self, self.__dict__["var_name"])
+        get_global_registry().add_var(self, self.__dict__["var_name"])
         # TODO: implement the registry, we will need to make sure the registerred timestamp is updated and is consistent with the timestamp in the object
-        pass
+        # pass
 
     def dump_trace(self, phase, dump_loc):
         # print(f"parameter: {self.var_name}, phase = {phase}, dump_loc = {dump_loc}")

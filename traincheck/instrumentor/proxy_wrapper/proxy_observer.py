@@ -61,7 +61,7 @@ def add_observer_to_func(original_function, unproxy=False):
         result = processed_function(*args, **kwargs)
 
         # post observe
-        for i, var in enumerate(proxied_vars):
+        for var in proxied_vars:
             observe_proxy_var(
                 var,
                 "post_observe",

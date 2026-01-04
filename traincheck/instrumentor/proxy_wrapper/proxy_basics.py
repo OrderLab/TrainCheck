@@ -93,22 +93,21 @@ def unproxy_arg(arg, inspect_torch_module=False):
         return arg
 
 
+def unproxy_args_kwargs(args, kwargs, inspect_torch_module=False):
+    args = [unproxy_arg(arg, inspect_torch_module) for arg in args]
+    kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+    return args, kwargs
+
+
 def unproxy_func(func, inspect_torch_module=False):
     original_func = func
 
     @functools.wraps(original_func)
     def wrapper(*args, **kwargs):
-        args = [unproxy_arg(arg, inspect_torch_module) for arg in args]
-        kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
+        args, kwargs = unproxy_args_kwargs(args, kwargs, inspect_torch_module)
         return original_func(*args, **kwargs)
 
     return wrapper
-
-
-def unproxy_args_kwargs(args, kwargs, inspect_torch_module=False):
-    args = [unproxy_arg(arg, inspect_torch_module) for arg in args]
-    kwargs = {k: unproxy_arg(v) for k, v in kwargs.items()}
-    return args, kwargs
 
 
 def type_handle_traincheck_proxy(x):

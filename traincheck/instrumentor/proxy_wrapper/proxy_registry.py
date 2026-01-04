@@ -15,11 +15,15 @@ class RegistryEntry:
         self.stale = stale
 
 
-class ProxyRegistry:
-    """A helper class managing all proxy variables being tracked and allow for controlled dumps of
+class VarRegistry:
+    """A helper class managing all variables being tracked and allow for controlled dumps of
     the variable states.
 
     A variable is uniquely identified by its "name"
+    When a variable is added to the registry, it is marked as "not stale".
+    When a variable is dumped through `dump_sample` or `dump_modified`, it is marked as "stale".
+    A variable is only dumped through `dump_modified` if it is not stale.
+
     """
 
     def __init__(self):
@@ -29,20 +33,24 @@ class ProxyRegistry:
     def add_var(self, var: "Proxy", var_name: str):
         """Add a new proxy variable to the registry"""
         with self.registry_lock:
-            self.registry[var_name] = RegistryEntry(proxy=var, stale=False)
+            if var_name in self.registry:
+                self.registry[var_name].proxy = var
+                self.registry[var_name].stale = False
+            else:
+                self.registry[var_name] = RegistryEntry(proxy=var, stale=False)
 
     def dump_sample(self, dump_loc=None):
         """A complete dump of all present proxy objects
 
         Calling this API mark all proxy objects as stale which
-        will affect the `dump_only_modified` API.
+        will affect the `dump_modified` API.
         """
         with self.registry_lock:
-            for var_name, entry in self.registry.items():
+            for _, entry in self.registry.items():
                 entry.stale = True
                 entry.proxy.dump_trace(phase="sample", dump_loc=dump_loc)
 
-    def dump_only_modified(self, dump_loc=None, dump_config=None):
+    def dump_modified(self, dump_loc=None, dump_config=None):
         """Dump only the proxy variables that might be modified since last dump
 
         args:
@@ -81,7 +89,7 @@ class ProxyRegistry:
 
 
 # Global dictionary to store registered objects
-global_registry = ProxyRegistry()
+global_registry = VarRegistry()
 
 
 def get_global_registry():
