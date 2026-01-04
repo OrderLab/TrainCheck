@@ -9,9 +9,9 @@ from typing import Dict
 import torch
 
 import traincheck.config.config as general_config
-import traincheck.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
-import traincheck.proxy_wrapper.proxy_methods as proxy_methods
-from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
+import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
+import traincheck.instrumentor.proxy_wrapper.proxy_methods as proxy_methods
+from traincheck.instrumentor.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from traincheck.utils import get_timestamp_ns, typename
 
 from .dumper import json_dumper as dumper

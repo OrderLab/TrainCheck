@@ -367,34 +367,34 @@ def instrument_model_tracker_proxy(
 
     if proxy_basic_config:
         if "proxy_log_dir" not in proxy_basic_config:
-            from traincheck.proxy_wrapper.proxy_config import proxy_log_dir
+            from traincheck.instrumentor.proxy_wrapper.proxy_config import proxy_log_dir
 
             proxy_basic_config["proxy_log_dir"] = proxy_log_dir
 
         proxy_start_code += f"""
-import traincheck.proxy_wrapper.proxy_config as proxy_config
+import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config
 proxy_config.__dict__.update({proxy_basic_config})
 """
     if tensor_dump_format:
         proxy_start_code += f"""
-from traincheck.proxy_wrapper.proxy_config import tensor_dump_format
+from traincheck.instrumentor.proxy_wrapper.proxy_config import tensor_dump_format
 tensor_dump_format.update({tensor_dump_format})
 """
 
     if model_tracker_style == "proxy":
         proxy_start_code += """
-from traincheck.proxy_wrapper.proxy import Proxy
+from traincheck.instrumentor.proxy_wrapper.proxy import Proxy
 """
     else:
         proxy_start_code += """
-from traincheck.proxy_wrapper.subclass import proxy_parameter
+from traincheck.instrumentor.proxy_wrapper.subclass import proxy_parameter
 """
 
     if auto_observer_config["enable_auto_observer"]:
         auto_observer_code = """
 import glob
 import importlib
-from traincheck.proxy_wrapper.proxy_config import auto_observer_config
+from traincheck.instrumentor.proxy_wrapper.proxy_config import auto_observer_config
 spec = importlib.util.find_spec('traincheck')
 if spec and spec.origin:
     traincheck_folder = os.path.dirname(spec.origin)

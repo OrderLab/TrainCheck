@@ -6,7 +6,7 @@ except ImportError:
     pass
 from torch._C._distributed_c10d import ProcessGroup
 
-from traincheck.proxy_wrapper.proxy_basics import unproxy_func
+from traincheck.instrumentor.proxy_wrapper.proxy_basics import unproxy_func
 
 #################################################
 ###         Proxied Torch functions

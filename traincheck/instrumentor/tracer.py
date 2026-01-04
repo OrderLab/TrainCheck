@@ -25,17 +25,17 @@ from traincheck.instrumentor.dumper import (
     get_instrumentation_logger_for_process,
     var_to_serializable,
 )
-from traincheck.instrumentor.replace_functions import (
-    funcs_to_be_replaced,
-    is_funcs_to_be_unproxied,
-)
-from traincheck.proxy_wrapper.proxy_basics import (
+from traincheck.instrumentor.proxy_wrapper.proxy_basics import (
     is_proxied,
     is_proxyparameter,
     unproxy_func,
 )
-from traincheck.proxy_wrapper.proxy_config import enable_C_level_observer
-from traincheck.proxy_wrapper.proxy_registry import get_global_registry
+from traincheck.instrumentor.proxy_wrapper.proxy_config import enable_C_level_observer
+from traincheck.instrumentor.proxy_wrapper.proxy_registry import get_global_registry
+from traincheck.instrumentor.replace_functions import (
+    funcs_to_be_replaced,
+    is_funcs_to_be_unproxied,
+)
 from traincheck.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
@@ -464,7 +464,7 @@ def global_wrapper_proxy(
 
     if handle_proxy:
         if enable_C_level_observer and is_builtin:
-            from traincheck.proxy_wrapper.proxy_observer import (
+            from traincheck.instrumentor.proxy_wrapper.proxy_observer import (
                 add_observer_to_func,  # import here to avoid circular import
             )
 

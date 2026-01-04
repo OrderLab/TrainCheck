@@ -123,7 +123,7 @@ class TypeToIsInstanceTransformer(ast.NodeTransformer):
         self.generic_visit(node)
         # Inject code right after the def statement
         inject_code = """
-from traincheck.proxy_wrapper.proxy_basics import type_handle_traincheck_proxy
+from traincheck.instrumentor.proxy_wrapper.proxy_basics import type_handle_traincheck_proxy
 """
         inject_node = ast.parse(inject_code).body
         node.body = inject_node + node.body

@@ -2,12 +2,12 @@ import functools
 import typing
 
 from traincheck.config.config import should_disable_proxy_dumping
-from traincheck.proxy_wrapper.subclass import ProxyParameter
+from traincheck.instrumentor.proxy_wrapper.subclass import ProxyParameter
 from traincheck.utils import typename
 
 if typing.TYPE_CHECKING:
-    from traincheck.proxy_wrapper.proxy import Proxy
-    from traincheck.proxy_wrapper.subclass import ProxyParameter
+    from traincheck.instrumentor.proxy_wrapper.proxy import Proxy
+    from traincheck.instrumentor.proxy_wrapper.subclass import ProxyParameter
 
 from .proxy_basics import is_proxied, is_proxyparameter, unproxy_func
 

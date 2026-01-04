@@ -7,8 +7,8 @@ from torch import nn
 
 from traincheck.config.config import should_disable_proxy_dumping
 from traincheck.instrumentor.dumper import dump_trace_VAR
+from traincheck.instrumentor.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from traincheck.instrumentor.tracer import TraceLineType
-from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from traincheck.utils import get_timestamp_ns
 
 from .proxy_basics import is_fake_tensor

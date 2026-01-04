@@ -7,7 +7,7 @@ import yaml
 
 import traincheck.config.config as config
 import traincheck.instrumentor as instrumentor
-import traincheck.proxy_wrapper.proxy_config as proxy_config
+import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config
 import traincheck.runner as runner
 from traincheck.config.config import InstrOpt
 from traincheck.invariant.base_cls import (
@@ -155,19 +155,6 @@ def get_model_tracker_instr_opts(invariants: list[Invariant]) -> str | None:
         if tracker_type == "proxy":
             break
     return tracker_type
-
-
-def get_disable_proxy_dumping(invariants: list[Invariant]) -> bool:
-    """
-    Get disable proxy dumping options for checking
-
-    Always return True if an APIContain invariant requested proxy tracking
-
-    We cannot disable automatic variable dumping if only consistency relations but no APIContain
-    require variable states, as then no APIs will trigger state dumps.
-    However, the var tracker should be sampler if there's no APIContain anyway
-    """
-    return True
 
 
 def dump_env(args, output_dir: str):

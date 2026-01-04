@@ -17,9 +17,9 @@ from traincheck.config.config import (
 )
 
 # if torch.cuda.is_available():
-from traincheck.proxy_wrapper.hash import tensor_hash
-from traincheck.proxy_wrapper.proxy_basics import is_fake_tensor
-from traincheck.proxy_wrapper.proxy_config import (
+from traincheck.instrumentor.proxy_wrapper.hash import tensor_hash
+from traincheck.instrumentor.proxy_wrapper.proxy_basics import is_fake_tensor
+from traincheck.instrumentor.proxy_wrapper.proxy_config import (
     attribute_black_list,
     primitive_types,
     proxy_attribute,
