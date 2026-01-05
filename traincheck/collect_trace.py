@@ -348,12 +348,6 @@ def main():
         help="The format for dumping tensors. Choose from 'hash'(default), 'stats' or 'full'.",
     )
     parser.add_argument(
-        "--enable-C-level-observer",
-        type=bool,
-        default=proxy_config.enable_C_level_observer,
-        help="Enable the observer at the C level",
-    )
-    parser.add_argument(
         "--no-auto-var-instr",
         action="store_true",
         help="Disable automatic variable instrumentation, necessary when the default behavior of the instrumentor is not desired (e.g. cause segmentation fault)",
@@ -386,7 +380,7 @@ def main():
     # set up logging
     if args.debug_mode:
         logging.basicConfig(level=logging.DEBUG)
-        os.environ["ML_DAIKON_DEBUG"] = "1"
+        os.environ["TRAINCHECK_DEBUG"] = "1"
     else:
         logging.basicConfig(level=logging.INFO)
 
@@ -406,7 +400,6 @@ def main():
     proxy_basic_config: dict[str, int | bool | str] = {}
     for configs in [
         "debug_mode",
-        "enable_C_level_observer",
     ]:
         if getattr(proxy_config, configs) != getattr(args, configs):
             proxy_basic_config[configs] = getattr(args, configs)

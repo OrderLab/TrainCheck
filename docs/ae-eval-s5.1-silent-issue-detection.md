@@ -145,9 +145,9 @@ diff --color -r checker_output/trace_pytorch-104336/failed.log reference_checker
 >             "process_id": 9591,
 >             "thread_id": 140324043503424,
 86c86
-<             "attributes._ML_DAIKON_data_ID": 140704882109040,
+<             "attributes._TRAINCHECK_data_ID": 140704882109040,
 ---
->             "attributes._ML_DAIKON_data_ID": 140317529048544,
+>             "attributes._TRAINCHECK_data_ID": 140317529048544,
 116,117c116,117
 <             "time": 2437523672783,
 <             "meta_vars._DATA_PARALLEL_RANK": 4.0,
@@ -161,9 +161,9 @@ diff --color -r checker_output/trace_pytorch-104336/failed.log reference_checker
 >             "process_id": 9747,
 >             "thread_id": 140028492969792,
 128c128
-<             "attributes._ML_DAIKON_data_ID": 140043703504144,
+<             "attributes._TRAINCHECK_data_ID": 140043703504144,
 ---
->             "attributes._ML_DAIKON_data_ID": 140021978318304,
+>             "attributes._TRAINCHECK_data_ID": 140021978318304,
 158,159c158,159
 <             "time": 2437502499438,
 <             "meta_vars._DATA_PARALLEL_RANK": 2.0,
@@ -182,9 +182,9 @@ diff --color -r checker_output/trace_pytorch-115607/failed.log reference_checker
 <             "exception_msg": NaN,
 <             "proxy_obj_names": NaN,
 113c110,113
-<             "attributes._ML_DAIKON_grad_ID": NaN
+<             "attributes._TRAINCHECK_grad_ID": NaN
 ---
->             "attributes._ML_DAIKON_grad_ID": NaN,
+>             "attributes._TRAINCHECK_grad_ID": NaN,
 >             "exception": NaN,
 >             "exception_msg": NaN,
 >             "proxy_obj_names": NaN
@@ -193,9 +193,9 @@ diff --color -r checker_output/trace_pytorch-115607/failed.log reference_checker
 <             "exception_msg": NaN,
 <             "proxy_obj_names": NaN,
 215c212,215
-<             "attributes._ML_DAIKON_grad_ID": NaN
+<             "attributes._TRAINCHECK_grad_ID": NaN
 ---
->             "attributes._ML_DAIKON_grad_ID": NaN,
+>             "attributes._TRAINCHECK_grad_ID": NaN,
 >             "exception": NaN,
 >             "exception_msg": NaN,
 >             "proxy_obj_names": NaN
@@ -210,9 +210,9 @@ diff --color -r checker_output/trace_pytorch-115607/failed.log reference_checker
 <             "exception_msg": NaN,
 <             "proxy_obj_names": NaN,
 331c328,331
-<             "attributes._ML_DAIKON_grad_ID": NaN
+<             "attributes._TRAINCHECK_grad_ID": NaN
 ---
->             "attributes._ML_DAIKON_grad_ID": NaN,
+>             "attributes._TRAINCHECK_grad_ID": NaN,
 >             "exception": NaN,
 >             "exception_msg": NaN,
 >             "proxy_obj_names": NaN
@@ -247,10 +247,10 @@ diff --color -r checker_output/trace_pytorch-51800/failed.log reference_checker_
 >             "time": 19876858668088743,
 >             "meta_vars.step": 0,
 89c70,89
-<             "attributes._ML_DAIKON_grad_ID": NaN
+<             "attributes._TRAINCHECK_grad_ID": NaN
 ---
 >             "type": "function_call (pre)",
->             "attributes._ML_DAIKON_grad_ID": NaN,
+>             "attributes._TRAINCHECK_grad_ID": NaN,
 >             "func_call_id": "b39a4a81b2c24473ba916ab1832fbf12_19876858668012869",
 >             "function": "torch.nn.modules.module.Module.eval",
 >             "is_bound_method": true,
@@ -290,9 +290,9 @@ diff --color -r checker_output/trace_x-jxmnop-ddp-out-of-sync/failed.log referen
 ---
 >             "meta_vars._DATA_PARALLEL_RANK": "1",
 87c87
-<             "attributes._ML_DAIKON_data_ID": 140656561409856,
+<             "attributes._TRAINCHECK_data_ID": 140656561409856,
 ---
->             "attributes._ML_DAIKON_data_ID": 140621279056480,
+>             "attributes._TRAINCHECK_data_ID": 140621279056480,
 117c117
 <             "time": 123297988837864,
 ---
@@ -308,9 +308,9 @@ diff --color -r checker_output/trace_x-jxmnop-ddp-out-of-sync/failed.log referen
 ---
 >             "meta_vars._DATA_PARALLEL_RANK": "0",
 129c129
-<             "attributes._ML_DAIKON_data_ID": 140621279058160,
+<             "attributes._TRAINCHECK_data_ID": 140621279058160,
 ---
->             "attributes._ML_DAIKON_data_ID": 140656561411776,
+>             "attributes._TRAINCHECK_data_ID": 140656561411776,
 159c159
 <             "time": 123299970638648,
 ---

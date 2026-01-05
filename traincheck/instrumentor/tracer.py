@@ -30,7 +30,6 @@ from traincheck.instrumentor.proxy_wrapper.proxy_basics import (
     is_proxyparameter,
     unproxy_args_kwargs,
 )
-from traincheck.instrumentor.proxy_wrapper.proxy_config import enable_C_level_observer
 from traincheck.instrumentor.proxy_wrapper.proxy_registry import get_global_registry
 from traincheck.instrumentor.replace_functions import (
     funcs_to_be_replaced,
@@ -127,7 +126,6 @@ def function_wrapper(
     original_function: Callable,
     original_function_name: str,
     is_bound_method: bool,
-    is_builtin: bool,
     scan_proxy_in_args: bool,
     dump_stack_trace: bool,
     dump_args: bool,
@@ -137,6 +135,7 @@ def function_wrapper(
     handle_proxy: bool,
     trigger_proxy_state_dump: bool,
     proxy_state_dump_config: dict,
+    need_unproxy_args_kwargs: bool,
     *args,
     **kwargs,
 ):
@@ -158,9 +157,9 @@ def function_wrapper(
     pre_meta_vars = get_meta_vars()
 
     if IS_INSTRUMENTING:
-        return original_function(
-            *args, **kwargs
-        )  # don't instrument while instrumenting
+        # during instrumentation, skip the dumping to avoid infinite recursion
+        # and interference with the import system
+        return original_function(*args, **kwargs)
 
     pre_record = {
         "func_call_id": func_call_id,
@@ -177,6 +176,7 @@ def function_wrapper(
         pre_record["stack_trace"] = traceback.format_stack()
 
     if scan_proxy_in_args:
+        # TODO: can be optimized: use static or dynamic analysis to determine which args/kwargs to scan
         proxy_in_args = []
 
         def find_proxy_in_args(args):
@@ -214,24 +214,14 @@ def function_wrapper(
         pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
 
-    if handle_proxy and trigger_proxy_state_dump:
+    if trigger_proxy_state_dump:
         """Mimicking the behavior the observer wrapper: pre-observe"""
         get_global_registry().dump_modified(
             dump_loc=original_function_name, dump_config=proxy_state_dump_config
         )
 
-    if handle_proxy:
-        if enable_C_level_observer and is_builtin:
-            from traincheck.instrumentor.proxy_wrapper.proxy_observer import (
-                add_observer_to_func,  # import here to avoid circular import
-            )
-
-            original_function = add_observer_to_func(original_function, unproxy=True)
-        elif is_funcs_to_be_unproxied(original_function):
-            args, kwargs = unproxy_args_kwargs(args, kwargs)
-        elif is_builtin:
-            # proxy objects being passed to backend will cause seg fault: TODO: replace with unproxy func
-            args, kwargs = unproxy_args_kwargs(args, kwargs)
+    if need_unproxy_args_kwargs:
+        args, kwargs = unproxy_args_kwargs(args, kwargs)
 
     try:
         if COLLECT_OVERHEAD_METRICS:
@@ -342,10 +332,10 @@ def function_wrapper(
         result_to_dump = result.detach()
         setattr(
             result_to_dump,
-            "_ML_DAIKON_RESPONSE_STARTING_INDICES",
+            "_TRAINCHECK_RESPONSE_STARTING_INDICES",
             response_starting_indices,
         )
-        setattr(result_to_dump, "_ML_DAIKON_RESPONSE_LENGTHS", response_lengths)
+        setattr(result_to_dump, "_TRAINCHECK_RESPONSE_LENGTHS", response_lengths)
 
         print(response_starting_indices)
         print(response_lengths)
@@ -386,6 +376,9 @@ def wrapper(
     proxy_state_dump_config=None,
 ):
     is_builtin = is_c_level_function(original_function)
+    need_unproxy_args_kwargs = handle_proxy and (
+        is_builtin or is_funcs_to_be_unproxied(original_function)
+    )
     original_function_name = typename(original_function)
     increment_step = False
     if original_function_name.endswith(".step") and isinstance(
@@ -405,7 +398,6 @@ def wrapper(
                 original_function=original_function,
                 original_function_name=original_function_name,
                 is_bound_method=is_bound_method,
-                is_builtin=is_builtin,
                 scan_proxy_in_args=scan_proxy_in_args,
                 dump_stack_trace=dump_stack_trace,
                 dump_args=dump_args,
@@ -415,6 +407,7 @@ def wrapper(
                 handle_proxy=handle_proxy,
                 trigger_proxy_state_dump=trigger_proxy_state_dump,
                 proxy_state_dump_config=proxy_state_dump_config,
+                need_unproxy_args_kwargs=need_unproxy_args_kwargs,
                 *args,
                 **kwargs,
             )

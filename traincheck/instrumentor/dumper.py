@@ -27,7 +27,7 @@ from traincheck.instrumentor.proxy_wrapper.proxy_config import (
 )
 from traincheck.utils import get_timestamp_ns, typename, typename_compile
 
-DEBUG = os.environ.get("ML_DAIKON_DEBUG", False)
+DEBUG = os.environ.get("TRAINCHECK_DEBUG", False)
 THREAD_DATA = threading.local()
 IS_CUDA_AVAILABLE = torch.cuda.is_available()
 
@@ -129,10 +129,10 @@ def get_trace_API_dumper_queue():
     pid = os.getpid()
     tid = threading.get_ident()
 
-    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
+    output_dir = os.getenv("TRAINCHECK_OUTPUT_DIR")
     assert (
         output_dir is not None
-    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
+    ), "TRAINCHECK_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['TRAINCHECK_OUTPUT_DIR'] is set in the main function"
 
     trace_queue = Queue()
     trace_file_name = f"trace_API_{pid}_{tid}.log"
@@ -161,10 +161,10 @@ def get_trace_VAR_dumper_queue():
     pid = os.getpid()
     tid = threading.current_thread().ident
 
-    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
+    output_dir = os.getenv("TRAINCHECK_OUTPUT_DIR")
     assert (
         output_dir is not None
-    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
+    ), "TRAINCHECK_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['TRAINCHECK_OUTPUT_DIR'] is set in the main function"
 
     trace_queue = Queue()
     trace_file_name = f"trace_VAR_{pid}_{tid}.log"
@@ -249,10 +249,10 @@ def dump_trace_VAR(trace: dict):
 
 def get_instrumentation_logger_for_process():
     pid = os.getpid()
-    output_dir = os.getenv("ML_DAIKON_OUTPUT_DIR")
+    output_dir = os.getenv("TRAINCHECK_OUTPUT_DIR")
     assert (
         output_dir is not None
-    ), "ML_DAIKON_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['ML_DAIKON_OUTPUT_DIR'] is set in the main function"
+    ), "TRAINCHECK_OUTPUT_DIR is not set, examine the instrumented code to see if os.environ['TRAINCHECK_OUTPUT_DIR'] is set in the main function"
 
     if pid in instrumentation_loggers:
         return instrumentation_loggers[pid]
@@ -369,7 +369,7 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
         if (
             isinstance(attr_name, str)
             and attr_name.startswith("_")
-            and not attr_name.startswith("_ML_DAIKON")
+            and not attr_name.startswith("_TRAINCHECK")
         ):
             continue
 
@@ -405,12 +405,12 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
             result[attr_name] = attr
 
         elif isinstance(attr, torch.Tensor):
-            result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
+            result[f"_TRAINCHECK_{attr_name}_ID"] = id(attr)
             if include_tensor_data:
                 result[attr_name] = dump_tensor(attr)
 
         elif isinstance(attr, torch.nn.parameter.Parameter):
-            result[f"_ML_DAIKON_{attr_name}_ID"] = id(attr)
+            result[f"_TRAINCHECK_{attr_name}_ID"] = id(attr)
             if include_tensor_data:
                 result[attr_name] = dump_tensor(attr.data)
 
@@ -430,7 +430,7 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
             result[attr_name] = str(attr)
         elif isinstance(attr, torch.Size):
             result[attr_name] = tuple(attr)
-        elif "_ML_DAIKON" in attr_name:
+        elif "_TRAINCHECK" in attr_name:
             # should always be serializable, so blindly assign here.
             result[attr_name] = attr
 

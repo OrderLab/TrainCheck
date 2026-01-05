@@ -833,13 +833,13 @@ def instrument_file(
     # logging configs
     logging_start_code = f"""
 import os
-os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
+os.environ['TRAINCHECK_OUTPUT_DIR'] = "{output_dir}"
 """
 
     debug_hook_code = """
 from traincheck.utils import register_custom_excepthook
-if os.environ.get("ML_DAIKON_DEBUG") == "1":
-    print("ML_DAIKON_DEBUG is set to 1, registering custom excepthook")
+if os.environ.get("TRAINCHECK_DEBUG") == "1":
+    print("TRAINCHECK_DEBUG is set to 1, registering custom excepthook")
     register_custom_excepthook(True)
 """
 

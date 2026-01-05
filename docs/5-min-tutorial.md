@@ -246,7 +246,7 @@ For example, the "`optimizer.zero_grad` did **not** reset `.grad` from non-zero 
             "var_type": NaN,
             "mode": NaN,
             "dump_loc": NaN,
-            "attributes._ML_DAIKON_data_ID": NaN,
+            "attributes._TRAINCHECK_data_ID": NaN,
             "attributes.data": NaN,
             "attributes.dtype": NaN,
             "attributes.grad": NaN,
@@ -274,7 +274,7 @@ For example, the "`optimizer.zero_grad` did **not** reset `.grad` from non-zero 
             "attributes.requires_grad": NaN,
             "attributes.retains_grad": NaN,
             "attributes.shape": NaN,
-            "attributes._ML_DAIKON_grad_ID": NaN,
+            "attributes._TRAINCHECK_grad_ID": NaN,
             "exception": NaN,
             "exception_msg": NaN,
             "proxy_obj_names": NaN

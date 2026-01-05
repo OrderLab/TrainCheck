@@ -102,7 +102,7 @@ class Proxy:
     var_dict: Dict[str, ProxyObjInfo] = {}
     loglevel = logging.INFO
     jsondumper = dumper(
-        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR", "."), "proxy_log.json")  # type: ignore
+        os.path.join(os.getenv("TRAINCHECK_OUTPUT_DIR", "."), "proxy_log.json")  # type: ignore
     )
 
     @staticmethod

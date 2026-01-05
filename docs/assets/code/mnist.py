@@ -40,7 +40,7 @@ class Net(nn.Module):
 
 
 def train(args, model, device, train_loader, optimizer, epoch):
-    annotate_stage("training")  # ML_DAIKON: stage annotation
+    annotate_stage("training")  # TRAINCHECK: stage annotation
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
         META_VARS["step"] += 1
@@ -63,13 +63,13 @@ def train(args, model, device, train_loader, optimizer, epoch):
             if args.dry_run:
                 break
 
-        # ML_DAIKON: break after 100 batches
+        # TRAINCHECK: break after 100 batches
         if batch_idx == 50:
             break
 
 
 def test(model, device, test_loader):
-    annotate_stage("testing")  # ML_DAIKON: stage annotation
+    annotate_stage("testing")  # TRAINCHECK: stage annotation
     model.eval()
     test_loss = 0
     correct = 0
@@ -87,7 +87,7 @@ def test(model, device, test_loader):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
             data_idx += 1
-            # ML_DAIKON: break after 10 batches
+            # TRAINCHECK: break after 10 batches
             if data_idx == 10:
                 break
 
@@ -174,7 +174,7 @@ def main():
     )
     args = parser.parse_args()
 
-    annotate_stage("init")  # ML_DAIKON: stage annotation
+    annotate_stage("init")  # TRAINCHECK: stage annotation
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
 
@@ -191,7 +191,7 @@ def main():
     test_kwargs = {"batch_size": args.test_batch_size}
     if use_cuda:
         cuda_kwargs = {"num_workers": 2, "pin_memory": True, "shuffle": True}
-        # ML_DAIKON: set num_workers to 0 to avoid dataloader related invariants
+        # TRAINCHECK: set num_workers to 0 to avoid dataloader related invariants
         # cuda_kwargs = {'num_workers': 0, 'pin_memory': True, 'shuffle': True}
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
@@ -212,11 +212,11 @@ def main():
         train(args, model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
 
-        annotate_stage("training")  # ML_DAIKON: stage annotation
+        annotate_stage("training")  # TRAINCHECK: stage annotation
         scheduler.step()
 
     if args.save_model:
-        annotate_stage("checkpointing")  # ML_DAIKON: stage annotation
+        annotate_stage("checkpointing")  # TRAINCHECK: stage annotation
         torch.save(model.state_dict(), "mnist_cnn.pt")
 
 
