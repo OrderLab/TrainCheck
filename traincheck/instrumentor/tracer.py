@@ -132,9 +132,8 @@ def function_wrapper(
     dump_args_config,
     dump_ret: bool,
     dump_ret_config,
-    handle_proxy: bool,
-    trigger_proxy_state_dump: bool,
-    proxy_state_dump_config: dict,
+    trigger_var_dump: bool,
+    var_dump_config: dict,
     need_unproxy_args_kwargs: bool,
     *args,
     **kwargs,
@@ -176,7 +175,6 @@ def function_wrapper(
         pre_record["stack_trace"] = traceback.format_stack()
 
     if scan_proxy_in_args:
-        # TODO: can be optimized: use static or dynamic analysis to determine which args/kwargs to scan
         proxy_in_args = []
 
         def find_proxy_in_args(args):
@@ -214,10 +212,10 @@ def function_wrapper(
         pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
 
-    if trigger_proxy_state_dump:
+    if trigger_var_dump:
         """Mimicking the behavior the observer wrapper: pre-observe"""
         get_global_registry().dump_modified(
-            dump_loc=original_function_name, dump_config=proxy_state_dump_config
+            dump_loc=original_function_name, dump_config=var_dump_config
         )
 
     if need_unproxy_args_kwargs:
@@ -233,10 +231,10 @@ def function_wrapper(
         if COLLECT_OVERHEAD_METRICS:
             ORIG_EXIT_PERF_TIME = time.perf_counter()
 
-        if handle_proxy and trigger_proxy_state_dump:
+        if trigger_var_dump:
             """Mimicking the behavior the observer wrapper: post-observe"""
             get_global_registry().dump_modified(
-                dump_loc=original_function_name, dump_config=proxy_state_dump_config
+                dump_loc=original_function_name, dump_config=var_dump_config
             )
 
         dump_trace_API(
@@ -261,9 +259,9 @@ def function_wrapper(
             )
         raise e
 
-    if handle_proxy and trigger_proxy_state_dump:
+    if trigger_var_dump:
         get_global_registry().dump_modified(
-            dump_loc=original_function_name, dump_config=proxy_state_dump_config
+            dump_loc=original_function_name, dump_config=var_dump_config
         )
 
     post_record = {
@@ -351,7 +349,7 @@ def function_wrapper(
     return result
 
 
-def core_wrapper_proxy(original_function, is_builtin, handle_proxy, *args, **kwargs):
+def core_wrapper_proxy(original_function, *args, **kwargs):
     """Core wrapper that only handles unproxying for built-in functions."""
     global DISABLE_WRAPPER
     if DISABLE_WRAPPER:
@@ -372,8 +370,8 @@ def wrapper(
     dump_ret=True,
     dump_ret_config=None,
     handle_proxy=True,
-    trigger_proxy_state_dump=False,
-    proxy_state_dump_config=None,
+    trigger_var_dump=False,
+    var_dump_config=None,
 ):
     is_builtin = is_c_level_function(original_function)
     need_unproxy_args_kwargs = handle_proxy and (
@@ -404,9 +402,8 @@ def wrapper(
                 dump_args_config=dump_args_config,
                 dump_ret=dump_ret,
                 dump_ret_config=dump_ret_config,
-                handle_proxy=handle_proxy,
-                trigger_proxy_state_dump=trigger_proxy_state_dump,
-                proxy_state_dump_config=proxy_state_dump_config,
+                trigger_var_dump=trigger_var_dump,
+                var_dump_config=var_dump_config,
                 need_unproxy_args_kwargs=need_unproxy_args_kwargs,
                 *args,
                 **kwargs,
@@ -414,15 +411,13 @@ def wrapper(
 
     else:
         METRIC_INSTRUMENTED_FUNC_LIST["no_dump"].append(original_function_name)
-        if handle_proxy:
+        if need_unproxy_args_kwargs:
 
             @functools.wraps(original_function)
             def wrapped(*args, **kwargs):
                 if increment_step:
                     META_VARS["step"] += 1
-                return core_wrapper_proxy(
-                    original_function, is_builtin, handle_proxy, *args, **kwargs
-                )
+                return core_wrapper_proxy(original_function, *args, **kwargs)
 
         else:
             if increment_step:
@@ -817,7 +812,7 @@ class Instrumentor:
             if self.instr_opts is not None
             else config.MODEL_TRACKER_STYLE
         )
-        used_proxy = tracker_style == "proxy"
+        used_proxy = tracker_style == "proxy"  # TODO: refactor this:
         if self.instr_opts is None:
             # inference stage instrumentation
             return wrapper(
@@ -861,9 +856,9 @@ class Instrumentor:
                     else None
                 ),
                 handle_proxy=used_proxy,
-                trigger_proxy_state_dump=self.instr_opts.disable_proxy_dumping
+                trigger_var_dump=self.instr_opts.disable_proxy_dumping
                 and len(func_instr_opt["var_types_to_track"]) > 0,
-                proxy_state_dump_config=func_instr_opt["var_types_to_track"],
+                var_dump_config=func_instr_opt["var_types_to_track"],
             )
 
     def _instrument_module(

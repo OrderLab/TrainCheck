@@ -166,8 +166,6 @@ class ProxyParameter(torch.nn.Parameter):
 
     def register_object(self):
         get_global_registry().add_var(self, self.__dict__["var_name"])
-        # TODO: implement the registry, we will need to make sure the registerred timestamp is updated and is consistent with the timestamp in the object
-        # pass
 
     def dump_trace(self, phase, dump_loc):
         # print(f"parameter: {self.var_name}, phase = {phase}, dump_loc = {dump_loc}")
