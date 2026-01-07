@@ -155,7 +155,12 @@ def function_wrapper(
     *args,
     **kwargs,
 ):
-    """Instrumentation for Function"""
+    """Instrumentation for Function
+
+    When using this wrapper, pass in the control parameters as positional arguments, as any kwargs are passed to the original function.
+    If you used keyword arguments for the control parameters, you may see errors like:
+        TypeError: function_wrapper() got multiple values for argument 'arg_name'
+    """
 
     global DISABLE_WRAPPER
     global PROCESS_ID
@@ -409,18 +414,18 @@ def wrapper(
             if increment_step:
                 META_VARS["step"] += 1
             return function_wrapper(
-                original_function=original_function,
-                original_function_name=original_function_name,
-                is_bound_method=is_bound_method,
-                scan_proxy_in_args=scan_proxy_in_args,
-                dump_stack_trace=dump_stack_trace,
-                dump_args=dump_args,
-                dump_args_config=dump_args_config,
-                dump_ret=dump_ret,
-                dump_ret_config=dump_ret_config,
-                trigger_var_dump=trigger_var_dump,
-                var_dump_config=var_dump_config,
-                need_unproxy_args_kwargs=need_unproxy_args_kwargs,
+                original_function,
+                original_function_name,
+                is_bound_method,
+                scan_proxy_in_args,
+                dump_stack_trace,
+                dump_args,
+                dump_args_config,
+                dump_ret,
+                dump_ret_config,
+                trigger_var_dump,
+                var_dump_config,
+                need_unproxy_args_kwargs,
                 *args,
                 **kwargs,
             )
