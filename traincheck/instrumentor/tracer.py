@@ -83,6 +83,23 @@ def get_meta_vars() -> dict:
     return META_VARS
 
 
+def get_owner_class(func):
+    # Works for unbound functions defined on a class.
+    qualname = getattr(func, "__qualname__", "")
+    if "." not in qualname:
+        return None  # not a class method
+    owner_path = qualname.rsplit(".", 1)[0]  # e.g., "Optimizer"
+    mod = inspect.getmodule(func)
+    if mod is None:
+        mod = importlib.import_module(func.__module__)
+    owner = mod
+    for part in owner_path.split("."):
+        owner = getattr(owner, part, None)
+        if owner is None:
+            return None
+    return owner
+
+
 def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
     global DISABLE_WRAPPER
     DISABLE_WRAPPER = True
@@ -379,11 +396,10 @@ def wrapper(
     )
     original_function_name = typename(original_function)
     increment_step = False
-    if original_function_name.endswith(".step") and isinstance(
-        original_function.__self__, torch.optim.Optimizer
-    ):
-        increment_step = True
-
+    if original_function_name.endswith(".step"):
+        owner = get_owner_class(original_function)
+        if isinstance(owner, torch.optim.Optimizer):
+            increment_step = True
     # determine statically whether to dump the trace
     if not disable_dump:
         METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(original_function_name)
