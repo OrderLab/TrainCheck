@@ -9,7 +9,7 @@ from traincheck.config.config import should_disable_proxy_dumping
 from traincheck.instrumentor.dumper import dump_trace_VAR
 from traincheck.instrumentor.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from traincheck.instrumentor.tracer import TraceLineType
-from traincheck.utils import get_timestamp_ns
+from traincheck.utils import get_timestamp_ns, typename
 
 from .proxy_basics import is_fake_tensor
 from .proxy_registry import get_global_registry
@@ -37,6 +37,7 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO
         # recurse=False,
         var_name="",
+        var_type="",
         should_dump_trace=True,
         from_call=False,
         from_iter=False,
@@ -97,6 +98,7 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO
         # recurse=False,
         var_name="",
+        var_type="",
         should_dump_trace=True,
         from_call=False,
         from_iter=False,
@@ -116,6 +118,7 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO
         # self.__dict__["recurse"] = recurse
         self.__dict__["var_name"] = var_name
+        self.__dict__["var_type"] = var_type
         # TODO
         # self.__dict__["old_value"] = None
         # self.__dict__["old_meta_vars"] = None
@@ -165,7 +168,9 @@ class ProxyParameter(torch.nn.Parameter):
         # Proxy.var_dict[self.__dict__["var_name"]].last_update_timestamp = current_time
 
     def register_object(self):
-        get_global_registry().add_var(self, self.__dict__["var_name"])
+        get_global_registry().add_var(
+            self, self.__dict__["var_name"], self.__dict__["var_type"]
+        )
 
     def dump_trace(self, phase, dump_loc):
         # print(f"parameter: {self.var_name}, phase = {phase}, dump_loc = {dump_loc}")
@@ -216,11 +221,13 @@ def proxy_parameter(
     if in_dynamo():
         return
     for name, t in list(module.named_parameters(recurse=False)):
+        var_type = typename(t, is_runtime=True)
         module._parameters[name] = ProxyParameter(
             t,
             logdir,
             log_level,
             parent_name + "." + name,
+            var_type,
             should_dump_trace,
             from_call,
             from_iter,
