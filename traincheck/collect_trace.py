@@ -137,24 +137,46 @@ def get_per_func_instr_opts(
     return func_instr_opts
 
 
-def get_model_tracker_instr_opts(invariants: list[Invariant]) -> str | None:
+def get_model_tracker_instr_opts(
+    invariants: list[Invariant], config_tracker_style: str
+) -> str | None:
     """
     Get model tracker instrumentation options
     """
 
-    tracker_type = None
+    logger = logging.getLogger(__name__)
+    need_immediate_var_tracking = False
+    need_var_tracking = False
     for inv in invariants:
         if inv.relation == APIContainRelation:
             for param in inv.params:
                 if isinstance(param, (VarNameParam, VarTypeParam)):
-                    tracker_type = "proxy"
+                    need_var_tracking = True
+                    need_immediate_var_tracking = True
                     break
-        if tracker_type is None and inv.relation == ConsistencyRelation:
-            tracker_type = "sampler"
+        if not need_var_tracking and inv.relation == ConsistencyRelation:
+            need_immediate_var_tracking = False
+            need_var_tracking = True
 
-        if tracker_type == "proxy":
+        if need_var_tracking and need_immediate_var_tracking:
             break
-    return tracker_type
+
+    if need_immediate_var_tracking:
+        if config_tracker_style in ["proxy", "subclass"]:
+            return config_tracker_style
+        else:
+            logger.warning(
+                f"Model tracker style {config_tracker_style} is not suitable for immediate variable tracking, using 'subclass' by default instead."
+            )
+            return "subclass"
+    elif need_var_tracking:
+        if not config_tracker_style == "sampler":
+            logger.warning(
+                f"Model tracker style {config_tracker_style} is not suitable for non-immediate variable tracking, using 'sampler' by default instead."
+            )
+        return "sampler"
+
+    return None
 
 
 def dump_env(args, output_dir: str):
@@ -435,9 +457,12 @@ def main():
     if args.invariants:
         # selective instrumentation if invariants are provided, only funcs_to_instr will be instrumented with trace collection
         invariants = read_inv_file(args.invariants)
+
         instr_opts = InstrOpt(
             func_instr_opts=get_per_func_instr_opts(invariants),
-            model_tracker_style=get_model_tracker_instr_opts(invariants),
+            model_tracker_style=get_model_tracker_instr_opts(
+                invariants, args.model_tracker_style
+            ),
             disable_proxy_dumping=True,
         )
         models_to_track = (
