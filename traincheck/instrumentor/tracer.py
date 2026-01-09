@@ -403,7 +403,7 @@ def wrapper(
     increment_step = False
     if original_function_name.endswith(".step"):
         owner = get_owner_class(original_function)
-        if isinstance(owner, torch.optim.Optimizer):
+        if issubclass(owner, torch.optim.Optimizer):
             increment_step = True
     # determine statically whether to dump the trace
     if not disable_dump:
@@ -441,9 +441,12 @@ def wrapper(
                 return core_wrapper_proxy(original_function, *args, **kwargs)
 
         else:
-            if increment_step:
-                META_VARS["step"] += 1
-            return original_function
+
+            @functools.wraps(original_function)
+            def wrapped(*args, **kwargs):
+                if increment_step:
+                    META_VARS["step"] += 1
+                return original_function(*args, **kwargs)
 
     wrapped._traincheck_original_function = original_function
     wrapped._traincheck_instrumented = True
