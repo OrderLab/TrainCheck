@@ -39,14 +39,18 @@ class VarRegistry:
                     var, var_name, var_type, stale=False
                 )
 
-    def dump_sample(self, dump_loc=None):
+    def dump_sample(self, dump_loc=None, dump_config=None):
         """A complete dump of all present proxy objects
 
         Calling this API mark all proxy objects as stale which
         will affect the `dump_modified` API.
         """
+        to_dump_types = set(dump_config.keys())
         with self.registry_lock:
             for _, entry in self.registry.items():
+                var_type = entry.var_type
+                if var_type not in to_dump_types:
+                    continue
                 entry.stale = True
                 entry.var.dump_trace(phase="sample", dump_loc=dump_loc)
 
@@ -71,21 +75,23 @@ class VarRegistry:
         when calling the function, all dumped proxy vars will be marked as stale and will not be dumped next time
         unless there are new modification attempts to t
         """
+        print("\nDumping from", dump_loc)
         to_dump_types = set(dump_config.keys())
         with self.registry_lock:
-            for _, entry in self.registry.items():
+            for var_name, entry in self.registry.items():
+                print(f"var_name: {var_name}")
                 var_type = entry.var_type
                 if var_type not in to_dump_types:
+                    print("  Skipping variable type:", var_type)
                     continue
 
                 if entry.stale:
+                    print("  Skipping stale variable.")
                     continue
 
                 entry.stale = True
                 entry.var.dump_trace(phase="selective-sample", dump_loc=dump_loc)
-                if not dump_config[var_type]["dump_unchanged"]:
-                    # remove the var from to_dump_types so that we don't dump the same type twice
-                    to_dump_types.remove(var_type)
+        print("Done dumping modified variables.")
 
 
 # Global dictionary to store registered objects

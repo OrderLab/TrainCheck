@@ -126,6 +126,7 @@ class ProxyParameter(torch.nn.Parameter):
         current_time = get_timestamp_ns()
 
         self.__dict__["last_update_timestamp"] = current_time
+        self.register_object()
 
         # print(f"init: {self.var_name}")
         if should_dump_trace and not should_disable_proxy_dumping():
@@ -143,6 +144,7 @@ class ProxyParameter(torch.nn.Parameter):
         # print(f"paremeter: {self.var_name}, name = {name}, value = {value}")
         super().__setattr__(name, value)
         self.update_timestamp()
+        self.register_object()
         if should_disable_proxy_dumping():
             return
         self.dump_trace(
