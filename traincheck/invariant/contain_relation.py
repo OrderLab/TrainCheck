@@ -1102,6 +1102,9 @@ Defaulting to skip the var preconditon check for now.
                 # precondition passed
                 inv_triggered = True
 
+            logger.info(
+                f"Performing unchanged var check ({skip_var_unchanged_check}) for the invariant: {inv.text_description} for the parent function: {parent_func_name} at {parent_func_call_id}"
+            )
             if not skip_var_unchanged_check:
                 assert isinstance(
                     child_param, VarTypeParam
@@ -1114,23 +1117,25 @@ Defaulting to skip the var preconditon check for now.
                     len(unchanged_var_ids) > 0
                 ), f"Internal error: can_func_be_bound_method returned True but no unchanged vars found for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
                 # get the var change events for the unchanged vars
-                unchanged_var_states = [
-                    trace.get_var_raw_event_before_time(
-                        var_id, parent_pre_record["time"]
+                unchanged_vars = [
+                    (
+                        var_id,
+                        trace.get_var_raw_event_before_time(
+                            var_id, parent_pre_record["time"]
+                        ),
                     )
                     for var_id in unchanged_var_ids
                 ]
-                for unchanged_var_state in unchanged_var_states:
+                for var_id, unchanged_var_state in unchanged_vars:
                     # verify that no precondition is met for the unchanged vars
                     # MARK: precondition 2
                     if not preconditions.verify(
                         unchanged_var_state, VAR_GROUP_NAME, trace
                     ):
                         logger.error(
-                            f"INV CHECK ERROR: Precondition met for the unchanged vars for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
+                            f"INV CHECK ERROR: Precondition met for the unchanged vars {var_id} for the parent function: {parent_func_name} at {parent_func_call_id}: {parent_pre_record['time']} at {trace.get_time_precentage(parent_pre_record['time'])}"
                         )
                         var_unchanged_check_passed = False
-                        break
 
             if (skip_var_unchanged_check and not found_expected_child_event) or (
                 not skip_var_unchanged_check and not var_unchanged_check_passed
