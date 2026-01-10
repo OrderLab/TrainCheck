@@ -154,17 +154,15 @@ class FuncCallEvent(HighLevelEvent):
         )
 
         # TODO: use the Arguments class to replace self.args and self.kwargs
-        self.args: dict[str, dict[str, dict[str, object]]] = pre_record[
-            "args"
-        ]  # lists of [type -> attr_name -> value]
-        self.kwargs: dict[str, dict[str, object]] = pre_record[
-            "kwargs"
-        ]  # key --> attr_name -> value
+        self.args: dict[str, dict[str, dict[str, object]]] = pre_record.get(
+            "args", {}
+        )  # lists of [type -> attr_name -> value]
+        self.kwargs: dict[str, dict[str, object]] = pre_record.get("kwargs", {})
         self.return_values: (
             dict[str, dict[str, object]] | list[dict[str, dict[str, object]]]
-        ) = post_record[
-            "return_values"
-        ]  # key --> attr_name -> value
+        ) = post_record.get(
+            "return_values", {}
+        )  # key --> attr_name -> value
 
     def __str__(self):
         return f"FuncCallEvent: {self.func_name}"

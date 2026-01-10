@@ -367,34 +367,34 @@ def instrument_model_tracker_proxy(
 
     if proxy_basic_config:
         if "proxy_log_dir" not in proxy_basic_config:
-            from traincheck.proxy_wrapper.proxy_config import proxy_log_dir
+            from traincheck.instrumentor.proxy_wrapper.proxy_config import proxy_log_dir
 
             proxy_basic_config["proxy_log_dir"] = proxy_log_dir
 
         proxy_start_code += f"""
-import traincheck.proxy_wrapper.proxy_config as proxy_config
+import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config
 proxy_config.__dict__.update({proxy_basic_config})
 """
     if tensor_dump_format:
         proxy_start_code += f"""
-from traincheck.proxy_wrapper.proxy_config import tensor_dump_format
+from traincheck.instrumentor.proxy_wrapper.proxy_config import tensor_dump_format
 tensor_dump_format.update({tensor_dump_format})
 """
 
     if model_tracker_style == "proxy":
         proxy_start_code += """
-from traincheck.proxy_wrapper.proxy import Proxy
+from traincheck.instrumentor.proxy_wrapper.proxy import Proxy
 """
     else:
         proxy_start_code += """
-from traincheck.proxy_wrapper.subclass import proxy_parameter
+from traincheck.instrumentor.proxy_wrapper.subclass import proxy_parameter
 """
 
     if auto_observer_config["enable_auto_observer"]:
         auto_observer_code = """
 import glob
 import importlib
-from traincheck.proxy_wrapper.proxy_config import auto_observer_config
+from traincheck.instrumentor.proxy_wrapper.proxy_config import auto_observer_config
 spec = importlib.util.find_spec('traincheck')
 if spec and spec.origin:
     traincheck_folder = os.path.dirname(spec.origin)
@@ -833,13 +833,13 @@ def instrument_file(
     # logging configs
     logging_start_code = f"""
 import os
-os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
+os.environ['TRAINCHECK_OUTPUT_DIR'] = "{output_dir}"
 """
 
     debug_hook_code = """
 from traincheck.utils import register_custom_excepthook
-if os.environ.get("ML_DAIKON_DEBUG") == "1":
-    print("ML_DAIKON_DEBUG is set to 1, registering custom excepthook")
+if os.environ.get("TRAINCHECK_DEBUG") == "1":
+    print("TRAINCHECK_DEBUG is set to 1, registering custom excepthook")
     register_custom_excepthook(True)
 """
 
@@ -863,6 +863,12 @@ general_config.USE_TORCH_COMPILE = True
             "subclass",
         ], f"Invalid model tracker style: {model_tracker_style}, must be one of ['proxy', 'sampler', 'subclass']"
         if model_tracker_style == "proxy" or model_tracker_style == "subclass":
+            if model_tracker_style == "subclass":
+                # adjust the proxy config to disable the proxy-specific configs
+                print(
+                    "Using subclass model tracker, overriding observe_then_unproxy to False"
+                )
+                adjusted_proxy_config[0]["observe_then_unproxy"] = False
             instrumented_source = instrument_model_tracker_proxy(
                 instrumented_source,
                 models_to_track,

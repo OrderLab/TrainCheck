@@ -1,4 +1,4 @@
-from traincheck.proxy_wrapper.proxy_config import debug_mode
+from traincheck.instrumentor.proxy_wrapper.proxy_config import debug_mode
 
 
 def print_debug(message_func):

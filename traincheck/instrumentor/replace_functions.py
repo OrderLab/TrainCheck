@@ -2,7 +2,7 @@ import logging
 
 import torch.optim.optimizer as optimizer_
 
-from traincheck.proxy_wrapper.proxy_basics import adapt_func_for_proxy
+from traincheck.instrumentor.proxy_wrapper.proxy_basics import adapt_func_for_proxy
 from traincheck.utils import typename
 
 

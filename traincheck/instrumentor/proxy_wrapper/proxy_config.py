@@ -25,8 +25,6 @@ auto_observer_config = {
     "observe_then_unproxy": True,  # observe the function call and then unproxy the arguments
 }
 
-enable_C_level_observer = False  # enable the observer at the C level (This would potentially lead to a lot of overhead since we need to observe and dump all proxied object at the C level function call, try to use auto observer with proper depth could reduce the overhead)
-
 primitive_types = {
     types.NoneType,
     int,

@@ -1,6 +1,6 @@
 import traincheck.instrumentor.tracer as tracer
 from traincheck.config.config import ALL_STAGE_NAMES
-from traincheck.instrumentor import meta_vars
+from traincheck.instrumentor import META_VARS
 
 
 def annotate_stage(stage_name: str):
@@ -16,7 +16,7 @@ def annotate_stage(stage_name: str):
         stage_name in ALL_STAGE_NAMES
     ), f"Invalid stage name: {stage_name}, valid ones are {ALL_STAGE_NAMES}"
 
-    meta_vars["stage"] = stage_name
+    META_VARS["stage"] = stage_name
 
 
 def annotate_answer_start_token_ids(

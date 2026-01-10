@@ -34,7 +34,7 @@ from traincheck.utils import safe_isnan
 
 TENSOR_PATTERN = r"torch\..*Tensor"
 PARAMETER_KEYWORD = "Parameter"
-ATTR_SKIP = "_ML_DAIKON_data_ID"
+ATTR_SKIP = "_TRAINCHECK_data_ID"
 
 # _CACHE_PATH = "func_with_tensors.pkl"
 
