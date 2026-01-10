@@ -863,6 +863,12 @@ general_config.USE_TORCH_COMPILE = True
             "subclass",
         ], f"Invalid model tracker style: {model_tracker_style}, must be one of ['proxy', 'sampler', 'subclass']"
         if model_tracker_style == "proxy" or model_tracker_style == "subclass":
+            if model_tracker_style == "subclass":
+                # adjust the proxy config to disable the proxy-specific configs
+                print(
+                    "Using subclass model tracker, overriding observe_then_unproxy to False"
+                )
+                adjusted_proxy_config[0]["observe_then_unproxy"] = False
             instrumented_source = instrument_model_tracker_proxy(
                 instrumented_source,
                 models_to_track,
