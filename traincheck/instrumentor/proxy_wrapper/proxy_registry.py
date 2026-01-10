@@ -75,23 +75,18 @@ class VarRegistry:
         when calling the function, all dumped proxy vars will be marked as stale and will not be dumped next time
         unless there are new modification attempts to t
         """
-        print("\nDumping from", dump_loc)
         to_dump_types = set(dump_config.keys())
         with self.registry_lock:
-            for var_name, entry in self.registry.items():
-                print(f"var_name: {var_name}")
+            for _, entry in self.registry.items():
                 var_type = entry.var_type
                 if var_type not in to_dump_types:
-                    print("  Skipping variable type:", var_type)
                     continue
 
                 if entry.stale:
-                    print("  Skipping stale variable.")
                     continue
 
                 entry.stale = True
                 entry.var.dump_trace(phase="selective-sample", dump_loc=dump_loc)
-        print("Done dumping modified variables.")
 
 
 # Global dictionary to store registered objects

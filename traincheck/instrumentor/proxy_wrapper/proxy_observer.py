@@ -9,7 +9,11 @@ if typing.TYPE_CHECKING:
     from traincheck.instrumentor.proxy_wrapper.proxy import Proxy
     from traincheck.instrumentor.proxy_wrapper.subclass import ProxyParameter
 
+import logging
+
 from .proxy_basics import is_proxied, is_proxyparameter, unproxy_func
+
+logger = logging.getLogger(__name__)
 
 
 def observe_proxy_var(
@@ -22,6 +26,9 @@ def observe_proxy_var(
     var.update_timestamp()
 
     if phase == "post_observe":
+        logger.debug(
+            f"[ProxyObserver] Observing proxy var after {observe_api_name}: {var.__dict__['var_name']}"
+        )
         var.register_object()
 
     if should_disable_proxy_dumping():
