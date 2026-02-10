@@ -1,43 +1,49 @@
-<div align="center">
-<picture>
-  <img alt="TrainCheck logo" width="55%" src="assets/images/traincheck_logo.png">
-</picture>
-</div>
-
-# TrainCheck: Invariant Checking & Observability for AI Training
-
-[![format and types](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml)
-[![format and types](https://github.com/OrderLab/traincheck/actions/workflows/correctness_checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/correctness_checks.yml)
-[![Chat on Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZvYewjsQ9D)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OrderLab/TrainCheck)
-
-**Stop flying blind.** TrainCheck gives you deep visibility into your training dynamics, continuously validating correctness and stability where standard metrics fail.
-
+---
+hide:
+  - navigation
+  - toc
 ---
 
-### Why TrainCheck?
+<div class="hero" markdown="1">
+  <img alt="TrainCheck logo" width="180" src="assets/images/traincheck_logo.png">
+  <h1>TrainCheck</h1>
+  <p><strong>Invariant Checking & Observability for AI Training</strong></p>
+  <p>Stop flying blind. Validate training dynamics, catch silent errors, and debug with confidence automatically.</p>
+  
+  [Get Started](installation-guide.md){ .md-button .md-button--primary }
+  [5-Min Tutorial](5-min-tutorial.md){ .md-button }
+  [View on GitHub](https://github.com/OrderLab/traincheck){ .md-button }
+</div>
 
-✅ **Continuous Invariant Checking**
+<div class="feature-grid">
 
-TrainCheck validates the "physics" of your training process in real-time. It ensures your model adheres to learned invariants—such as gradient norms, tensor shapes, and update magnitudes—effectively catching silent corruption before it wastes GPU hours.
+<div class="feature-item">
+<h3>✅ Continuous Invariant Checking</h3>
+<p>TrainCheck validates the "physics" of your training process in real-time. It ensures your model adheres to learned invariants (such as gradient norms, tensor shapes, and update magnitudes) effectively catching silent corruption before it wastes GPU hours.</p>
+</div>
 
-🚀 **Holistic Observability**
+<div class="feature-item">
+<h3>🚀 Holistic Observability</h3>
+<p>Traditional tools only show you <em>if</em> your model crashed. TrainCheck shows you <em>why</em> it's degrading, analyzing internal state dynamics that loss curves miss.</p>
+</div>
 
-Traditional tools only show you *if* your model crashed. TrainCheck shows you *why* it's degrading, analyzing internal state dynamics that loss curves miss.
+<div class="feature-item">
+<h3>🧠 Zero-Config Validation</h3>
+<p>No manual tests required. TrainCheck automatically learns the invariants of your specific model from healthy runs and flags deviations instantly.</p>
+</div>
 
-🧠 **Zero-Config Validation**
+<div class="feature-item">
+<h3>⚡ Universal Compatibility</h3>
+<p>Drop-in support for PyTorch, Hugging Face, and industry-class workloads using DeepSpeed/Megatron and more.</p>
+</div>
 
-No manual tests required. TrainCheck automatically learns the invariants of your specific model from healthy runs and flags deviations instantly.
-
-⚡ **Universal Compatibility**
-
-Drop-in support for PyTorch, Hugging Face, and industry-class workloads using DeepSpeed/Megatron and more.
+</div>
 
 ---
 
 ### How It Works
 
-1. **Instrument**: We wrap your training loop with lightweight probes—no code changes needed.
+1. **Instrument**: We wrap your training loop with lightweight probes. No code changes needed.
 2. **Learn**: We analyze correct runs to infer *invariants* (mathematical rules of healthy training).
 3. **Check**: We monitor new runs in real-time, verifying every step against learned invariants to catch silent logic bugs and hardware faults.
 

@@ -7,24 +7,35 @@ theme:
   name: material
   features:
     - navigation.tabs
-    - navigation.indexes
+    - navigation.sections
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - navigation.top
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
     - content.code.copy
   palette:
     # Palette toggle for light mode
     - scheme: default
-      primary: teal
-      accent: purple
+      primary: indigo
+      accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
 
     # Palette toggle for dark mode
     - scheme: slate
-      primary: teal
-      accent: lime
+      primary: indigo
+      accent: indigo
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - Home: index.md
@@ -38,6 +49,10 @@ nav:
     - "Performance Benchmarks": benchmarks.md
 
 markdown_extensions:
+  - attr_list
+  - admonition
+  - md_in_html
+  - pymdownx.details
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
