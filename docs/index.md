@@ -5,8 +5,7 @@ hide:
 ---
 
 <div class="hero" markdown="1">
-  <img alt="TrainCheck logo" width="180" src="assets/images/traincheck_logo.png">
-  <h1>TrainCheck</h1>
+  <img alt="TrainCheck" width="360" src="assets/images/traincheck_logo.png">
   <p><strong>Invariant Checking & Observability for AI Training</strong></p>
   <p>Stop flying blind. Validate training dynamics, catch silent errors, and debug with confidence automatically.</p>
   
