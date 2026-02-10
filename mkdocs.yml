@@ -1,11 +1,45 @@
 site_name: TrainCheck
+site_url: https://orderlab.github.io/traincheck/
+repo_url: https://github.com/OrderLab/traincheck
+repo_name: OrderLab/traincheck
+
 theme:
-  name: readthedocs
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.indexes
+    - content.code.copy
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: teal
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: teal
+      accent: lime
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
 nav:
-- Home: README.md
-- "Installation Guide": ./installation-guide.md
-- "5 Minute Quick Start": ./5-min-tutorial.md
-- "Success Stories": ./successful-stories.md
-- "Technical Documentation": ./technical-doc.md
-- "Usage Tips": usage-guide.md
-- "Performance Benchmarks": ./benchmarks.md
+  - Home: index.md
+  - Paper: https://www.usenix.org/conference/osdi25/presentation/jiang
+  - Documentation:
+    - "Installation Guide": installation-guide.md
+    - "5 Minute Quick Start": 5-min-tutorial.md
+    - "Success Stories": successful-stories.md
+    - "Technical Documentation": technical-doc.md
+    - "Usage Tips": usage-guide.md
+    - "Performance Benchmarks": benchmarks.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences

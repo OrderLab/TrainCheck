@@ -1,16 +1,15 @@
 <div align="center">
 <picture>
-  <img alt="TrainCheck logo" width="55%" src="./docs/assets/images/traincheck_logo.png">
+  <img alt="TrainCheck logo" width="55%" src="assets/images/traincheck_logo.png">
 </picture>
-<h1>TrainCheck: Invariant Checking & Observability for AI Training</h1>
+</div>
+
+# TrainCheck: Invariant Checking & Observability for AI Training
 
 [![format and types](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml)
 [![format and types](https://github.com/OrderLab/traincheck/actions/workflows/correctness_checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/correctness_checks.yml)
 [![Chat on Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZvYewjsQ9D)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OrderLab/TrainCheck)
-
-</div>
-
 
 **Stop flying blind.** TrainCheck gives you deep visibility into your training dynamics, continuously validating correctness and stability where standard metrics fail.
 
@@ -19,15 +18,19 @@
 ### Why TrainCheck?
 
 ✅ **Continuous Invariant Checking**
+
 TrainCheck validates the "physics" of your training process in real-time. It ensures your model adheres to learned invariants—such as gradient norms, tensor shapes, and update magnitudes—effectively catching silent corruption before it wastes GPU hours.
 
 🚀 **Holistic Observability**
+
 Traditional tools only show you *if* your model crashed. TrainCheck shows you *why* it's degrading, analyzing internal state dynamics that loss curves miss.
 
 🧠 **Zero-Config Validation**
+
 No manual tests required. TrainCheck automatically learns the invariants of your specific model from healthy runs and flags deviations instantly.
 
 ⚡ **Universal Compatibility**
+
 Drop-in support for PyTorch, Hugging Face, and industry-class workloads using DeepSpeed/Megatron and more.
 
 ---
@@ -38,21 +41,21 @@ Drop-in support for PyTorch, Hugging Face, and industry-class workloads using De
 2. **Learn**: We analyze correct runs to infer *invariants* (mathematical rules of healthy training).
 3. **Check**: We monitor new runs in real-time, verifying every step against learned invariants to catch silent logic bugs and hardware faults.
 
-![Workflow](docs/assets/images/workflow.png)
+![Workflow](assets/images/workflow.png)
 
 ## 🔥 Try TrainCheck
 
-Work through [5‑Minute Experience with TrainCheck](./docs/5-min-tutorial.md). You’ll learn how to:
+Work through [5‑Minute Experience with TrainCheck](5-min-tutorial.md). You’ll learn how to:
    - Instrument a training script and collect a trace  
    - Automatically infer invariants  
    - Uncover silent bugs in the training script
 
 ## Documentation
 
-- **[Installation Guide](./docs/installation-guide.md)**
-- **[Usage Guide: Scenarios and Limitations](./docs/usage-guide.md)**
-- **[TrainCheck Technical Doc](./docs/technical-doc.md)**
-- **[TrainCheck Dev RoadMap](./ROADMAP.md)**
+- **[Installation Guide](installation-guide.md)**
+- **[Usage Guide: Scenarios and Limitations](usage-guide.md)**
+- **[TrainCheck Technical Doc](technical-doc.md)**
+- **[TrainCheck Dev RoadMap](https://github.com/OrderLab/traincheck/blob/main/ROADMAP.md)**
 
 ## Status
 
@@ -61,11 +64,11 @@ We welcome feedback and contributions from early adopters.
 
 ## Contributing
 
-We welcome and value any contributions and collaborations. Please check out [Contributing to TrainCheck](./CONTRIBUTING.md) for how to get involved.
+We welcome and value any contributions and collaborations. Please check out [Contributing to TrainCheck](https://github.com/OrderLab/traincheck/blob/main/CONTRIBUTING.md) for how to get involved.
 
 ## License
 
-TrainCheck is licensed under the [Apache License 2.0](./LICENSE).
+TrainCheck is licensed under the [Apache License 2.0](https://github.com/OrderLab/traincheck/blob/main/LICENSE).
 
 ## Citation
 
@@ -83,7 +86,6 @@ If TrainCheck is relevant to your work, please cite our paper:
 }
 ```
 
-
 ## Artifact Evaluation
 
-🕵️‍♀️ OSDI AE members, please see [TrainCheck AE Guide](./docs/ae.md).
+🕵️‍♀️ OSDI AE members, please see [TrainCheck AE Guide](ae.md).
