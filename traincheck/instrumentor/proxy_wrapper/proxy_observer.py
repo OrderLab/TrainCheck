@@ -1,6 +1,7 @@
 import functools
 import typing
 
+import traincheck.config.config as config
 from traincheck.config.config import should_disable_proxy_dumping
 from traincheck.instrumentor.proxy_wrapper.subclass import ProxyParameter
 from traincheck.utils import typename
@@ -21,6 +22,8 @@ def observe_proxy_var(
     phase,
     observe_api_name: str,
 ):
+    if config.DISABLE_WRAPPER:
+        return
 
     # update the proxy object's timestamp
     var.update_timestamp()

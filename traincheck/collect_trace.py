@@ -380,6 +380,20 @@ def main():
         help="Indicate wthether use torch.compile to speed the model, necessary to realize compatibility",
     )
 
+    ## instrumentation policy configs
+    parser.add_argument(
+        "--sampling-interval",
+        type=int,
+        default=None,
+        help="Interval of steps to instrument (e.g., 10 for every 10th step).",
+    )
+    parser.add_argument(
+        "--warm-up-steps",
+        type=int,
+        default=0,
+        help="Number of initial steps to always instrument.",
+    )
+
     args = parser.parse_args()
 
     # read the configuration file
@@ -508,6 +522,8 @@ disabling model tracking."""
             instr_descriptors=args.instr_descriptors,
             no_auto_var_instr=args.no_auto_var_instr,
             use_torch_compile=args.use_torch_compile,
+            sampling_interval=args.sampling_interval,
+            warm_up_steps=args.warm_up_steps,
         )
 
     if args.copy_all_files:

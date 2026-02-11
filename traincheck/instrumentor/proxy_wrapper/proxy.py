@@ -8,6 +8,7 @@ from typing import Dict
 
 import torch
 
+import traincheck.config.config as config
 import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
 import traincheck.instrumentor.proxy_wrapper.proxy_methods as proxy_methods
 from traincheck.config.config import should_disable_proxy_dumping
@@ -158,6 +159,9 @@ class Proxy:
         return new_copy
 
     def dump_trace(self, phase, dump_loc):
+        if config.DISABLE_WRAPPER:
+            return
+
         obj = self._obj
         var_name = self.__dict__["var_name"]
         assert var_name is not None  # '' is allowed as a var_name (root object)

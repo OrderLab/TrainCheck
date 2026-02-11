@@ -95,6 +95,13 @@ MODEL_TRACKER_STYLE: str | None = None
 TYPE_ERR_THRESHOLD = 3
 RECURSION_ERR_THRESHOLD = 5
 
+INSTRUMENTATION_POLICY = {
+    "interval": 1,
+    "warm_up": 1,  # default to 1 to ensure the first step is always instrumented: before warm-up is depleted, we do instrumentation with interval=1, after warm-up is depleted, we do instrumentation with the specified interval
+}
+
+DISABLE_WRAPPER = False
+
 
 class InstrOpt:
     def __init__(

@@ -6,6 +6,7 @@ import threading
 import torch
 from torch import nn
 
+import traincheck.config.config as config
 from traincheck.config.config import should_disable_proxy_dumping
 from traincheck.instrumentor.dumper import dump_trace_VAR
 from traincheck.instrumentor.proxy_wrapper.dumper import dump_attributes, get_meta_vars
@@ -178,6 +179,9 @@ class ProxyParameter(torch.nn.Parameter):
         )
 
     def dump_trace(self, phase, dump_loc):
+        if config.DISABLE_WRAPPER:
+            return
+
         # TODO
         var_name = self.__dict__["var_name"]
         # assert var_name is not None  # '' is allowed as a var_name (root object)
