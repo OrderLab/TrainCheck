@@ -54,13 +54,13 @@ jobs:
         run: |
           cd benchmarks/instr-overhead
           xonsh analysis.xsh --res_folder perf_benchmark_results
+          cat perf_benchmark_results/overhead_e2e.csv
 
       - name: Generate plots
         run: |
           cd benchmarks/instr-overhead
           COMMIT_HASH=$(git rev-parse --short HEAD)
           COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-          python3 plot_micro.py -i perf_benchmark_results/wrapper_overhead_micro.csv -o ./overhead_micro.png -t "$COMMIT_HASH - $COMMIT_MESSAGE"
           python3 plot_e2e.py -i perf_benchmark_results/overhead_e2e.csv -o ./overhead_macro.png -t "$COMMIT_HASH - $COMMIT_MESSAGE"
 
       - name: Update docs with benchmark plots
@@ -69,17 +69,18 @@ jobs:
           COMMIT_HASH=$(git rev-parse --short HEAD)
           
           # Copy plots to docs assets
-          cp benchmarks/instr-overhead/overhead_micro.png docs/assets/images/
+          mkdir -p docs/assets/images
           cp benchmarks/instr-overhead/overhead_macro.png docs/assets/images/
+          
+          # Copy CSV to docs assets
+          mkdir -p docs/assets/csv
+          cp benchmarks/instr-overhead/overhead_e2e.csv docs/assets/csv/
           
           # Create or update benchmark page
           cat > docs/benchmarks.md << EOF
           # Performance Benchmarks
           
           Latest benchmark results (updated: $TIMESTAMP, commit: $COMMIT_HASH)
-          
-          ## Instrumentation Overhead - Micro Benchmarks
-          ![Micro Benchmark Results](assets/images/overhead_micro.png)
           
           ## End-to-End Performance Impact
           ![E2E Benchmark Results](assets/images/overhead_macro.png)
@@ -90,8 +91,8 @@ jobs:
           # Commit and push changes
           git config user.email "jyuxuan@umich.edu"
           git config user.name "Yuxuan Jiang"
-          git add docs/assets/images/overhead_micro.png
           git add docs/assets/images/overhead_macro.png
+          git add docs/assets/csv/overhead_e2e.csv
           git add docs/benchmarks.md
           git commit -m "Update benchmark plots for $COMMIT_HASH" || echo "No changes to commit"
           git push origin main
