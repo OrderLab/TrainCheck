@@ -425,6 +425,11 @@ def main():
                 f"Setting warm up steps to default value {config.DEFAULT_CHECKING_POLICY['warm_up']}"
             )
             args.warm_up_steps = config.DEFAULT_CHECKING_POLICY["warm_up"]
+    else:
+        if args.sampling_interval is None:
+            args.sampling_interval = config.INSTRUMENTATION_POLICY["interval"]
+        if args.warm_up_steps is None:
+            args.warm_up_steps = config.INSTRUMENTATION_POLICY["warm_up"]
 
     # set up logging
     if args.debug_mode:

@@ -594,14 +594,6 @@ class Instrumentor:
         The user should not need to interact with this file directly.
 
         """
-        if sampling_interval:
-            if config.INSTRUMENTATION_POLICY is None:
-                config.INSTRUMENTATION_POLICY = {}
-            config.INSTRUMENTATION_POLICY["interval"] = sampling_interval
-        if warm_up_steps is not None:
-            if config.INSTRUMENTATION_POLICY is None:
-                config.INSTRUMENTATION_POLICY = {}
-            config.INSTRUMENTATION_POLICY["warm_up"] = warm_up_steps
 
         self.instrumenting = True
         if isinstance(target, types.ModuleType):
