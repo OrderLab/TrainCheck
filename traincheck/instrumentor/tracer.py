@@ -399,26 +399,12 @@ def wrapper(
         is_builtin or is_funcs_to_be_unproxied(original_function)
     )
     original_function_name = typename(original_function)
-    increment_step = False
-    if original_function_name.endswith(".step"):
-        owner = get_owner_class(original_function)
-        if owner and issubclass(owner, torch.optim.Optimizer):
-            increment_step = True
     # determine statically whether to dump the trace
     if not disable_dump:
         METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(original_function_name)
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
-            if increment_step:
-                # Meta var update for step is now handled by traincheck.instrumentor.control.start_step
-                # which is injected into training loops.
-                # However, for backward compatibility or if injection fails, we might want to keep basic step counting?
-                # User specifically asked to move logic. If we keep it here, we might double count if both run.
-                # But injection is "An easy way out".
-                # Let's check META_VARS.
-                pass
-
             return function_wrapper(
                 original_function,
                 original_function_name,
@@ -442,16 +428,12 @@ def wrapper(
 
             @functools.wraps(original_function)
             def wrapped(*args, **kwargs):
-                if increment_step:
-                    META_VARS["step"] += 1
                 return core_wrapper_proxy(original_function, *args, **kwargs)
 
         else:
 
             @functools.wraps(original_function)
             def wrapped(*args, **kwargs):
-                if increment_step:
-                    META_VARS["step"] += 1
                 return original_function(*args, **kwargs)
 
     wrapped._traincheck_original_function = original_function

@@ -1,5 +1,6 @@
 import logging
 
+from traincheck import annotate_stage
 from traincheck.config import config
 from traincheck.instrumentor.caches import META_VARS
 
@@ -16,13 +17,8 @@ def start_step():
     # If not tracking stage (or stage is None), we assume training if this is called?
     # Better to be safe and check if specific stage is set to non-training.
     stage = META_VARS.get("stage")
-    if stage and stage != "training":
-        # If explicitly in a non-training stage (e.g. evaluation),
-        # we might want to disable wrapping?
-        # Or just do nothing and let other logic handle it?
-        # The user's request specificially mentioned alignment with training steps.
-        # If we are in evaluation loop, we probably shouldn't be incrementing "step" or applying sampling policy intended for training.
-        return
+    if not stage or stage != "training":
+        annotate_stage("training")
 
     META_VARS["step"] += 1
     current_step = META_VARS["step"]
@@ -46,6 +42,7 @@ def start_step():
             config.DISABLE_WRAPPER = True
     else:
         # No policy, always enable
+        print("No policy, always enable")
         config.DISABLE_WRAPPER = False
 
 

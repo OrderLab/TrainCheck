@@ -105,25 +105,108 @@ class InsertTracerVisitor(ast.NodeTransformer):
         return [node] + instrument_nodes
 
     def _get_loop_context(self, node):
-        # Heuristic: Inject into loops that look like training loops.
-        # Check for calls to .step() or .backward()
+        # Heuristic 1: Check the loop iterator variable name (high confidence)
+        if isinstance(node, ast.For):
+            iter_name = None
+            if isinstance(node.iter, ast.Name):
+                iter_name = node.iter.id.lower()
+            elif isinstance(node.iter, ast.Call):
+                # Check arguments of the call, e.g. enumerate(train_loader)
+                for arg in node.iter.args:
+                    if isinstance(arg, ast.Name):
+                        # We use the first name we find that matches the pattern
+                        arg_name = arg.id.lower()
+                        if "train" in arg_name:
+                            iter_name = arg_name
+                            break
+                        elif any(x in arg_name for x in ["val", "eval", "test"]):
+                            iter_name = arg_name
+                            break
+
+            if iter_name:
+                if "train" in iter_name:
+                    print(f"Found training loop based on iterator: {iter_name}")
+                    return "training"
+                elif any(x in iter_name for x in ["val", "eval", "test"]):
+                    print(f"Found eval loop based on iterator: {iter_name}")
+                    return "eval"
+
+        # Heuristic 2: Check for calls to .step() or .backward() or .eval()
         has_training_signal = False
+        has_eval_signal = False
+
+        # We also count the number of meaningful statements to filter out short loops
+        # recursion is handled by ast.walk
+        statement_count = 0
+
         for child in ast.walk(node):
+            # Count statements
+            if isinstance(
+                child, (ast.Assign, ast.Expr, ast.Return, ast.AugAssign, ast.AnnAssign)
+            ):
+                statement_count += 1
+
             if isinstance(child, ast.Call):
+                # Check for method calls
                 if isinstance(child.func, ast.Attribute):
-                    if child.func.attr in ["step", "backward"]:
+                    attr = child.func.attr
+                    if attr in ["step", "backward"]:
                         has_training_signal = True
+                    elif attr in [
+                        "eval",
+                        "no_grad",
+                    ]:  # no_grad is a context manager, but sometimes people might call it?
+                        # actually no_grad is usually a context manager, tracked separately in node types?
+                        # But `torch.no_grad()` is a call if used as decorator or context manager with (),
+                        # `with torch.no_grad():` -> With -> items -> Call...
+                        pass
+                    if attr == "eval":
+                        has_eval_signal = True
+
+                # Check for function names
+                elif isinstance(child.func, ast.Name):
+                    name = child.func.id.lower()
+                    if "iter" in name or "train" in name:
+                        # 'iter' is too generic? The original code had: if "iter" in child.func.id.split("_")
+                        pass
+
+                    # Let's stick to the original logic somewhat but robustify
+                    parts = name.split("_")
+                    if "iter" in parts or "train" in parts:
+                        has_training_signal = True
+                    if "eval" in parts:
+                        has_eval_signal = True
+
+        # Check for context managers like `with torch.no_grad():`
+        # They appear in distinct nodes in ast.walk as `With` nodes, but we need to check their items.
+        for child in ast.walk(node):
+            if isinstance(child, (ast.With, ast.AsyncWith)):
+                for item in child.items:
+                    if isinstance(item.context_expr, ast.Call):
+                        expr = item.context_expr
+                        if isinstance(expr.func, ast.Attribute):
+                            if expr.func.attr == "no_grad":
+                                has_eval_signal = True
+                                print(f"Found no_grad context in loop {node}.")
 
         if has_training_signal:
+            print(f"Found training signal in loop {node}.")
             return "training"
 
-        # If no explicit training signal, check if we are in an eval/test function
-        if self.current_function:
-            name_lower = self.current_function.lower()
-            if "test" in name_lower or "eval" in name_lower or "valid" in name_lower:
-                return "eval"
+        if has_eval_signal:
+            print(f"Found eval signal in loop {node}.")
+            return "eval"
 
-        return None
+        # if the number of lines are too few and the function calls do not involve "eval", "train", we omit the loop context
+        # We use statement_count calculated recursively
+        if statement_count < 3:
+            print(
+                f"Skipping loop {node} as it is too short ({statement_count} statements) and does not contain eval/train/step/backward signal."
+            )
+            return None
+
+        print(f"Found eval signal in loop {node} (fallback).")
+        return "eval"
 
     def _inject_call(self, node, func_name):
         import_stmt = ast.ImportFrom(
