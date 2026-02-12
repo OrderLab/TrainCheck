@@ -6,13 +6,11 @@ on:
     paths:
       - '.github/workflows/**'
       - 'traincheck/instrumentor/**'
-      - 'traincheck/proxy_wrapper/**'
       - 'traincheck/collect_trace.py'
   pull_request:
     paths:
       - '.github/workflows/**'
       - 'traincheck/instrumentor/**'
-      - 'traincheck/proxy_wrapper/**'
       - 'traincheck/collect_trace.py'
     
 

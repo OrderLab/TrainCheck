@@ -4,7 +4,7 @@ import importlib
 import os
 import re
 
-from traincheck.proxy_wrapper.proxy_observer import add_observer_to_func
+from traincheck.instrumentor.proxy_wrapper.proxy_observer import add_observer_to_func
 
 
 def unparse_module(module_name, level=0):

@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import threading
@@ -5,16 +6,19 @@ import threading
 import torch
 from torch import nn
 
+import traincheck.config.config as config
 from traincheck.config.config import should_disable_proxy_dumping
 from traincheck.instrumentor.dumper import dump_trace_VAR
+from traincheck.instrumentor.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from traincheck.instrumentor.tracer import TraceLineType
-from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
-from traincheck.utils import get_timestamp_ns
+from traincheck.utils import get_timestamp_ns, typename
 
 from .proxy_basics import is_fake_tensor
+from .proxy_registry import get_global_registry
 
-# from .proxy_registry import get_global_registry
-# from .utils import print_debug
+SUBCLASS_HOOK_KEY = "_tc_setattr_hook"
+
+logger = logging.getLogger(__name__)
 
 
 def in_dynamo() -> bool:
@@ -37,6 +41,7 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO
         # recurse=False,
         var_name="",
+        var_type="",
         should_dump_trace=True,
         from_call=False,
         from_iter=False,
@@ -97,6 +102,7 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO
         # recurse=False,
         var_name="",
+        var_type="",
         should_dump_trace=True,
         from_call=False,
         from_iter=False,
@@ -116,6 +122,7 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO
         # self.__dict__["recurse"] = recurse
         self.__dict__["var_name"] = var_name
+        self.__dict__["var_type"] = var_type
         # TODO
         # self.__dict__["old_value"] = None
         # self.__dict__["old_meta_vars"] = None
@@ -123,8 +130,9 @@ class ProxyParameter(torch.nn.Parameter):
         current_time = get_timestamp_ns()
 
         self.__dict__["last_update_timestamp"] = current_time
+        logger.debug(f"[ProxyParameter] Created ProxyParameter: {self.var_name}")
+        self.register_object()
 
-        # print(f"init: {self.var_name}")
         if should_dump_trace and not should_disable_proxy_dumping():
             if from_call:
                 phase = "call"
@@ -137,9 +145,10 @@ class ProxyParameter(torch.nn.Parameter):
             self.dump_trace(phase=phase, dump_loc="initing")
 
     def __setattr__(self, name, value):
-        # print(f"paremeter: {self.var_name}, name = {name}, value = {value}")
+
         super().__setattr__(name, value)
         self.update_timestamp()
+        self.register_object()
         if should_disable_proxy_dumping():
             return
         self.dump_trace(
@@ -165,12 +174,14 @@ class ProxyParameter(torch.nn.Parameter):
         # Proxy.var_dict[self.__dict__["var_name"]].last_update_timestamp = current_time
 
     def register_object(self):
-        # get_global_registry().add_var(self, self.__dict__["var_name"])
-        # TODO: implement the registry, we will need to make sure the registerred timestamp is updated and is consistent with the timestamp in the object
-        pass
+        get_global_registry().add_var(
+            self, self.__dict__["var_name"], self.__dict__["var_type"]
+        )
 
     def dump_trace(self, phase, dump_loc):
-        # print(f"parameter: {self.var_name}, phase = {phase}, dump_loc = {dump_loc}")
+        if config.DISABLE_WRAPPER:
+            return
+
         # TODO
         var_name = self.__dict__["var_name"]
         # assert var_name is not None  # '' is allowed as a var_name (root object)
@@ -218,11 +229,16 @@ def proxy_parameter(
     if in_dynamo():
         return
     for name, t in list(module.named_parameters(recurse=False)):
+        var_type = typename(t, is_runtime=True)
+        logger.debug(
+            f"[ProxyParameter] Proxying parameter: {parent_name}.{name} of type {var_type}"
+        )
         module._parameters[name] = ProxyParameter(
             t,
             logdir,
             log_level,
             parent_name + "." + name,
+            var_type,
             should_dump_trace,
             from_call,
             from_iter,
@@ -237,3 +253,37 @@ def proxy_parameter(
             from_call,
             from_iter,
         )
+
+    # we need to instrument the __setattr__ of the module to capture parameter updates
+    def subclass_setattr_hook(self, name, value):
+        logger.debug(
+            f"[ProxyParameter] Module __setattr__ called: {parent_name}.{name} = {type(value)}"
+        )
+        if isinstance(value, torch.Tensor) or isinstance(value, torch.nn.Module):
+            proxy_parameter(
+                value,
+                logdir,
+                log_level,
+                parent_name + "." + name,
+                should_dump_trace,
+                from_call,
+                from_iter,
+            )
+
+    module.__dict__[SUBCLASS_HOOK_KEY] = subclass_setattr_hook
+
+
+# instrument torch.nn.Module's setattr
+orig_setattr = torch.nn.Module.__setattr__
+
+
+@functools.wraps(orig_setattr)
+def wrapped_setattr(self, name, value):
+    hook = getattr(self, SUBCLASS_HOOK_KEY, None)
+    if hook is not None:
+        # If hook returns True, skip the original setattr; otherwise continue.
+        hook(self, name, value)
+    return orig_setattr(self, name, value)
+
+
+torch.nn.Module.__setattr__ = wrapped_setattr

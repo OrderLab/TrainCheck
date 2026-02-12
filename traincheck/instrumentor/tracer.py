@@ -17,7 +17,7 @@ from traincheck.config.config import (
     WRAP_WITHOUT_DUMP,
     WRAP_WITHOUT_DUMP_WHITELIST,
 )
-from traincheck.instrumentor.caches import meta_vars
+from traincheck.instrumentor.caches import META_VARS
 from traincheck.instrumentor.dumper import (
     convert_var_to_dict,
     dump_trace_API,
@@ -25,17 +25,16 @@ from traincheck.instrumentor.dumper import (
     get_instrumentation_logger_for_process,
     var_to_serializable,
 )
+from traincheck.instrumentor.proxy_wrapper.proxy_basics import (
+    is_proxied,
+    is_proxyparameter,
+    unproxy_args_kwargs,
+)
+from traincheck.instrumentor.proxy_wrapper.proxy_registry import get_global_registry
 from traincheck.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
-from traincheck.proxy_wrapper.proxy_basics import (
-    is_proxied,
-    is_proxyparameter,
-    unproxy_func,
-)
-from traincheck.proxy_wrapper.proxy_config import enable_C_level_observer
-from traincheck.proxy_wrapper.proxy_registry import get_global_registry
 from traincheck.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
@@ -81,24 +80,24 @@ def is_c_level_function(original_function):
 
 def get_meta_vars() -> dict:
     """Deprecated: use meta_vars directly"""
-    return meta_vars
+    return META_VARS
 
 
-def increment_step_if_needed(func_obj, func_name, is_bound_method, args):
-    """Increment the global step if
-    - the function is torch.optim.Optimizer.step"""
-    if not is_bound_method:
-        return
-
-    obj = args[0]
-
-    if func_name.endswith(".step"):
-        # if the function is a bound method and the object is an instance of torch.optim.Optimizer
-        if isinstance(obj, torch.optim.Optimizer):
-            meta_vars[
-                "step"
-            ] += 1  # TODO: what if the users have annotated their own step function?
-            return True
+def get_owner_class(func):
+    # Works for unbound functions defined on a class.
+    qualname = getattr(func, "__qualname__", "")
+    if "." not in qualname:
+        return None  # not a class method
+    owner_path = qualname.rsplit(".", 1)[0]  # e.g., "Optimizer"
+    mod = inspect.getmodule(func)
+    if mod is None:
+        mod = importlib.import_module(func.__module__)
+    owner = mod
+    for part in owner_path.split("."):
+        owner = getattr(owner, part, None)
+        if owner is None:
+            return None
+    return owner
 
 
 def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
@@ -140,7 +139,7 @@ def to_dict_return_value(result) -> dict | list[dict]:
     return result_dict
 
 
-def global_wrapper_subclass(
+def function_wrapper(
     original_function: Callable,
     original_function_name: str,
     is_bound_method: bool,
@@ -150,26 +149,23 @@ def global_wrapper_subclass(
     dump_args_config,
     dump_ret: bool,
     dump_ret_config,
+    trigger_var_dump: bool,
+    var_dump_config: dict,
+    need_unproxy_args_kwargs: bool,
     *args,
     **kwargs,
 ):
-    """Instrumentation for APIs
+    """Instrumentation for Function
 
-    Pre-call Phase
-    1. Log the pre-call information
-
-    Call Phase
-    1. Calls the original function
-    2. If an exception is raised, log the exception and re-raise it
-
-    Post-call Phase
-    1. Log the post-call information
+    When using this wrapper, pass in the control parameters as positional arguments, as any kwargs are passed to the original function.
+    If you used keyword arguments for the control parameters, you may see errors like:
+        TypeError: function_wrapper() got multiple values for argument 'arg_name'
     """
 
-    global DISABLE_WRAPPER
     global PROCESS_ID
 
-    if DISABLE_WRAPPER:
+    if config.DISABLE_WRAPPER:
+        # TODO: all meta vars update should be done outside the function_wrapper (e.g. step increment) by applying a separate wrapper
         return original_function(*args, **kwargs)
 
     if COLLECT_OVERHEAD_METRICS:
@@ -177,16 +173,13 @@ def global_wrapper_subclass(
 
     func_call_id = get_unique_id()
     process_id, thread_id = get_process_thread_id()
-    increment_step_if_needed(
-        original_function, original_function_name, is_bound_method, args
-    )
 
     pre_meta_vars = get_meta_vars()
 
     if IS_INSTRUMENTING:
-        return original_function(
-            *args, **kwargs
-        )  # don't instrument while instrumenting
+        # during instrumentation, skip the dumping to avoid infinite recursion
+        # and interference with the import system
+        return original_function(*args, **kwargs)
 
     pre_record = {
         "func_call_id": func_call_id,
@@ -240,242 +233,14 @@ def global_wrapper_subclass(
         pre_record["kwargs"] = dict_args_kwargs["kwargs"]
     dump_trace_API(pre_record)
 
-    try:
-        if COLLECT_OVERHEAD_METRICS:
-            ORIG_ENTER_PERF_TIME = time.perf_counter()
-        result = original_function(*args, **kwargs)
-        if COLLECT_OVERHEAD_METRICS:
-            ORIG_EXIT_PERF_TIME = time.perf_counter()
-    except Exception as e:
-        if COLLECT_OVERHEAD_METRICS:
-            ORIG_EXIT_PERF_TIME = time.perf_counter()
-
-        dump_trace_API(
-            {
-                "func_call_id": func_call_id,
-                "thread_id": thread_id,
-                "process_id": process_id,
-                "meta_vars": pre_meta_vars,
-                "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                "function": original_function_name,
-                "exception": typename(e, is_runtime=True),
-                "exception_msg": str(e),
-                "is_bound_method": is_bound_method,
-                "obj_id": None if not is_bound_method else id(args[0]),
-            },
-        )
-
-        if COLLECT_OVERHEAD_METRICS:
-            EXIT_PERF_TIME = time.perf_counter()
-            print(
-                f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
-            )
-        raise e
-
-    post_record = {
-        "func_call_id": func_call_id,
-        "thread_id": thread_id,
-        "process_id": process_id,
-        "meta_vars": pre_meta_vars,
-        "type": TraceLineType.FUNC_CALL_POST,
-        "function": original_function_name,
-        "is_bound_method": is_bound_method,
-        "obj_id": None if not is_bound_method else id(args[0]),
-    }
-
-    result_to_dump = result
-
-    # if the current function name is transformers.generate, then we will dump the response tokens only, let's see.
-    # a concrete name: "transformers.models.whisper.modeling_whisper.WhisperForConditionalGeneration.generate"
-    # we want a pattern that abstracts the specific model name
-    pattern = "transformers.models.*.generate"
-    # find matches in the pattern
-    import re
-
-    if (
-        GENERATE_START_TOKEN_ID is not None
-        and re.match(pattern, original_function_name)
-        and isinstance(result, torch.Tensor)
-    ):
-        print(f"Found match for {original_function_name}")
-        # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
-        response_starting_indices = []
-        for i in range(result.size(0)):
-            # try to find the match of the start token ids in the response
-            response = result[i]
-            # Find all indices where the start_token_id matches
-            matches = (response == GENERATE_START_TOKEN_ID).nonzero(as_tuple=True)[0]
-            indexes = matches.tolist()
-            if len(indexes) == 0:
-                # No occurrences found
-                print(
-                    f"start_token_id ({GENERATE_START_TOKEN_ID}) not found in response {i}"
-                )
-                start_index = -1  # Handle case where token is not found
-            elif len(indexes) > 1:
-                # Multiple occurrences found, raise an error
-                raise ValueError(
-                    f"Multiple occurrences of start_token_id ({GENERATE_START_TOKEN_ID}) found in response {i}: {matches.tolist()}"
-                )
-            else:
-                # Single occurrence found, get the index
-                start_index = indexes[0]
-                if not GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN:
-                    start_index += 1
-
-            response_starting_indices.append(start_index)
-
-        # compute the length of each response
-        response_lengths = []
-        for i in range(result.size(0)):
-            response = result[i]
-            start_index = response_starting_indices[i]
-            if start_index == -1:
-                response_lengths.append(0)
-            else:
-                response_lengths.append(response.size(0) - start_index)
-
-        result_to_dump = result.detach()
-        setattr(
-            result_to_dump,
-            "_ML_DAIKON_RESPONSE_STARTING_INDICES",
-            response_starting_indices,
-        )
-        setattr(result_to_dump, "_ML_DAIKON_RESPONSE_LENGTHS", response_lengths)
-
-        print(response_starting_indices)
-        print(response_lengths)
-    if dump_ret:
-        post_record["return_values"] = to_dict_return_value(result_to_dump)
-    dump_trace_API(post_record)
-
-    if COLLECT_OVERHEAD_METRICS:
-        EXIT_PERF_TIME = time.perf_counter()
-        print(
-            f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
-        )
-    return result
-
-
-def global_wrapper_proxy(
-    original_function: Callable,
-    original_function_name: str,
-    is_bound_method: bool,
-    is_builtin: bool,
-    scan_proxy_in_args: bool,
-    dump_stack_trace: bool,
-    dump_args: bool,
-    dump_args_config,
-    dump_ret: bool,
-    dump_ret_config,
-    handle_proxy: bool,
-    trigger_proxy_state_dump: bool,
-    proxy_state_dump_config: dict,
-    *args,
-    **kwargs,
-):
-    """Instrumentation for APIs with proxy-specific handling."""
-
-    # if "step" in original_function_name and not "scheduler" in original_function_name:
-    #     print("step function called" + original_function_name)
-    #     print(trigger_proxy_state_dump)
-    #     print(proxy_state_dump_config)
-    #     exit(1)
-
-    global DISABLE_WRAPPER
-    global PROCESS_ID
-
-    if DISABLE_WRAPPER:
-        return original_function(*args, **kwargs)
-
-    if COLLECT_OVERHEAD_METRICS:
-        ENTER_PERF_TIME = time.perf_counter()
-
-    func_call_id = get_unique_id()
-    process_id, thread_id = get_process_thread_id()
-    increment_step_if_needed(
-        original_function, original_function_name, is_bound_method, args
-    )
-
-    pre_meta_vars = get_meta_vars()
-
-    if IS_INSTRUMENTING:
-        return original_function(
-            *args, **kwargs
-        )  # don't instrument while instrumenting
-
-    pre_record = {
-        "func_call_id": func_call_id,
-        "thread_id": thread_id,
-        "process_id": process_id,
-        "meta_vars": pre_meta_vars,
-        "type": TraceLineType.FUNC_CALL_PRE,
-        "function": original_function_name,
-        "is_bound_method": is_bound_method,
-        "obj_id": None if not is_bound_method else id(args[0]),
-    }
-
-    if dump_stack_trace:
-        pre_record["stack_trace"] = traceback.format_stack()
-
-    if scan_proxy_in_args:
-        proxy_in_args = []
-
-        def find_proxy_in_args(args):
-            for i, arg in enumerate(args):
-                if is_proxied(arg) or is_proxyparameter(arg):
-                    proxy_in_args.append(arg)
-                elif type(arg) in [list, tuple]:
-                    find_proxy_in_args(arg)
-                elif isinstance(arg, types.GeneratorType) and not isinstance(
-                    arg, tuple
-                ):
-                    arg_list = list(arg)
-                    args[i] = iter(arg_list)
-                    find_proxy_in_args(arg_list)
-
-        args = list(args)  # type: ignore[assignment]
-        find_proxy_in_args(args)
-        args = tuple(args)
-
-        if proxy_in_args:
-            if "proxy_obj_names" not in pre_record:
-                pre_record["proxy_obj_names"] = []
-            for proxy in proxy_in_args:
-                if is_proxyparameter(proxy):
-                    pre_record["proxy_obj_names"].append(
-                        [proxy.__dict__["var_name"], "Parameter"]
-                    )
-                else:
-                    pre_record["proxy_obj_names"].append(
-                        [proxy.__dict__["var_name"], type(proxy._obj).__name__]
-                    )
-    if dump_args:
-        dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
-        pre_record["args"] = dict_args_kwargs["args"]
-        pre_record["kwargs"] = dict_args_kwargs["kwargs"]
-    dump_trace_API(pre_record)
-
-    if handle_proxy and trigger_proxy_state_dump:
+    if trigger_var_dump:
         """Mimicking the behavior the observer wrapper: pre-observe"""
-        get_global_registry().dump_only_modified(
-            dump_loc=original_function_name, dump_config=proxy_state_dump_config
+        get_global_registry().dump_modified(
+            dump_loc=original_function_name, dump_config=var_dump_config
         )
 
-    if handle_proxy:
-        if enable_C_level_observer and is_builtin:
-            from traincheck.proxy_wrapper.proxy_observer import (
-                add_observer_to_func,  # import here to avoid circular import
-            )
-
-            original_function = add_observer_to_func(original_function, unproxy=True)
-        elif is_funcs_to_be_unproxied(original_function):
-            original_function = unproxy_func(
-                original_function, inspect_torch_module=True
-            )
-        elif is_builtin:
-            # proxy objects being passed to backend will cause seg fault: TODO: replace with unproxy func
-            original_function = unproxy_func(original_function)
+    if need_unproxy_args_kwargs:
+        args, kwargs = unproxy_args_kwargs(args, kwargs)
 
     try:
         if COLLECT_OVERHEAD_METRICS:
@@ -487,10 +252,10 @@ def global_wrapper_proxy(
         if COLLECT_OVERHEAD_METRICS:
             ORIG_EXIT_PERF_TIME = time.perf_counter()
 
-        if handle_proxy and trigger_proxy_state_dump:
+        if trigger_var_dump:
             """Mimicking the behavior the observer wrapper: post-observe"""
-            get_global_registry().dump_only_modified(
-                dump_loc=original_function_name, dump_config=proxy_state_dump_config
+            get_global_registry().dump_modified(
+                dump_loc=original_function_name, dump_config=var_dump_config
             )
 
         dump_trace_API(
@@ -515,9 +280,9 @@ def global_wrapper_proxy(
             )
         raise e
 
-    if handle_proxy and trigger_proxy_state_dump:
-        get_global_registry().dump_only_modified(
-            dump_loc=original_function_name, dump_config=proxy_state_dump_config
+    if trigger_var_dump:
+        get_global_registry().dump_modified(
+            dump_loc=original_function_name, dump_config=var_dump_config
         )
 
     post_record = {
@@ -586,10 +351,10 @@ def global_wrapper_proxy(
         result_to_dump = result.detach()
         setattr(
             result_to_dump,
-            "_ML_DAIKON_RESPONSE_STARTING_INDICES",
+            "_TRAINCHECK_RESPONSE_STARTING_INDICES",
             response_starting_indices,
         )
-        setattr(result_to_dump, "_ML_DAIKON_RESPONSE_LENGTHS", response_lengths)
+        setattr(result_to_dump, "_TRAINCHECK_RESPONSE_LENGTHS", response_lengths)
 
         print(response_starting_indices)
         print(response_lengths)
@@ -605,18 +370,13 @@ def global_wrapper_proxy(
     return result
 
 
-def core_wrapper_proxy(original_function, is_builtin, handle_proxy, *args, **kwargs):
-    """Same as global_wrapper_proxy but without logging.
-
-    We use this wrapper on functions that are not helpful for invariant inference,
-    but still need proxy-safe handling.
-    """
+def core_wrapper_proxy(original_function, *args, **kwargs):
+    """Core wrapper that only handles unproxying for built-in functions."""
     global DISABLE_WRAPPER
     if DISABLE_WRAPPER:
         return original_function(*args, **kwargs)
 
-    if handle_proxy and is_builtin:
-        original_function = unproxy_func(original_function)
+    args, kwargs = unproxy_args_kwargs(args, kwargs)
     return original_function(*args, **kwargs)
 
 
@@ -631,36 +391,35 @@ def wrapper(
     dump_ret=True,
     dump_ret_config=None,
     handle_proxy=True,
-    trigger_proxy_state_dump=False,
-    proxy_state_dump_config=None,
+    trigger_var_dump=False,
+    var_dump_config=None,
 ):
     is_builtin = is_c_level_function(original_function)
+    need_unproxy_args_kwargs = handle_proxy and (
+        is_builtin or is_funcs_to_be_unproxied(original_function)
+    )
     original_function_name = typename(original_function)
+    increment_step = False
+    if original_function_name.endswith(".step"):
+        owner = get_owner_class(original_function)
+        if owner and issubclass(owner, torch.optim.Optimizer):
+            increment_step = True
     # determine statically whether to dump the trace
     if not disable_dump:
         METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(original_function_name)
 
         @functools.wraps(original_function)
         def wrapped(*args, **kwargs):
-            if handle_proxy:
-                return global_wrapper_proxy(
-                    original_function,
-                    original_function_name,
-                    is_bound_method,
-                    is_builtin,
-                    scan_proxy_in_args,
-                    dump_stack_trace,
-                    dump_args,
-                    dump_args_config,
-                    dump_ret,
-                    dump_ret_config,
-                    handle_proxy,
-                    trigger_proxy_state_dump,
-                    proxy_state_dump_config,
-                    *args,
-                    **kwargs,
-                )
-            return global_wrapper_subclass(
+            if increment_step:
+                # Meta var update for step is now handled by traincheck.instrumentor.control.start_step
+                # which is injected into training loops.
+                # However, for backward compatibility or if injection fails, we might want to keep basic step counting?
+                # User specifically asked to move logic. If we keep it here, we might double count if both run.
+                # But injection is "An easy way out".
+                # Let's check META_VARS.
+                pass
+
+            return function_wrapper(
                 original_function,
                 original_function_name,
                 is_bound_method,
@@ -670,22 +429,30 @@ def wrapper(
                 dump_args_config,
                 dump_ret,
                 dump_ret_config,
+                trigger_var_dump,
+                var_dump_config,
+                need_unproxy_args_kwargs,
                 *args,
                 **kwargs,
             )
 
     else:
         METRIC_INSTRUMENTED_FUNC_LIST["no_dump"].append(original_function_name)
-        if handle_proxy:
+        if need_unproxy_args_kwargs:
 
             @functools.wraps(original_function)
             def wrapped(*args, **kwargs):
-                return core_wrapper_proxy(
-                    original_function, is_builtin, handle_proxy, *args, **kwargs
-                )
+                if increment_step:
+                    META_VARS["step"] += 1
+                return core_wrapper_proxy(original_function, *args, **kwargs)
 
         else:
-            return original_function
+
+            @functools.wraps(original_function)
+            def wrapped(*args, **kwargs):
+                if increment_step:
+                    META_VARS["step"] += 1
+                return original_function(*args, **kwargs)
 
     wrapped._traincheck_original_function = original_function
     wrapped._traincheck_instrumented = True
@@ -793,6 +560,8 @@ class Instrumentor:
         use_full_instr: bool,
         funcs_to_instr: Optional[list[str]] = None,
         API_dump_stack_trace: bool = False,
+        sampling_interval: int = 1,
+        warm_up_steps: int = 0,
     ):
         """
         Instruments the specified target with additional tracing functionality.
@@ -815,12 +584,24 @@ class Instrumentor:
                 and the functions in this list will be instrumented with dump enabled. NOTE: If this list is provided, use_full_str must be set to False. WRAP_WITHOUT_DUMP will be ignored.
             API_dump_stack_trace (bool):
                 Whether to dump the stack trace of the function call. Enabling this will add the stack trace to the trace log.
+            sampling_interval (int):
+                The interval for sampling-based instrumentation. Every Nth step will be instrumented. Defaults to 1.
+            warm_up_steps (int):
+                The number of initial steps to always instrument. Defaults to 0.
 
         Indirectly, at initialization, the instrumentor will also load the instr_opts.json file if it exists.
         This file is automatically generated by the `collect_trace` script when `--invariants` is provided.
         The user should not need to interact with this file directly.
 
         """
+        if sampling_interval:
+            if config.INSTRUMENTATION_POLICY is None:
+                config.INSTRUMENTATION_POLICY = {}
+            config.INSTRUMENTATION_POLICY["interval"] = sampling_interval
+        if warm_up_steps is not None:
+            if config.INSTRUMENTATION_POLICY is None:
+                config.INSTRUMENTATION_POLICY = {}
+            config.INSTRUMENTATION_POLICY["warm_up"] = warm_up_steps
 
         self.instrumenting = True
         if isinstance(target, types.ModuleType):
@@ -1075,8 +856,19 @@ class Instrumentor:
             if self.instr_opts is not None
             else config.MODEL_TRACKER_STYLE
         )
-        used_proxy = tracker_style == "proxy"
-        if self.instr_opts is not None:
+        used_proxy = tracker_style == "proxy"  # TODO: refactor this:
+        if self.instr_opts is None:
+            # inference stage instrumentation
+            return wrapper(
+                func_obj,
+                is_bound_method=is_API_bound_method(func_obj),
+                scan_proxy_in_args=self.scan_proxy_in_args,
+                disable_dump=self.should_disable_dump(func_obj),
+                dump_stack_trace=self.API_dump_stack_trace,
+                handle_proxy=used_proxy,
+            )
+        else:
+            # checking stage instrumentation
             func_name = typename(func_obj)
             if func_name not in self.instr_opts.funcs_instr_opts:
                 return wrapper(
@@ -1108,19 +900,10 @@ class Instrumentor:
                     else None
                 ),
                 handle_proxy=used_proxy,
-                trigger_proxy_state_dump=self.instr_opts.disable_proxy_dumping
+                trigger_var_dump=self.instr_opts.disable_proxy_dumping
                 and len(func_instr_opt["var_types_to_track"]) > 0,
-                proxy_state_dump_config=func_instr_opt["var_types_to_track"],
+                var_dump_config=func_instr_opt["var_types_to_track"],
             )
-
-        return wrapper(
-            func_obj,
-            is_bound_method=is_API_bound_method(func_obj),
-            scan_proxy_in_args=self.scan_proxy_in_args,
-            disable_dump=self.should_disable_dump(func_obj),
-            dump_stack_trace=self.API_dump_stack_trace,
-            handle_proxy=used_proxy,
-        )
 
     def _instrument_module(
         self,

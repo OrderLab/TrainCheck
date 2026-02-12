@@ -33,6 +33,8 @@ class InsertTracerVisitor(ast.NodeTransformer):
         use_full_instr: bool,
         funcs_to_instr: list[str] | None,
         API_dump_stack_trace: bool,
+        sampling_interval: int,
+        warm_up_steps: int,
     ):
         super().__init__()
         if not modules_to_instr:
@@ -44,10 +46,27 @@ class InsertTracerVisitor(ast.NodeTransformer):
         self.use_full_instr = use_full_instr
         self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
+        self.sampling_interval = sampling_interval
+        self.warm_up_steps = warm_up_steps
+        self.current_function = None
+
+    def visit_FunctionDef(self, node):
+        old_function = self.current_function
+        self.current_function = node.name
+        self.generic_visit(node)
+        self.current_function = old_function
+        return node
+
+    def visit_AsyncFunctionDef(self, node):
+        old_function = self.current_function
+        self.current_function = node.name
+        self.generic_visit(node)
+        self.current_function = old_function
+        return node
 
     def get_instrument_node(self, module_name: str):
         return ast.parse(
-            f"from traincheck.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_to_instr={str(self.funcs_to_instr)}, API_dump_stack_trace={self.API_dump_stack_trace}).instrument()"
+            f"from traincheck.instrumentor.tracer import Instrumentor; Instrumentor({module_name}, scan_proxy_in_args={self.scan_proxy_in_args}, use_full_instr={self.use_full_instr}, funcs_to_instr={str(self.funcs_to_instr)}, API_dump_stack_trace={self.API_dump_stack_trace}, sampling_interval={str(self.sampling_interval)}, warm_up_steps={str(self.warm_up_steps)}).instrument()"
         ).body
 
     def visit_Import(self, node):
@@ -65,8 +84,6 @@ class InsertTracerVisitor(ast.NodeTransformer):
                 instrument_nodes.append(self.get_instrument_node(n.asname))
             else:
                 instrument_nodes.append(self.get_instrument_node(n.name))
-        # let's see if there are aliases, if yes, use them
-        # if not, let's use the module name directly
         return [node] + instrument_nodes
 
     def visit_ImportFrom(self, node):
@@ -87,6 +104,105 @@ class InsertTracerVisitor(ast.NodeTransformer):
                 instrument_nodes.append(self.get_instrument_node(n.name))
         return [node] + instrument_nodes
 
+    def _get_loop_context(self, node):
+        # Heuristic: Inject into loops that look like training loops.
+        # Check for calls to .step() or .backward()
+        has_training_signal = False
+        for child in ast.walk(node):
+            if isinstance(child, ast.Call):
+                if isinstance(child.func, ast.Attribute):
+                    if child.func.attr in ["step", "backward"]:
+                        has_training_signal = True
+
+        if has_training_signal:
+            return "training"
+
+        # If no explicit training signal, check if we are in an eval/test function
+        if self.current_function:
+            name_lower = self.current_function.lower()
+            if "test" in name_lower or "eval" in name_lower or "valid" in name_lower:
+                return "eval"
+
+        return None
+
+    def _inject_call(self, node, func_name):
+        import_stmt = ast.ImportFrom(
+            module="traincheck.instrumentor.control",
+            names=[ast.alias(name=func_name, asname=None)],
+            level=0,
+        )
+        call_stmt = ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id=func_name, ctx=ast.Load()), args=[], keywords=[]
+            )
+        )
+        node.body.insert(0, call_stmt)
+        node.body.insert(0, import_stmt)
+        return node
+
+    def visit_For(self, node):
+        self.generic_visit(node)
+        context = self._get_loop_context(node)
+        if context == "training":
+            return self._inject_call(node, "start_step")
+        elif context == "eval":
+            return self._inject_call(node, "start_eval_step")
+        return node
+
+    def visit_While(self, node):
+        self.generic_visit(node)
+        context = self._get_loop_context(node)
+        if context == "training":
+            return self._inject_call(node, "start_step")
+        elif context == "eval":
+            return self._inject_call(node, "start_eval_step")
+        return node
+
+    def _should_inject_control(self, node):
+        # Heuristic: Inject into loops that look like training loops.
+        # Check for calls to .step() or .backward()
+        for child in ast.walk(node):
+            if isinstance(child, ast.Call):
+                if isinstance(child.func, ast.Attribute):
+                    if child.func.attr in ["step", "backward"]:
+                        return True
+        return False
+
+    def _inject_start_step(self, node):
+        import_stmt = ast.ImportFrom(
+            module="traincheck.instrumentor.control",
+            names=[ast.alias(name="start_step", asname=None)],
+            level=0,
+        )
+        call_stmt = ast.Expr(
+            value=ast.Call(
+                func=ast.Name(id="start_step", ctx=ast.Load()), args=[], keywords=[]
+            )
+        )
+        # We need to insert the import at the top of the file ideally,
+        # but inserting inside the loop works if we deal with python scoping (imports are valid statements).
+        # Actually proper way is to add import at module level.
+        # But `visit_Module` is not here.
+        # For simplicity, let's just use fully qualified name or inject import in the loop (a bit inefficient but works).
+        # Better: Inject `import traincheck.instrumentor.control` at top of loop or use `traincheck.instrumentor.control.start_step()` with import logic handled elsewhere?
+        # The `InsertTracerVisitor` modifies the module. We can add an import to the module body if we had access.
+        # `visit_Import` adds imports.
+        # Let's assume `traincheck` is importable.
+
+        # Helper to create `traincheck.instrumentor.control.start_step()` call
+        # And ensure import is present.
+        # Actually `InsertTracerVisitor` is used on the whole file.
+        # Let's just blindly insert the call logic and rely on the fact that we can insert an import at the top of the loop
+        # or just assume the user code can handle it if we inject the import statement right before the call.
+
+        # Let's inject:
+        # from traincheck.instrumentor.control import start_step
+        # start_step()
+
+        node.body.insert(0, call_stmt)
+        node.body.insert(0, import_stmt)
+        return node
+
 
 def instrument_library(
     source: str,
@@ -95,6 +211,8 @@ def instrument_library(
     use_full_instr: bool,
     funcs_to_instr: list[str] | None,
     API_dump_stack_trace: bool,
+    sampling_interval: int,
+    warm_up_steps: int,
 ) -> str:
     """
     Instruments the given source code and returns the instrumented source code.
@@ -116,6 +234,8 @@ def instrument_library(
         use_full_instr,
         funcs_to_instr,
         API_dump_stack_trace,
+        sampling_interval,
+        warm_up_steps,
     )
     root = visitor.visit(root)
     source = ast.unparse(root)
@@ -367,34 +487,34 @@ def instrument_model_tracker_proxy(
 
     if proxy_basic_config:
         if "proxy_log_dir" not in proxy_basic_config:
-            from traincheck.proxy_wrapper.proxy_config import proxy_log_dir
+            from traincheck.instrumentor.proxy_wrapper.proxy_config import proxy_log_dir
 
             proxy_basic_config["proxy_log_dir"] = proxy_log_dir
 
         proxy_start_code += f"""
-import traincheck.proxy_wrapper.proxy_config as proxy_config
+import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config
 proxy_config.__dict__.update({proxy_basic_config})
 """
     if tensor_dump_format:
         proxy_start_code += f"""
-from traincheck.proxy_wrapper.proxy_config import tensor_dump_format
+from traincheck.instrumentor.proxy_wrapper.proxy_config import tensor_dump_format
 tensor_dump_format.update({tensor_dump_format})
 """
 
     if model_tracker_style == "proxy":
         proxy_start_code += """
-from traincheck.proxy_wrapper.proxy import Proxy
+from traincheck.instrumentor.proxy_wrapper.proxy import Proxy
 """
     else:
         proxy_start_code += """
-from traincheck.proxy_wrapper.subclass import proxy_parameter
+from traincheck.instrumentor.proxy_wrapper.subclass import proxy_parameter
 """
 
     if auto_observer_config["enable_auto_observer"]:
         auto_observer_code = """
 import glob
 import importlib
-from traincheck.proxy_wrapper.proxy_config import auto_observer_config
+from traincheck.instrumentor.proxy_wrapper.proxy_config import auto_observer_config
 spec = importlib.util.find_spec('traincheck')
 if spec and spec.origin:
     traincheck_folder = os.path.dirname(spec.origin)
@@ -811,6 +931,8 @@ def instrument_file(
     instr_descriptors: bool,
     no_auto_var_instr: bool,
     use_torch_compile: bool,
+    sampling_interval: int = 1,
+    warm_up_steps: int = 0,
 ) -> str:
     """
     Instruments the given file and returns the instrumented source code.
@@ -827,19 +949,21 @@ def instrument_file(
         use_full_instr,
         funcs_to_instr,
         API_dump_stack_trace,
+        sampling_interval,
+        warm_up_steps,
     )
     # annotate stages
     instrumented_source = annotate_stage(instrumented_source)
     # logging configs
     logging_start_code = f"""
 import os
-os.environ['ML_DAIKON_OUTPUT_DIR'] = "{output_dir}"
+os.environ['TRAINCHECK_OUTPUT_DIR'] = "{output_dir}"
 """
 
     debug_hook_code = """
 from traincheck.utils import register_custom_excepthook
-if os.environ.get("ML_DAIKON_DEBUG") == "1":
-    print("ML_DAIKON_DEBUG is set to 1, registering custom excepthook")
+if os.environ.get("TRAINCHECK_DEBUG") == "1":
+    print("TRAINCHECK_DEBUG is set to 1, registering custom excepthook")
     register_custom_excepthook(True)
 """
 
@@ -863,6 +987,12 @@ general_config.USE_TORCH_COMPILE = True
             "subclass",
         ], f"Invalid model tracker style: {model_tracker_style}, must be one of ['proxy', 'sampler', 'subclass']"
         if model_tracker_style == "proxy" or model_tracker_style == "subclass":
+            if model_tracker_style == "subclass":
+                # adjust the proxy config to disable the proxy-specific configs
+                print(
+                    "Using subclass model tracker, overriding observe_then_unproxy to False"
+                )
+                adjusted_proxy_config[0]["observe_then_unproxy"] = False
             instrumented_source = instrument_model_tracker_proxy(
                 instrumented_source,
                 models_to_track,

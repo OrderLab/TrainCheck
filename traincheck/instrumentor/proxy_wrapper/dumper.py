@@ -2,10 +2,10 @@ import json
 from typing import Dict
 
 from traincheck.instrumentor.dumper import convert_var_to_dict
+from traincheck.instrumentor.proxy_wrapper.proxy_basics import is_proxied
+from traincheck.instrumentor.proxy_wrapper.proxy_config import primitive_types
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.instrumentor.tracer import get_meta_vars as tracer_get_meta_vars
-from traincheck.proxy_wrapper.proxy_basics import is_proxied
-from traincheck.proxy_wrapper.proxy_config import primitive_types
 
 
 class Singleton(type):

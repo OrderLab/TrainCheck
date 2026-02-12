@@ -1,6 +1,7 @@
+import traincheck.config.config as config
 import traincheck.instrumentor.tracer as tracer
 from traincheck.config.config import ALL_STAGE_NAMES
-from traincheck.instrumentor import meta_vars
+from traincheck.instrumentor import META_VARS
 
 
 def annotate_stage(stage_name: str):
@@ -16,7 +17,12 @@ def annotate_stage(stage_name: str):
         stage_name in ALL_STAGE_NAMES
     ), f"Invalid stage name: {stage_name}, valid ones are {ALL_STAGE_NAMES}"
 
-    meta_vars["stage"] = stage_name
+    old_stage = META_VARS.get("stage", None)
+    META_VARS["stage"] = stage_name
+
+    # We always reset the wrapper when stage changes, and let the policy decide later if we should skip
+    if old_stage != stage_name:
+        config.DISABLE_WRAPPER = False
 
 
 def annotate_answer_start_token_ids(

@@ -7,7 +7,7 @@ import yaml
 
 import traincheck.config.config as config
 import traincheck.instrumentor as instrumentor
-import traincheck.proxy_wrapper.proxy_config as proxy_config
+import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config
 import traincheck.runner as runner
 from traincheck.config.config import InstrOpt
 from traincheck.invariant.base_cls import (
@@ -137,37 +137,46 @@ def get_per_func_instr_opts(
     return func_instr_opts
 
 
-def get_model_tracker_instr_opts(invariants: list[Invariant]) -> str | None:
+def get_model_tracker_instr_opts(
+    invariants: list[Invariant], config_tracker_style: str
+) -> str | None:
     """
     Get model tracker instrumentation options
     """
 
-    tracker_type = None
+    logger = logging.getLogger(__name__)
+    need_immediate_var_tracking = False
+    need_var_tracking = False
     for inv in invariants:
         if inv.relation == APIContainRelation:
             for param in inv.params:
                 if isinstance(param, (VarNameParam, VarTypeParam)):
-                    tracker_type = "proxy"
+                    need_var_tracking = True
+                    need_immediate_var_tracking = True
                     break
-        if tracker_type is None and inv.relation == ConsistencyRelation:
-            tracker_type = "sampler"
+        if not need_var_tracking and inv.relation == ConsistencyRelation:
+            need_immediate_var_tracking = False
+            need_var_tracking = True
 
-        if tracker_type == "proxy":
+        if need_var_tracking and need_immediate_var_tracking:
             break
-    return tracker_type
 
+    if need_immediate_var_tracking:
+        if config_tracker_style in ["proxy", "subclass"]:
+            return config_tracker_style
+        else:
+            logger.warning(
+                f"Model tracker style {config_tracker_style} is not suitable for immediate variable tracking, using 'subclass' by default instead."
+            )
+            return "subclass"
+    elif need_var_tracking:
+        if not config_tracker_style == "sampler":
+            logger.warning(
+                f"Model tracker style {config_tracker_style} is not suitable for non-immediate variable tracking, using 'sampler' by default instead."
+            )
+        return "sampler"
 
-def get_disable_proxy_dumping(invariants: list[Invariant]) -> bool:
-    """
-    Get disable proxy dumping options for checking
-
-    Always return True if an APIContain invariant requested proxy tracking
-
-    We cannot disable automatic variable dumping if only consistency relations but no APIContain
-    require variable states, as then no APIs will trigger state dumps.
-    However, the var tracker should be sampler if there's no APIContain anyway
-    """
-    return True
+    return None
 
 
 def dump_env(args, output_dir: str):
@@ -361,12 +370,6 @@ def main():
         help="The format for dumping tensors. Choose from 'hash'(default), 'stats' or 'full'.",
     )
     parser.add_argument(
-        "--enable-C-level-observer",
-        type=bool,
-        default=proxy_config.enable_C_level_observer,
-        help="Enable the observer at the C level",
-    )
-    parser.add_argument(
         "--no-auto-var-instr",
         action="store_true",
         help="Disable automatic variable instrumentation, necessary when the default behavior of the instrumentor is not desired (e.g. cause segmentation fault)",
@@ -375,6 +378,20 @@ def main():
         "--use-torch-compile",
         action="store_true",
         help="Indicate wthether use torch.compile to speed the model, necessary to realize compatibility",
+    )
+
+    ## instrumentation policy configs
+    parser.add_argument(
+        "--sampling-interval",
+        type=int,
+        default=None,
+        help="Interval of steps to instrument (e.g., 10 for every 10th step).",
+    )
+    parser.add_argument(
+        "--warm-up-steps",
+        type=int,
+        default=0,
+        help="Number of initial steps to always instrument.",
     )
 
     args = parser.parse_args()
@@ -399,7 +416,7 @@ def main():
     # set up logging
     if args.debug_mode:
         logging.basicConfig(level=logging.DEBUG)
-        os.environ["ML_DAIKON_DEBUG"] = "1"
+        os.environ["TRAINCHECK_DEBUG"] = "1"
     else:
         logging.basicConfig(level=logging.INFO)
 
@@ -419,7 +436,6 @@ def main():
     proxy_basic_config: dict[str, int | bool | str] = {}
     for configs in [
         "debug_mode",
-        "enable_C_level_observer",
     ]:
         if getattr(proxy_config, configs) != getattr(args, configs):
             proxy_basic_config[configs] = getattr(args, configs)
@@ -455,9 +471,12 @@ def main():
     if args.invariants:
         # selective instrumentation if invariants are provided, only funcs_to_instr will be instrumented with trace collection
         invariants = read_inv_file(args.invariants)
+
         instr_opts = InstrOpt(
             func_instr_opts=get_per_func_instr_opts(invariants),
-            model_tracker_style=get_model_tracker_instr_opts(invariants),
+            model_tracker_style=get_model_tracker_instr_opts(
+                invariants, args.model_tracker_style
+            ),
             disable_proxy_dumping=True,
         )
         models_to_track = (
@@ -503,6 +522,8 @@ disabling model tracking."""
             instr_descriptors=args.instr_descriptors,
             no_auto_var_instr=args.no_auto_var_instr,
             use_torch_compile=args.use_torch_compile,
+            sampling_interval=args.sampling_interval,
+            warm_up_steps=args.warm_up_steps,
         )
 
     if args.copy_all_files:

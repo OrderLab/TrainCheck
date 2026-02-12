@@ -8,17 +8,17 @@ from typing import Dict
 
 import torch
 
-import traincheck.config.config as general_config
-import traincheck.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
-import traincheck.proxy_wrapper.proxy_methods as proxy_methods
-from traincheck.proxy_wrapper.dumper import dump_attributes, get_meta_vars
+import traincheck.config.config as config
+import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config  # HACK: cannot directly import config variables as then they would be local variables
+import traincheck.instrumentor.proxy_wrapper.proxy_methods as proxy_methods
+from traincheck.config.config import should_disable_proxy_dumping
+from traincheck.instrumentor.proxy_wrapper.dumper import dump_attributes, get_meta_vars
 from traincheck.utils import get_timestamp_ns, typename
 
 from .dumper import json_dumper as dumper
 from .proxy_basics import unproxy_arg, unproxy_args_kwargs
 from .proxy_handler import PROXY_SUPPORT_OBJ_TYPES
-
-# from .proxy_registry import get_global_registry
+from .proxy_registry import get_global_registry
 from .utils import print_debug
 
 
@@ -102,7 +102,7 @@ class Proxy:
     var_dict: Dict[str, ProxyObjInfo] = {}
     loglevel = logging.INFO
     jsondumper = dumper(
-        os.path.join(os.getenv("ML_DAIKON_OUTPUT_DIR", "."), "proxy_log.json")  # type: ignore
+        os.path.join(os.getenv("TRAINCHECK_OUTPUT_DIR", "."), "proxy_log.json")  # type: ignore
     )
 
     @staticmethod
@@ -130,7 +130,9 @@ class Proxy:
         Proxy.var_dict[self.__dict__["var_name"]].last_update_timestamp = current_time
 
     def register_object(self):
-        # get_global_registry().add_var(self, self.__dict__["var_name"])
+        get_global_registry().add_var(
+            self, self.__dict__["var_name"], self.__dict__["var_type"]
+        )
         # TODO: implement the registry, we will need to make sure the registerred timestamp is updated and is consistent with the timestamp in the object
         pass
 
@@ -157,6 +159,9 @@ class Proxy:
         return new_copy
 
     def dump_trace(self, phase, dump_loc):
+        if config.DISABLE_WRAPPER:
+            return
+
         obj = self._obj
         var_name = self.__dict__["var_name"]
         assert var_name is not None  # '' is allowed as a var_name (root object)
@@ -207,6 +212,7 @@ class Proxy:
         self.__dict__["is_traincheck_proxied_obj"] = True
         self.__dict__["recurse"] = recurse
         self.__dict__["var_name"] = var_name
+        self.__dict__["var_type"] = typename(obj, is_runtime=True)
         self.__dict__["old_value"] = None
         self.__dict__["old_meta_vars"] = None
 
@@ -226,6 +232,7 @@ class Proxy:
             ]
             self.__dict__["recurse"] = obj.__dict__["recurse"]
             self.__dict__["var_name"] = obj.__dict__["var_name"]
+            self.__dict__["var_type"] = obj.__dict__["var_type"]
             self.__dict__["logdir"] = obj.__dict__["logdir"]
             self.__dict__["log_level"] = obj.__dict__["log_level"]
             self.__dict__["meta_vars"] = obj.__dict__["meta_vars"]
@@ -261,7 +268,7 @@ class Proxy:
         if not dump_iter and from_iter:
             return
 
-        if should_dump_trace:
+        if should_dump_trace and not should_disable_proxy_dumping():
             if from_call:
                 phase = "call"
 
@@ -363,7 +370,7 @@ class Proxy:
                     ),
                 )
 
-            if general_config.should_disable_proxy_dumping():
+            if should_disable_proxy_dumping():
                 # do not dump update traces
                 return None
 

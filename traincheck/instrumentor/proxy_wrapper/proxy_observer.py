@@ -1,15 +1,20 @@
 import functools
 import typing
 
+import traincheck.config.config as config
 from traincheck.config.config import should_disable_proxy_dumping
-from traincheck.proxy_wrapper.subclass import ProxyParameter
+from traincheck.instrumentor.proxy_wrapper.subclass import ProxyParameter
 from traincheck.utils import typename
 
 if typing.TYPE_CHECKING:
-    from traincheck.proxy_wrapper.proxy import Proxy
-    from traincheck.proxy_wrapper.subclass import ProxyParameter
+    from traincheck.instrumentor.proxy_wrapper.proxy import Proxy
+    from traincheck.instrumentor.proxy_wrapper.subclass import ProxyParameter
+
+import logging
 
 from .proxy_basics import is_proxied, is_proxyparameter, unproxy_func
+
+logger = logging.getLogger(__name__)
 
 
 def observe_proxy_var(
@@ -17,11 +22,16 @@ def observe_proxy_var(
     phase,
     observe_api_name: str,
 ):
+    if config.DISABLE_WRAPPER:
+        return
 
     # update the proxy object's timestamp
     var.update_timestamp()
 
     if phase == "post_observe":
+        logger.debug(
+            f"[ProxyObserver] Observing proxy var after {observe_api_name}: {var.__dict__['var_name']}"
+        )
         var.register_object()
 
     if should_disable_proxy_dumping():
@@ -61,7 +71,7 @@ def add_observer_to_func(original_function, unproxy=False):
         result = processed_function(*args, **kwargs)
 
         # post observe
-        for i, var in enumerate(proxied_vars):
+        for var in proxied_vars:
             observe_proxy_var(
                 var,
                 "post_observe",
