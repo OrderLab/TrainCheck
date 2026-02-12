@@ -74,7 +74,7 @@ jobs:
           
           # Copy CSV to docs assets
           mkdir -p docs/assets/csv
-          cp benchmarks/instr-overhead/overhead_e2e.csv docs/assets/csv/
+          cp benchmarks/instr-overhead/perf_benchmark_results/overhead_e2e.csv docs/assets/csv/
           
           # Create or update benchmark page
           cat > docs/benchmarks.md << EOF
