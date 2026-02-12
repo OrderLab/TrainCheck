@@ -99,5 +99,5 @@ jobs:
 
       - name: Deploy docs
         run: |
-          pip install mkdocs
+          pip install mkdocs-material
           mkdocs gh-deploy --force
