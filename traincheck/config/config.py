@@ -100,6 +100,11 @@ INSTRUMENTATION_POLICY = {
     "warm_up": 1,  # default to 1 to ensure the first step is always instrumented: before warm-up is depleted, we do instrumentation with interval=1, after warm-up is depleted, we do instrumentation with the specified interval
 }
 
+DEFAULT_CHECKING_POLICY = {
+    "interval": 10,
+    "warm_up": 10,
+}
+
 DISABLE_WRAPPER = False
 
 

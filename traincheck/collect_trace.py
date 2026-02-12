@@ -390,7 +390,7 @@ def main():
     parser.add_argument(
         "--warm-up-steps",
         type=int,
-        default=0,
+        default=None,
         help="Number of initial steps to always instrument.",
     )
 
@@ -412,6 +412,13 @@ def main():
             if key == "shscript":
                 value = os.path.join(path_prefix, value)
             setattr(args, key, value)
+
+    # Set conditional defaults based on invariants presence
+    if args.invariants:
+        if args.sampling_interval is None:
+            args.sampling_interval = config.DEFAULT_CHECKING_POLICY["interval"]
+        if args.warm_up_steps is None:
+            args.warm_up_steps = config.DEFAULT_CHECKING_POLICY["warm_up"]
 
     # set up logging
     if args.debug_mode:
