@@ -416,8 +416,14 @@ def main():
     # Set conditional defaults based on invariants presence
     if args.invariants:
         if args.sampling_interval is None:
+            print(
+                f"Setting sampling interval to default value {config.DEFAULT_CHECKING_POLICY['interval']}"
+            )
             args.sampling_interval = config.DEFAULT_CHECKING_POLICY["interval"]
         if args.warm_up_steps is None:
+            print(
+                f"Setting warm up steps to default value {config.DEFAULT_CHECKING_POLICY['warm_up']}"
+            )
             args.warm_up_steps = config.DEFAULT_CHECKING_POLICY["warm_up"]
 
     # set up logging
@@ -513,6 +519,8 @@ disabling model tracking."""
             instr_descriptors=args.instr_descriptors,
             no_auto_var_instr=args.no_auto_var_instr,
             use_torch_compile=args.use_torch_compile,
+            sampling_interval=args.sampling_interval,
+            warm_up_steps=args.warm_up_steps,
         )
     else:
         source_code = instrumentor.instrument_file(

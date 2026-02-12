@@ -29,8 +29,8 @@ def start_step():
 
     policy = config.INSTRUMENTATION_POLICY
     if policy:
-        warm_up = policy.get("warm_up", 0)
-        interval = policy.get("interval", 1)
+        warm_up = policy["warm_up"]
+        interval = policy["interval"]
 
         # Default to enabled
         config.DISABLE_WRAPPER = False
@@ -62,8 +62,8 @@ def start_eval_step():
 
     policy = config.INSTRUMENTATION_POLICY
     if policy:
-        warm_up = policy.get("warm_up", 0)
-        interval = policy.get("interval", 1)
+        warm_up = policy["warm_up"]
+        interval = policy["interval"]
 
         config.DISABLE_WRAPPER = False
 
