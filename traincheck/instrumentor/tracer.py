@@ -543,7 +543,7 @@ class Instrumentor:
         funcs_to_instr: Optional[list[str]] = None,
         API_dump_stack_trace: bool = False,
         sampling_interval: int = 1,
-        warm_up_steps: int = 0,
+        warm_up_steps: int = 1,
     ):
         """
         Instruments the specified target with additional tracing functionality.
@@ -604,6 +604,14 @@ class Instrumentor:
         self.funcs_to_instr = funcs_to_instr
         self.API_dump_stack_trace = API_dump_stack_trace
         self.instr_opts = config.load_instr_opts()
+
+        self.sampling_interval = sampling_interval
+        self.warm_up_steps = warm_up_steps
+        # set to config too
+        if self.sampling_interval:
+            config.INSTRUMENTATION_POLICY["interval"] = self.sampling_interval
+        if self.warm_up_steps:
+            config.INSTRUMENTATION_POLICY["warm_up"] = self.warm_up_steps
 
         if self.funcs_to_instr is not None and self.use_full_instr:
             get_instrumentation_logger_for_process().fatal(
