@@ -12,7 +12,7 @@ include = ["traincheck", "traincheck.*"]
 [project]
 requires-python = ">= 3.10"
 name = "traincheck"
-version = "0.1.0"
+version = "0.1.2"
 description = "Training with Confidence: Catching Silent DL Training Bugs with Automated Proactive Checks"
 authors = [
   { name = "Yuxuan Jiang", email = "jyuxuan@umich.edu" },

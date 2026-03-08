@@ -4,8 +4,6 @@
 </picture>
 <h1>TrainCheck: Invariant Checking & Observability for AI Training</h1>
 
-[![format and types](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/pre-commit-checks.yml)
-[![format and types](https://github.com/OrderLab/traincheck/actions/workflows/correctness_checks.yml/badge.svg)](https://github.com/OrderLab/traincheck/actions/workflows/correctness_checks.yml)
 [![Chat on Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZvYewjsQ9D)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OrderLab/TrainCheck)
 
@@ -31,6 +29,16 @@ No manual tests required. TrainCheck automatically learns the invariants of your
 Drop-in support for PyTorch, Hugging Face, and industry-class workloads using DeepSpeed/Megatron and more.
 
 ---
+## Installation
+
+Install TrainCheck in the Python environment where you will run your training script:
+
+```bash
+pip3 install traincheck
+```
+
+For detailed setup (CUDA configuration, UV, conda environments), see the [Installation Guide](https://orderlab.io/TrainCheck/installation-guide/).
+
 
 ### How It Works
 
@@ -49,14 +57,13 @@ Work through [5‑Minute Experience with TrainCheck](./docs/5-min-tutorial.md). 
 
 ## Documentation
 
-- **[Installation Guide](./docs/installation-guide.md)**
-- **[Usage Guide: Scenarios and Limitations](./docs/usage-guide.md)**
-- **[TrainCheck Technical Doc](./docs/technical-doc.md)**
-- **[TrainCheck Dev RoadMap](./ROADMAP.md)**
+- **[Installation Guide](https://orderlab.io/TrainCheck/installation-guide/)**
+- **[Usage Guide: Scenarios and Limitations](https://orderlab.io/TrainCheck/usage-guide/)**
+- **[TrainCheck Technical Doc](https://orderlab.io/TrainCheck/technical-doc/)**
 
 ## Status
 
-TrainCheck is under active development. Please join our 💬 [Discord server](https://discord.gg/VwxpJDvB) or file a GitHub issue for support. 
+TrainCheck is under active development. Please join our 💬 [Discord server](https://discord.gg/VwxpJDvB) or file a GitHub issue for support. You can also reach the team at [traincheck@umich.edu](mailto:traincheck@umich.edu).
 We welcome feedback and contributions from early adopters.
 
 ## Contributing

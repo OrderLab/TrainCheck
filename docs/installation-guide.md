@@ -1,3 +1,21 @@
+## Quick Install
+
+Install TrainCheck in the Python environment where you will run your training script:
+
+```bash
+pip3 install traincheck
+```
+
+> **Note:** Install PyTorch separately first (see step 3 below) to ensure the right CUDA version is selected. If you already have PyTorch installed, the command above is all you need.
+
+For UV users:
+
+```bash
+uv pip install traincheck
+```
+
+---
+
 ## Compatibility
 
 - **Python**: 3.10+ (due to reliance on type annotations)
@@ -47,7 +65,12 @@
     conda install cudatoolkit
     ```
 
-5. **Clone & install TrainCheck**
+5. **Install TrainCheck**
+    ```bash
+    pip3 install traincheck
+    ```
+
+    If you prefer to install from source:
     ```bash
     git clone https://github.com/OrderLab/TrainCheck.git
     cd TrainCheck
