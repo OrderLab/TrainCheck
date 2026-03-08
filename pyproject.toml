@@ -34,9 +34,10 @@ dependencies = [
   "polars",
   "pyyaml",
   "orjson",
-  "numpy<2"
+  "numpy"
 ]
 readme = "README.md"
+license = {text = "Apache-2.0"}
 classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -44,10 +45,11 @@ classifiers = [
   "Operating System :: OS Independent",
   "Intended Audience :: Developers",
   "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: Apache Software License",
 ]
 
 [project.urls]
-homepage = "https://github.com/OrderLab/TrainCheck"
+Homepage = "https://github.com/OrderLab/TrainCheck"
 
 [project.scripts]
 traincheck-collect = "traincheck:collect_trace.main"

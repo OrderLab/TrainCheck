@@ -1,6 +1,6 @@
 <div align="center">
 <picture>
-  <img alt="TrainCheck logo" width="55%" src="./docs/assets/images/traincheck_logo.png">
+  <img alt="TrainCheck logo" width="55%" src="https://raw.githubusercontent.com/OrderLab/TrainCheck/main/docs/assets/images/traincheck_logo.png">
 </picture>
 <h1>TrainCheck: Invariant Checking & Observability for AI Training</h1>
 
@@ -38,7 +38,7 @@ Drop-in support for PyTorch, Hugging Face, and industry-class workloads using De
 2. **Learn**: We analyze correct runs to infer *invariants* (mathematical rules of healthy training).
 3. **Check**: We monitor new runs in real-time, verifying every step against learned invariants to catch silent logic bugs and hardware faults.
 
-![Workflow](docs/assets/images/workflow.png)
+![Workflow](https://raw.githubusercontent.com/OrderLab/TrainCheck/main/docs/assets/images/workflow.png)
 
 ## 🔥 Try TrainCheck
 
