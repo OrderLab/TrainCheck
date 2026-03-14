@@ -10,6 +10,9 @@ from traincheck.invariant import CheckerResult, Invariant
 
 
 def _format_invariant_label(invariant: Invariant) -> str:
+    display = invariant.relation.to_display_name(invariant.params)
+    if display:
+        return display
     if invariant.text_description:
         return invariant.text_description
     params = ", ".join(str(param) for param in invariant.params)

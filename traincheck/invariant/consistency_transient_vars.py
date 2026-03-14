@@ -7,6 +7,7 @@ from tqdm import tqdm
 
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
+    _NOT_SET,
     APIParam,
     Arguments,
     CheckerResult,
@@ -20,6 +21,7 @@ from traincheck.invariant.base_cls import (
     Param,
     Relation,
     VarTypeParam,
+    _short_api_name,
     make_hashable,
 )
 from traincheck.invariant.precondition import find_precondition
@@ -581,6 +583,20 @@ class ConsistentOutputRelation(Relation):
         # raise NotImplementedError
 
     @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        if len(params) < 2:
+            return None
+        api, vt = params[0], params[1]
+        if not isinstance(api, APIParam) or not isinstance(vt, VarTypeParam):
+            return None
+        func_short = _short_api_name(api.api_full_name)
+        attr = vt.attr_name
+        const = vt.const_value
+        if const is not _NOT_SET:
+            return f"{func_short}() consistently returns tensors with {attr}={const}"
+        return f"{func_short}() consistently returns tensors with consistent {attr}"
+
+    @staticmethod
     def _get_identifying_params(inv: Invariant) -> list[Param]:
         return [inv.params[0]]
 
@@ -964,6 +980,40 @@ class ConsistentInputOutputRelation(Relation):
             check_passed=True,
             triggered=triggered,
         )
+
+    @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        if len(params) < 3:
+            return None
+        input_param, api_param, output_param = params[0], params[1], params[2]
+        if not isinstance(api_param, APIParam):
+            return None
+        if not isinstance(input_param, InputOutputParam) or not isinstance(
+            output_param, InputOutputParam
+        ):
+            return None
+        func_short = _short_api_name(api_param.api_full_name)
+        in_path = (
+            ".".join(str(p) for p in input_param.additional_path)
+            if input_param.additional_path
+            else (input_param.name or "?")
+        )
+        out_path = (
+            ".".join(str(p) for p in output_param.additional_path)
+            if output_param.additional_path
+            else (output_param.name or "?")
+        )
+        in_ref = (
+            f"input[{input_param.index}].{in_path}"
+            if input_param.index is not None
+            else f"input.{in_path}"
+        )
+        out_ref = (
+            f"output[{output_param.index}].{out_path}"
+            if output_param.index is not None
+            else f"output.{out_path}"
+        )
+        return f"{func_short}(): {in_ref} consistent with {out_ref}"
 
     @staticmethod
     def _get_identifying_params(inv: Invariant) -> list[Param]:
@@ -1452,6 +1502,46 @@ class ThresholdRelation(Relation):
     def _get_apis_to_check(inv: Invariant):
         assert isinstance(inv.params[1], APIParam)
         return [inv.params[1].api_full_name]
+
+    @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        if len(params) < 3:
+            return None
+        first, api_param, second = params[0], params[1], params[2]
+        if not isinstance(api_param, APIParam):
+            return None
+        if not isinstance(first, InputOutputParam) or not isinstance(
+            second, InputOutputParam
+        ):
+            return None
+        func_short = _short_api_name(api_param.api_full_name)
+        # min case: params=[output, api, input_threshold] → output ≥ threshold
+        if not first.is_input and second.is_input:
+            out_path = (
+                ".".join(str(p) for p in first.additional_path)
+                if first.additional_path
+                else "value"
+            )
+            out_ref = (
+                f"output[{first.index}].{out_path}"
+                if first.index is not None
+                else "output"
+            )
+            return f"{func_short}(): {out_ref} ≥ {second.name}"
+        # max case: params=[input_threshold, api, output] → output ≤ threshold
+        if first.is_input and not second.is_input:
+            out_path = (
+                ".".join(str(p) for p in second.additional_path)
+                if second.additional_path
+                else "value"
+            )
+            out_ref = (
+                f"output[{second.index}].{out_path}"
+                if second.index is not None
+                else "output"
+            )
+            return f"{func_short}(): {out_ref} ≤ {first.name}"
+        return None
 
     @staticmethod
     def _get_api_args_map_to_check(inv):

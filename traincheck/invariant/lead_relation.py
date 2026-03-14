@@ -17,6 +17,7 @@ from traincheck.invariant.base_cls import (
     OnlineCheckerResult,
     Param,
     Relation,
+    _short_api_name,
 )
 from traincheck.invariant.precondition import find_precondition
 from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
@@ -1101,6 +1102,17 @@ class FunctionLeadRelation(Relation):
             assert isinstance(param, APIParam)
             api_name_list.append(param.api_full_name)
         return api_name_list
+
+    @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        if len(params) < 2:
+            return None
+        a, b = params[0], params[-1]
+        if not isinstance(a, APIParam) or not isinstance(b, APIParam):
+            return None
+        a_short = _short_api_name(a.api_full_name)
+        b_short = _short_api_name(b.api_full_name)
+        return f"{a_short}() always precedes {b_short}()"
 
     @staticmethod
     def _get_api_args_map_to_check(inv):

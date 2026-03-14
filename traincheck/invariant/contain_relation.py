@@ -10,6 +10,7 @@ from tqdm import tqdm
 from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
+    _NOT_SET,
     APIParam,
     Arguments,
     CheckerResult,
@@ -23,6 +24,7 @@ from traincheck.invariant.base_cls import (
     Relation,
     VarNameParam,
     VarTypeParam,
+    _short_api_name,
     calc_likelihood,
     construct_api_param,
     construct_var_param_from_var_change,
@@ -339,6 +341,33 @@ class APIContainRelation(Relation):
         - [ ] Try to generalize the event when seeing the same type event with different attributes 
     - [ ] Make the Dynamic Analysis part less ad-hoc as of its current form in the code
     """
+
+    @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        if len(params) < 2:
+            return None
+        parent = params[0]
+        child = params[1]
+        if not isinstance(parent, APIParam):
+            return None
+        parent_short = _short_api_name(parent.api_full_name)
+        if isinstance(child, APIParam):
+            child_short = _short_api_name(child.api_full_name)
+            return f"{parent_short}() always calls {child_short}()"
+        if isinstance(child, (VarTypeParam, VarNameParam)):
+            var_short = child.var_type.split(".")[-1]
+            attr = child.attr_name
+            pre = child.pre_value
+            post = child.post_value
+            const = child.const_value
+            if pre is not _NOT_SET and post is not _NOT_SET:
+                pre_str = "non-zero" if pre == "non_zero" else str(pre)
+                post_str = str(post)
+                return f"{parent_short}() changes {var_short}.{attr}: {pre_str} → {post_str}"
+            if const is not _NOT_SET:
+                return f"{parent_short}() sees {var_short}.{attr} = {const}"
+            return f"{parent_short}() accesses {var_short}.{attr}"
+        return None
 
     @staticmethod
     def generate_hypothesis(trace) -> list[Hypothesis]:

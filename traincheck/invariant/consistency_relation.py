@@ -112,6 +112,17 @@ class ConsistencyRelation(Relation):
     """
 
     @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        if not params:
+            return None
+        p = params[0]
+        if not isinstance(p, VarTypeParam):
+            return None
+        var_short = p.var_type.split(".")[-1]
+        attr = p.attr_name
+        return f"{var_short}.{attr} stays consistent across training steps"
+
+    @staticmethod
     def infer(trace: Trace) -> tuple[list[Invariant], list[FailedHypothesis]]:
         """Infer Invariants for the ConsistencyRelation."""
         logger = logging.getLogger(__name__)

@@ -15,6 +15,7 @@ from traincheck.invariant.base_cls import (  # GroupedPreconditions,
     OnlineCheckerResult,
     Param,
     Relation,
+    _short_api_name,
 )
 from traincheck.invariant.precondition import find_precondition
 from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
@@ -464,6 +465,13 @@ class DistinctArgumentRelation(Relation):
     @staticmethod
     def _get_apis_to_check(inv: Invariant):
         return None
+
+    @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        if not params or not isinstance(params[0], APIParam):
+            return None
+        func_short = _short_api_name(params[0].api_full_name)
+        return f"{func_short}() receives distinct arguments at each step"
 
     @staticmethod
     def _get_api_args_map_to_check(inv):
