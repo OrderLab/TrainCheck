@@ -17,6 +17,7 @@ from traincheck.invariant.base_cls import (
     OnlineCheckerResult,
     Param,
     Relation,
+    _short_api_name,
 )
 from traincheck.invariant.lead_relation import (
     check_same_level,
@@ -102,6 +103,17 @@ class FunctionCoverRelation(Relation):
     say function A and function B are two functions in the trace, we say function A covers function B when
     every time function B is called, a function A invocation exists before it.
     """
+
+    @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        if len(params) < 2:
+            return None
+        a, b = params[0], params[1]
+        if not isinstance(a, APIParam) or not isinstance(b, APIParam):
+            return None
+        a_short = _short_api_name(a.api_full_name)
+        b_short = _short_api_name(b.api_full_name)
+        return f"{a_short}() always occurs when {b_short}() is called"
 
     @staticmethod
     def generate_hypothesis(trace) -> list[Hypothesis]:

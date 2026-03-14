@@ -1921,6 +1921,28 @@ class Relation(abc.ABC):
         """Check the invariant online, i.e. during the trace collection process."""
         pass
 
+    @staticmethod
+    def to_display_name(params: list[Param]) -> str | None:
+        """Return a short, human-readable label for this invariant given its params.
+
+        Returns None to fall back to text_description / raw param rendering.
+        Subclasses should override this to provide meaningful natural-language names.
+        """
+        return None
+
+
+def _short_api_name(full_name: str) -> str:
+    """Shorten a fully-qualified API name for display.
+
+    'torch.optim.optimizer.Optimizer.zero_grad' → 'Optimizer.zero_grad'
+    'torch.nn.functional.dropout' → 'functional.dropout'
+    """
+    parts = full_name.split(".")
+    for i, part in enumerate(parts):
+        if part and part[0].isupper():
+            return ".".join(parts[i:])
+    return ".".join(parts[-2:]) if len(parts) >= 2 else full_name
+
 
 def read_inv_file(file_path: str | list[str]) -> list[Invariant]:
     if isinstance(file_path, str):
