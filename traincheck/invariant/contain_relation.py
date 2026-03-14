@@ -276,14 +276,16 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
         setattr(merged_child_param, field, generalized_value)
 
     # construct the merged hypotheses
+    parent_param = hypotheses[0].invariant.params[0]
+    assert isinstance(parent_param, APIParam)
     merged_hypothesis = Hypothesis(
         invariant=Invariant(
             relation=hypotheses[0].invariant.relation,
             params=[
-                hypotheses[0].invariant.params[0],
+                parent_param,
                 merged_child_param,
             ],
-            text_description="TBD merged",
+            text_description=f"{parent_param.api_full_name} contains {merged_child_param}",
             num_positive_examples=len(all_positive_examples),
             num_negative_examples=len(all_positive_examples),
             precondition=None,  # to be inferred later
