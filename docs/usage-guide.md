@@ -4,7 +4,7 @@ TrainCheck helps detect and diagnose silent errors in deep learning training run
 
 ## 🚀 Quick Start
 
-Check out the [5-minute guide](./docs/5-min.md) for a minimal working example.
+Check out the [5-minute guide](5-min-tutorial.md) for a minimal working example.
 
 ## ✅ Common Use Cases
 

@@ -1,8 +1,5 @@
 # TrainCheck Documentation
 
-🚜 This documentation is under construction. We welcome any feedback or questions through GitHub Issues or [our Discord server](https://discord.gg/DPEd7Xeg).
-
-
 TrainCheck is a lightweight, invariant-based instrumentation and analysis tool for identifying silent correctness issues in PyTorch training pipelines. It infers behavioral invariants from correct reference runs (e.g., official examples or clean configurations), then checks other scripts for behavioral violations. TrainCheck is designed to be minimally intrusive—requiring no code modifications or rewrites of training logic.
 
 ## 🔧 System Overview
