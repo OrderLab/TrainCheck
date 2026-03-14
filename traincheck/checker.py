@@ -7,7 +7,11 @@ import os
 from tqdm import tqdm
 
 from traincheck.invariant import CheckerResult, Invariant, read_inv_file
-from traincheck.reporting import ReportEmitter, build_offline_report_data
+from traincheck.reporting import (
+    ReportEmitter,
+    build_offline_report_data,
+    build_violations_summary,
+)
 from traincheck.trace import MDNONEJSONEncoder, Trace, select_trace_implementation
 from traincheck.utils import register_custom_excepthook
 
@@ -291,6 +295,15 @@ def main():
                 if res.check_passed and res.triggered:
                     json.dump(res.to_dict(), f, indent=4, cls=MDNONEJSONEncoder)
                     f.write("\n")
+
+        violations_summary = build_violations_summary(results_per_trace)
+        with open(
+            os.path.join(
+                args.output_dir, trace_parent_folder, "violations_summary.json"
+            ),
+            "w",
+        ) as f:
+            json.dump(violations_summary, f, indent=2)
 
         results_by_trace.append((trace_parent_folder, results_per_trace))
 

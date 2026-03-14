@@ -19,6 +19,41 @@ def _format_invariant_label(invariant: Invariant) -> str:
     return f"{invariant.relation.__name__}({params})"
 
 
+def _extract_violation_steps(trace: list[dict] | None) -> list[int]:
+    """Extract training step numbers from a violation trace."""
+    if not trace:
+        return []
+    return [
+        r["meta_vars.step"]
+        for r in trace
+        if isinstance(r, dict) and r.get("meta_vars.step") is not None
+    ]
+
+
+def _build_violation_entry(result: CheckerResult) -> dict:
+    steps = _extract_violation_steps(result.trace)
+    return {
+        "display_name": _format_invariant_label(result.invariant),
+        "relation_type": result.invariant.relation.__name__,
+        "first_step": min(steps) if steps else None,
+        "last_step": max(steps) if steps else None,
+        "occurrences": len(result.trace) if result.trace else 1,
+    }
+
+
+def build_violations_summary(results: list[CheckerResult]) -> dict:
+    """Build a pre-digested summary of all violations for machine and human consumption."""
+    failed = [r for r in results if not r.check_passed]
+    all_steps = []
+    for r in failed:
+        all_steps.extend(_extract_violation_steps(r.trace))
+    return {
+        "first_violation_step": min(all_steps) if all_steps else None,
+        "distinct_invariants_violated": len(failed),
+        "violations": [_build_violation_entry(r) for r in failed],
+    }
+
+
 def _summarize_results(results: Iterable[CheckerResult]) -> dict[str, int]:
     failed = sum(1 for res in results if not res.check_passed)
     not_triggered = sum(1 for res in results if res.triggered is False)
@@ -55,14 +90,29 @@ def _count_failed_invariants(
     results: Iterable[CheckerResult],
 ) -> list[dict[str, object]]:
     counter: Counter[tuple[str, str]] = Counter()
+    first_steps: dict[tuple[str, str], int | None] = {}
     for res in results:
         if not res.check_passed:
             label = _format_invariant_label(res.invariant)
             relation = res.invariant.relation.__name__
-            counter[(label, relation)] += 1
+            key = (label, relation)
+            counter[key] += 1
+            steps = _extract_violation_steps(res.trace)
+            if steps:
+                existing = first_steps.get(key)
+                first_steps[key] = (
+                    min(steps) if existing is None else min(existing, min(steps))
+                )
+            elif key not in first_steps:
+                first_steps[key] = None
     top_pairs = counter.most_common(10)
     return [
-        {"label": label, "relation": relation, "count": count}
+        {
+            "label": label,
+            "relation": relation,
+            "count": count,
+            "first_step": first_steps.get((label, relation)),
+        }
         for (label, relation), count in top_pairs
     ]
 
@@ -206,9 +256,19 @@ def render_html_report(report_data: dict) -> str:
     top_items = []
     for entry in top_violations:
         label = esc(str(entry.get("label", "")))
-        detail = esc(str(entry.get("relation", "")))
+        relation = esc(str(entry.get("relation", "")))
         count = entry.get("count")
+        first_step = entry.get("first_step")
         count_html = f'<span class="inv-count">{count}</span>' if count else ""
+        if first_step is not None:
+            step_note = f"first seen at step {first_step}"
+            if count and count > 1:
+                step_note += f" · {count} occurrences"
+            detail = esc(f"{entry.get('relation', '')} — {step_note}")
+        else:
+            detail = relation
+            if count and count > 1:
+                detail = esc(f"{entry.get('relation', '')} — {count} occurrences")
         top_items.append(
             f'<li><span class="inv-label">{label}</span>'
             f'<span class="inv-detail">{detail}</span>{count_html}</li>'
@@ -231,9 +291,19 @@ def render_html_report(report_data: dict) -> str:
         failed_list_items = []
         for failed_item in trace["failed_invariants"][:10]:
             label = esc(str(failed_item.get("label", "")))
-            detail = esc(str(failed_item.get("relation", "")))
+            relation = esc(str(failed_item.get("relation", "")))
             count = failed_item.get("count")
+            first_step = failed_item.get("first_step")
             count_html = f'<span class="inv-count">{count}</span>' if count else ""
+            if first_step is not None:
+                step_note = f"first seen at step {first_step}"
+                if count and count > 1:
+                    step_note += f" · {count} occurrences"
+                detail = esc(f"{relation} — {step_note}")
+            else:
+                detail = relation
+                if count and count > 1:
+                    detail = esc(f"{relation} — {count} occurrences")
             failed_list_items.append(
                 f'<li><span class="inv-label">{label}</span>'
                 f'<span class="inv-detail">{detail}</span>{count_html}</li>'
