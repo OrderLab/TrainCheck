@@ -60,6 +60,35 @@ class TestAPIContainRelationDisplayName:
         assert "forward" in name
         assert "requires_grad" in name
 
+    def test_post_value_non_zero_normalized(self):
+        """non_zero post-value should render as 'non-zero', not 'non_zero'."""
+        params = [
+            APIParam("torch.optim.sgd.SGD.step"),
+            VarTypeParam(
+                "torch.nn.Parameter",
+                "data",
+                pre_value="non_zero",
+                post_value="non_zero",
+            ),
+        ]
+        name = APIContainRelation.to_display_name(params)
+        assert name is not None
+        assert "non_zero" not in name
+        assert "non-zero" in name
+
+    def test_traincheck_internal_attr_hidden(self):
+        """Attributes starting with _TRAINCHECK_ are internal proxy IDs and should be filtered."""
+        params = [
+            APIParam("torch.optim.sgd.SGD.step"),
+            VarTypeParam(
+                "torch.nn.Parameter",
+                "_TRAINCHECK_grad_ID",
+                pre_value="above_zero",
+                post_value="above_zero",
+            ),
+        ]
+        assert APIContainRelation.to_display_name(params) is None
+
     def test_returns_none_for_empty_params(self):
         assert APIContainRelation.to_display_name([]) is None
 

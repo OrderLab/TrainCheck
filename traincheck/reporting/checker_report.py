@@ -7,12 +7,28 @@ from collections import Counter, defaultdict
 from typing import Iterable
 
 from traincheck.invariant import CheckerResult, Invariant
+from traincheck.invariant.base_cls import APIParam, VarNameParam, VarTypeParam
 
 
 def _format_invariant_label(invariant: Invariant) -> str:
     display = invariant.relation.to_display_name(invariant.params)
     if display:
         return display
+    # When to_display_name returns None, fall back — but sanitize params that
+    # contain internal TrainCheck proxy bookkeeping names (_TRAINCHECK_*) so
+    # they never surface raw in the UI.
+    for p in invariant.params:
+        if isinstance(p, (VarTypeParam, VarNameParam)) and p.attr_name.startswith(
+            "_TRAINCHECK_"
+        ):
+            # Build a minimal label using only the API param, hiding internals
+            api_parts = [q for q in invariant.params if isinstance(q, APIParam)]
+            from traincheck.invariant.base_cls import _short_api_name
+
+            if api_parts:
+                func = _short_api_name(api_parts[0].api_full_name)
+                return f"{func}() [internal tracking]"
+            return f"{invariant.relation.__name__} [internal tracking]"
     if invariant.text_description:
         return invariant.text_description
     params = ", ".join(str(param) for param in invariant.params)
