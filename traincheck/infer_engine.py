@@ -9,6 +9,7 @@ import time
 from tqdm import tqdm
 
 import traincheck.config.config as config
+import traincheck.utils as _tc_utils
 from traincheck.invariant import (
     FailedHypothesis,
     Hypothesis,
@@ -51,38 +52,35 @@ class InferEngine:
         Returns:
             dict[Hypothesis, list[int]]: A dictionary mapping hypotheses to the indices of traces that support them
         """
-
         logger.info("============= GENERATING HYPOTHESIS =============")
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]] = {}
-        hypo_lookup = {}  # Dictionary for O(1) lookup of hypotheses
+        hypo_lookup = {}
+        n_traces = len(self.traces)
+        active_relations = [
+            r for r in relation_pool if r not in self.disabled_relations
+        ]
+
         for trace_idx, trace in enumerate(self.traces):
-            logger.info(f"Processing trace {trace_idx + 1}/{len(self.traces)}")
-            for relation_idx, relation in enumerate(relation_pool):
-                logger.info(
-                    f"Processing relation {relation_idx + 1}/{len(relation_pool)}: {relation.__name__}"
-                )
-                if self.disabled_relations and relation in self.disabled_relations:
-                    logger.info(
-                        f"Skipping relation {relation.__name__} as it is disabled"
-                    )
-                    continue
+            print(f"\n[Trace {trace_idx + 1}/{n_traces}] Generating hypotheses")
+            for relation in active_relations:
                 logger.info(f"Generating hypotheses for relation: {relation.__name__}")
+                t0 = time.time()
                 inferred_hypos = relation.generate_hypothesis(trace)
-                logger.info(
-                    f"Found {len(inferred_hypos)} hypotheses for relation: {relation.__name__} on trace {trace_idx + 1}/{len(self.traces)}"
+                elapsed = time.time() - t0
+                tqdm.write(
+                    f"  {relation.__name__}: {len(inferred_hypos)} hypotheses ({elapsed:.1f}s)"
                 )
                 logger.info(
-                    f"Merging hypotheses with existing ones, number of existing ones: {len(hypotheses_and_trace_idxs)}"
+                    f"Found {len(inferred_hypos)} hypotheses for {relation.__name__} "
+                    f"on trace {trace_idx + 1}/{n_traces}"
                 )
-                for hypo in tqdm(
-                    inferred_hypos, desc="Merging Hypotheses with existing ones"
-                ):
+                for hypo in inferred_hypos:
                     if hypo not in hypotheses_and_trace_idxs:
                         hypotheses_and_trace_idxs[hypo] = [trace_idx]
-                        hypo_lookup[hypo] = hypo  # Add to lookup dictionary
+                        hypo_lookup[hypo] = hypo
                     else:
                         hypotheses_and_trace_idxs[hypo].append(trace_idx)
-                        original_hypo = hypo_lookup[hypo]  # O(1) lookup
+                        original_hypo = hypo_lookup[hypo]
                         orig_num_pos_exps = len(original_hypo.positive_examples)
                         orig_num_neg_exps = len(original_hypo.negative_examples)
                         original_hypo.positive_examples.examples.extend(
@@ -102,19 +100,24 @@ class InferEngine:
                         ) == orig_num_neg_exps + len(
                             hypo.negative_examples
                         ), f"Expected {orig_num_neg_exps} + {len(hypo.negative_examples)} negative examples, got {len(hypo_lookup[hypo].negative_examples)}"
-            logger.info(f"Finished processing trace {trace_idx + 1}/{len(self.traces)}")
-        logger.info(
-            f"Finished generating hypotheses, found {len(hypotheses_and_trace_idxs)} hypotheses"
-        )
+
+        total = len(hypotheses_and_trace_idxs)
+        print(f"\n  {total} hypotheses generated across all relations")
+        logger.info(f"Finished generating hypotheses, found {total} hypotheses")
         return hypotheses_and_trace_idxs
 
     def collect_examples(self, hypotheses: dict[Hypothesis, list[int]]):
         logger.info("============= COLLECTING EXAMPLES =============")
-        logger.info(f"Start collecting examples for {len(hypotheses)} hypotheses")
-        for hypo, trace_idxs in hypotheses.items():
-            logger.info(
-                f"Collecting examples for hypothesis: {hypo.invariant.text_description}"
+        cross_trace_hypos = [
+            (hypo, trace_idxs)
+            for hypo, trace_idxs in hypotheses.items()
+            if len(set(range(len(self.traces))) - set(trace_idxs)) > 0
+        ]
+        if cross_trace_hypos:
+            print(
+                f"\nCollecting examples for {len(cross_trace_hypos)} cross-trace hypotheses"
             )
+        for hypo, trace_idxs in cross_trace_hypos:
             for trace_idx, trace in enumerate(self.traces):
                 if trace_idx in trace_idxs:
                     continue
@@ -125,7 +128,6 @@ class InferEngine:
 
     def prune_incorrect_hypos(self, hypotheses: dict[Hypothesis, list[int]]):
         """Prune incorrect hypotheses based on the collected examples"""
-
         incorrect_hypos = []
         correct_hypos = {}
         for hypo, trace_idxs in hypotheses.items():
@@ -135,30 +137,46 @@ class InferEngine:
                 incorrect_hypos.append(
                     FailedHypothesis(hypo, "only one positive example")
                 )
+        n_pruned = len(incorrect_hypos)
+        n_kept = len(correct_hypos)
+        print(f"  {n_pruned} pruned (insufficient examples) → {n_kept} remaining")
         return correct_hypos, incorrect_hypos
 
     def infer_precondition(self, hypotheses: dict[Hypothesis, list[int]]):
         """TODO: move the precondition inference driving code into Hypothesis.get_invariant()"""
         logger.info("============= INFERING PRECONDITIONS =============")
-        logger.info(f"Inferring preconditions for {len(hypotheses)} hypotheses")
-        all_hypotheses: list[Hypothesis] = []
-        for hypo in hypotheses:
-            all_hypotheses.append(hypo)
+        all_hypotheses = list(hypotheses.keys())
+        total = len(all_hypotheses)
+        print(f"\nInferring preconditions for {total} hypotheses")
 
         invariants = []
         failed_hypos = []
-        for hypo_idx, hypothesis in enumerate(all_hypotheses):
-            logger.info(
-                f"Inferring precondition for hypothesis {hypo_idx + 1}/{len(all_hypotheses)}: {hypothesis.invariant.text_description}"
-            )
-            precondition = find_precondition(hypothesis, self.traces)
-            if precondition is None:
-                failed_hypos.append(
-                    FailedHypothesis(hypothesis, "Precondition not found")
-                )
-            else:
-                hypothesis.invariant.precondition = precondition
-                invariants.append(hypothesis.get_invariant(self.all_stages))
+        bar_fmt = "{desc} {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+        _tc_utils._suppress_inner_progress = True
+        try:
+            with tqdm(total=total, bar_format=bar_fmt, unit="hypo") as pbar:
+                pbar.set_description("0 done · 0 failed")
+                for hypo_idx, hypothesis in enumerate(all_hypotheses):
+                    logger.info(
+                        f"Inferring precondition for hypothesis {hypo_idx + 1}/{total}: "
+                        f"{hypothesis.invariant.text_description}"
+                    )
+                    precondition = find_precondition(hypothesis, self.traces)
+                    if precondition is None:
+                        failed_hypos.append(
+                            FailedHypothesis(hypothesis, "Precondition not found")
+                        )
+                    else:
+                        hypothesis.invariant.precondition = precondition
+                        invariants.append(hypothesis.get_invariant(self.all_stages))
+                    pbar.set_description(
+                        f"{len(invariants)} done · {len(failed_hypos)} failed"
+                    )
+                    pbar.update(1)
+        finally:
+            _tc_utils._suppress_inner_progress = False
+
+        print(f"  {len(invariants)} invariants · {len(failed_hypos)} failed")
         return invariants, failed_hypos
 
 

@@ -159,8 +159,8 @@ def verify_precondition_safety(
     """
     for example in negative_examples:
         if precondition.verify(example):
-            print("Precondition is not safe")
-            print("Example", example)
+            logger.debug("Precondition is not safe")
+            logger.debug("Example %s", example)
             return False
     return True
 
@@ -562,7 +562,7 @@ def find_precondition_from_single_group(
 
         if len(local_clauses) == 0:
             # NOTE: this would also happen under the unconditional case, but since the unconditional case is handled separately, we should not reach here
-            print("example: ", example)
+            logger.debug("example: %s", example)
             raise ValueError(
                 "No clauses can be found in the example, precondition will be empty."
             )
