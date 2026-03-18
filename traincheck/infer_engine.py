@@ -60,46 +60,56 @@ class InferEngine:
             r for r in relation_pool if r not in self.disabled_relations
         ]
 
+        rel_bar_fmt = "{desc} {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
         for trace_idx, trace in enumerate(self.traces):
-            print(f"\n[Trace {trace_idx + 1}/{n_traces}] Generating hypotheses")
-            for relation in active_relations:
-                logger.info(f"Generating hypotheses for relation: {relation.__name__}")
-                t0 = time.time()
-                inferred_hypos = relation.generate_hypothesis(trace)
-                elapsed = time.time() - t0
-                tqdm.write(
-                    f"  {relation.__name__}: {len(inferred_hypos)} hypotheses ({elapsed:.1f}s)"
-                )
-                logger.info(
-                    f"Found {len(inferred_hypos)} hypotheses for {relation.__name__} "
-                    f"on trace {trace_idx + 1}/{n_traces}"
-                )
-                for hypo in inferred_hypos:
-                    if hypo not in hypotheses_and_trace_idxs:
-                        hypotheses_and_trace_idxs[hypo] = [trace_idx]
-                        hypo_lookup[hypo] = hypo
-                    else:
-                        hypotheses_and_trace_idxs[hypo].append(trace_idx)
-                        original_hypo = hypo_lookup[hypo]
-                        orig_num_pos_exps = len(original_hypo.positive_examples)
-                        orig_num_neg_exps = len(original_hypo.negative_examples)
-                        original_hypo.positive_examples.examples.extend(
-                            hypo.positive_examples.examples
-                        )
-                        original_hypo.negative_examples.examples.extend(
-                            hypo.negative_examples.examples
-                        )
+            tqdm.write(f"\n[Trace {trace_idx + 1}/{n_traces}] Generating hypotheses")
+            with tqdm(
+                active_relations,
+                bar_format=rel_bar_fmt,
+                unit="relation",
+                leave=True,
+            ) as rel_bar:
+                for relation in rel_bar:
+                    rel_bar.set_description(f"  {relation.__name__}")
+                    logger.info(
+                        f"Generating hypotheses for relation: {relation.__name__}"
+                    )
+                    t0 = time.time()
+                    inferred_hypos = relation.generate_hypothesis(trace)
+                    elapsed = time.time() - t0
+                    tqdm.write(
+                        f"  {relation.__name__}: {len(inferred_hypos)} hypotheses ({elapsed:.1f}s)"
+                    )
+                    logger.info(
+                        f"Found {len(inferred_hypos)} hypotheses for {relation.__name__} "
+                        f"on trace {trace_idx + 1}/{n_traces}"
+                    )
+                    for hypo in inferred_hypos:
+                        if hypo not in hypotheses_and_trace_idxs:
+                            hypotheses_and_trace_idxs[hypo] = [trace_idx]
+                            hypo_lookup[hypo] = hypo
+                        else:
+                            hypotheses_and_trace_idxs[hypo].append(trace_idx)
+                            original_hypo = hypo_lookup[hypo]
+                            orig_num_pos_exps = len(original_hypo.positive_examples)
+                            orig_num_neg_exps = len(original_hypo.negative_examples)
+                            original_hypo.positive_examples.examples.extend(
+                                hypo.positive_examples.examples
+                            )
+                            original_hypo.negative_examples.examples.extend(
+                                hypo.negative_examples.examples
+                            )
 
-                        assert len(
-                            hypo_lookup[hypo].positive_examples
-                        ) == orig_num_pos_exps + len(
-                            hypo.positive_examples
-                        ), f"Expected {orig_num_pos_exps} + {len(hypo.positive_examples)} positive examples, got {len(hypo_lookup[hypo].positive_examples)}"
-                        assert len(
-                            hypo_lookup[hypo].negative_examples
-                        ) == orig_num_neg_exps + len(
-                            hypo.negative_examples
-                        ), f"Expected {orig_num_neg_exps} + {len(hypo.negative_examples)} negative examples, got {len(hypo_lookup[hypo].negative_examples)}"
+                            assert len(
+                                hypo_lookup[hypo].positive_examples
+                            ) == orig_num_pos_exps + len(
+                                hypo.positive_examples
+                            ), f"Expected {orig_num_pos_exps} + {len(hypo.positive_examples)} positive examples, got {len(hypo_lookup[hypo].positive_examples)}"
+                            assert len(
+                                hypo_lookup[hypo].negative_examples
+                            ) == orig_num_neg_exps + len(
+                                hypo.negative_examples
+                            ), f"Expected {orig_num_neg_exps} + {len(hypo.negative_examples)} negative examples, got {len(hypo_lookup[hypo].negative_examples)}"
 
         total = len(hypotheses_and_trace_idxs)
         print(f"\n  {total} hypotheses generated across all relations")
