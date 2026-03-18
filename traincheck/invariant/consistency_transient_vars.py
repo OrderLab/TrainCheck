@@ -534,7 +534,9 @@ class ConsistentOutputRelation(Relation):
         triggered = False
         # for each function call, check if the property holds
         for func_call_id in tqdm(
-            func_call_ids, desc=f"Checking invariant {inv.text_description}"
+            func_call_ids,
+            desc=f"Checking invariant {inv.text_description}",
+            leave=False,
         ):
             func_call_event = trace.query_func_call_event(func_call_id)
             if isinstance(
@@ -938,7 +940,9 @@ class ConsistentInputOutputRelation(Relation):
         triggered = False
 
         for func_call_id in tqdm(
-            func_call_ids, desc=f"Checking invariant {inv.text_description}"
+            func_call_ids,
+            desc=f"Checking invariant {inv.text_description}",
+            leave=False,
         ):
             func_call_event = trace.query_func_call_event(func_call_id)
             if isinstance(
@@ -1441,7 +1445,9 @@ class ThresholdRelation(Relation):
 
         triggered = False
         for func_call_id in tqdm(
-            func_call_ids, desc=f"Checking invariant {inv.text_description}"
+            func_call_ids,
+            desc=f"Checking invariant {inv.text_description}",
+            leave=False,
         ):
             func_call_event = trace.query_func_call_event(func_call_id)
             if isinstance(

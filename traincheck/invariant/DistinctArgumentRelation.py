@@ -1,3 +1,4 @@
+import logging
 from itertools import combinations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
@@ -21,6 +22,8 @@ from traincheck.invariant.precondition import find_precondition
 from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
 from traincheck.utils import safe_isnan
+
+logger = logging.getLogger(__name__)
 
 EXP_GROUP_NAME = "distinct_arg"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 6
@@ -199,7 +202,7 @@ class DistinctArgumentRelation(Relation):
     def generate_hypothesis(trace) -> list[Hypothesis]:
         """Generate hypothesis for the DistinctArgumentRelation on trace."""
         # 1. Pre-process all the events
-        print("Start preprocessing....")
+        logger.debug("Start preprocessing....")
         listed_arguments: Dict[
             str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]
         ] = {}
@@ -210,7 +213,7 @@ class DistinctArgumentRelation(Relation):
         function_pool, listed_arguments = get_event_data_per_function_per_step(
             trace, function_pool
         )
-        print("End preprocessing")
+        logger.debug("End preprocessing")
 
         # If there is no filtered function, return [], []
         if not function_pool:
@@ -221,7 +224,7 @@ class DistinctArgumentRelation(Relation):
         # function_pool.add("torch.nn.init.normal_")
 
         # 2. Generating hypothesis
-        print("Start generating hypo...")
+        logger.debug("Start generating hypo...")
         hypothesis_with_examples = {
             func_name: Hypothesis(
                 invariant=Invariant(
@@ -235,10 +238,10 @@ class DistinctArgumentRelation(Relation):
             )
             for func_name in function_pool
         }
-        print("End generating hypo")
+        logger.debug("End generating hypo")
 
         # 3. Add positive and negative examples
-        print("Start adding examples...")
+        logger.debug("Start adding examples...")
         for func_name in tqdm(function_pool):
             flag = False
             for step, records in listed_arguments[func_name].items():
@@ -280,7 +283,7 @@ class DistinctArgumentRelation(Relation):
             if not flag:
                 hypothesis_with_examples.pop(func_name)
 
-        print("End adding examples")
+        logger.debug("End adding examples")
 
         return list(hypothesis_with_examples.values())
 
@@ -290,7 +293,7 @@ class DistinctArgumentRelation(Relation):
         inv = hypothesis.invariant
 
         # 1. Pre-process all the events
-        print("Start preprocessing....")
+        logger.debug("Start preprocessing....")
         listed_arguments: Dict[
             str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]
         ] = {}
@@ -306,7 +309,7 @@ class DistinctArgumentRelation(Relation):
             trace, function_pool
         )
 
-        print("End preprocessing")
+        logger.debug("End preprocessing")
 
         if not function_pool:
             return
@@ -344,7 +347,7 @@ class DistinctArgumentRelation(Relation):
         #     DistinctArgumentRelation.collect_examples(trace, hypothesis)
 
         # 4. Precondition inference
-        print("Start precondition inference...")
+        logger.debug("Start precondition inference...")
         failed_hypothesis = []
         for hypothesis in all_hypotheses.copy():
             preconditions = find_precondition(hypothesis, [trace])
@@ -355,7 +358,7 @@ class DistinctArgumentRelation(Relation):
                     FailedHypothesis(hypothesis, "Precondition not found")
                 )
                 all_hypotheses.remove(hypothesis)
-        print("End precondition inference")
+        logger.debug("End precondition inference")
 
         return (
             list([hypo.invariant for hypo in all_hypotheses]),
@@ -390,7 +393,7 @@ class DistinctArgumentRelation(Relation):
         assert inv.precondition is not None, "Invariant should have a precondition."
 
         # 1. Pre-process all the events
-        print("Start preprocessing....")
+        logger.debug("Start preprocessing....")
         listed_arguments: Dict[
             str, Dict[int, Dict[Tuple[str, str], List[dict[str, Any]]]]
         ] = {}
@@ -415,7 +418,7 @@ class DistinctArgumentRelation(Relation):
             )
 
         events_list = get_event_list(trace, function_pool)
-        print("End preprocessing")
+        logger.debug("End preprocessing")
 
         if not inv.precondition.verify(events_list, EXP_GROUP_NAME, trace):
             return CheckerResult(

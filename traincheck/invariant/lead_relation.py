@@ -24,6 +24,8 @@ from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
 
+logger = logging.getLogger(__name__)
+
 EXP_GROUP_NAME = "func_lead"
 MAX_FUNC_NUM_CONSECUTIVE_CALL = 4  # ideally this should be proportional to the number of training and testing iterations in the trace
 
@@ -276,7 +278,7 @@ class FunctionLeadRelation(Relation):
         logger = logging.getLogger(__name__)
 
         # 1. Pre-process all the events
-        print("Start preprocessing....")
+        logger.debug("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
@@ -312,9 +314,9 @@ class FunctionLeadRelation(Relation):
             trace.function_times = function_times
             trace.function_id_map = function_id_map
             trace.listed_events = listed_events
-        print("End preprocessing")
+        logger.debug("End preprocessing")
 
-        print("Start same level checking...")
+        logger.debug("Start same level checking...")
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
@@ -326,13 +328,13 @@ class FunctionLeadRelation(Relation):
             valid_relations = trace.valid_relations_lead
         else:
             for (process_id, thread_id), _ in tqdm(
-                listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
+                listed_events.items(), ascii=True, leave=False, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
                 for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
-                    leave=True,
+                    leave=False,
                     desc="Combinations Checked",
                     total=len(function_pool) ** 2,
                 ):
@@ -350,10 +352,10 @@ class FunctionLeadRelation(Relation):
                         valid_relations[(func_A, func_B)] = True
             trace.same_level_func_lead = same_level_func
             trace.valid_relations_lead = valid_relations
-        print("End same level checking")
+        logger.debug("End same level checking")
 
         # 3. Generating hypothesis
-        print("Start generating hypo...")
+        logger.debug("Start generating hypo...")
         hypothesis_with_examples = {
             (func_A, func_B): Hypothesis(
                 invariant=Invariant(
@@ -370,12 +372,12 @@ class FunctionLeadRelation(Relation):
             )
             for (func_A, func_B), _ in valid_relations.items()
         }
-        print("End generating hypo")
+        logger.debug("End generating hypo")
 
         # 4. Add positive and negative examples
-        print("Start adding examples...")
+        logger.debug("Start adding examples...")
         for (process_id, thread_id), events_list in tqdm(
-            listed_events.items(), ascii=True, leave=True, desc="Group"
+            listed_events.items(), ascii=True, leave=False, desc="Group"
         ):
 
             for (func_A, func_B), _ in tqdm(
@@ -512,7 +514,7 @@ class FunctionLeadRelation(Relation):
                         (func_A, func_B)
                     ].negative_examples.add_example(example)
 
-        print("End adding examples")
+        logger.debug("End adding examples")
 
         return list(hypothesis_with_examples.values())
 
@@ -523,7 +525,7 @@ class FunctionLeadRelation(Relation):
         logger = logging.getLogger(__name__)
 
         # 1. Pre-process all the events
-        print("Start preprocessing....")
+        logger.debug("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
@@ -559,9 +561,9 @@ class FunctionLeadRelation(Relation):
             trace.function_times = function_times
             trace.function_id_map = function_id_map
             trace.listed_events = listed_events
-        print("End preprocessing")
+        logger.debug("End preprocessing")
 
-        print("Start same level checking...")
+        logger.debug("Start same level checking...")
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
@@ -573,13 +575,13 @@ class FunctionLeadRelation(Relation):
             valid_relations = trace.valid_relations_lead
         else:
             for (process_id, thread_id), _ in tqdm(
-                listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
+                listed_events.items(), ascii=True, leave=False, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
                 for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
-                    leave=True,
+                    leave=False,
                     desc="Combinations Checked",
                     total=len(function_pool) ** 2,
                 ):
@@ -597,7 +599,7 @@ class FunctionLeadRelation(Relation):
                         valid_relations[(func_A, func_B)] = True
             trace.same_level_func_lead = same_level_func
             trace.valid_relations_lead = valid_relations
-        print("End same level checking")
+        logger.debug("End same level checking")
 
         inv = hypothesis.invariant
 
@@ -614,12 +616,12 @@ class FunctionLeadRelation(Relation):
         function_pool = set(function_pool).intersection(function_pool_temp)
 
         if len(function_pool) == 0:
-            print(
+            logger.debug(
                 "No relevant function calls found in the trace, skipping the collecting"
             )
             return
 
-        print("Starting collecting iteration...")
+        logger.debug("Starting collecting iteration...")
         for i in range(invariant_length - 1):
             param_A = inv.params[i]
             param_B = inv.params[i + 1]
@@ -765,7 +767,7 @@ class FunctionLeadRelation(Relation):
         # for hypothesis in all_hypotheses:
         #     FunctionLeadRelation.collect_examples(trace, hypothesis)
 
-        print("Start precondition inference...")
+        logger.debug("Start precondition inference...")
         failed_hypothesis = []
         for hypothesis in all_hypotheses.copy():
             preconditions = find_precondition(hypothesis, [trace])
@@ -776,7 +778,7 @@ class FunctionLeadRelation(Relation):
                     FailedHypothesis(hypothesis, "Precondition not found")
                 )
                 all_hypotheses.remove(hypothesis)
-        print("End precondition inference")
+        logger.debug("End precondition inference")
 
         if_merge = True
 
@@ -787,7 +789,7 @@ class FunctionLeadRelation(Relation):
             )
 
         # 6. Merge invariants
-        print("Start merging invariants...")
+        logger.debug("Start merging invariants...")
         relation_pool: Dict[
             GroupedPreconditions | None, List[Tuple[APIParam, APIParam]]
         ] = {}
@@ -817,7 +819,7 @@ class FunctionLeadRelation(Relation):
                     text_description="Merged FunctionLeadRelation in Ordered List",
                 )
                 merged_ininvariants.append(new_invariant)
-        print("End merging invariants")
+        logger.debug("End merging invariants")
 
         return merged_ininvariants, failed_hypothesis
 
@@ -852,7 +854,7 @@ class FunctionLeadRelation(Relation):
         logger = logging.getLogger(__name__)
 
         # 1. Pre-process all the events
-        print("Start preprocessing....")
+        logger.debug("Start preprocessing....")
         function_times: Dict[Tuple[str, str], Dict[str, Dict[str, Any]]] = {}
         function_id_map: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
         listed_events: Dict[Tuple[str, str], List[dict[str, Any]]] = {}
@@ -893,9 +895,9 @@ class FunctionLeadRelation(Relation):
             trace.function_times = function_times
             trace.function_id_map = function_id_map
             trace.listed_events = listed_events
-        print("End preprocessing")
+        logger.debug("End preprocessing")
 
-        print("Start same level checking...")
+        logger.debug("Start same level checking...")
         same_level_func: Dict[Tuple[str, str], Dict[str, Any]] = {}
         valid_relations: Dict[Tuple[str, str], bool] = {}
 
@@ -907,13 +909,13 @@ class FunctionLeadRelation(Relation):
             valid_relations = trace.valid_relations_lead
         else:
             for (process_id, thread_id), _ in tqdm(
-                listed_events.items(), ascii=True, leave=True, desc="Groups Processed"
+                listed_events.items(), ascii=True, leave=False, desc="Groups Processed"
             ):
                 same_level_func[(process_id, thread_id)] = {}
                 for func_A, func_B in tqdm(
                     permutations(function_pool, 2),
                     ascii=True,
-                    leave=True,
+                    leave=False,
                     desc="Combinations Checked",
                     total=len(function_pool) ** 2,
                 ):
@@ -931,7 +933,7 @@ class FunctionLeadRelation(Relation):
                         valid_relations[(func_A, func_B)] = True
             trace.same_level_func_lead = same_level_func
             trace.valid_relations_lead = valid_relations
-        print("End same level checking")
+        logger.debug("End same level checking")
 
         inv_triggered = False
 
@@ -948,7 +950,7 @@ class FunctionLeadRelation(Relation):
         function_pool = set(function_pool).intersection(set(function_pool_temp))
 
         if len(function_pool) == 0:
-            print(
+            logger.debug(
                 "No relevant function calls found in the trace, skipping the checking"
             )
             return CheckerResult(
@@ -958,7 +960,7 @@ class FunctionLeadRelation(Relation):
                 triggered=False,
             )
 
-        print("Starting checking iteration...")
+        logger.debug("Starting checking iteration...")
         for i in range(invariant_length - 1):
             param_A = inv.params[i]
             param_B = inv.params[i + 1]
