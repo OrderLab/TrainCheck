@@ -236,7 +236,12 @@ def main():
             logger.info("Reading traces from %s", "\n".join(trace_files))
             traces.append(read_trace_file(trace_files))
 
-    logger.addHandler(logging.StreamHandler())
+    # Warnings and above go to stderr so the user sees them; detailed per-invariant
+    # INFO logs stay in the log file only.
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.WARNING)
+    logger.addHandler(stream_handler)
+
     results_by_trace: list[tuple[str, list[CheckerResult]]] = []
 
     for trace, trace_parent_folder in zip(traces, trace_parent_folders):
@@ -247,6 +252,15 @@ def main():
         results_per_trace_not_triggered = [
             res for res in results_per_trace if res.triggered is False
         ]
+
+        n_checked = len(results_per_trace)
+        n_failed = len(results_per_trace_failed)
+        n_passed = n_checked - n_failed
+        n_not_triggered = len(results_per_trace_not_triggered)
+        print(f"Checking finished. {n_checked} invariants checked")
+        print(f"Total failed invariants: {n_failed}/{n_checked}")
+        print(f"Total passed invariants: {n_passed}/{n_checked}")
+        print(f"Total invariants that are not triggered: {n_not_triggered}/{n_checked}")
 
         logger.info("Checking finished. %d invariants checked", len(results_per_trace))
         logger.info(
