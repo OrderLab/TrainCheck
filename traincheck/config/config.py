@@ -86,6 +86,7 @@ ANALYSIS_SKIP_FUNC_NAMES = [
     "torch.optim.optimizer._get_value",
     "torch.overrides",
     "._",  # skip all private functions (they can only be the contained, but not containing functions)
+    "<locals>",  # skip closures / local functions — not meaningful in invariant descriptions
 ]
 
 INSTR_OPTS = None  # TODO: set defaults for this variable
