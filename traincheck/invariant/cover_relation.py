@@ -208,7 +208,10 @@ class FunctionCoverRelation(Relation):
                         APIParam(func_B),
                     ],
                     precondition=None,
-                    text_description=f"FunctionCoverRelation between {func_A} and {func_B}",
+                    text_description=FunctionCoverRelation.to_display_name(
+                        [APIParam(func_A), APIParam(func_B)]
+                    )
+                    or f"FunctionCoverRelation between {func_A} and {func_B}",
                 ),
                 positive_examples=ExampleList({EXP_GROUP_NAME}),
                 negative_examples=ExampleList({EXP_GROUP_NAME}),
@@ -589,7 +592,10 @@ class FunctionCoverRelation(Relation):
                     relation=FunctionCoverRelation,
                     params=[param for param in merged_value],
                     precondition=key,
-                    text_description="Merged FunctionCoverRelation in Ordered List",
+                    text_description=FunctionCoverRelation.to_display_name(
+                        [param for param in merged_value]
+                    )
+                    or "Merged FunctionCoverRelation in Ordered List",
                 )
                 merged_ininvariants.append(new_invariant)
         logger.debug("End merging invariants")

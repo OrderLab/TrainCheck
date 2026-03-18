@@ -287,7 +287,10 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
                 parent_param,
                 merged_child_param,
             ],
-            text_description=f"{parent_param.api_full_name} contains {merged_child_param}",
+            text_description=APIContainRelation.to_display_name(
+                [parent_param, merged_child_param]
+            )
+            or f"{parent_param.api_full_name} contains {merged_child_param}",
             num_positive_examples=len(all_positive_examples),
             num_negative_examples=len(all_positive_examples),
             precondition=None,  # to be inferred later
@@ -735,7 +738,10 @@ class APIContainRelation(Relation):
                             relation=APIContainRelation,
                             params=[parent_param, child_param],
                             precondition=None,
-                            text_description=f"{parent} contains {child_param} of type {typename(event)}",
+                            text_description=APIContainRelation.to_display_name(
+                                [parent_param, child_param]
+                            )
+                            or f"{parent} contains {child_param} of type {typename(event)}",
                         ),
                         positive_examples=ExampleList(
                             {PARENT_GROUP_NAME, VAR_GROUP_NAME}
@@ -773,7 +779,10 @@ class APIContainRelation(Relation):
                                     relation=APIContainRelation,
                                     params=[parent_param, child_param],
                                     precondition=None,
-                                    text_description=f"{parent} contains {child_param} of type {typename(event)}",
+                                    text_description=APIContainRelation.to_display_name(
+                                        [parent_param, child_param]
+                                    )
+                                    or f"{parent} contains {child_param} of type {typename(event)}",
                                 ),
                                 positive_examples=ExampleList({PARENT_GROUP_NAME}),
                                 negative_examples=ExampleList({PARENT_GROUP_NAME}),
@@ -827,7 +836,10 @@ class APIContainRelation(Relation):
                             relation=APIContainRelation,
                             params=[parent_param, merged_child_param],
                             precondition=None,
-                            text_description=f"{parent} contains {merged_child_param}",
+                            text_description=APIContainRelation.to_display_name(
+                                [parent_param, merged_child_param]
+                            )
+                            or f"{parent} contains {merged_child_param}",
                         ),
                         positive_examples=ExampleList({PARENT_GROUP_NAME}),
                         negative_examples=ExampleList({PARENT_GROUP_NAME}),

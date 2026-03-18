@@ -391,7 +391,17 @@ class ConsistentOutputRelation(Relation):
                                 ),
                             ],
                             precondition=None,
-                            text_description=f"{prop} of the tensors returned by the function {func_name} is consistently {prop_val}.",
+                            text_description=ConsistentOutputRelation.to_display_name(
+                                [
+                                    APIParam(api_full_name=func_name),
+                                    VarTypeParam(
+                                        var_type="torch.Tensor",
+                                        attr_name=prop,
+                                        const_value=make_hashable(prop_val),
+                                    ),
+                                ]
+                            )
+                            or f"{prop} of the tensors returned by the function {func_name} is consistently {prop_val}.",
                         ),
                         positive_examples=ExampleList({"pre_event"}),
                         negative_examples=ExampleList({"pre_event"}),
@@ -777,7 +787,10 @@ class ConsistentInputOutputRelation(Relation):
                                 relation=ConsistentInputOutputRelation,
                                 params=[input_param, api_param, output_param],
                                 precondition=None,
-                                text_description=f"The value {common_value} is consistent across the input {input_path} and output {output_path} tensors of the function {func_name}.",
+                                text_description=ConsistentInputOutputRelation.to_display_name(
+                                    [input_param, api_param, output_param]
+                                )
+                                or f"The value {common_value} is consistent across the input {input_path} and output {output_path} tensors of the function {func_name}.",
                             ),
                             positive_examples=ExampleList(
                                 {"pre_event"}
@@ -1209,7 +1222,10 @@ class ThresholdRelation(Relation):
                                             input_param,
                                         ],  # the first param should be larger or equal to the second param
                                         precondition=None,
-                                        text_description=f"Output tensor's value at {output_param.additional_path} is consistently larger than or equal to the min input threshold {input_param.name} for the function {func_name}.",
+                                        text_description=ThresholdRelation.to_display_name(
+                                            [output_param, api_param, input_param]
+                                        )
+                                        or f"Output tensor's value at {output_param.additional_path} is consistently larger than or equal to the min input threshold {input_param.name} for the function {func_name}.",
                                     ),
                                     positive_examples=ExampleList(
                                         {"pre_event"}
@@ -1262,7 +1278,10 @@ class ThresholdRelation(Relation):
                                             output_param,
                                         ],  # the first param should be larger or equal to the second param
                                         precondition=None,
-                                        text_description=f"Output tensor's value at {output_param.additional_path} is consistently less than or equal to the max input threshold {input_param.name} for the function {func_name}.",
+                                        text_description=ThresholdRelation.to_display_name(
+                                            [input_param, api_param, output_param]
+                                        )
+                                        or f"Output tensor's value at {output_param.additional_path} is consistently less than or equal to the max input threshold {input_param.name} for the function {func_name}.",
                                     ),
                                     positive_examples=ExampleList(
                                         {"pre_event"}

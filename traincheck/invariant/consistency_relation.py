@@ -266,7 +266,13 @@ class ConsistencyRelation(Relation):
                         VarTypeParam(var_type=hypo[2], attr_name=hypo[3]),
                     ],
                     precondition=None,
-                    text_description=f"Consistency Relation between {hypo[0]}.{hypo[1]} and {hypo[2]}.{hypo[3]}",
+                    text_description=ConsistencyRelation.to_display_name(
+                        [
+                            VarTypeParam(var_type=hypo[0], attr_name=hypo[1]),
+                            VarTypeParam(var_type=hypo[2], attr_name=hypo[3]),
+                        ]
+                    )
+                    or f"Consistency Relation between {hypo[0]}.{hypo[1]} and {hypo[2]}.{hypo[3]}",
                 ),
                 positive_examples=ExampleList({VAR_GROUP_NAME}),
                 negative_examples=ExampleList({VAR_GROUP_NAME}),
