@@ -364,7 +364,10 @@ class FunctionLeadRelation(Relation):
                         APIParam(func_B),
                     ],
                     precondition=None,
-                    text_description=f"FunctionLeadRelation between {func_A} and {func_B}",
+                    text_description=FunctionLeadRelation.to_display_name(
+                        [APIParam(func_A), APIParam(func_B)]
+                    )
+                    or f"FunctionLeadRelation between {func_A} and {func_B}",
                 ),
                 positive_examples=ExampleList({EXP_GROUP_NAME}),
                 negative_examples=ExampleList({EXP_GROUP_NAME}),
@@ -815,7 +818,10 @@ class FunctionLeadRelation(Relation):
                     relation=FunctionLeadRelation,
                     params=[param for param in merged_value],
                     precondition=key,
-                    text_description="Merged FunctionLeadRelation in Ordered List",
+                    text_description=FunctionLeadRelation.to_display_name(
+                        [param for param in merged_value]
+                    )
+                    or "Merged FunctionLeadRelation in Ordered List",
                 )
                 merged_ininvariants.append(new_invariant)
         logger.debug("End merging invariants")

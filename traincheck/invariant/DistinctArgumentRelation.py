@@ -230,7 +230,10 @@ class DistinctArgumentRelation(Relation):
                     relation=DistinctArgumentRelation,
                     params=[APIParam(func_name)],
                     precondition=None,
-                    text_description=f"{func_name} has distinct input arguments on difference PT for each step",
+                    text_description=DistinctArgumentRelation.to_display_name(
+                        [APIParam(func_name)]
+                    )
+                    or f"{func_name} has distinct input arguments on difference PT for each step",
                 ),
                 positive_examples=ExampleList({EXP_GROUP_NAME}),
                 negative_examples=ExampleList({EXP_GROUP_NAME}),
