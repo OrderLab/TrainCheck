@@ -4,6 +4,7 @@ from typing import Hashable
 
 import pandas as pd
 
+from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
     _NOT_SET,
@@ -245,17 +246,11 @@ def get_input_thresholds(
 def get_events_of_funcs_with_tensors(
     all_func_names, trace, output_has_tensors=True, input_has_tensors=True
 ):
-    # HACK: remove all torch.overrides
+    # skip functions matched by ANALYSIS_SKIP_FUNC_NAMES
     all_func_names = [
-        func_name for func_name in all_func_names if "torch.override" not in func_name
-    ]
-    # remove all functions with "._" in them
-    all_func_names = [
-        func_name for func_name in all_func_names if "._" not in func_name
-    ]
-    # remove all functions with "._is_" in them
-    all_func_names = [
-        func_name for func_name in all_func_names if ".is_" not in func_name
+        func_name
+        for func_name in all_func_names
+        if not any(skip in func_name for skip in ANALYSIS_SKIP_FUNC_NAMES)
     ]
 
     # if os.path.exists(_CACHE_PATH):

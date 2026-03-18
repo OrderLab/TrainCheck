@@ -2,6 +2,7 @@ import logging
 from itertools import combinations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
+from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (  # GroupedPreconditions,
     APIParam,
@@ -45,9 +46,9 @@ def get_func_names_to_deal_with(trace: Trace) -> List[str]:
     # get all functions in the trace
     all_func_names = trace.get_func_names()
 
-    # filtering 1: remove private functions
+    # filtering 1: skip functions matched by ANALYSIS_SKIP_FUNC_NAMES
     for func_name in all_func_names:
-        if "._" in func_name:
+        if any(skip in func_name for skip in ANALYSIS_SKIP_FUNC_NAMES):
             continue
         function_pool.add(func_name)
 
