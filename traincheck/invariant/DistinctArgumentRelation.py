@@ -2,8 +2,6 @@ import logging
 from itertools import combinations
 from typing import Any, Dict, Iterable, List, Set, Tuple
 
-from tqdm import tqdm
-
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (  # GroupedPreconditions,
     APIParam,
@@ -20,6 +18,7 @@ from traincheck.invariant.base_cls import (  # GroupedPreconditions,
 )
 from traincheck.invariant.precondition import find_precondition
 from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
+from traincheck.progress import tqdm
 from traincheck.trace.trace import Trace
 from traincheck.utils import safe_isnan
 

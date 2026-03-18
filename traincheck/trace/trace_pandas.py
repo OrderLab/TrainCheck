@@ -3,11 +3,11 @@ import re
 from typing import Any
 
 import pandas as pd
-from tqdm import tqdm
 
 from traincheck.config import config
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.instrumentor.types import PTID
+from traincheck.progress import tqdm
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import (
     MD_NONE,
@@ -201,6 +201,7 @@ class TracePandas(Trace):
         for _, row in tqdm(
             incomplete_func_call_records.iterrows(),
             desc="Removing Incomplete Function Calls",
+            leave=False,
         ):
             assert (
                 row["type"] == TraceLineType.FUNC_CALL_PRE

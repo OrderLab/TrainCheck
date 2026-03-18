@@ -2,8 +2,6 @@ import logging
 from itertools import combinations
 from typing import Hashable
 
-from tqdm import tqdm
-
 import traincheck.config.config as config
 from traincheck.invariant.base_cls import (
     PT,
@@ -14,6 +12,7 @@ from traincheck.invariant.base_cls import (
     Preconditions,
     UnconditionalPrecondition,
 )
+from traincheck.progress import tqdm
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import MD_NONE
 from traincheck.utils import safe_isnan

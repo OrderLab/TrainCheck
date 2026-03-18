@@ -6,6 +6,7 @@ import os
 
 from tqdm import tqdm
 
+import traincheck.utils as _tc_utils
 from traincheck.invariant import CheckerResult, Invariant, read_inv_file
 from traincheck.reporting import (
     ReportEmitter,
@@ -45,26 +46,34 @@ def check_engine(
     bar_fmt = (
         "{desc} {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
     )
-    with tqdm(total=total, bar_format=bar_fmt, unit="inv") as pbar:
-        pbar.set_description(f"0 checked · {total} left · 0 violated")
-        for i, inv in enumerate(invariants):
-            assert (
-                inv.precondition is not None
-            ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
-            logger.info("=====================================")
-            res = inv.check(trace, check_relation_first)
-            res.calc_and_set_time_precentage(
-                trace.get_start_time(), trace.get_end_time()
-            )
-            logger.info("Invariant %s on trace %s: %s", inv, trace, res)
-            results.append(res)
-            if not res.check_passed:
-                n_violated += 1
-            done = i + 1
-            pbar.set_description(
-                f"{done} checked · {total - done} left · {n_violated} violated"
-            )
-            pbar.update(1)
+    with tqdm(
+        total=total,
+        bar_format=bar_fmt,
+        unit="inv",
+        desc=f"0 checked · {total} left · 0 violated",
+    ) as pbar:
+        _tc_utils._suppress_inner_progress = True
+        try:
+            for i, inv in enumerate(invariants):
+                assert (
+                    inv.precondition is not None
+                ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
+                logger.info("=====================================")
+                res = inv.check(trace, check_relation_first)
+                res.calc_and_set_time_precentage(
+                    trace.get_start_time(), trace.get_end_time()
+                )
+                logger.info("Invariant %s on trace %s: %s", inv, trace, res)
+                results.append(res)
+                if not res.check_passed:
+                    n_violated += 1
+                done = i + 1
+                pbar.set_description(
+                    f"{done} checked · {total - done} left · {n_violated} violated"
+                )
+                pbar.update(1)
+        finally:
+            _tc_utils._suppress_inner_progress = False
     return results
 
 

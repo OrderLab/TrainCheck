@@ -2,8 +2,6 @@ import logging
 import time
 from itertools import combinations
 
-from tqdm import tqdm
-
 from traincheck.config import config
 from traincheck.invariant.base_cls import (
     CheckerResult,
@@ -19,6 +17,7 @@ from traincheck.invariant.base_cls import (
 )
 from traincheck.invariant.precondition import find_precondition
 from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
+from traincheck.progress import tqdm
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import Liveness, VarInstId
 
