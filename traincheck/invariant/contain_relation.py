@@ -355,15 +355,20 @@ class APIContainRelation(Relation):
             child_short = _short_api_name(child.api_full_name)
             return f"{parent_short}() always calls {child_short}()"
         if isinstance(child, (VarTypeParam, VarNameParam)):
-            var_short = child.var_type.split(".")[-1]
             attr = child.attr_name
+            # Skip internal TrainCheck proxy bookkeeping attributes
+            if attr.startswith("_TRAINCHECK_"):
+                return None
+            var_short = child.var_type.split(".")[-1]
             pre = child.pre_value
             post = child.post_value
             const = child.const_value
+
+            def _fmt_val(v: object) -> str:
+                return "non-zero" if v == "non_zero" else str(v)
+
             if pre is not _NOT_SET and post is not _NOT_SET:
-                pre_str = "non-zero" if pre == "non_zero" else str(pre)
-                post_str = str(post)
-                return f"{parent_short}() changes {var_short}.{attr}: {pre_str} → {post_str}"
+                return f"{parent_short}() changes {var_short}.{attr}: {_fmt_val(pre)} → {_fmt_val(post)}"
             if const is not _NOT_SET:
                 return f"{parent_short}() sees {var_short}.{attr} = {const}"
             return f"{parent_short}() accesses {var_short}.{attr}"
