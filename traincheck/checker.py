@@ -40,17 +40,31 @@ def check_engine(
 ) -> list[CheckerResult]:
     logger = logging.getLogger(__name__)
     results = []
-    for inv in tqdm(
-        invariants, desc="Checking invariants", unit="invariant", leave=False
-    ):
-        assert (
-            inv.precondition is not None
-        ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
-        logger.info("=====================================")
-        res = inv.check(trace, check_relation_first)
-        res.calc_and_set_time_precentage(trace.get_start_time(), trace.get_end_time())
-        logger.info("Invariant %s on trace %s: %s", inv, trace, res)
-        results.append(res)
+    total = len(invariants)
+    n_violated = 0
+    bar_fmt = (
+        "{desc} {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+    )
+    with tqdm(total=total, bar_format=bar_fmt, unit="inv") as pbar:
+        pbar.set_description(f"0 checked · {total} left · 0 violated")
+        for i, inv in enumerate(invariants):
+            assert (
+                inv.precondition is not None
+            ), "Invariant precondition is None. It should at least be 'Unconditional' or an empty list. Please check the invariant file and the inference process."
+            logger.info("=====================================")
+            res = inv.check(trace, check_relation_first)
+            res.calc_and_set_time_precentage(
+                trace.get_start_time(), trace.get_end_time()
+            )
+            logger.info("Invariant %s on trace %s: %s", inv, trace, res)
+            results.append(res)
+            if not res.check_passed:
+                n_violated += 1
+            done = i + 1
+            pbar.set_description(
+                f"{done} checked · {total - done} left · {n_violated} violated"
+            )
+            pbar.update(1)
     return results
 
 
