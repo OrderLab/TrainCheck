@@ -3,7 +3,6 @@ import re
 from typing import Hashable
 
 import pandas as pd
-from tqdm import tqdm
 
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
@@ -26,6 +25,7 @@ from traincheck.invariant.base_cls import (
 )
 from traincheck.invariant.precondition import find_precondition
 from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
+from traincheck.progress import tqdm
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import (
     FuncCallEvent,

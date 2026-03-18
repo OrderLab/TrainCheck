@@ -2,10 +2,10 @@ import logging
 import re
 
 import polars as pl
-from tqdm import tqdm
 
 from traincheck.config import config
 from traincheck.instrumentor.tracer import TraceLineType
+from traincheck.progress import tqdm
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import (
     AttrState,

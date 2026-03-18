@@ -5,7 +5,6 @@ import time
 from typing import Type
 
 import numpy as np
-from tqdm import tqdm
 
 from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
 from traincheck.instrumentor.tracer import TraceLineType
@@ -38,6 +37,7 @@ from traincheck.onlinechecker.utils import (
     get_var_raw_event_before_time,
     set_meta_vars_online,
 )
+from traincheck.progress import tqdm
 from traincheck.trace.trace import Trace
 from traincheck.trace.types import (
     ALL_EVENT_TYPES,

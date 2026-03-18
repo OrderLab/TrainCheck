@@ -13,6 +13,10 @@ import torch
 
 THREAD_LOCAL = threading.local()
 
+# When True, tqdm bars created via traincheck.progress.tqdm are disabled.
+# Set by check_engine() so only the single outer checking bar is visible.
+_suppress_inner_progress: bool = False
+
 
 def safe_getattr(obj, attr, default=None):
     """Safely get the attribute of an object.
