@@ -125,10 +125,10 @@ class InsertTracerVisitor(ast.NodeTransformer):
 
             if iter_name:
                 if "train" in iter_name:
-                    print(f"Found training loop based on iterator: {iter_name}")
+                    logger.debug(f"Found training loop based on iterator: {iter_name}")
                     return "training"
                 elif any(x in iter_name for x in ["val", "eval", "test"]):
-                    print(f"Found eval loop based on iterator: {iter_name}")
+                    logger.debug(f"Found eval loop based on iterator: {iter_name}")
                     return "eval"
 
         # Heuristic 2: Check for calls to .step() or .backward() or .eval()
@@ -187,25 +187,25 @@ class InsertTracerVisitor(ast.NodeTransformer):
                         if isinstance(expr.func, ast.Attribute):
                             if expr.func.attr == "no_grad":
                                 has_eval_signal = True
-                                print(f"Found no_grad context in loop {node}.")
+                                logger.debug(f"Found no_grad context in loop {node}.")
 
         if has_training_signal:
-            print(f"Found training signal in loop {node}.")
+            logger.debug(f"Found training signal in loop {node}.")
             return "training"
 
         if has_eval_signal:
-            print(f"Found eval signal in loop {node}.")
+            logger.debug(f"Found eval signal in loop {node}.")
             return "eval"
 
         # if the number of lines are too few and the function calls do not involve "eval", "train", we omit the loop context
         # We use statement_count calculated recursively
         if statement_count < 3:
-            print(
+            logger.debug(
                 f"Skipping loop {node} as it is too short ({statement_count} statements) and does not contain eval/train/step/backward signal."
             )
             return None
 
-        print(f"Found eval signal in loop {node} (fallback).")
+        logger.debug(f"Found eval signal in loop {node} (fallback).")
         return "eval"
 
     def _inject_call(self, node, func_name):
@@ -465,7 +465,7 @@ def get_child_parent_map(root) -> dict[ast.AST, ast.AST]:
     for node in ast.walk(root):
         for child in ast.iter_child_nodes(node):
             if child in parent_map and not ast.unparse(child).strip() == "":
-                print(
+                logger.debug(
                     f"Node {ast.unparse(child)} already has a parent, {ast.unparse(parent_map[child])}"
                 )
             parent_map[child] = node
@@ -480,7 +480,7 @@ def instrument_all_model_assignments(
     Finds all assignment statements to `model` and inserts a Proxy statement or a VarSampler statement
     after each assignment, depending on the mode.
     """
-    print(
+    logger.debug(
         f"Instrumenting model: {model_name}, mode: {mode}, scanning for assignments to {model_name}"
     )
 
@@ -529,10 +529,10 @@ def instrument_all_model_assignments(
             if node in parent_map:
                 parent = parent_map[node]
                 # print(f"Parent node: {ast.unparse(parent)}")
-                print("\tInstrumenting: ", ast.unparse(node))
+                logger.debug("Instrumenting: %s", ast.unparse(node))
                 if isinstance(parent, ast.For):
-                    print(
-                        "\t\t⬆️ Parent is a for loop, cowardly skipping instrumentation in fear of multiple models with the same 'var_name'"
+                    logger.debug(
+                        "Parent is a for loop, skipping instrumentation to avoid multiple models with the same 'var_name'"
                     )
                     continue
                 if node in parent.body:  # type: ignore
@@ -601,25 +601,18 @@ from traincheck.instrumentor.proxy_wrapper.proxy_config import auto_observer_con
 spec = importlib.util.find_spec('traincheck')
 if spec and spec.origin:
     traincheck_folder = os.path.dirname(spec.origin)
-    print("traincheck folder: ", traincheck_folder)
 else:
     raise Exception("traincheck is not installed properly")
-print("auto observer enabled with observing depth: ", auto_observer_config["enable_auto_observer_depth"])
 enable_auto_observer_depth = auto_observer_config["enable_auto_observer_depth"]
 neglect_hidden_func = auto_observer_config["neglect_hidden_func"]
 neglect_hidden_module = auto_observer_config["neglect_hidden_module"]
 observe_then_unproxy = auto_observer_config["observe_then_unproxy"]
 observe_up_to_depth = auto_observer_config["observe_up_to_depth"]
-if observe_up_to_depth:
-    print("observe up to the depth of the function call")
-else:
-    print("observe only the function call at the depth")
 from traincheck.static_analyzer.graph_generator.call_graph_parser import add_observer_given_call_graph
 
 log_files = glob.glob(
     os.path.join(traincheck_folder, "static_analyzer", "func_level", "*.log")
 )
-print("log_files: ", log_files)
 for log_file in log_files:
     add_observer_given_call_graph(
         log_file,
@@ -1072,7 +1065,7 @@ general_config.USE_TORCH_COMPILE = True
         if model_tracker_style == "proxy" or model_tracker_style == "subclass":
             if model_tracker_style == "subclass":
                 # adjust the proxy config to disable the proxy-specific configs
-                print(
+                logger.debug(
                     "Using subclass model tracker, overriding observe_then_unproxy to False"
                 )
                 adjusted_proxy_config[0]["observe_then_unproxy"] = False

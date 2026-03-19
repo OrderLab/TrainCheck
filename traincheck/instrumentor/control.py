@@ -32,17 +32,17 @@ def start_step():
         config.DISABLE_WRAPPER = False
 
         if current_step < warm_up:
-            print(f"Warmup step {current_step}")
+            logger.debug(f"Warmup step {current_step}")
             config.DISABLE_WRAPPER = False
         elif (current_step - warm_up) % interval == 0:
-            print(f"Interval step {current_step}")
+            logger.debug(f"Interval step {current_step}")
             config.DISABLE_WRAPPER = False
         else:
-            print(f"Skipping step {current_step}")
+            logger.debug(f"Skipping step {current_step}")
             config.DISABLE_WRAPPER = True
     else:
         # No policy, always enable
-        print("No policy, always enable")
+        logger.debug("No policy, always enable")
         config.DISABLE_WRAPPER = False
 
 
@@ -65,13 +65,13 @@ def start_eval_step():
         config.DISABLE_WRAPPER = False
 
         if current_step < warm_up:
-            print(f"Eval: Warmup step {current_step}")
+            logger.debug(f"Eval: Warmup step {current_step}")
             config.DISABLE_WRAPPER = False
         elif (current_step - warm_up) % interval == 0:
-            print(f"Eval: Interval step {current_step}")
+            logger.debug(f"Eval: Interval step {current_step}")
             config.DISABLE_WRAPPER = False
         else:
-            print(f"Eval: Skipping step {current_step}")
+            logger.debug(f"Eval: Skipping step {current_step}")
             config.DISABLE_WRAPPER = True
     else:
         config.DISABLE_WRAPPER = False
