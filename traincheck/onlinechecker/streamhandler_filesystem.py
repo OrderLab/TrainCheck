@@ -4,7 +4,7 @@ import os
 import re
 import time
 
-from watchdog.events import FileSystemEventHandler
+from watchdog.events import FileCreatedEvent, FileSystemEventHandler
 from watchdog.observers.polling import PollingObserver
 
 from traincheck.config import config
@@ -43,7 +43,7 @@ class StreamLogHandler(FileSystemEventHandler):
 
         self.needed_vars = checker_data.needed_vars
         self.needed_apis = checker_data.needed_apis
-        self._get_api_args_map_to_check = checker_data._get_api_args_map_to_check
+        self.all_needed_args_api = checker_data.all_needed_args_api
 
         self.min_read_time = checker_data.min_read_time
         self.lock = checker_data.lock
@@ -61,11 +61,22 @@ class StreamLogHandler(FileSystemEventHandler):
         self.logger.info(f"Processing initial content from {self.file_path}")
         self.fp.seek(0)
         lines = self.fp.readlines()
-        if not lines:
-            return
 
-        self._handle_line(lines)
-        self.logger.info(f"Initial content from {self.file_path} processed.")
+        if lines:
+            self._handle_line(lines)
+            self.logger.info(f"Initial content from {self.file_path} processed.")
+
+        # Mark this file as fully read so it doesn't block other files that
+        # have records at later timestamps. Live on_modified updates override
+        # this when new records actually arrive.
+        with self.cond:
+            self.checker_data.read_time_map[self.file_path] = float("inf")
+            pre_min = self.checker_data.min_read_time
+            self.checker_data.min_read_path, self.checker_data.min_read_time = min(
+                self.checker_data.read_time_map.items(), default=(None, None)
+            )
+            if pre_min != self.checker_data.min_read_time:
+                self.checker_data.cond.notify_all()
 
     def on_modified(self, event):
         if os.path.abspath(event.src_path) != os.path.abspath(self.file_path):
@@ -181,33 +192,37 @@ class StreamLogHandler(FileSystemEventHandler):
                     )
                 if trace_type == TraceLineType.FUNC_CALL_PRE:
                     self.pt_map[ptname][func_call_id].pre_record = trace_record
-                    self.pt_map[ptname][func_call_id].args = trace_record["args"]
-                    self.pt_map[ptname][func_call_id].kwargs = trace_record["kwargs"]
+                    self.pt_map[ptname][func_call_id].args = trace_record.get("args")
+                    self.pt_map[ptname][func_call_id].kwargs = trace_record.get(
+                        "kwargs"
+                    )
                 elif trace_type == TraceLineType.FUNC_CALL_POST:
                     assert self.pt_map[ptname][func_call_id].pre_record is not None
                     self.pt_map[ptname][func_call_id].post_record = trace_record
-                    self.pt_map[ptname][func_call_id].return_values = trace_record[
+                    self.pt_map[ptname][func_call_id].return_values = trace_record.get(
                         "return_values"
-                    ]
+                    )
                 elif trace_type == TraceLineType.FUNC_CALL_POST_EXCEPTION:
                     self.pt_map[ptname][func_call_id].post_record = trace_record
-                    self.pt_map[ptname][func_call_id].exception = trace_record[
+                    self.pt_map[ptname][func_call_id].exception = trace_record.get(
                         "exception"
-                    ]
+                    )
 
             if trace_type == TraceLineType.FUNC_CALL_PRE:
-                if function_name in self.checker_data._get_api_args_map_to_check:
-                    if "args" in trace_record:
-                        if "meta_vars.step" not in trace_record:
-                            trace_record["meta_vars.step"] = -1
-                        step = trace_record["meta_vars.step"]
-                        if function_name not in self.args_map:
-                            self.args_map[function_name] = {}
-                        if step not in self.args_map[function_name]:
-                            self.args_map[function_name][step] = {}
-                        if ptid not in self.args_map[function_name][step]:
-                            self.args_map[function_name][step][ptid] = []
-                        self.args_map[function_name][step][ptid].append(trace_record)
+                if function_name in self.checker_data.all_needed_args_api:
+                    assert (
+                        "args" in trace_record and "kwargs" in trace_record
+                    ), f"Trace record for function call {function_name} does not contain args or kwargs: {trace_record}"
+                    if "meta_vars.step" not in trace_record:
+                        trace_record["meta_vars.step"] = -1
+                    step = trace_record["meta_vars.step"]
+                    if function_name not in self.args_map:
+                        self.args_map[function_name] = {}
+                    if step not in self.args_map[function_name]:
+                        self.args_map[function_name][step] = {}
+                    if ptid not in self.args_map[function_name][step]:
+                        self.args_map[function_name][step][ptid] = []
+                    self.args_map[function_name][step][ptid].append(trace_record)
 
             if (
                 ".__enter__" in function_name
@@ -310,29 +325,59 @@ class StreamLogHandler(FileSystemEventHandler):
                     self.checker_data.cond.notify_all()
 
 
+class FolderCreationHandler(FileSystemEventHandler):
+    """Watches a trace folder and dynamically attaches StreamLogHandler for new trace files."""
+
+    def __init__(self, trace_folder, checker_data: Checker_data, observer):
+        self.trace_folder = os.path.abspath(trace_folder)
+        self.checker_data = checker_data
+        self.observer = observer
+        self.seen_files: set[str] = set()
+        self.logger = logging.getLogger(__name__)
+
+    def _is_trace_file(self, filename: str) -> bool:
+        return filename.startswith("trace_") or filename.endswith("proxy_log.json")
+
+    def attach(self, file_path: str):
+        """Create and schedule a StreamLogHandler for a newly discovered file."""
+        if file_path in self.seen_files:
+            return
+        self.seen_files.add(file_path)
+        self.logger.info(f"New trace file detected, watching: {file_path}")
+        handler = StreamLogHandler(file_path, self.checker_data)
+        self.observer.schedule(
+            handler, path=os.path.dirname(file_path), recursive=False
+        )
+
+    def on_created(self, event):
+        if isinstance(event, FileCreatedEvent):
+            filename = os.path.basename(event.src_path)
+            if self._is_trace_file(filename):
+                self.attach(os.path.abspath(event.src_path))
+
+
 def run_stream_monitor(traces, trace_folders, checker_data: Checker_data):
     """Run the stream monitor to watch the trace files and folders."""
     logger = logging.getLogger(__name__)
     observer = PollingObserver()
-    handlers = []
     if traces is not None:
         file_path = os.path.abspath(traces[0])
         handler = StreamLogHandler(file_path, checker_data)
-        handlers.append(handler)
         watch_dir = os.path.dirname(file_path)
         observer.schedule(handler, path=watch_dir, recursive=False)
         logger.info(f"Watching: {file_path}")
 
     if trace_folders is not None:
         for trace_folder in trace_folders:
+            folder_abs = os.path.abspath(trace_folder)
+            creation_handler = FolderCreationHandler(folder_abs, checker_data, observer)
+            observer.schedule(creation_handler, path=folder_abs, recursive=False)
+
+            # Pick up any trace files that already exist in the folder.
             for file in sorted(os.listdir(trace_folder)):
                 if file.startswith("trace_") or file.endswith("proxy_log.json"):
-                    file_path = os.path.join(trace_folder, file)
-                    handler = StreamLogHandler(file_path, checker_data)
-                    handlers.append(handler)
-                    watch_dir = os.path.dirname(file_path)
-                    observer.schedule(handler, path=watch_dir, recursive=False)
-                    logger.info(f"Watching: {file_path}")
+                    file_path = os.path.join(folder_abs, file)
+                    creation_handler.attach(file_path)
 
     observer.start()
     return observer
