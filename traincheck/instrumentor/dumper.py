@@ -316,11 +316,15 @@ class NOT_FOUND:
 
 
 def safe_getattr(obj, attr_name):
+    import warnings
+
     try:
-        attr = getattr(obj, attr_name, NOT_FOUND)
-        if attr is NOT_FOUND:
-            if issubclass(type(obj), dict):
-                attr = dict.get(obj, attr_name, NOT_FOUND)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            attr = getattr(obj, attr_name, NOT_FOUND)
+            if attr is NOT_FOUND:
+                if issubclass(type(obj), dict):
+                    attr = dict.get(obj, attr_name, NOT_FOUND)
         return attr
     except Exception:
         return NOT_FOUND
