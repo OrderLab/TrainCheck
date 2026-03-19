@@ -1,10 +1,13 @@
 ## Step 1: filer out the lines from func_level.log with the format <Node function:module_name.function_name> - function_depth, e.g. <Node function:torch.optim.lr_scheduler._format_param._copy> - 2
 
 import importlib
+import logging
 import os
 import re
 
 from traincheck.instrumentor.proxy_wrapper.proxy_observer import add_observer_to_func
+
+logger = logging.getLogger(__name__)
 
 
 def unparse_module(module_name, level=0):
@@ -19,10 +22,9 @@ def unparse_module(module_name, level=0):
         last_name = module_name.split(".")[-1]
         try:
             func_obj = getattr(module, last_name)
-            # print(f"object {last_name} found in module {'.'.join(module_name.split('.')[:-1])}")
             return func_obj
         except AttributeError:
-            print(
+            logger.debug(
                 f"object {last_name} not found in module {'.'.join(module_name.split('.')[:-1])}"
             )
             # Ziming: from out observation this typically just mean a function call contains a local class or function call, so we can just pass
@@ -39,7 +41,9 @@ def add_observer(module_name, function_name, observe_then_unproxy=False):
         # module could be a class here, load the class and get the function
         module = unparse_module(module_name)
         if module is None:
-            print(f"error finding {function_name}: module {module_name} not found")
+            logger.debug(
+                f"error finding {function_name}: module {module_name} not found"
+            )
 
     try:
         # Retrieve the function or property
@@ -48,13 +52,13 @@ def add_observer(module_name, function_name, observe_then_unproxy=False):
 
         # Check if it's a property before proceeding
         if isinstance(function, property):
-            print(
+            logger.debug(
                 f"Skipping property function: {function_name} in module: {module_name}"
             )
             return
 
         # Apply observer to non-property functions
-        print(f"Observe function: {function_name} found in module: {module}")
+        logger.debug(f"Observe function: {function_name} found in module: {module}")
         setattr(
             module,
             function_name,
@@ -62,9 +66,8 @@ def add_observer(module_name, function_name, observe_then_unproxy=False):
         )
 
     except AttributeError:
-        print(f"function {function_name} not found in module {module_name}")
+        logger.debug(f"function {function_name} not found in module {module_name}")
         return
-    # print(f'function: {function} found in module: {module}')
 
 
 # read the func_level.log file
@@ -104,11 +107,9 @@ def add_observer_given_call_graph(
                 # save those with function_depth <= depth
                 if observe_up_to_depth:
                     if int(function_depth) <= depth:
-                        # print(f'module_name: {module_name}, function_name: {function_name}, function_depth: {function_depth}')
                         add_observer(module_name, function_name, observe_then_unproxy)
                 else:
                     if int(function_depth) == depth:
-                        # print(f'module_name: {module_name}, function_name: {function_name}, function_depth: {function_depth}')
                         add_observer(module_name, function_name, observe_then_unproxy)
 
 
