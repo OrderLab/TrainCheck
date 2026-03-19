@@ -21,6 +21,8 @@ from .proxy_handler import PROXY_SUPPORT_OBJ_TYPES
 from .proxy_registry import get_global_registry
 from .utils import print_debug
 
+logger = logging.getLogger(__name__)
+
 
 class ProxyObjInfo:
     def __init__(self, var_name: str, last_update_timestamp: int, version: int | None):
@@ -118,9 +120,8 @@ class Proxy:
 
         time_end = time.perf_counter()
         if num_params != 0:
-            print(
-                "logger_proxy: "
-                + f"Proxied {num_params} parameters of '{parent_name + module.__class__.__name__}', duration: {time_end - start_time} seconds"
+            logger.debug(
+                f"Proxied {num_params} parameters of '{parent_name + module.__class__.__name__}', duration: {time_end - start_time:.3f}s"
             )
 
     def update_timestamp(self):
