@@ -23,6 +23,11 @@ KILLING_PROCESS = (
 )
 NUM_VIOLATIONS = 0
 FAILED_INV: dict[Invariant, int] = {}
+VIOLATION_DETAILS: dict[Invariant, dict] = {}
+TRIGGERED_INV: set[Invariant] = set()
+ALL_INVS: list[Invariant] = []
+CURRENT_STEP: int | None = None
+CURRENT_STAGE: str | None = None
 TOTAL_INVARIANTS = 0
 RELATION_TOTALS: dict[str, int] = {}
 REPORTER: ReportEmitter | None = None
@@ -100,7 +105,7 @@ def sort_inv_file(invariants):
     vartype_to_invs: dict[str, dict[str, list[Invariant]]] = {}
     needed_vars = set()
     needed_apis = set()
-    _get_api_args_map_to_check = set()
+    all_needed_args_api = set()
     for inv in invs:
         assert (
             inv.precondition is not None
@@ -114,7 +119,7 @@ def sort_inv_file(invariants):
         if needed_api is not None:
             needed_apis.update(needed_api)
         if needed_args_api is not None:
-            _get_api_args_map_to_check.update(needed_args_api)
+            all_needed_args_api.update(needed_args_api)
         for param in params:
             if isinstance(param, VarTypeParam):
                 if param.var_type not in vartype_to_invs:
@@ -127,7 +132,7 @@ def sort_inv_file(invariants):
                     param_to_invs[param] = []
                 param_to_invs[param].append(inv)
     logger.info("Sorting done.")
-    needed_data = (needed_vars, needed_apis, _get_api_args_map_to_check)
+    needed_data = (needed_vars, needed_apis, all_needed_args_api)
     return invs, param_to_invs, vartype_to_invs, needed_data
 
 
@@ -137,6 +142,29 @@ def get_violated_pair_hash(trace_pair):
     h1 = hash(make_hashable(trace_pair[0]))
     h2 = hash(make_hashable(trace_pair[1]))
     return tuple(sorted((h1, h2), reverse=True))
+
+
+_MAX_TRACKED_STEPS = 500  # cap on steps stored per invariant
+
+
+def _record_violation_details(
+    inv: Invariant, result, violation_details: dict[Invariant, dict]
+):
+    """Update per-invariant (step, stage) list and sample trace for the HTML report."""
+    trace = result.trace or []
+    step_stages = [
+        (r["meta_vars.step"], r.get("meta_vars.stage"))
+        for r in trace
+        if isinstance(r, dict) and r.get("meta_vars.step") is not None
+    ]
+    if inv not in violation_details:
+        violation_details[inv] = {"step_stages": [], "sample_trace": None}
+    detail = violation_details[inv]
+    remaining = _MAX_TRACKED_STEPS - len(detail["step_stages"])
+    if remaining > 0:
+        detail["step_stages"].extend(step_stages[:remaining])
+    if detail["sample_trace"] is None and trace:
+        detail["sample_trace"] = trace[:8]
 
 
 def _emit_report(force: bool = False):
@@ -149,6 +177,11 @@ def _emit_report(force: bool = False):
         total_violations=NUM_VIOLATIONS,
         failed_inv=FAILED_INV,
         relation_totals=RELATION_TOTALS,
+        violation_details=VIOLATION_DETAILS,
+        triggered_inv=TRIGGERED_INV,
+        all_invs=ALL_INVS,
+        current_step=CURRENT_STEP,
+        current_stage=CURRENT_STAGE,
     )
     report_state = (NUM_VIOLATIONS, len(FAILED_INV))
     REPORTER.emit(report_data, force=force, report_state=report_state)
@@ -160,6 +193,11 @@ def check(
     global OBSERVER
     global NUM_VIOLATIONS
     global FAILED_INV
+    global VIOLATION_DETAILS
+    global TRIGGERED_INV
+    global ALL_INVS
+    global CURRENT_STEP
+    global CURRENT_STAGE
     global TOTAL_INVARIANTS
     global RELATION_TOTALS
 
@@ -171,6 +209,7 @@ def check(
 
     invs, param_to_invs, vartype_to_invs, needed_data = sort_inv_file(invariants)
     TOTAL_INVARIANTS = len(invs)
+    ALL_INVS = list(invs)
     RELATION_TOTALS = defaultdict(int)
     for inv in invs:
         RELATION_TOTALS[inv.relation.__name__] += 1
@@ -198,6 +237,13 @@ def check(
                 else:
                     break
 
+        step = trace_record.get("meta_vars.step")
+        stage = trace_record.get("meta_vars.stage")
+        if step is not None:
+            CURRENT_STEP = step
+        if stage is not None:
+            CURRENT_STAGE = stage
+
         if "var_name" in trace_record and trace_record["var_name"] is not None:
             varid = VarInstId(
                 trace_record["process_id"],
@@ -216,6 +262,7 @@ def check(
                                 result = inv.online_check(
                                     trace_record, checker_data, check_relation_first
                                 )
+                                TRIGGERED_INV.add(inv)
                                 if not result.check_passed:
                                     violated_pair = get_violated_pair_hash(result.trace)
                                     if inv not in violated_pairs:
@@ -227,6 +274,9 @@ def check(
                                     if inv not in FAILED_INV:
                                         FAILED_INV[inv] = 0
                                     FAILED_INV[inv] += 1
+                                    _record_violation_details(
+                                        inv, result, VIOLATION_DETAILS
+                                    )
                                     NUM_VIOLATIONS += 1
                                     result.set_id_and_detection_time(
                                         NUM_VIOLATIONS, time.monotonic_ns()
@@ -258,16 +308,18 @@ def check(
                         result = inv.online_check(
                             trace_record, checker_data, check_relation_first
                         )
+                        TRIGGERED_INV.add(inv)
                         if not result.check_passed:
                             if inv not in FAILED_INV:
                                 FAILED_INV[inv] = 0
                             FAILED_INV[inv] += 1
+                            _record_violation_details(inv, result, VIOLATION_DETAILS)
                             NUM_VIOLATIONS += 1
                             result.set_id_and_detection_time(
                                 NUM_VIOLATIONS, time.monotonic_ns()
                             )
                             logger.error(
-                                f"Violated id {NUM_VIOLATIONS}:\nInvariant {inv} violated near time {trace_record['time']}"
+                                f"Violated id {NUM_VIOLATIONS}:\nInvariant {inv.text_description} violated near time {trace_record['time'], trace_record['meta_vars.step']}"
                             )
                             with open(output_file, "a") as f:
                                 json.dump(
@@ -279,6 +331,7 @@ def check(
                         logger.error(
                             f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}"
                         )
+                        raise e
 
         _emit_report()
 
