@@ -736,7 +736,7 @@ def annotate_stage(
 
     for stage_name, present in orig_has.items():
         if present:
-            logger.info(
+            logger.debug(
                 _ctx(
                     f"Stage '{stage_name}' already present in source; skip adding this stage."
                 )
@@ -819,13 +819,13 @@ def annotate_stage(
                 indent = m.group(0)
                 new_lines.append(f'{indent}annotate_stage("{stage}")\n')
                 inserted_count[stage] += 1
-                logger.info(
+                logger.debug(
                     _ctx(
                         f"Inserted stage '{stage}' before line {lineno}: {line.strip()}"
                     )
                 )
             else:
-                logger.info(
+                logger.debug(
                     _ctx(
                         f"Skip inserting '{stage}' at line {lineno} (previous non-empty line already has it)."
                     )
@@ -858,7 +858,7 @@ def annotate_stage(
         lines_list.insert(insert_idx, "from traincheck import annotate_stage\n")
         annot_import_idx = insert_idx
         inserted_count["import"] += 1
-        logger.info(
+        logger.debug(
             _ctx(
                 f"Inserted import 'from traincheck import annotate_stage' at line {annot_import_idx + 1}."
             )
@@ -917,13 +917,13 @@ def annotate_stage(
             if not (("annotate_stage" in prev) and ("init" in prev)):
                 nl.insert(insert_at, f'{body_indent}annotate_stage("init")\n')
                 inserted_count["init"] += 1
-                logger.info(
+                logger.debug(
                     _ctx(
                         f"Inserted stage 'init' at start of main() body (line {insert_at + 1})."
                     )
                 )
             else:
-                logger.info(
+                logger.debug(
                     _ctx(
                         "Skip inserting 'init' inside main(): previous non-empty line already has it."
                     )
@@ -966,13 +966,13 @@ def annotate_stage(
             if not (("annotate_stage" in next_line) and ("init" in next_line)):
                 lines2.insert(insert_at, 'annotate_stage("init")\n')
                 inserted_count["init"] += 1
-                logger.info(
+                logger.debug(
                     _ctx(
                         f"Inserted stage 'init' right after annotate_stage import at line {insert_at + 1}."
                     )
                 )
             else:
-                logger.info(
+                logger.debug(
                     _ctx(
                         "Skip inserting 'init': next non-empty line after annotate_stage import is already init."
                     )

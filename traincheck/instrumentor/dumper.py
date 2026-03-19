@@ -392,7 +392,7 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
                 and isinstance(var, torch.Tensor)
                 and not include_tensor_data
             ):
-                logger.warning(
+                logger.debug(
                     f"Failed to get attribute {attr_name} of object type {type(var)}, skipping it for all following dumps for this attribute."
                 )
                 if var_type not in skip_attrs_due_to_errs:
