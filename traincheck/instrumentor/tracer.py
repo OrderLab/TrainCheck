@@ -627,6 +627,8 @@ class Instrumentor:
             )
 
     def instrument(self) -> int:
+        import warnings
+
         if not self.instrumenting:
             return 0
 
@@ -639,9 +641,11 @@ class Instrumentor:
             "First pass: Recursive scan of the module"
         )
         assert isinstance(self.target, (types.ModuleType, type)), "Invalid target"
-        first_pass_instrumented_count += self._instrument_module(
-            self.target, visited_file_paths, True, 0
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            first_pass_instrumented_count += self._instrument_module(
+                self.target, visited_file_paths, True, 0
+            )
         get_instrumentation_logger_for_process().info(
             "Files scanned %s", "\n".join(sorted(visited_file_paths))
         )
@@ -665,13 +669,15 @@ class Instrumentor:
                 f"Instrumenting module {module_path}"
             )
 
-            pymodule = importlib.import_module(module_path)
-            second_pass_instrumented_count += self._instrument_module(
-                pymodule,
-                visited_file_paths,
-                False,
-                0,
-            )
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                pymodule = importlib.import_module(module_path)
+                second_pass_instrumented_count += self._instrument_module(
+                    pymodule,
+                    visited_file_paths,
+                    False,
+                    0,
+                )
         get_instrumentation_logger_for_process().info(
             "Second pass instrumented %d functions", second_pass_instrumented_count
         )
