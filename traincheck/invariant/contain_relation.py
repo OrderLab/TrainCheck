@@ -371,7 +371,7 @@ class APIContainRelation(Relation):
                 return "non-zero" if v == "non_zero" else str(v)
 
             if pre is not _NOT_SET and post is not _NOT_SET:
-                return f"{parent_short}() changes {var_short}.{attr}: {_fmt_val(pre)} → {_fmt_val(post)}"
+                return f"{parent_short}() changes {var_short}.{attr}: {_fmt_val(pre)} --> {_fmt_val(post)}"
             if const is not _NOT_SET:
                 return f"{parent_short}() sees {var_short}.{attr} = {const}"
             return f"{parent_short}() accesses {var_short}.{attr}"

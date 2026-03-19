@@ -104,7 +104,7 @@ def get_per_func_instr_opts(
                 func_instr_opts[func_name]["dump_args"] = True
                 func_instr_opts[func_name]["dump_ret"] = True
                 # TODO: convert the arguments to instr_opts_dict (currently not possible as the index indicates the index of the argument/ret value among other tensors not all arguments)
-                logger.warning(
+                logger.debug(
                     "Currently not supporting fine-grained dumping of arguments and return values for InputOutputParam"
                 )
 

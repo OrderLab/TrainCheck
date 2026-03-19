@@ -626,7 +626,7 @@ class ConsistencyRelation(Relation):
                 for var2 in checker_data.type_map[ref_param.var_type]:
                     if var2 == varid:
                         continue
-                    if checker_data.varid_map[var2][ref_param.attr_name] is None:
+                    if checker_data.varid_map[var2].get(ref_param.attr_name) is None:
                         logger.debug(
                             f"Attribute {ref_param.attr_name} not found in variable {var2}"
                         )
