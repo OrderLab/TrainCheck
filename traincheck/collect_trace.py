@@ -432,11 +432,12 @@ def main():
             args.warm_up_steps = config.INSTRUMENTATION_POLICY["warm_up"]
 
     # set up logging
+    _log_fmt = "[TrainCheck] %(levelname)s: %(message)s"
     if args.debug_mode:
-        logging.basicConfig(level=logging.DEBUG)
+        logging.basicConfig(level=logging.DEBUG, format=_log_fmt)
         os.environ["TRAINCHECK_DEBUG"] = "1"
     else:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, format=_log_fmt)
 
     logger = logging.getLogger(__name__)
 
