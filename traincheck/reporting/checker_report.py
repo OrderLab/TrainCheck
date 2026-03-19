@@ -272,6 +272,8 @@ def build_online_report_data(
     all_invs: list | None = None,
     current_step: int | None = None,
     current_stage: str | None = None,
+    sampling_interval: int | None = None,
+    warm_up_steps: int | None = None,
 ) -> dict:
     relation_violations: dict[str, int] = defaultdict(int)
     for inv in failed_inv:
@@ -279,6 +281,16 @@ def build_online_report_data(
 
     if violation_details is None:
         violation_details = {}
+
+    # Estimate how many steps have been checked so far.
+    checked_steps: int | None = None
+    if (
+        current_step is not None
+        and sampling_interval is not None
+        and warm_up_steps is not None
+        and sampling_interval > 0
+    ):
+        checked_steps = max(0, current_step - warm_up_steps) // sampling_interval + 1
 
     def _make_entry(inv: Invariant, count: int) -> dict:
         detail = violation_details.get(inv, {})
@@ -300,6 +312,10 @@ def build_online_report_data(
         )
         # deduplicated, sorted (step, stage) pairs for the expanded view
         unique_step_stages = sorted(set(step_stages), key=lambda x: x[0])
+        unique_viol_steps = len(set(s for s, _ in step_stages))
+        viol_rate: float | None = None
+        if checked_steps is not None and checked_steps > 0:
+            viol_rate = round(unique_viol_steps / checked_steps * 100, 1)
         return {
             "label": _format_invariant_label(inv),
             "relation": inv.relation.__name__,
@@ -310,6 +326,9 @@ def build_online_report_data(
             "last_stage": last_stage,
             "step_stages": unique_step_stages[:100],  # cap for HTML size
             "sample_trace": _summarize_trace_records(sample_trace),
+            "violation_step_count": unique_viol_steps,
+            "checked_steps": checked_steps,
+            "violation_rate": viol_rate,
         }
 
     # Sort by first violation step (earliest first), then by count descending.
@@ -372,6 +391,9 @@ def build_online_report_data(
         "traces": [],
         "top_violations": top_violations,
         "not_triggered_labels": not_triggered_labels,
+        "sampling_interval": sampling_interval,
+        "warm_up_steps": warm_up_steps,
+        "checked_steps": checked_steps,
     }
 
 
@@ -433,6 +455,11 @@ def render_html_report(report_data: dict) -> str:
     top_table_html = ""  # used only in online mode below
 
     if mode == "online":
+        sampling_interval = report_data.get("sampling_interval")
+        warm_up_steps_val = report_data.get("warm_up_steps")
+        checked_steps_total = report_data.get("checked_steps")
+        has_sampling = sampling_interval is not None
+
         rows = []
         for entry in top_violations:
             label = esc(str(entry.get("label", "")))
@@ -444,6 +471,9 @@ def render_html_report(report_data: dict) -> str:
             last_stage = entry.get("last_stage")
             step_stages: list = entry.get("step_stages") or []
             sample_trace = entry.get("sample_trace") or []
+            violation_step_count = entry.get("violation_step_count", 0)
+            entry_checked = entry.get("checked_steps")
+            viol_rate = entry.get("violation_rate")
 
             def _step_with_badge(step, stage) -> str:
                 if step is None:
@@ -489,6 +519,18 @@ def render_html_report(report_data: dict) -> str:
             else:
                 expand_content = f'<div class="trace-steps">Steps: {steps_html}</div>'
 
+            # Frequency cell: prefer rate when sampling info available
+            if has_sampling and entry_checked is not None and entry_checked > 0:
+                rate_str = f"{viol_rate}%" if viol_rate is not None else "?"
+                freq_cell = (
+                    f'<span class="freq-rate">{rate_str}</span>'
+                    f'<span class="freq-detail">'
+                    f"{violation_step_count}/{entry_checked} steps"
+                    f"</span>"
+                )
+            else:
+                freq_cell = f'<span class="freq-rate">{count}</span>'
+
             rows.append(
                 f"<tr>"
                 f'<td><details><summary class="inv-label-summary">{label}</summary>'
@@ -496,12 +538,15 @@ def render_html_report(report_data: dict) -> str:
                 f'<span class="inv-rel-tag">{relation}</span></td>'
                 f'<td class="step-cell">{first_step_html}</td>'
                 f'<td class="step-cell">{last_step_html}</td>'
-                f'<td class="count-cell">{count}</td>'
+                f'<td class="freq-cell">{freq_cell}</td>'
                 f"</tr>"
             )
+
+        freq_col_header = "Frequency" if has_sampling else "Count"
         top_table_html = (
-            '<table class="table viol-table"><thead>'
-            "<tr><th>Invariant</th><th>First Step</th><th>Last Step</th><th>Count</th></tr>"
+            f'<table class="table viol-table"><thead>'
+            f"<tr><th>Invariant</th><th>First Step</th><th>Last Step</th>"
+            f"<th>{freq_col_header}</th></tr>"
             f"</thead><tbody>{''.join(rows)}</tbody></table>"
             if rows
             else "<p>No violations yet.</p>"
@@ -791,8 +836,18 @@ def render_html_report(report_data: dict) -> str:
         first_step_note = ""
 
     if mode == "online":
-        panel_subtitle = (
-            "Sorted by first violation step — click an invariant to expand trace"
+        sampling_interval = report_data.get("sampling_interval")
+        warm_up_steps_val = report_data.get("warm_up_steps")
+        checked_steps_total = report_data.get("checked_steps")
+        sampling_ctx = ""
+        if sampling_interval is not None:
+            sampling_ctx = f" · sampled every {sampling_interval} steps"
+            if warm_up_steps_val is not None:
+                sampling_ctx += f", warm-up {warm_up_steps_val}"
+            if checked_steps_total is not None:
+                sampling_ctx += f" ({checked_steps_total} steps checked)"
+        panel_subtitle = esc(
+            f"Sorted by first violation step — click to expand trace{sampling_ctx}"
         )
         panel_content = top_table_html
     else:
@@ -1016,6 +1071,9 @@ def render_html_report(report_data: dict) -> str:
     .viol-table td {{ vertical-align: top; }}
     .step-cell {{ white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }}
     .count-cell {{ white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--failed); }}
+    .freq-cell {{ white-space: nowrap; }}
+    .freq-rate {{ display: block; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--failed); }}
+    .freq-detail {{ display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }}
     .stage-badge {{
       display: inline-block;
       font-size: 10px;

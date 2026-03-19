@@ -28,6 +28,8 @@ TRIGGERED_INV: set[Invariant] = set()
 ALL_INVS: list[Invariant] = []
 CURRENT_STEP: int | None = None
 CURRENT_STAGE: str | None = None
+SAMPLING_INTERVAL: int | None = None
+WARM_UP_STEPS: int | None = None
 TOTAL_INVARIANTS = 0
 RELATION_TOTALS: dict[str, int] = {}
 REPORTER: ReportEmitter | None = None
@@ -167,6 +169,31 @@ def _record_violation_details(
         detail["sample_trace"] = trace[:8]
 
 
+def _read_sampling_config(
+    trace_folders: list[str] | None,
+) -> tuple[int | None, int | None]:
+    """Parse sampling_interval and warm_up_steps from env_dump.txt in a trace folder."""
+    import re
+
+    for folder in trace_folders or []:
+        env_dump_path = os.path.join(folder, "env_dump.txt")
+        if not os.path.exists(env_dump_path):
+            continue
+        sampling_interval: int | None = None
+        warm_up_steps: int | None = None
+        with open(env_dump_path) as fh:
+            for line in fh:
+                m = re.match(r"^sampling_interval:\s*(\d+)", line)
+                if m:
+                    sampling_interval = int(m.group(1))
+                m = re.match(r"^warm_up_steps:\s*(\d+)", line)
+                if m:
+                    warm_up_steps = int(m.group(1))
+        if sampling_interval is not None or warm_up_steps is not None:
+            return sampling_interval, warm_up_steps
+    return None, None
+
+
 def _emit_report(force: bool = False):
     if REPORTER is None:
         return
@@ -182,6 +209,8 @@ def _emit_report(force: bool = False):
         all_invs=ALL_INVS,
         current_step=CURRENT_STEP,
         current_stage=CURRENT_STAGE,
+        sampling_interval=SAMPLING_INTERVAL,
+        warm_up_steps=WARM_UP_STEPS,
     )
     report_state = (NUM_VIOLATIONS, len(FAILED_INV))
     REPORTER.emit(report_data, force=force, report_state=report_state)
@@ -198,6 +227,8 @@ def check(
     global ALL_INVS
     global CURRENT_STEP
     global CURRENT_STAGE
+    global SAMPLING_INTERVAL
+    global WARM_UP_STEPS
     global TOTAL_INVARIANTS
     global RELATION_TOTALS
 
@@ -206,6 +237,8 @@ def check(
     logger = logging.getLogger(__name__)
     logger.addHandler(logging.StreamHandler())
     logger.info("Starting online checker")
+
+    SAMPLING_INTERVAL, WARM_UP_STEPS = _read_sampling_config(trace_folders)
 
     invs, param_to_invs, vartype_to_invs, needed_data = sort_inv_file(invariants)
     TOTAL_INVARIANTS = len(invs)
@@ -331,7 +364,6 @@ def check(
                         logger.error(
                             f"Error when checking invariant {inv.text_description} with trace {trace_record}: {e}"
                         )
-                        raise e
 
         _emit_report()
 

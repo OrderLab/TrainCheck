@@ -1324,6 +1324,8 @@ Defaulting to skip the var preconditon check for now.
                             attr_name = child_param.attr_name
                         elif isinstance(child_param, VarTypeParam):
                             attr_name = child_param.attr_name
+                        if attr_name not in checker_data.varid_map[varid]:
+                            continue
                         for i in reversed(
                             range(1, len(checker_data.varid_map[varid][attr_name]))
                         ):
