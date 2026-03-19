@@ -9,10 +9,10 @@ class Checker_data:
     """Data structure for online checker threads. Holds the needed data and the queue for processing."""
 
     def __init__(self, needed_data):
-        needed_vars, needed_apis, _get_api_args_map_to_check = needed_data
+        needed_vars, needed_apis, all_needed_args_api = needed_data
         self.needed_vars = needed_vars
         self.needed_apis = needed_apis
-        self._get_api_args_map_to_check = _get_api_args_map_to_check
+        self.all_needed_args_api = all_needed_args_api
 
         self.check_queue = queue.Queue()
         self.varid_map = {}
