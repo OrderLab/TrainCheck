@@ -285,7 +285,7 @@ def main():
     logging.basicConfig(
         filename=f'traincheck_infer_engine_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}_{pid}.log',
         level=log_level,
-        format="%(asctime)s - %(levelname)s - [%(filename)s:%(lineno)s - %(funcName)20s()] - %(message)s",
+        format="%(asctime)s - [TrainCheck] %(levelname)s - [%(filename)s:%(lineno)s - %(funcName)20s()] - %(message)s",
     )
 
     disabled_relations: list[Relation] = []

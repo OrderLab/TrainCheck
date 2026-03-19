@@ -263,6 +263,9 @@ def main():
     # INFO logs stay in the log file only.
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.WARNING)
+    stream_handler.setFormatter(
+        logging.Formatter("[TrainCheck] %(levelname)s: %(message)s")
+    )
     logger.addHandler(stream_handler)
 
     results_by_trace: list[tuple[str, list[CheckerResult]]] = []
