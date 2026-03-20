@@ -171,6 +171,12 @@ def main():
         help="Weights & Biases tags.",
     )
     parser.add_argument(
+        "--wandb-run-id",
+        type=str,
+        default=None,
+        help="Attach to an existing Weights & Biases run ID (e.g. to overlay violation metrics on a training run).",
+    )
+    parser.add_argument(
         "--report-mlflow",
         action="store_true",
         help="Log checker summary and HTML report to MLflow.",
