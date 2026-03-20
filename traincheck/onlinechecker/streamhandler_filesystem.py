@@ -34,6 +34,7 @@ class StreamLogHandler(FileSystemEventHandler):
 
         self.varid_map = checker_data.varid_map
         self.type_map = checker_data.type_map
+        self.attr_map = checker_data.attr_map
         self.pt_map = checker_data.pt_map
         self.process_to_vars = checker_data.process_to_vars
         self.args_map = checker_data.args_map
@@ -155,6 +156,11 @@ class StreamLogHandler(FileSystemEventHandler):
 
                     if attr_name not in self.varid_map[varid]:
                         self.varid_map[varid][attr_name] = []
+                        if varid.var_type not in self.attr_map:
+                            self.attr_map[varid.var_type] = {}
+                        if attr_name not in self.attr_map[varid.var_type]:
+                            self.attr_map[varid.var_type][attr_name] = set()
+                        self.attr_map[varid.var_type][attr_name].add(varid)
                     else:
                         self.varid_map[varid][attr_name][-1].liveness.end_time = (
                             trace_record["time"]
