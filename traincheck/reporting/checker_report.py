@@ -41,6 +41,17 @@ def _build_violation_entry(result: CheckerResult) -> dict:
     }
 
 
+def _build_violation_steps_map(results: list[CheckerResult]) -> dict[int, int]:
+    """Map step → count of distinct invariants violated at that step."""
+    step_to_invs: dict[int, set[str]] = defaultdict(set)
+    for res in results:
+        if not res.check_passed:
+            label = _format_invariant_label(res.invariant)
+            for step in _extract_violation_steps(res.trace):
+                step_to_invs[step].add(label)
+    return {step: len(invs) for step, invs in step_to_invs.items()}
+
+
 def build_violations_summary(results: list[CheckerResult]) -> dict:
     """Build a pre-digested summary of all violations for machine and human consumption."""
     failed = [r for r in results if not r.check_passed]
@@ -191,6 +202,7 @@ def build_offline_report_data(
         all_failed_invariants.extend([res for res in results if not res.check_passed])
 
     top_violations = _count_failed_invariants(all_failed_invariants)
+    violation_steps_map = _build_violation_steps_map(all_failed_invariants)
 
     return {
         "mode": "offline",
@@ -200,6 +212,7 @@ def build_offline_report_data(
         "relations": dict(overall_relation_counts),
         "traces": trace_sections,
         "top_violations": top_violations,
+        "violation_steps_map": violation_steps_map,
     }
 
 
@@ -341,6 +354,14 @@ def build_online_report_data(
             "violation_rate": viol_rate,
         }
 
+    # Build step → distinct-invariant count map from all violation_details
+    step_to_invs: dict[int, set[str]] = defaultdict(set)
+    for inv, detail in violation_details.items():
+        lbl = _format_invariant_label(inv)
+        for step, _ in detail.get("step_stages") or []:
+            step_to_invs[step].add(lbl)
+    violation_steps_map = {step: len(invs) for step, invs in step_to_invs.items()}
+
     # Sort by first violation step (earliest first), then by count descending.
     def _sort_key(item):
         inv, count = item
@@ -404,6 +425,7 @@ def build_online_report_data(
         "sampling_interval": sampling_interval,
         "warm_up_steps": warm_up_steps,
         "checked_steps": checked_steps,
+        "violation_steps_map": violation_steps_map,
     }
 
 
@@ -1397,7 +1419,7 @@ class ReportEmitter:
             return
 
         if self._wandb_run is None:
-            self._wandb_run = wandb.init(
+            init_kwargs: dict = dict(
                 project=args.wandb_project,
                 entity=args.wandb_entity,
                 name=args.wandb_run_name,
@@ -1405,6 +1427,11 @@ class ReportEmitter:
                 tags=args.wandb_tags,
                 job_type="checker",
             )
+            run_id = getattr(args, "wandb_run_id", None)
+            if run_id:
+                init_kwargs["id"] = run_id
+                init_kwargs["resume"] = "allow"
+            self._wandb_run = wandb.init(**init_kwargs)  # type: ignore[assignment]
         run = self._wandb_run
         if run is None:
             logging.getLogger(__name__).warning("wandb.init() returned None; skipping.")
@@ -1530,6 +1557,11 @@ class ReportEmitter:
                     "Failed to attach HTML report to wandb run."
                 )
 
+        # --- per-step violation time-series (overlays with training loss curve) ---
+        violation_steps_map: dict[int, int] = report_data.get("violation_steps_map", {})
+        for step, count in sorted(violation_steps_map.items()):
+            wandb.log({"traincheck/violations": count}, step=step)
+
     def _log_mlflow(
         self,
         report_data: dict,
@@ -1601,11 +1633,24 @@ class ReportEmitter:
             mlflow.log_metric("violations_last_step", max(last_steps))
         mlflow.log_metric("violations_distinct_invariants", len(top_violations))
 
-        # --- violations table as JSON artifact ---
+        # --- per-step violation time-series (overlays with training loss curve) ---
+        violation_steps_map: dict[int, int] = report_data.get("violation_steps_map", {})
+        for step, count in sorted(violation_steps_map.items()):
+            mlflow.log_metric("traincheck_violations", count, step=step)
+
+        # --- violations table (mlflow.log_table for proper UI rendering) ---
         if top_violations:
             try:
-                mlflow.log_dict(
-                    {"violations": top_violations},
+                mlflow.log_table(
+                    data={
+                        "invariant": [v.get("label", "") for v in top_violations],
+                        "relation_type": [
+                            v.get("relation", "") for v in top_violations
+                        ],
+                        "occurrences": [v.get("count", 0) for v in top_violations],
+                        "first_step": [v.get("first_step") for v in top_violations],
+                        "last_step": [v.get("last_step") for v in top_violations],
+                    },
                     artifact_file="violations.json",
                 )
             except Exception:
