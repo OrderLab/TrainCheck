@@ -23,6 +23,7 @@ from traincheck.invariant.base_cls import (
     Relation,
     VarNameParam,
     VarTypeParam,
+    _display_attr_name,
     _short_api_name,
     calc_likelihood,
     construct_api_param,
@@ -358,10 +359,7 @@ class APIContainRelation(Relation):
             child_short = _short_api_name(child.api_full_name)
             return f"{parent_short}() always calls {child_short}()"
         if isinstance(child, (VarTypeParam, VarNameParam)):
-            attr = child.attr_name
-            # Skip internal TrainCheck proxy bookkeeping attributes
-            if attr.startswith("_TRAINCHECK_"):
-                return None
+            attr = _display_attr_name(child.attr_name)
             var_short = child.var_type.split(".")[-1]
             pre = child.pre_value
             post = child.post_value

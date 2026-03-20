@@ -1944,6 +1944,17 @@ def _short_api_name(full_name: str) -> str:
     return ".".join(parts[-2:]) if len(parts) >= 2 else full_name
 
 
+def _display_attr_name(attr_name: str) -> str:
+    """Strip TrainCheck-internal proxy bookkeeping prefix/suffix for display.
+
+    '_TRAINCHECK_grad_ID' → 'grad'
+    'dtype' → 'dtype'  (unchanged)
+    """
+    if attr_name.startswith("_TRAINCHECK_") and attr_name.endswith("_ID"):
+        return attr_name[len("_TRAINCHECK_") : -len("_ID")]
+    return attr_name
+
+
 def read_inv_file(file_path: str | list[str]) -> list[Invariant]:
     if isinstance(file_path, str):
         file_path = [file_path]

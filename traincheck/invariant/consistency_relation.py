@@ -14,6 +14,7 @@ from traincheck.invariant.base_cls import (
     Param,
     Relation,
     VarTypeParam,
+    _display_attr_name,
 )
 from traincheck.invariant.precondition import find_precondition
 from traincheck.onlinechecker.utils import Checker_data, set_meta_vars_online
@@ -118,7 +119,7 @@ class ConsistencyRelation(Relation):
         if not isinstance(p, VarTypeParam):
             return None
         var_short = p.var_type.split(".")[-1]
-        attr = p.attr_name
+        attr = _display_attr_name(p.attr_name)
         return f"{var_short}.{attr} stays consistent across training steps"
 
     @staticmethod
