@@ -91,6 +91,9 @@ def _count_failed_invariants(
 ) -> list[dict[str, object]]:
     counter: Counter[tuple[str, str]] = Counter()
     first_steps: dict[tuple[str, str], int | None] = {}
+    last_steps: dict[tuple[str, str], int | None] = {}
+    step_stage_maps: dict[tuple[str, str], dict] = defaultdict(dict)
+    sample_traces: dict[tuple[str, str], list] = {}
     for res in results:
         if not res.check_passed:
             label = _format_invariant_label(res.invariant)
@@ -103,8 +106,26 @@ def _count_failed_invariants(
                 first_steps[key] = (
                     min(steps) if existing is None else min(existing, min(steps))
                 )
+                existing_last = last_steps.get(key)
+                last_steps[key] = (
+                    max(steps)
+                    if existing_last is None
+                    else max(existing_last, max(steps))
+                )
             elif key not in first_steps:
                 first_steps[key] = None
+                last_steps[key] = None
+            # Accumulate step → stage (first stage seen per step wins)
+            for rec in res.trace or []:
+                if not isinstance(rec, dict):
+                    continue
+                step = rec.get("meta_vars.step")
+                stage = rec.get("meta_vars.stage")
+                if step is not None and step not in step_stage_maps[key]:
+                    step_stage_maps[key][step] = stage
+            # One sample trace per invariant (first violation wins)
+            if key not in sample_traces and res.trace:
+                sample_traces[key] = _summarize_trace_records(res.trace)
     top_pairs = counter.most_common(10)
     return [
         {
@@ -112,6 +133,9 @@ def _count_failed_invariants(
             "relation": relation,
             "count": count,
             "first_step": first_steps.get((label, relation)),
+            "last_step": last_steps.get((label, relation)),
+            "step_stages": sorted(step_stage_maps[(label, relation)].items()),
+            "sample_trace": sample_traces.get((label, relation), []),
         }
         for (label, relation), count in top_pairs
     ]
@@ -434,11 +458,7 @@ def render_html_report(report_data: dict) -> str:
     traces = report_data.get("traces", [])
     top_violations = report_data.get("top_violations", [])
 
-    # Build top violations HTML differently per mode.
-    # For online mode: step-sorted table with expandable trace rows.
-    # For offline mode: simple list (unchanged).
-    top_list = ""  # used only in offline mode below
-    top_table_html = ""  # used only in online mode below
+    top_table_html = ""
 
     if mode == "online":
         sampling_interval = report_data.get("sampling_interval")
@@ -538,27 +558,77 @@ def render_html_report(report_data: dict) -> str:
             else "<p>No violations yet.</p>"
         )
     else:
-        top_items = []
+        rows = []
         for entry in top_violations:
             label = esc(str(entry.get("label", "")))
             relation = esc(str(entry.get("relation", "")))
-            count = entry.get("count")
+            count = entry.get("count", "")
             first_step = entry.get("first_step")
-            count_html = f'<span class="inv-count">{count}</span>' if count else ""
-            if first_step is not None:
-                step_note = f"first seen at step {first_step}"
-                if count and count > 1:
-                    step_note += f" · {count} occurrences"
-                detail = esc(f"{entry.get('relation', '')} — {step_note}")
+            last_step = entry.get("last_step")
+            off_step_stages: list = entry.get("step_stages") or []
+            off_sample_trace = entry.get("sample_trace") or []
+
+            def _step_cell(step, _ss=off_step_stages) -> str:
+                if step is None:
+                    return "—"
+                stage = next((s for st, s in _ss if st == step), None)
+                badge = _render_stage_badge(stage, esc)
+                return f"{badge}{step}"
+
+            first_step_html = _step_cell(first_step)
+            last_step_html = _step_cell(last_step)
+            steps_html = _render_step_stages_html(off_step_stages, esc)
+
+            if off_sample_trace:
+                off_keys: list[str] = []
+                for rec in off_sample_trace:
+                    for k in rec:
+                        if k not in off_keys:
+                            off_keys.append(k)
+                trace_head = "".join(f"<th>{esc(k)}</th>" for k in off_keys)
+                trace_rows_html = []
+                for rec in off_sample_trace:
+                    cells = []
+                    for k in off_keys:
+                        val = rec.get(k, "")
+                        if k == "meta_vars.stage" and val:
+                            style = _stage_badge_style(val)
+                            cell = (
+                                f'<td><span class="stage-badge" style="{style}">'
+                                f"{esc(val)}</span></td>"
+                            )
+                        else:
+                            cell = f"<td>{esc(str(val))}</td>"
+                        cells.append(cell)
+                    trace_rows_html.append(f"<tr>{''.join(cells)}</tr>")
+                trace_body = "\n".join(trace_rows_html)
+                expand_content = (
+                    f'<div class="trace-steps">Steps: {steps_html}</div>'
+                    f'<div class="trace-wrap"><table class="table trace-table">'
+                    f"<thead><tr>{trace_head}</tr></thead>"
+                    f"<tbody>{trace_body}</tbody></table></div>"
+                )
             else:
-                detail = relation
-                if count and count > 1:
-                    detail = esc(f"{entry.get('relation', '')} — {count} occurrences")
-            top_items.append(
-                f'<li><span class="inv-label">{label}</span>'
-                f'<span class="inv-detail">{detail}</span>{count_html}</li>'
+                expand_content = f'<div class="trace-steps">Steps: {steps_html}</div>'
+
+            rows.append(
+                f"<tr>"
+                f'<td><details><summary class="inv-label-summary">{label}</summary>'
+                f'<div class="expand-body">{expand_content}</div></details>'
+                f'<span class="inv-rel-tag">{relation}</span></td>'
+                f'<td class="step-cell">{first_step_html}</td>'
+                f'<td class="step-cell">{last_step_html}</td>'
+                f'<td class="freq-cell"><span class="freq-rate">{count}</span></td>'
+                f"</tr>"
             )
-        top_list = "".join(top_items) or "<li>None</li>"
+        top_table_html = (
+            f'<table class="table viol-table"><thead>'
+            f"<tr><th>Invariant</th><th>First Step</th><th>Last Step</th>"
+            f"<th>Count</th></tr>"
+            f"</thead><tbody>{''.join(rows)}</tbody></table>"
+            if rows
+            else "<p>No violations.</p>"
+        )
 
     trace_sections = []
     for trace in traces:
@@ -573,27 +643,74 @@ def render_html_report(report_data: dict) -> str:
             + _render_bar_segment(percent(not_triggered, total), "bar-not-triggered")
         )
 
-        failed_list_items = []
+        failed_rows = []
         for failed_item in trace["failed_invariants"][:10]:
             label = esc(str(failed_item.get("label", "")))
             relation = esc(str(failed_item.get("relation", "")))
-            count = failed_item.get("count")
+            count = failed_item.get("count", "")
             first_step = failed_item.get("first_step")
-            count_html = f'<span class="inv-count">{count}</span>' if count else ""
-            if first_step is not None:
-                step_note = f"first seen at step {first_step}"
-                if count and count > 1:
-                    step_note += f" · {count} occurrences"
-                detail = esc(f"{relation} — {step_note}")
+            last_step = failed_item.get("last_step")
+            item_step_stages: list = failed_item.get("step_stages") or []
+            item_sample_trace = failed_item.get("sample_trace") or []
+
+            def _step_cell_trace(step) -> str:
+                if step is None:
+                    return "—"
+                stage = next((s for st, s in item_step_stages if st == step), None)
+                badge = _render_stage_badge(stage, esc)
+                return f"{badge}{step}"
+
+            steps_html = _render_step_stages_html(item_step_stages, esc)
+            if item_sample_trace:
+                item_keys: list[str] = []
+                for rec in item_sample_trace:
+                    for k in rec:
+                        if k not in item_keys:
+                            item_keys.append(k)
+                trace_head = "".join(f"<th>{esc(k)}</th>" for k in item_keys)
+                trace_rows_html = []
+                for rec in item_sample_trace:
+                    cells = []
+                    for k in item_keys:
+                        val = rec.get(k, "")
+                        if k == "meta_vars.stage" and val:
+                            style = _stage_badge_style(val)
+                            cell = (
+                                f'<td><span class="stage-badge" style="{style}">'
+                                f"{esc(val)}</span></td>"
+                            )
+                        else:
+                            cell = f"<td>{esc(str(val))}</td>"
+                        cells.append(cell)
+                    trace_rows_html.append(f"<tr>{''.join(cells)}</tr>")
+                trace_body = "\n".join(trace_rows_html)
+                expand_content = (
+                    f'<div class="trace-steps">Steps: {steps_html}</div>'
+                    f'<div class="trace-wrap"><table class="table trace-table">'
+                    f"<thead><tr>{trace_head}</tr></thead>"
+                    f"<tbody>{trace_body}</tbody></table></div>"
+                )
             else:
-                detail = relation
-                if count and count > 1:
-                    detail = esc(f"{relation} — {count} occurrences")
-            failed_list_items.append(
-                f'<li><span class="inv-label">{label}</span>'
-                f'<span class="inv-detail">{detail}</span>{count_html}</li>'
+                expand_content = f'<div class="trace-steps">Steps: {steps_html}</div>'
+
+            failed_rows.append(
+                f"<tr>"
+                f'<td><details><summary class="inv-label-summary">{label}</summary>'
+                f'<div class="expand-body">{expand_content}</div></details>'
+                f'<span class="inv-rel-tag">{relation}</span></td>'
+                f'<td class="step-cell">{_step_cell_trace(first_step)}</td>'
+                f'<td class="step-cell">{_step_cell_trace(last_step)}</td>'
+                f'<td class="freq-cell"><span class="freq-rate">{count}</span></td>'
+                f"</tr>"
             )
-        failed_list_html = "".join(failed_list_items) or "<li>None</li>"
+        failed_list_html = (
+            f'<table class="table viol-table"><thead>'
+            f"<tr><th>Invariant</th><th>First Step</th><th>Last Step</th>"
+            f"<th>Count</th></tr>"
+            f"</thead><tbody>{''.join(failed_rows)}</tbody></table>"
+            if failed_rows
+            else "<p>None</p>"
+        )
 
         relation_rows = []
         for relation_name, rel_counts in sorted(trace["relations"].items()):
@@ -630,7 +747,7 @@ def render_html_report(report_data: dict) -> str:
               <div class="grid-two">
                 <div>
                   <h3>Failed invariants (top 10)</h3>
-                  <ul class="inv-list">{failed_list_html}</ul>
+                  {failed_list_html}
                 </div>
                 <div>
                   <h3>Relation breakdown</h3>
@@ -837,8 +954,8 @@ def render_html_report(report_data: dict) -> str:
         )
         panel_content = top_table_html
     else:
-        panel_subtitle = "Most frequent violations observed"
-        panel_content = f'<ul class="inv-list">{top_list}</ul>'
+        panel_subtitle = "Sorted by first violation step — click to expand trace"
+        panel_content = top_table_html
 
     top_panel = f"""
     <section class="panel">
@@ -1353,7 +1470,13 @@ class ReportEmitter:
         top_violations = report_data.get("top_violations", [])
         if top_violations:
             vtable = wandb.Table(
-                columns=["invariant", "relation_type", "occurrences", "first_step"]
+                columns=[
+                    "invariant",
+                    "relation_type",
+                    "occurrences",
+                    "first_step",
+                    "last_step",
+                ]
             )
             for v in top_violations:
                 vtable.add_data(
@@ -1361,6 +1484,7 @@ class ReportEmitter:
                     v.get("relation", ""),
                     v.get("count", 0),
                     v.get("first_step"),
+                    v.get("last_step"),
                 )
             wandb.log({"violations": vtable})
 
@@ -1368,8 +1492,13 @@ class ReportEmitter:
         first_steps = [
             v["first_step"] for v in top_violations if v.get("first_step") is not None
         ]
+        last_steps_wandb = [
+            v["last_step"] for v in top_violations if v.get("last_step") is not None
+        ]
         if first_steps:
             run.summary["violations/first_step"] = min(first_steps)
+        if last_steps_wandb:
+            run.summary["violations/last_step"] = max(last_steps_wandb)
         run.summary["violations/distinct_invariants"] = len(top_violations)
 
         # --- violations_summary.json as versioned artifact ---
@@ -1463,8 +1592,13 @@ class ReportEmitter:
         first_steps = [
             v["first_step"] for v in top_violations if v.get("first_step") is not None
         ]
+        last_steps = [
+            v["last_step"] for v in top_violations if v.get("last_step") is not None
+        ]
         if first_steps:
             mlflow.log_metric("violations_first_step", min(first_steps))
+        if last_steps:
+            mlflow.log_metric("violations_last_step", max(last_steps))
         mlflow.log_metric("violations_distinct_invariants", len(top_violations))
 
         # --- violations table as JSON artifact ---
