@@ -17,6 +17,7 @@ class Checker_data:
         self.check_queue = queue.Queue()
         self.varid_map = {}
         self.type_map = {}
+        self.attr_map: dict[str, dict[str, set]] = {}
         self.pt_map = {}
         self.process_to_vars = {}
         self.args_map = {}
@@ -189,7 +190,7 @@ def query_var_changes_within_time_and_process(
     """Extract all variable change events from the trace, within a specific time range and process."""
     events = []
     with checker_data.lock:
-        for varid in checker_data.type_map[var_type]:
+        for varid in checker_data.attr_map.get(var_type, {}).get(attr_name, set()):
             for i in reversed(range(1, len(checker_data.varid_map[varid][attr_name]))):
 
                 change_time = checker_data.varid_map[varid][attr_name][

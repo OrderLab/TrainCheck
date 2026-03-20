@@ -1315,35 +1315,35 @@ Defaulting to skip the var preconditon check for now.
 
         if isinstance(child_param, (VarTypeParam, VarNameParam)):
             events = []
+            attr_name = child_param.attr_name
             with checker_data.lock:
-                if child_param.var_type in checker_data.type_map:
-                    for varid in checker_data.type_map[child_param.var_type]:
-                        if isinstance(child_param, VarNameParam):
-                            if varid.var_name != child_param.var_name:
-                                continue
-                            attr_name = child_param.attr_name
-                        elif isinstance(child_param, VarTypeParam):
-                            attr_name = child_param.attr_name
-                        if attr_name not in checker_data.varid_map[varid]:
+                candidate_varids = checker_data.attr_map.get(
+                    child_param.var_type, {}
+                ).get(attr_name, set())
+                if isinstance(child_param, VarNameParam):
+                    candidate_varids = {
+                        v
+                        for v in candidate_varids
+                        if v.var_name == child_param.var_name
+                    }
+                for varid in candidate_varids:
+                    for i in reversed(
+                        range(1, len(checker_data.varid_map[varid][attr_name]))
+                    ):
+                        change_time = checker_data.varid_map[varid][attr_name][
+                            i
+                        ].liveness.start_time
+                        if change_time <= pre_time:
+                            break
+                        if change_time > post_time:
                             continue
-                        for i in reversed(
-                            range(1, len(checker_data.varid_map[varid][attr_name]))
-                        ):
-
-                            change_time = checker_data.varid_map[varid][attr_name][
-                                i
-                            ].liveness.start_time
-                            if change_time <= pre_time:
-                                break
-                            if change_time > post_time:
-                                continue
-                            new_state = checker_data.varid_map[varid][attr_name][i]
-                            old_state = checker_data.varid_map[varid][attr_name][i - 1]
-                            if new_state.value == old_state.value:
-                                continue
-                            if new_state.liveness.end_time is None:
-                                new_state = copy.deepcopy(new_state)
-                            events.append((old_state, new_state))
+                        new_state = checker_data.varid_map[varid][attr_name][i]
+                        old_state = checker_data.varid_map[varid][attr_name][i - 1]
+                        if new_state.value == old_state.value:
+                            continue
+                        if new_state.liveness.end_time is None:
+                            new_state = copy.deepcopy(new_state)
+                        events.append((old_state, new_state))
 
             if check_relation_first:
                 for event in events:
