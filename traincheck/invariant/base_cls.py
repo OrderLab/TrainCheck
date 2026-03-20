@@ -1945,13 +1945,13 @@ def _short_api_name(full_name: str) -> str:
 
 
 def _display_attr_name(attr_name: str) -> str:
-    """Strip TrainCheck-internal proxy bookkeeping prefix/suffix for display.
+    """Strip TrainCheck-internal proxy bookkeeping prefix for display.
 
-    '_TRAINCHECK_grad_ID' → 'grad'
+    '_TRAINCHECK_grad_ID' → 'grad_ID'
     'dtype' → 'dtype'  (unchanged)
     """
-    if attr_name.startswith("_TRAINCHECK_") and attr_name.endswith("_ID"):
-        return attr_name[len("_TRAINCHECK_") : -len("_ID")]
+    if attr_name.startswith("_TRAINCHECK_"):
+        return attr_name[len("_TRAINCHECK_") :]
     return attr_name
 
 
