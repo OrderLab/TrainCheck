@@ -1317,9 +1317,18 @@ Defaulting to skip the var preconditon check for now.
             events = []
             attr_name = child_param.attr_name
             with checker_data.lock:
-                candidate_varids = checker_data.attr_map.get(
-                    child_param.var_type, {}
-                ).get(attr_name, set())
+                # No variables of this type/attr have been observed yet — not yet checkable.
+                if child_param.var_type not in checker_data.attr_map:
+                    return OnlineCheckerResult(
+                        trace=None, invariant=inv, check_passed=True
+                    )
+                if attr_name not in checker_data.attr_map[child_param.var_type]:
+                    return OnlineCheckerResult(
+                        trace=None, invariant=inv, check_passed=True
+                    )
+                candidate_varids = checker_data.attr_map[child_param.var_type][
+                    attr_name
+                ]
                 if isinstance(child_param, VarNameParam):
                     candidate_varids = {
                         v
@@ -1327,6 +1336,13 @@ Defaulting to skip the var preconditon check for now.
                         if v.var_name == child_param.var_name
                     }
                 for varid in candidate_varids:
+                    # attr_map guarantees attr_name is in varid_map[varid]; fail loudly
+                    # if the population logic ever violates this invariant.
+                    assert attr_name in checker_data.varid_map[varid], (
+                        f"attr_map/varid_map inconsistency: {varid} is in "
+                        f"attr_map[...][{attr_name}] but "
+                        f"varid_map[{varid}] has no '{attr_name}' entry"
+                    )
                     for i in reversed(
                         range(1, len(checker_data.varid_map[varid][attr_name]))
                     ):

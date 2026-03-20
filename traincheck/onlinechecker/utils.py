@@ -188,9 +188,17 @@ def query_var_changes_within_time_and_process(
     checker_data: Checker_data,
 ) -> list:
     """Extract all variable change events from the trace, within a specific time range and process."""
-    events = []
+    events: list = []
     with checker_data.lock:
-        for varid in checker_data.attr_map.get(var_type, {}).get(attr_name, set()):
+        if var_type not in checker_data.attr_map:
+            return events
+        if attr_name not in checker_data.attr_map[var_type]:
+            return events
+        for varid in checker_data.attr_map[var_type][attr_name]:
+            assert attr_name in checker_data.varid_map[varid], (
+                f"attr_map/varid_map inconsistency: {varid} in "
+                f"attr_map[{var_type}][{attr_name}] but not in varid_map"
+            )
             for i in reversed(range(1, len(checker_data.varid_map[varid][attr_name]))):
 
                 change_time = checker_data.varid_map[varid][attr_name][
