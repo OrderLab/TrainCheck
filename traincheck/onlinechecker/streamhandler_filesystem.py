@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from watchdog.events import FileCreatedEvent, FileSystemEventHandler
 from watchdog.observers.polling import PollingObserver
@@ -380,10 +381,27 @@ def run_stream_monitor(traces, trace_folders, checker_data: Checker_data):
             observer.schedule(creation_handler, path=folder_abs, recursive=False)
 
             # Pick up any trace files that already exist in the folder.
-            for file in sorted(os.listdir(trace_folder)):
-                if file.startswith("trace_") or file.endswith("proxy_log.json"):
-                    file_path = os.path.join(folder_abs, file)
-                    creation_handler.attach(file_path)
+            existing_files = [
+                os.path.join(folder_abs, file)
+                for file in sorted(os.listdir(trace_folder))
+                if file.startswith("trace_") or file.endswith("proxy_log.json")
+            ]
+
+            # Create handlers in parallel — each reads and processes the file's
+            # initial content, which is the slow part (can be minutes per file).
+            def _make_handler(fp):
+                return fp, StreamLogHandler(fp, checker_data)
+
+            with ThreadPoolExecutor() as executor:
+                futures = {
+                    executor.submit(_make_handler, fp): fp for fp in existing_files
+                }
+                for future in as_completed(futures):
+                    fp, handler = future.result()
+                    creation_handler.seen_files.add(fp)
+                    observer.schedule(
+                        handler, path=os.path.dirname(fp), recursive=False
+                    )
 
     observer.start()
     return observer
