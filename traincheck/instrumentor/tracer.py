@@ -523,7 +523,7 @@ def get_module_path_from_file_path(file_path: str, root_module: str) -> str | No
     ):
         return None
     # get the path of the module from the file path
-    path_after_root_module = file_path.split(f"/{root_module}/")[1].split(".py")[0]
+    path_after_root_module = file_path.rsplit(f"/{root_module}/", 1)[-1].split(".py")[0] 
     module_path = f"{root_module}.{path_after_root_module}".replace("/", ".")
     return module_path
 
