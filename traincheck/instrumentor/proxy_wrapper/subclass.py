@@ -279,7 +279,8 @@ orig_setattr = torch.nn.Module.__setattr__
 
 @functools.wraps(orig_setattr)
 def wrapped_setattr(self, name, value):
-    hook = getattr(self, SUBCLASS_HOOK_KEY, None)
+    #hook = getattr(self, SUBCLASS_HOOK_KEY, None)
+    hook = self.__dict__.get(SUBCLASS_HOOK_KEY)
     if hook is not None:
         # If hook returns True, skip the original setattr; otherwise continue.
         hook(self, name, value)

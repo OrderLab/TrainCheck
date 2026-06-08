@@ -296,7 +296,7 @@ def dump_tensor(value):
             param_list = tensor_stats(value)
         elif tensor_dump_format["dump_tensor_hash"]:
             if value.is_cuda:
-                param_list = tensor_hash(value, with_parallel=True, with_cuda=True)
+                param_list = tensor_hash(value, with_parallel=True, with_cuda=False)
             else:
                 # TODO: support quick hashing methods for MPS tensors
                 param_list = tensor_hash(value, with_parallel=True, with_cuda=False)
