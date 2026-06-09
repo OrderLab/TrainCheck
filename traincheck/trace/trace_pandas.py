@@ -558,7 +558,9 @@ class TracePandas(Trace):
             return self.column_dtypes_cached[column_name]
 
         filtered_values = self.events[column_name].dropna()
-        filtered_values = filtered_values[filtered_values != MD_NONE()]
+        #filtered_values = filtered_values[filtered_values != MD_NONE()]
+        if filtered_values.dtype == object:
+            filtered_values = filtered_values[filtered_values != MD_NONE()]
 
         if filtered_values.empty:
             self.column_dtypes_cached[column_name] = MD_NONE

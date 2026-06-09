@@ -634,6 +634,14 @@ class Instrumentor:
 
         global IS_INSTRUMENTING
         IS_INSTRUMENTING = True
+
+        try:
+            import torch.utils._device as _tc_torch_device
+
+            _tc_torch_device._device_constructors()
+        except Exception:
+            pass
+
         visited_file_paths: set[str] = set()
 
         first_pass_instrumented_count = 0
