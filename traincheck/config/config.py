@@ -21,6 +21,7 @@ INSTR_MODULES_TO_SKIP = [
     "torch.fx",
     "torch._dynamo",
     "torch._sources",  # FIXME: cannot handle this module, instrumenting it will lead to exceptions: TypeError: module, class, method, function, traceback, frame, or code object was expected, got builtin_function_or_method
+    "torchtitan.trainer.Trainer.train_step",
     # "torch.autocast",
     # "torch.amp",
     # "torch.matmul",
