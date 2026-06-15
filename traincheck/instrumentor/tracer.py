@@ -4,6 +4,7 @@ from importlib.util import find_spec
 import inspect
 import os
 import pathlib
+import sys
 import threading
 import time
 import traceback
@@ -168,6 +169,14 @@ def function_wrapper(
 
     if config.DISABLE_WRAPPER:
         # TODO: all meta vars update should be done outside the function_wrapper (e.g. step increment) by applying a separate wrapper
+        return original_function(*args, **kwargs)
+
+    if sys.meta_path is None:
+        # Interpreter is shutting down: the import system is already torn down,
+        # so any serialization path that imports a module would raise
+        # "ImportError: sys.meta_path is None". Instrumented functions can still
+        # be invoked from finalizers (e.g. CheckpointManager.__del__), so skip
+        # tracing here and just delegate to the original function.
         return original_function(*args, **kwargs)
 
     if COLLECT_OVERHEAD_METRICS:
