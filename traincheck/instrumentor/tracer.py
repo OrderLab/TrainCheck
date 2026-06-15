@@ -525,7 +525,7 @@ def get_module_path_from_file_path(file_path: str, root_module: str) -> str | No
         return None
 
     # get the location of the root module
-    spec = importlib.find_spec(root_module)
+    spec = find_spec(root_module)
     if spec is None or spec.origin is None:
         # raise error
         raise ImportError(f"Cannot locate root module {root_module!r}")
