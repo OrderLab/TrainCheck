@@ -533,8 +533,8 @@ def get_module_path_from_file_path(file_path: str, root_module: str) -> str | No
     # get the path to the root module
     root_module_path = pathlib.PurePath(spec.origin).parent
 
-    # parse file_path into a PurePath object
-    file_path_obj = pathlib.PurePath(file_path).resolve()
+    # parse file_path into a Path object (requires file I/O)
+    file_path_obj = pathlib.Path(file_path).resolve()
 
     try:
         # remove the root module from file_path_obj
