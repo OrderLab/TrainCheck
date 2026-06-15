@@ -1,7 +1,9 @@
 import functools
 import importlib
+from importlib.util import find_spec
 import inspect
 import os
+import pathlib
 import threading
 import time
 import traceback
@@ -522,11 +524,31 @@ def get_module_path_from_file_path(file_path: str, root_module: str) -> str | No
         or f"/{root_module}/" not in file_path
     ):
         return None
-    # get the path of the module from the file path
-    path_after_root_module = file_path.rsplit(f"/{root_module}/", 1)[-1].split(".py")[0] 
-    module_path = f"{root_module}.{path_after_root_module}".replace("/", ".")
-    return module_path
 
+    # get the location of the root module
+    spec = find_spec(root_module)
+    if spec is None or spec.origin is None:
+        # raise error
+        raise ImportError(f"Cannot locate root module {root_module!r}")
+    
+    # get the path to the root module
+    root_module_path = pathlib.PurePath(spec.origin).parent
+
+    # parse file_path into a Path object (requires file I/O)
+    file_path_obj = pathlib.Path(file_path).resolve()
+
+    try:
+        # remove the root module from file_path_obj
+        relative_path = file_path_obj.relative_to(root_module_path)
+    except ValueError:
+        # file_path is not under root module
+        raise ImportError(f"File path is not under root module {root_module!r}")
+    
+    # strip off .py
+    module_name = str(relative_path.with_suffix(''))
+
+    # replace / with .
+    return f"{root_module}.{module_name.replace('/', '.')}"
 
 class Instrumentor:
     def __init__(
