@@ -42,10 +42,14 @@ nav:
   - Paper: https://www.usenix.org/conference/osdi25/presentation/jiang
   - Documentation:
     - "Installation Guide": installation-guide.md
-    - "5 Minute Quick Start": 5-min-tutorial.md
+    - "Use TrainCheck": usage-guide.md
+    - "5-Minute Tutorial": 5-min-tutorial.md
+    - "CLI Reference":
+      - "Collect Traces": instr.md
+      - "Infer Invariants": infer.md
+      - "Check Traces": check.md
     - "Success Stories": successful-stories.md
     - "Technical Documentation": technical-doc.md
-    - "Usage Tips": usage-guide.md
     - "Performance Benchmarks": benchmarks.md
 
 markdown_extensions:

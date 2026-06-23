@@ -2,73 +2,102 @@
 <picture>
   <img alt="TrainCheck logo" width="55%" src="https://raw.githubusercontent.com/OrderLab/TrainCheck/main/docs/assets/images/traincheck_logo.png">
 </picture>
-<h1>TrainCheck: Invariant Checking & Observability for AI Training</h1>
+<h1>TrainCheck: Invariant Checking for AI Training</h1>
 
 [![Chat on Discord](https://img.shields.io/badge/Discord-Join%20us-5865F2?logo=discord&logoColor=white)](https://discord.gg/ZvYewjsQ9D)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OrderLab/TrainCheck)
 
 </div>
 
+TrainCheck catches silent training bugs by learning what a healthy run does, then checking a new run against those learned invariants. It works by tracing PyTorch API calls and model state changes, so you can inspect training behavior before a loss curve or final metric tells you something went wrong.
 
-**Stop flying blind.** TrainCheck gives you deep visibility into your training dynamics, continuously validating correctness and stability where standard metrics fail.
+## Install
 
----
-
-### Why TrainCheck?
-
-✅ **Continuous Invariant Checking**
-TrainCheck validates the "physics" of your training process in real-time. It ensures your model adheres to learned invariants—such as gradient norms, tensor shapes, and update magnitudes—effectively catching silent corruption before it wastes GPU hours.
-
-🚀 **Holistic Observability**
-Traditional tools only show you *if* your model crashed. TrainCheck shows you *why* it's degrading, analyzing internal state dynamics that loss curves miss.
-
-🧠 **Zero-Config Validation**
-No manual tests required. TrainCheck automatically learns the invariants of your specific model from healthy runs and flags deviations instantly.
-
-⚡ **Universal Compatibility**
-Drop-in support for PyTorch, Hugging Face, and industry-class workloads using DeepSpeed/Megatron and more.
-
----
-## Installation
-
-Install TrainCheck in the Python environment where you will run your training script:
+Install TrainCheck in the same Python environment that runs your training script:
 
 ```bash
 pip3 install traincheck
 ```
 
-For detailed setup (CUDA configuration, UV, conda environments), see the [Installation Guide](https://orderlab.io/TrainCheck/installation-guide/).
+For CUDA, conda, and source-install details, see the [Installation Guide](https://orderlab.io/TrainCheck/installation-guide/).
 
+## Use TrainCheck
 
-### How It Works
+TrainCheck has four main steps.
 
-1. **Instrument**: We wrap your training loop with lightweight probes—no code changes needed.
-2. **Learn**: We analyze correct runs to infer *invariants* (mathematical rules of healthy training).
-3. **Check**: We monitor new runs in real-time, verifying every step against learned invariants to catch silent logic bugs and hardware faults.
+### 1. Collect a Reference Trace
 
-![Workflow](https://raw.githubusercontent.com/OrderLab/TrainCheck/main/docs/assets/images/workflow.png)
+Run `traincheck-collect` on a known-good training script. This should be a short run that covers the training behavior you want TrainCheck to learn.
 
-## 🔥 Try TrainCheck
+```bash
+traincheck-collect \
+  --pyscript reference.py \
+  --models-to-track model \
+  --output-dir reference_trace
+```
 
-Work through [5‑Minute Experience with TrainCheck](./docs/5-min-tutorial.md). You’ll learn how to:
-   - Instrument a training script and collect a trace  
-   - Automatically infer invariants  
-   - Uncover silent bugs in the training script
+### 2. Infer Invariants
 
-## Documentation
+Turn the reference trace into invariants:
 
-- **[Installation Guide](https://orderlab.io/TrainCheck/installation-guide/)**
-- **[Usage Guide: Scenarios and Limitations](https://orderlab.io/TrainCheck/usage-guide/)**
-- **[TrainCheck Technical Doc](https://orderlab.io/TrainCheck/technical-doc/)**
+```bash
+traincheck-infer -f reference_trace -o invariants.json
+```
+
+### 3. Collect a Target Trace
+
+Run the target training script with the inferred invariants. Passing `--invariants` lets TrainCheck trace only the APIs and variables needed for those checks.
+
+```bash
+traincheck-collect \
+  --pyscript target.py \
+  --models-to-track model \
+  --invariants invariants.json \
+  --output-dir target_trace
+```
+
+For long target runs, trace fewer steps:
+
+```bash
+traincheck-collect \
+  --pyscript target.py \
+  --models-to-track model \
+  --invariants invariants.json \
+  --sampling-interval 10 \
+  --warm-up-steps 10 \
+  --output-dir target_trace
+```
+
+### 4. Check the Target Run
+
+For live checking, start `traincheck-onlinecheck` while the target run is writing traces:
+
+```bash
+traincheck-onlinecheck -f target_trace -i invariants.json
+```
+
+The easier offline path is to wait for trace collection to finish, then run:
+
+```bash
+traincheck-check -f target_trace -i invariants.json
+```
+
+Both checkers write a results directory with failure logs and a `report.html` summary.
+
+## Learn More
+
+- [Use TrainCheck](https://orderlab.io/TrainCheck/usage-guide/) explains the full workflow and output files.
+- [5-Minute Tutorial](./docs/5-min-tutorial.md) walks through a real silent training issue.
+- [Installation Guide](https://orderlab.io/TrainCheck/installation-guide/) covers environment setup.
+- [Technical Documentation](https://orderlab.io/TrainCheck/technical-doc/) describes invariants, trace representation, and implementation details.
 
 ## Status
 
-TrainCheck is under active development. Please join our 💬 [Discord server](https://discord.gg/VwxpJDvB) or file a GitHub issue for support. You can also reach the team at [traincheck@umich.edu](mailto:traincheck@umich.edu).
-We welcome feedback and contributions from early adopters.
+TrainCheck is under active development. Please join our [Discord server](https://discord.gg/VwxpJDvB), file a GitHub issue, or email [traincheck@umich.edu](mailto:traincheck@umich.edu).
 
 ## Contributing
 
-We welcome and value any contributions and collaborations. Please check out [Contributing to TrainCheck](./CONTRIBUTING.md) for how to get involved.
+We welcome contributions. See [Contributing to TrainCheck](./CONTRIBUTING.md) for setup and contribution guidance.
 
 ## License
 
@@ -77,6 +106,7 @@ TrainCheck is licensed under the [Apache License 2.0](./LICENSE).
 ## Citation
 
 If TrainCheck is relevant to your work, please cite our paper:
+
 ```bib
 @inproceedings{TrainCheckOSDI2025,
   author = {Jiang, Yuxuan and Zhou, Ziming and Xu, Boyu and Liu, Beijie and Xu, Runhui and Huang, Peng},
@@ -90,7 +120,6 @@ If TrainCheck is relevant to your work, please cite our paper:
 }
 ```
 
-
 ## Artifact Evaluation
 
-🕵️‍♀️ OSDI AE members, please see [TrainCheck AE Guide](./docs/ae.md).
+OSDI AE members should use the [TrainCheck AE Guide](./docs/ae.md).

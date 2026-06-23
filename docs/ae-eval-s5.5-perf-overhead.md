@@ -21,7 +21,7 @@ This evaluation measures the runtime overhead introduced by TrainCheck’s instr
     - Located in [overhead-e2e](../eval_scripts/perf_benchmark/overhead-e2e)
 
 - The deployed 100 invariants:
-    [eval_scripts/perf_benchmark/overhead-e2e/sampled_100_invariants.json](../eval_scripts/perf_benchmark/overhead-e2e/sampled_100_invariants.json)
+    `eval_scripts/perf_benchmark/overhead-e2e/sampled_100_invariants.json`
 
 
 ## 🛠 How to Run
