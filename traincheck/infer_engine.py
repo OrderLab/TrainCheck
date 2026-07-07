@@ -19,6 +19,7 @@ from traincheck.invariant import (
     find_precondition,
     relation_pool,
 )
+from traincheck.parallel import config_snapshot, get_worker_traces, worker_init
 from traincheck.trace import MDNONEJSONEncoder, select_trace_implementation
 from traincheck.utils import register_custom_excepthook
 
@@ -30,39 +31,10 @@ logger = logging.getLogger(__name__)
 random.seed(0)
 
 
-# === parallel inference workers ===
+# === parallel inference worker tasks ===
 # Used by the parallel paths in both generate_hypothesis and infer_precondition.
-# Each worker process keeps its own copy of the traces in this module global so that
-# tasks reuse them instead of re-pickling the (potentially large) traces per task.
-_WORKER_TRACES: list | None = None
-
-
-def _config_snapshot() -> dict:
-    """CLI-overridable config values that must be propagated to workers.
-
-    These are set in main() at runtime; workers started with the 'spawn' method
-    begin from a fresh interpreter and would otherwise see only the module
-    defaults (harmless under 'fork'). Add any future CLI-overridable config here.
-    """
-    return {
-        "ENABLE_PRECOND_SAMPLING": config.ENABLE_PRECOND_SAMPLING,
-        "PRECOND_SAMPLING_THRESHOLD": config.PRECOND_SAMPLING_THRESHOLD,
-    }
-
-
-def _worker_init(traces: list, config_snapshot: dict) -> None:
-    """Initializer run once per worker process.
-
-    Stores the traces in a module global (one copy per worker, not per task) and
-    restores CLI-overridable config values (see _config_snapshot). Also suppresses
-    the per-example inner progress bars, otherwise every worker would fight over
-    the terminal.
-    """
-    global _WORKER_TRACES
-    _WORKER_TRACES = traces
-    for name, value in config_snapshot.items():
-        setattr(config, name, value)
-    _tc_utils._suppress_inner_progress = True
+# Workers hold the traces in traincheck.parallel's module global (loaded once per
+# worker via worker_init, not re-pickled per task).
 
 
 def _genhypo_worker_task(task: tuple):
@@ -72,8 +44,8 @@ def _genhypo_worker_task(task: tuple):
     deterministic order so the result matches the serial path.
     """
     trace_idx, relation = task
-    assert _WORKER_TRACES is not None, "Worker traces were not initialized"
-    return trace_idx, relation, relation.generate_hypothesis(_WORKER_TRACES[trace_idx])
+    traces = get_worker_traces()
+    return trace_idx, relation, relation.generate_hypothesis(traces[trace_idx])
 
 
 def _precond_worker_task(hypothesis: Hypothesis):
@@ -82,8 +54,7 @@ def _precond_worker_task(hypothesis: Hypothesis):
     Returns just the precondition (picklable); the parent applies it to its own
     copy of the hypothesis.
     """
-    assert _WORKER_TRACES is not None, "Worker traces were not initialized"
-    return find_precondition(hypothesis, _WORKER_TRACES)
+    return find_precondition(hypothesis, get_worker_traces())
 
 
 class InferEngine:
@@ -247,8 +218,8 @@ class InferEngine:
             pbar.set_description("generating")
             with ProcessPoolExecutor(
                 max_workers=self.num_workers,
-                initializer=_worker_init,
-                initargs=(self.traces, _config_snapshot()),
+                initializer=worker_init,
+                initargs=(self.traces, config_snapshot()),
             ) as executor:
                 future_to_task = {
                     executor.submit(_genhypo_worker_task, task): task for task in tasks
@@ -359,8 +330,8 @@ class InferEngine:
                 pbar.set_description("0 done · 0 failed")
                 with ProcessPoolExecutor(
                     max_workers=self.num_workers,
-                    initializer=_worker_init,
-                    initargs=(self.traces, _config_snapshot()),
+                    initializer=worker_init,
+                    initargs=(self.traces, config_snapshot()),
                 ) as executor:
                     future_to_hypo = {
                         executor.submit(_precond_worker_task, hypothesis): hypothesis
