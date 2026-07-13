@@ -1,0 +1,95 @@
+:root {
+  --md-primary-fg-color: #3f51b5; /* Indigo 500 */
+  --md-primary-fg-color--light: #7986cb; /* Indigo 300 */
+  --md-primary-fg-color--dark: #303f9f; /* Indigo 700 */
+}
+
+/* Landing Page Hero Section */
+.md-content__inner.md-typeset {
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.hero {
+    text-align: center;
+    padding: 3rem 1rem;
+    margin-bottom: 2rem;
+    color: var(--md-default-fg-color);
+}
+
+.hero h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--md-primary-fg-color);
+    line-height: 1.2;
+}
+
+.hero p {
+    font-size: 1.2rem;
+    color: var(--md-default-fg-color--light);
+    max-width: 800px;
+    margin: 0 auto 2rem;
+    line-height: 1.6;
+}
+
+.hero .md-button {
+    font-size: 1.1rem;
+    padding: 0.8rem 1.5rem;
+    margin: 0.5rem;
+    border-radius: 4px; /* Slightly rounded */
+    font-weight: 600;
+}
+
+.hero .md-button--primary {
+    background-color: var(--md-primary-fg-color);
+    color: white;
+    border: none;
+}
+
+.hero .md-button--primary:hover {
+    background-color: var(--md-primary-fg-color--dark);
+}
+
+/* Feature Grid (Simple Flexbox for "Why TrainCheck") */
+.feature-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.feature-item {
+    flex: 1 1 300px; /* Min width 300px, grow/shrink */
+    max-width: 400px;
+    padding: 1.5rem;
+    background: var(--md-default-bg-color); /* Match theme bg */
+    border: 1px solid var(--md-default-fg-color--lighter);
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.feature-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px rgba(0,0,0,0.1);
+}
+
+.feature-item h3 {
+    margin-top: 0;
+    color: var(--md-primary-fg-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Hide Sidebar on Home Page (controlled by .home-page class on body/main if possible, 
+   but mkdocs-material handles 'hide: navigation' frontmatter natively. 
+   This styling handles content width centering when sidebar is hidden) */
+
+@media screen and (min-width: 76.25em) {
+    .md-content {
+        max-width: 100%; /* Use full width for hero */
+    }
+}
