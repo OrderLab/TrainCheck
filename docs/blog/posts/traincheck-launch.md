@@ -387,7 +387,7 @@ larger-scale training jobs remains active work. We are also developing an
 invariant hub so that teams can reuse validated invariants rather than inferring
 every set from scratch.
 
-## Practical Uses
+<!-- ## Practical Uses
 
 TrainCheck can support several stages of the training workflow.
 
@@ -407,9 +407,48 @@ The same workflow can serve as a behavioral regression check when teams change
 framework versions, distributed configurations, hardware, or training
 infrastructure. More broadly, execution-level validation helps separate
 implementation failures from failed research hypotheses, giving researchers
-stronger evidence for interpreting experimental results.
+stronger evidence for interpreting experimental results. -->
 
-## Current Scope
+## Practical Uses
+
+TrainCheck is most useful when a team has some evidence of correct behavior and wants to determine whether a new execution still preserves it.
+
+### Diagnose a suspicious training run
+
+When a run plateaus, diverges, or underperforms unexpectedly, aggregate metrics often leave many plausible explanations. Researchers can infer invariants from a known-good or closely related run, check the suspicious execution, and inspect the first violated relationships. As the AC-2665 case shows, several related violations can narrow a broad symptom to a concrete implementation mismatch.
+
+### Validate changes to a training pipeline
+
+Framework upgrades, precision changes, new distributed configurations, optimizer implementations, and hardware migrations can subtly alter execution. TrainCheck can reuse invariants from a working pipeline as behavioral regression checks for the modified environment.
+
+### Guard expensive training runs
+
+Teams can deploy selected high-confidence invariants alongside existing training dashboards. TrainCheck can report violations while the job is running and export results through OpenTelemetry, Weights & Biases, MLflow, or TensorBoard. A researcher or external policy can then decide whether to continue, inspect, or stop the run.
+
+These workflows place TrainCheck between conventional tests and aggregate monitoring. Tests validate anticipated cases before execution, while dashboards summarize outcomes during execution. Training invariants provide evidence that the running program continues to preserve expected relationships.
+
+## Looking Ahead
+
+TrainCheck was originally developed for large-scale pre-training, where long-running distributed state makes early detection especially valuable. As models, training runs, and development cycles grow more complex, silent errors can consume substantial compute and distort experimental conclusions before becoming visible in aggregate metrics.
+
+The future of ML development is exciting, but it also raises the cost of relying on high-level monitoring alone. We believe execution-level evidence will become increasingly necessary in two areas.
+
+**1. New training paradigms will require stronger validation.**  
+We are particularly interested in reinforcement learning. Modern RL pipelines couple rollout generation, reward computation, policy updates, distributed workers, and inference engines. Correctness depends on relationships across multiple asynchronous components, not only within a single training loop.
+
+This creates new failure modes, including stale policies, training–inference mismatches, inconsistent state across workers, and errors that emerge only through interactions among several stages. Loss curves and final rewards may reveal that something went wrong, but often only after the failure has propagated. Training invariants could provide earlier and more direct evidence that these components continue to exchange and update state as intended.
+
+**2. New ways of conducting ML R&D will change what validation must provide.**  
+Autonomous research systems increasingly launch experiments, monitor results, form hypotheses, and decide what to try next. Yet many still rely on the same high-level signals used by human ML engineers, such as loss curves, benchmark scores, and resource metrics.
+
+AI agents change the operating point of this workflow. They can launch more experiments, inspect more execution detail, and make decisions faster than human researchers. This increases both the risk of scaling an undetected error and the value of richer execution evidence. Instrumentation that may feel too detailed for a manual workflow can become practical when an agent can interpret it continuously and act on it immediately.
+
+A research agent could use TrainCheck’s instrumentation to inspect API-level behavior, detect invariant violations, quarantine an invalid experiment, reject an unreliable result, or require further validation before updating its hypothesis and launching the next run.
+
+In such a future, execution-level validation is not merely a debugging convenience. It becomes part of the foundation for trusting increasingly complex training systems and increasingly autonomous ML development.
+
+
+<!-- ## Current Scope
 
 TrainCheck currently supports Python and PyTorch eager-mode execution, with
 `torch.compile` disabled. It uses tensor hashes for equality checks rather than
@@ -427,7 +466,7 @@ guidance](https://github.com/OrderLab/TrainCheck/blob/main/docs/infer.md))
 
 We are continuing to expand compatibility, evaluate larger training workloads,
 and explore how execution-level validation can support reinforcement learning,
-inference pipelines, and autonomous research agents.
+inference pipelines, and autonomous research agents. -->
 
 ## Try TrainCheck
 
