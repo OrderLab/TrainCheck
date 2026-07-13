@@ -11,6 +11,7 @@ theme:
     - navigation.instant
     - navigation.tracking
     - navigation.expand
+    - navigation.indexes
     - navigation.top
     - toc.integrate
     - search.suggest
@@ -37,9 +38,16 @@ theme:
 extra_css:
   - stylesheets/extra.css
 
+plugins:
+  - search
+  - blog:
+      draft: false
+
 nav:
   - Home: index.md
   - Paper: https://www.usenix.org/conference/osdi25/presentation/jiang
+  - Blog:
+    - blog/index.md
   - Documentation:
     - "Installation Guide": installation-guide.md
     - "Use TrainCheck": usage-guide.md
