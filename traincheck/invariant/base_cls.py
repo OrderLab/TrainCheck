@@ -181,6 +181,28 @@ class Arguments:
                         and param.default != inspect.Parameter.empty
                     ):
                         self.arguments[param_name] = var_to_serializable(param.default)
+    
+    def __getstate__(self) -> dict:
+        # ``signature`` is a cached ``inspect.Signature`` derived from
+        # ``func_name``. It is not picklable -- its ``_parameters`` is a
+        # ``mappingproxy`` and its return annotation may be a
+        # ``types.UnionType`` or a ``typing.ForwardRef`` that wraps a code
+        # object -- and it is redundant state. Drop it here and re-derive it in
+        # ``__setstate__`` so that ``Arguments`` (and the ``APIParam`` /
+        # ``Hypothesis`` objects that embed it, e.g. from APIContainRelation)
+        # can cross the ProcessPoolExecutor boundary used by the parallel
+        # infer/check paths.
+        state = self.__dict__.copy()
+        state["signature"] = None
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        self.__dict__.update(state)
+        # Re-derive the dropped signature so an unpickled Arguments is identical
+        # to a freshly constructed one. ``load_function_signature`` is cached and
+        # returns None when the function cannot be resolved, matching __init__.
+        if self.__dict__.get("signature") is None:
+            self.signature = load_function_signature(self.func_name)
 
     def to_dict(self) -> dict:
         return {
