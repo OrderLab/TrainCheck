@@ -3,6 +3,7 @@ import datetime
 import json
 import logging
 import os
+import queue
 import signal
 import sys
 import time
@@ -35,6 +36,7 @@ RELATION_TOTALS: dict[str, int] = {}
 REPORTER: ReportEmitter | None = None
 REPORT_GENERATED_AT = ""
 REPORT_OUTPUT_DIR = ""
+VERBOSE = False
 
 ORIGINAL_SIGINT_HANDLER = signal.getsignal(signal.SIGINT)
 ORIGINAL_SIGTERM_HANDLER = signal.getsignal(signal.SIGTERM)
@@ -217,8 +219,15 @@ def _emit_report(force: bool = False):
 
 
 def check(
-    invariants, traces, trace_folders, output_dir: str, check_relation_first: bool
+    invariants,
+    traces,
+    trace_folders,
+    output_dir: str,
+    check_relation_first: bool,
+    verbose: bool = False,
 ):
+    global VERBOSE
+    VERBOSE = verbose
     global OBSERVER
     global NUM_VIOLATIONS
     global FAILED_INV
@@ -254,12 +263,53 @@ def check(
 
     _emit_report(force=True)
 
+    # --- verbose progress reporting ---------------------------------------
+    # The online checker is designed for a *live* trace and never terminates on
+    # its own (the queue blocks forever once drained). Verbose mode prints
+    # periodic progress and, crucially, tells the user when the trace appears
+    # drained so they know it is safe to Ctrl-C to finalize the report.
+    VERBOSE_PROGRESS_EVERY_S = 5.0
+    VERBOSE_IDLE_TIMEOUT_S = 5.0
+    records_processed = 0
+    last_progress = time.monotonic()
+    idle_notified = False
+
+    def _vprint(msg: str) -> None:
+        print(f"[online-checker] {msg}", flush=True)
+
+    if verbose:
+        n_folders = len(trace_folders) if trace_folders else 0
+        n_files = len(traces) if traces else 0
+        _vprint(
+            f"watching {n_folders} folder(s) / {n_files} file(s); "
+            f"loaded {TOTAL_INVARIANTS} invariants. "
+            f"Processing... (Ctrl-C to finalize the report)"
+        )
+
     while True:
-        trace_record = checker_data.check_queue.get()
+        try:
+            trace_record = checker_data.check_queue.get(
+                timeout=VERBOSE_IDLE_TIMEOUT_S if verbose else None
+            )
+        except queue.Empty:
+            # verbose-only: queue drained with no new data for a while.
+            if verbose and not idle_notified:
+                _vprint(
+                    f"idle — no new trace data for {VERBOSE_IDLE_TIMEOUT_S:.0f}s. "
+                    f"Processed {records_processed} records, "
+                    f"step={CURRENT_STEP}, stage={CURRENT_STAGE}, "
+                    f"{NUM_VIOLATIONS} violation(s), "
+                    f"{len(TRIGGERED_INV)}/{TOTAL_INVARIANTS} invariants triggered. "
+                    f"Trace appears drained; press Ctrl-C to finish."
+                )
+                idle_notified = True
+            continue
         if checker_data.check_queue.empty():
             logger.debug("Check queue is empty")
         if trace_record is None:
             continue
+        # new data arrived after an idle period -> re-arm the idle notice
+        idle_notified = False
 
         with checker_data.cond:
             while True:
@@ -367,6 +417,16 @@ def check(
 
         _emit_report()
 
+        records_processed += 1
+        if verbose and (time.monotonic() - last_progress) >= VERBOSE_PROGRESS_EVERY_S:
+            _vprint(
+                f"processed {records_processed} records | "
+                f"step={CURRENT_STEP} stage={CURRENT_STAGE} | "
+                f"{NUM_VIOLATIONS} violation(s) | "
+                f"{len(TRIGGERED_INV)}/{TOTAL_INVARIANTS} invariants triggered"
+            )
+            last_progress = time.monotonic()
+
 
 def stop_checker():
     global OBSERVER
@@ -390,6 +450,15 @@ def stop_checker():
     _emit_report(force=True)
     if REPORTER is not None:
         REPORTER.close()
+
+    if VERBOSE:
+        print(
+            f"[online-checker] stopped. "
+            f"{NUM_VIOLATIONS} violation(s) across "
+            f"{len(FAILED_INV)} invariant(s). "
+            f"Report written to {REPORT_OUTPUT_DIR}",
+            flush=True,
+        )
 
 
 def main():
@@ -421,6 +490,14 @@ def main():
         "--debug",
         action="store_true",
         help="Enable debug logging",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Print live progress to stdout (records processed, current "
+        "step/stage, violations) and notify when the trace appears drained "
+        "so you know when it is safe to Ctrl-C to finalize the report.",
     )
     parser.add_argument(
         "--check-relation-first",
@@ -570,6 +647,7 @@ def main():
         args.trace_folders,
         args.output_dir,
         args.check_relation_first,
+        args.verbose,
     )
 
 
