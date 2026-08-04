@@ -6,6 +6,7 @@ import inspect
 import json
 import logging
 import math
+import random
 from enum import Enum
 from typing import Any, Hashable, Iterable, Optional, Type
 
@@ -1679,6 +1680,15 @@ class ExampleList:
     def __init__(self, group_names: set[str]):
         self.group_names = group_names
         self.examples: list[Example] = []
+        # Bound memory: some relations produce an unbounded number of examples                                                                                             
+        # (see config.MAX_EXAMPLE_LIST_SIZE). Once at capacity we keep a uniform                                                                                           
+        # random subset via reservoir sampling; num_seen tracks the true number                                                                                            
+        # of examples added so the retained subset stays uniform. The RNG is                                                                                               
+        # seeded so results are deterministic and identical across the serial                                                                                              
+        # and parallel code paths.                                                                                                                                         
+        self.max_size = config.MAX_EXAMPLE_LIST_SIZE                                                                                                                       
+        self.num_seen = 0                                                                                                                                                  
+        self._rng = random.Random(config.EXAMPLE_SAMPLING_SEED)    
 
     def add_example(self, example: Example):
         if len(self.group_names) == 0:
@@ -1688,7 +1698,16 @@ class ExampleList:
             assert (
                 example.get_group_names() == self.group_names
             ), f"Example groups do not match the expected group names, expected: {self.group_names}, got: {set(example.trace_groups.keys())}"
-        self.examples.append(example)
+        #self.examples.append(example)
+        self.num_seen += 1                                                                                                                                                 
+        if self.max_size is None or len(self.examples) < self.max_size:                                                                                                    
+            self.examples.append(example)                                                                                                                                  
+        else:                                                                                                                                                              
+            # reservoir sampling: replace an existing example with probability                                                                                             
+            # max_size / num_seen, keeping self.examples a uniform random sample                                                                                           
+            j = self._rng.randrange(self.num_seen)                                                                                                                         
+            if j < self.max_size:                                                                                                                                          
+                self.examples[j] = example
 
     def get_group_from_examples(self, group_name: str) -> list[list[dict]]:
         return [example.get_group(group_name) for example in self.examples]
@@ -1713,6 +1732,7 @@ class ExampleList:
 
         example_list = ExampleList(preset_group_names)
         example_list.examples = examples
+        example_list.num_seen = len(examples)
         return example_list
 
 

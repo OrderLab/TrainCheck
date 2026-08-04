@@ -198,6 +198,8 @@ PROP_ATTR_PATTERNS = [  ## Attributes that are properties (i.e. they won't be th
 MAX_PRECOND_DEPTH = 8  # the maximum depth of the precondition inference
 ENABLE_PRECOND_SAMPLING = True  # whether to enable sampling of positive and negative examples for precondition inference, can be overridden by the command line argument
 PRECOND_SAMPLING_THRESHOLD = 10000  # the number of samples to take for precondition inference, if the number of samples is larger than this threshold, we will sample this number of samples
+MAX_EXAMPLE_LIST_SIZE = 5000                                                                                                                                                
+EXAMPLE_SAMPLING_SEED = 42
 NOT_USE_AS_CLAUSE_FIELDS = [
     "func_call_id",
     "process_id",
