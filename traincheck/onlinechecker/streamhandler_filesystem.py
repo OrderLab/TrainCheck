@@ -302,6 +302,8 @@ class StreamLogHandler(FileSystemEventHandler):
                     input=binded_args_and_kwargs,
                 )
             )
+            # invalidate the meta-vars cache (see Checker_data.meta_vars_cache)
+            self.checker_data.context_version += 1
         elif ".__exit__" in function_name and trace_type == TraceLineType.FUNC_CALL_PRE:
             context_manager_name = function_name.removesuffix(".__exit__")
             contextmanagerstate = None
@@ -315,6 +317,8 @@ class StreamLogHandler(FileSystemEventHandler):
                         contextmanagerstate = state
             if contextmanagerstate is not None:
                 contextmanagerstate.liveness.end_time = trace_record["time"]
+                # invalidate the meta-vars cache (see Checker_data.meta_vars_cache)
+                self.checker_data.context_version += 1
 
     def _set_read_time(self, trace_record):
         with self.cond:

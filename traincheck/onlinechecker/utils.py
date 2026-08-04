@@ -25,6 +25,18 @@ class Checker_data:
         self.context_map = {}
         self.init_map = {}
 
+        # --- meta-vars memoization ---------------------------------------
+        # get_meta_vars_online(time, pid, tid) is a pure function of its args
+        # plus the contents of context_map. context_version is bumped (under
+        # self.lock) on every context_map mutation; get_meta_vars_online caches
+        # results keyed by (time, pid, tid) and discards the whole cache when
+        # context_version changes. Every set_meta_vars_online call site and every
+        # context_map mutation holds self.lock, so cache access needs no extra
+        # synchronization.
+        self.context_version = 0
+        self.meta_vars_cache: dict = {}
+        self.meta_vars_cache_version = -1
+
         self.read_time_map = {}
         self.min_read_time = None
         self.min_read_path = None
@@ -237,11 +249,24 @@ def get_meta_vars_online(
     thread_id,
     checker_data,
 ):
+    # Memoize on (time, pid, tid). Callers all hold checker_data.lock, and the
+    # cache is invalidated whenever context_map changes (context_version), so a
+    # hit is guaranteed to be identical to a fresh computation. The cached value
+    # (a meta_vars dict or None) is only ever read by callers, never mutated.
+    cache = checker_data.meta_vars_cache
+    if checker_data.meta_vars_cache_version != checker_data.context_version:
+        cache.clear()
+        checker_data.meta_vars_cache_version = checker_data.context_version
+    cache_key = (time, process_id, thread_id)
+    if cache_key in cache:
+        return cache[cache_key]
+
     ptid = PTID(process_id, thread_id)
     active_context_managers = []
     meta_vars = {}
 
     if ptid not in checker_data.context_map:
+        cache[cache_key] = None
         return None
     context_managers = checker_data.context_map[ptid]
     for context_manager_name, context_manager_states in context_managers.items():
@@ -258,6 +283,7 @@ def get_meta_vars_online(
             "input"
         ]
 
+    cache[cache_key] = meta_vars
     return meta_vars
 
 

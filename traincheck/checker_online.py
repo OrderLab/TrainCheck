@@ -199,6 +199,14 @@ def _read_sampling_config(
 def _emit_report(force: bool = False):
     if REPORTER is None:
         return
+    # Gate the (expensive) report build on the emitter's throttle decision.
+    # _emit_report is called on every processed record, but build_online_report_data
+    # re-serializes and re-hashes every invariant + violation; building it only to
+    # have the emitter throttle the write away dominated total runtime (~94% in
+    # profiling). report_state is cheap to compute, so decide first, build only if needed.
+    report_state = (NUM_VIOLATIONS, len(FAILED_INV))
+    if not REPORTER.should_emit(report_state, force):
+        return
     report_data = build_online_report_data(
         generated_at=REPORT_GENERATED_AT,
         output_dir=REPORT_OUTPUT_DIR,
@@ -214,7 +222,6 @@ def _emit_report(force: bool = False):
         sampling_interval=SAMPLING_INTERVAL,
         warm_up_steps=WARM_UP_STEPS,
     )
-    report_state = (NUM_VIOLATIONS, len(FAILED_INV))
     REPORTER.emit(report_data, force=force, report_state=report_state)
 
 
@@ -225,6 +232,7 @@ def check(
     output_dir: str,
     check_relation_first: bool,
     verbose: bool = False,
+    exit_on_idle: bool = False,
 ):
     global VERBOSE
     VERBOSE = verbose
@@ -263,13 +271,20 @@ def check(
 
     _emit_report(force=True)
 
-    # --- verbose progress reporting ---------------------------------------
-    # The online checker is designed for a *live* trace and never terminates on
-    # its own (the queue blocks forever once drained). Verbose mode prints
-    # periodic progress and, crucially, tells the user when the trace appears
-    # drained so they know it is safe to Ctrl-C to finalize the report.
+    # --- progress reporting / idle handling -------------------------------
+    # The online checker is built for a *live* trace and by default never
+    # terminates on its own (the queue blocks forever once drained). Two opt-in
+    # behaviors change that:
+    #   -v / verbose    -> print periodic progress and a one-time notice when the
+    #                      trace looks drained (but keep waiting).
+    #   --exit-on-idle  -> when the trace is drained (no new data for
+    #                      IDLE_TIMEOUT_S) finalize the report and exit, so a
+    #                      finished / replayed trace runs to completion without a
+    #                      manual Ctrl-C. Works with or without -v.
+    # A finite get() timeout (to notice idle) is needed if either is set.
     VERBOSE_PROGRESS_EVERY_S = 5.0
-    VERBOSE_IDLE_TIMEOUT_S = 5.0
+    IDLE_TIMEOUT_S = 5.0
+    use_idle_timeout = verbose or exit_on_idle
     records_processed = 0
     last_progress = time.monotonic()
     idle_notified = False
@@ -280,27 +295,46 @@ def check(
     if verbose:
         n_folders = len(trace_folders) if trace_folders else 0
         n_files = len(traces) if traces else 0
+        drain_behavior = (
+            "will finalize and exit automatically once the trace drains"
+            if exit_on_idle
+            else "Ctrl-C to finalize the report (or use --exit-on-idle)"
+        )
         _vprint(
             f"watching {n_folders} folder(s) / {n_files} file(s); "
             f"loaded {TOTAL_INVARIANTS} invariants. "
-            f"Processing... (Ctrl-C to finalize the report)"
+            f"Processing... ({drain_behavior})"
         )
 
     while True:
         try:
             trace_record = checker_data.check_queue.get(
-                timeout=VERBOSE_IDLE_TIMEOUT_S if verbose else None
+                timeout=IDLE_TIMEOUT_S if use_idle_timeout else None
             )
         except queue.Empty:
-            # verbose-only: queue drained with no new data for a while.
+            # Reachable only when a finite get() timeout is set (i.e. -v and/or
+            # --exit-on-idle). A timeout means no new trace data for
+            # IDLE_TIMEOUT_S -> the trace looks drained.
+            drained = (
+                f"idle — no new trace data for {IDLE_TIMEOUT_S:.0f}s. "
+                f"Processed {records_processed} records, "
+                f"step={CURRENT_STEP}, stage={CURRENT_STAGE}, "
+                f"{NUM_VIOLATIONS} violation(s), "
+                f"{len(TRIGGERED_INV)}/{TOTAL_INVARIANTS} invariants triggered. "
+            )
+            if exit_on_idle:
+                # Finished / replayed trace: treat the drain as end-of-input,
+                # finalize the report and exit instead of blocking forever on a
+                # (nonexistent) live stream.
+                if verbose:
+                    _vprint(drained + "Trace drained; finalizing report and exiting.")
+                break
+            # -v without --exit-on-idle: announce the apparent drain once, then
+            # keep waiting for a live stream (re-armed when new data arrives).
             if verbose and not idle_notified:
                 _vprint(
-                    f"idle — no new trace data for {VERBOSE_IDLE_TIMEOUT_S:.0f}s. "
-                    f"Processed {records_processed} records, "
-                    f"step={CURRENT_STEP}, stage={CURRENT_STAGE}, "
-                    f"{NUM_VIOLATIONS} violation(s), "
-                    f"{len(TRIGGERED_INV)}/{TOTAL_INVARIANTS} invariants triggered. "
-                    f"Trace appears drained; press Ctrl-C to finish."
+                    drained + "Trace appears drained; press Ctrl-C to finish "
+                    "(or re-run with --exit-on-idle to exit automatically)."
                 )
                 idle_notified = True
             continue
@@ -427,6 +461,12 @@ def check(
             )
             last_progress = time.monotonic()
 
+    # Only reachable via the --exit-on-idle `break` above: the trace has drained,
+    # so finalize the report and stop the observer. stop_checker() emits the final
+    # report (force=True) and closes the reporter. Without --exit-on-idle the loop
+    # never falls through here; it is terminated by SIGINT/SIGTERM instead.
+    stop_checker()
+
 
 def stop_checker():
     global OBSERVER
@@ -496,8 +536,20 @@ def main():
         "--verbose",
         action="store_true",
         help="Print live progress to stdout (records processed, current "
-        "step/stage, violations) and notify when the trace appears drained "
-        "so you know when it is safe to Ctrl-C to finalize the report.",
+        "step/stage, violations) and a one-time notice when the trace appears "
+        "drained. Progress only -- does not by itself terminate the checker; "
+        "pair it with --exit-on-idle to auto-finalize a finished trace.",
+    )
+    parser.add_argument(
+        "--exit-on-idle",
+        action="store_true",
+        help="Terminate automatically once the trace is drained (no new trace "
+        "data for 5s): finalize the report and exit instead of blocking forever "
+        "waiting for a live stream. Use this to run the checker to completion "
+        "against a finished / replayed trace folder without a manual Ctrl-C. Can "
+        "be combined with -v. Not recommended for a live run whose data can "
+        "pause for more than 5s (e.g. checkpointing), which would trigger an "
+        "early exit.",
     )
     parser.add_argument(
         "--check-relation-first",
@@ -648,6 +700,7 @@ def main():
         args.output_dir,
         args.check_relation_first,
         args.verbose,
+        args.exit_on_idle,
     )
 
 
