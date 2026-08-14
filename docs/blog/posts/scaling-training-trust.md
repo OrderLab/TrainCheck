@@ -11,154 +11,131 @@ description: As training becomes larger, more interconnected, and more autonomou
 
 # We're Scaling Training Faster Than We're Scaling Trust
 
-Imagine two training jobs. One occupies thousands of accelerators for weeks. The
-other continuously moves policies, rollouts, rewards, and updates among a fleet
-of services. Both dashboards are green. Losses are finite. Checkpoints arrive
-on schedule.
+Pretraining and reinforcement learning create different reliability problems.
+Pretraining concentrates risk inside one enormous, repeated computation. RL
+spreads correctness across changing policies, rollouts, rewards, learners, and
+inference systems.
 
-What, exactly, have we learned about whether either job is correct?
+Both can produce plausible top-level metrics while executing the wrong training
+procedure. Both are also becoming harder to inspect manually as experiments
+grow larger and faster.
 
-We have become remarkably good at making machine learning systems run at larger
-scales and across more components. We are less good at producing direct evidence
-that all those components executed the training procedure we intended.
+The open question is not whether training needs stronger validation. It is which
+failures matter most, which relationships we can check, and where such checks
+belong in real ML workflows.
 
-This is a widening reliability gap. Larger experiments make silent errors more
-expensive. More interconnected pipelines create more opportunities for state to
-become stale, mismatched, or inconsistently updated. More autonomous research
-lets us launch experiments faster than people can inspect them.
+## Pretraining concentrates the cost of one silent error
 
-The question is no longer only how to debug today's training loop. It is what
-kind of validation the next training systems will require.
+Large-scale pretraining presents the clearest economic case for early
+detection. Its training loop is repetitive and relatively structured, but the
+system beneath it combines data, tensor, and pipeline parallelism with optimizer
+sharding, mixed precision, checkpointing, fused kernels, and custom
+infrastructure.
 
-## Scale turns delayed detection into a product decision
+A small inconsistency can propagate through many devices and checkpoints before
+a top-level metric makes it undeniable. By then, the team must decide whether
+to continue, roll back, restart, or accept a checkpoint whose state is not fully
+trusted.
 
-Large-scale pretraining presents the clearest economic argument for early
-detection. The training loop is often repetitive and relatively structured,
-but the system beneath it is enormous: data parallelism, tensor parallelism,
-pipeline parallelism, optimizer sharding, mixed precision, checkpointing, fused
-kernels, and custom infrastructure.
+Pretraining also has properties that make execution validation plausible. Teams
+often have smaller-scale runs, earlier software versions, alternative precision
+implementations, or known-good configurations. Many expected relationships are
+concrete: replicas should stay consistent, optimizer state should change with
+its parameters, and pipeline stages should run in the intended order.
 
-A small inconsistency can persist across thousands of devices and millions of
-dollars of compute before a top-level metric makes it undeniable. By then the
-team faces a difficult choice: continue, roll back, restart, or accept uncertain
-checkpoints.
+The adoption problem is equally concrete. Organizations operating at this scale
+are few, their stacks are heavily customized, and the cost of instrumentation
+interfering with a production run is high. A useful checker must work with
+compiled and fused execution, transfer expectations across scales, and justify
+which checks remain enabled throughout a long run.
 
-Pretraining also offers conditions that make execution validation plausible.
-Teams commonly have smaller-scale runs, earlier software versions, alternative
-precision implementations, or known-good configurations. Training is highly
-repetitive. Many important properties—replica consistency, optimizer state
-changes, stage ordering—are concrete.
+## RL moves correctness across component boundaries
 
-But the organizations operating at this scale are few, their stacks are deeply
-customized, and their tolerance for instrumentation risk is understandably low.
-A tool can solve an expensive problem and still fail to fit the workflow that
-owns it.
+In modern RL, correctness no longer lives inside one
+forward-backward-update loop. A system may couple rollout workers, inference
+engines, reward and reference models, experience storage, policy learners,
+distributed orchestration, and evaluation.
 
-The questions from pretraining teams are therefore practical:
+Each component can work locally while their relationships are wrong. A rollout
+worker may use a stale policy. The learner and inference engine may tokenize or
+mask inputs differently. Rewards may be associated with the wrong samples.
+Versioned data may arrive out of order. An update may succeed locally but never
+reach the workers expected to use it.
 
-- Which failures survive existing health and metric monitoring the longest?
-- When is a smaller or older run representative enough to specify correct
-  behavior?
-- Is validation most valuable before a major run, during its first hundred
-  steps, or throughout training?
-- Which checks justify remaining enabled at full scale?
+This is already observable in current systems. In July 2025, verl users reported
+reward collapse after enabling a fused linear cross-entropy kernel. The fused
+path returned log probabilities that disagreed with the unfused PyTorch path.
+The investigation traced the remaining discrepancy to a Triton kernel that
+assumed particular vocabulary-size divisibility; the affected model's
+vocabulary violated that assumption. The optimization did not merely run the
+same RL computation faster. It changed values used by the algorithm. ([verl
+report](https://github.com/verl-project/verl/issues/2656), [root-cause
+analysis](https://github.com/verl-project/verl/issues/2899))
 
-## Modern RL moves correctness across component boundaries
-
-Reinforcement learning creates a different reliability surface. Correctness no
-longer lives only inside one forward-backward-update loop. A modern RL system
-may couple rollout workers, inference engines, reward models, reference models,
-replay or experience storage, policy learners, distributed orchestration, and
-evaluation.
-
-Each component can appear healthy while their relationships are wrong.
-
-A rollout worker may use a stale policy. The learner and inference engine may
-tokenize or mask inputs differently. Rewards may be associated with the wrong
-samples. Versioned data may arrive out of order. An update may succeed locally
-but never reach the workers expected to use it. Training and inference code
-paths may implement subtly different models.
-
-Final reward and benchmark scores compress all of these interactions into a few
+Final reward and benchmark scores compress these interactions into a few
 numbers. When they disappoint, the explanations range from “the algorithm does
-not work” to “one service used yesterday's weights.” This is the same ambiguity
-we see in conventional training, expanded across time, processes, and system
+not work” to “one service used yesterday's weights.” This is the ambiguity of a
+conventional training loop extended across time, processes, and system
 boundaries.
 
-RL may therefore have the larger unsolved need for execution evidence. It also
-poses the harder technical problem. What counts as a reference run when the
-environment and policy co-evolve? Which invariants should tolerate asynchronous
-delay? How should a checker distinguish bounded staleness from a stuck policy?
-Can relationships be validated across traces produced by different services?
+RL may therefore have a larger unexplored need for execution validation. It is
+also the harder setting. What counts as a reference run when the environment
+and policy co-evolve? How much policy staleness is acceptable? Can a checker
+distinguish bounded delay from a stuck worker? Can it validate causal
+relationships across traces produced by different services?
 
-The right abstraction may extend beyond training invariants within a Python
+The right abstraction may need to extend beyond invariants inside one Python
 process. It may need to describe data lineage, policy versions, causal ordering,
 and contracts between rollout, reward, inference, and learning.
 
-## Autonomous research raises the stakes again
+## Autonomous research makes invalid results propagate faster
 
-Research agents increasingly launch experiments, monitor results, form
-hypotheses, and decide what to try next. Most still reason from the evidence
-humans put on dashboards: losses, benchmark scores, samples, and resource
-metrics.
+Research agents increasingly launch experiments, inspect results, form
+hypotheses, and decide what to try next. An implementation error in this loop
+does not only waste one run. It can make a promising method look weak, cause the
+agent to abandon that direction, and redirect many subsequent experiments
+around a false premise.
 
-Automation changes the operating point. An agent can launch more experiments
-and propagate a mistaken conclusion faster than a human research loop. If one
-implementation error makes a promising method look weak, an autonomous system
-may not merely waste one run. It may update its hypothesis, abandon an entire
-direction, and allocate the next hundred experiments around a false premise.
+Automation can also make richer validation practical. An agent can inspect
+execution reports continuously, quarantine a suspect experiment, request a
+reproduction, or refuse to update its hypothesis until additional checks pass.
 
-The same automation also makes richer validation more practical. An agent can
-continuously inspect execution reports that would overwhelm a person. It can
-quarantine an invalid experiment, request a reproduction, compare the first
-violated relationships, or refuse to treat a result as scientific evidence
-until the execution passes additional checks.
+For an autonomous research loop, deciding whether a result is trustworthy
+enough to learn from becomes part of the system itself. Losses and benchmark
+scores are not sufficient if the agent cannot tell whether the intended
+training procedure produced them.
 
-In that setting, execution validation is not just a debugging tool. It becomes
-part of the epistemology of automated research: the machinery that decides
-which experimental results are trustworthy enough to learn from.
+## Where should this field start?
 
-## What should this field build first?
-
-The opportunity is clear; the entry point is not.
-
-Large-scale pretraining has extraordinary cost per failure, comparatively
-structured execution, and a small number of highly specialized users. RL has
-more rapidly changing pipelines, more semantic and cross-component failure
-modes, and perhaps a wider community currently building new infrastructure.
-Autonomous research makes both domains more urgent, but it also demands
-validation systems that can explain evidence to machines as well as people.
+Pretraining has extraordinary cost per failure, relatively structured
+execution, and a small number of highly specialized users. RL has more
+cross-component failure modes, less stable reference behavior, and a broader
+set of rapidly changing systems. Autonomous research increases the consequence
+of errors in both domains.
 
 [TrainCheck](traincheck-in-practice.md) is one exploration of this space. Its
-current model—learn contextual invariants from reference executions and report
-the first violation—has worked on silent errors in distributed PyTorch training.
-It is not an assumption that the same design transfers unchanged to every
+current approach—learn contextual invariants from reference executions and
+report the first violation—has worked on silent errors in distributed PyTorch
+training. We do not assume the same design transfers unchanged to every
 pretraining or RL stack.
 
-That is the discussion we hope to start:
+We are trying to answer three questions:
 
-- Where do silent failures cost your team the most time or compute?
-- Which relationships must hold across your training system, even when exact
-  metrics are unpredictable?
-- What evidence would convince you that a run is valid enough to influence the
-  next research decision?
-- Is your primary need detection, root-cause localization, regression
-  prevention, or automated intervention?
-- What would a reliability tool need to support before you would put it in the
-  path of a real training job?
+1. Which silent failures cost training teams the most time, compute, or lost
+   research progress?
+2. Which execution relationships remain meaningful when exact metrics are
+   unpredictable?
+3. What must a validation tool support before a team would place it in a real
+   training workflow?
 
-We are scaling the ability to produce ML experiments. If we want to trust the
-conclusions—especially when machines begin producing and interpreting those
-experiments themselves—we need to scale the evidence behind them too.
-
-If you work on pretraining, RL infrastructure, or autonomous research, we would
-like to hear which failure modes you think this framing misses and which of
-these problems is worth solving first. Open a discussion on [TrainCheck
-GitHub](https://github.com/OrderLab/TrainCheck), or contact the OrderLab team.
+If you work on pretraining, RL, or autonomous research, we would like to hear
+where this framing is wrong and which problem is worth solving first. Open a
+discussion on [TrainCheck GitHub](https://github.com/OrderLab/TrainCheck), or
+contact the OrderLab team.
 
 ---
 
-*This is the final post in a four-part series on trustworthy ML training.
+*This is the final post in a three-part series on trustworthy ML training.
 Previous: [TrainCheck: Catching Training Bugs Before the Loss Curve
-Does](traincheck-in-practice.md). Start the series: [Your Training Run Is Not
-Scientific Evidence](training-reliability.md).*
+Does](traincheck-in-practice.md). Start the series: [ML Training Can Be Wrong
+Even When the Loss Goes Down](training-reliability.md).*

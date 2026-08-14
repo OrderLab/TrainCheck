@@ -1,142 +1,105 @@
 ---
 date: 2026-07-13
 draft: true
-slug: training-run-not-scientific-evidence
+slug: ml-training-wrong-loss-goes-down
 categories:
   - ML Reliability
   - Distributed Training
-description: A training result supports a claim about an algorithm only if we can distinguish the behavior of the algorithm from the behavior of its implementation.
+description: Silent implementation errors in ML training can produce the same symptoms as ordinary optimization failures.
 ---
 
-# Your Training Run Is Not Scientific Evidence
+# ML Training Can Be Wrong Even When the Loss Goes Down
 
-Not yet, anyway.
+A falling loss tells us that the reported objective is decreasing. It does not
+establish that the intended training procedure ran.
 
-A training run produces an observation. Turning that observation into evidence
-about a model, objective, or optimization method requires another claim: that
-the system executed the experiment we intended.
+That distinction is easy to lose in modern ML because the design space is
+enormous. When training disappoints, there are many legitimate explanations:
+the data mixture, model architecture, objective, initialization, optimization
+regime, or scale may be wrong. A silent implementation error can produce the
+same symptoms.
 
-That claim is routinely difficult to establish.
+**Wrong execution does not have to look like software failure. It can look like
+ordinary ML.** A job can keep every accelerator busy, produce checkpoints, and
+follow a plausible loss trajectory while synchronizing the wrong state,
+updating the wrong parameters, or skipping part of the intended procedure.
 
-When a run underperforms, the hypothesis space is enormous. The idea may be
-wrong. The data mixture may be wrong. Optimization may be unstable. A kernel
-may be numerically incorrect. Distributed state may have diverged. The code may
-have updated a different set of parameters from the ones used in the forward
-pass. Several of these can happen at once.
+## The loss matched. The gradients did not
 
-The result alone does not identify which experiment actually ran.
+In August 2025, a bug report compared TorchTitan's Mixture-of-Experts training
+with and without expert parallelism. On the same inputs and weights, both paths
+produced exactly the same loss. With two-way expert parallelism, however, every
+expert gradient was almost exactly twice as large. The reporter also observed
+equivalent loss curves in a training workload despite the doubled gradients.
+([PyTorch issue](https://github.com/pytorch/pytorch/issues/160285))
 
-## This is not an observability-is-missing argument
+The forward computation was correct. The backward computation had the wrong
+semantics: combining FSDP with expert parallelism was missing the factor that
+normalizes reduced gradients. The fix was merged into TorchTitan the next day.
+([TorchTitan fix](https://github.com/pytorch/torchtitan/pull/1551))
 
-Serious training stacks already collect far more than loss and accuracy. They
-track gradients and update norms, learning rates, activations, throughput,
-collective latency, memory, hardware health, data statistics, per-rank state,
-and application-specific signals. Teams add canaries, checkpoint validation,
-assertions, anomaly detectors, and increasingly detailed postmortem tooling.
+This is a particularly inconvenient failure mode. A forward-loss parity check
+passed exactly, and a longer training workload produced equivalent loss curves.
+Adam-like optimizers can partially hide a uniform gradient rescaling; gradient
+clipping and other optimizers need not. Either way, the curve did not establish
+whether parallelization preserved the gradients it was supposed to compute.
 
-That telemetry is indispensable. It catches many failures and makes many others
-diagnosable.
+## New ideas receive less debugging than established recipes
 
-The remaining problem is a semantic gap. Most signals describe what values the
-system produced or whether its components remained operational. They do not, by
-themselves, establish that the composition of those components implemented the
-intended training procedure.
+When a standard recipe unexpectedly stops working, the implementation is an
+obvious suspect. There is a known-good result to recover, so the team keeps
+debugging. When a new architecture, objective, or training method
+underperforms, “the idea does not work” is a reasonable stopping condition.
 
-A plausible loss curve is compatible with an incorrect experiment. So is a
-gradient norm within its historical range. Even agreement with a smaller run
-may be uninformative if the failure appears only after introducing sharding,
-mixed precision, compilation, or a different optimizer path.
+This makes public bug reports survivorship-biased. The cases we can document are
+the ones someone kept investigating until the implementation error was found.
+We do not see experiments that were never revisited because their bad results
+looked reasonable enough.
 
-The distinction is not between “ML problems” and “systems problems” as two
-cleanly separable layers. Modern training makes that boundary porous. Precision
-changes affect optimization. Parallelism changes parameter ownership and
-update semantics. Data systems determine the effective objective. Compiler and
-kernel choices change the numerical program.
+We cannot count the ideas lost this way. A silent implementation failure and a
+legitimate negative result can leave the same artifact: a run that did not
+perform well enough to continue.
 
-The distinction that matters is between **observing an outcome** and
-**establishing implementation fidelity**.
+## More curves do not resolve execution ambiguity
 
-## One symptom, many valid explanations
+Serious training efforts inspect much more than loss and accuracy: gradient and
+update norms, activations, data statistics, per-rank values, numerical health,
+and application-specific signals. These measurements catch many failures and
+constrain the hypotheses for many others.
 
-Jack Morris once described a Distributed Data Parallel run whose loss fell
-until roughly step 150 and then rose without a corresponding increase in
-gradient norm. The discussion produced reasonable hypotheses: learning-rate
-instability, initialization, regularization, and a missing
-`optimizer.zero_grad()` call. ([Original
-question](https://x.com/jxmnop/status/1778436832075678100))
+But aggregate signals discard execution detail. The same gradient norm can come
+from correctly synchronized replicas or several models drifting apart. A
+parameter update norm says little if the optimizer owns a different parameter
+from the one used in the forward pass. A plausible loss does not establish that
+initialization followed the intended code path.
 
-The root cause was that the code called the raw `nn.Module` instead of its DDP
-wrapper. Gradients did not synchronize, and each GPU learned independently.
-([Root-cause
-follow-up](https://x.com/jxmnop/status/1778520637193240892))
+Nor is this a clean separation between “ML failures” and “systems failures.”
+Precision changes optimization. Parallelism changes parameter ownership and
+update semantics. Data systems determine the effective objective. Compilers and
+fused kernels change the numerical program.
 
-The interesting point is not that somebody made an easy mistake. It is that
-the observed training dynamics supported several sophisticated explanations
-that were all downstream of the wrong execution. More analysis of the loss
-curve could have refined a model of an experiment that had never taken place.
+The practical distinction is between observations that describe the **outcome
+of training** and observations that establish whether expected **training
+relationships** held.
 
-This failure has a direct execution-level signature: parameters intended to be
-replicas ceased to agree across ranks. That fact does not explain whether the
-learning rate is appropriate or the research idea is sound. It does something
-more basic first—it falsifies the assumption that the distributed program is
-implementing synchronous data-parallel training.
+## Stochastic training still has partial specifications
 
-## Detection, diagnosis, and validity are different problems
+We usually cannot say what the loss must be at step 1,000. We can often say what
+must happen during that step: replicated state should remain consistent; an
+optimizer should act on the parameters associated with its gradients; required
+initialization should execute; and versioned components should exchange
+compatible state.
 
-It is useful to separate three goals that are often collapsed into “training
-monitoring”:
+These relationships do not prove that a run is correct or that an idea is good.
+They help establish whether the run is informative about the idea at all.
 
-1. **Detection:** Is the run behaving unusually or violating an operational
-   threshold?
-2. **Diagnosis:** Which component or event most likely caused the observed
-   behavior?
-3. **Experimental validity:** Did the execution preserve the assumptions needed
-   to interpret this result as evidence about the research hypothesis?
-
-A loss spike can solve the first problem. A correlated gradient anomaly may
-help with the second. Neither necessarily solves the third.
-
-Experimental validity does not require proving an entire training program
-correct—no practical checker can do that. It requires collecting enough direct
-evidence to rule out important alternative explanations. Did replicas remain
-consistent? Did the optimizer update the parameters that received gradients?
-Did the intended initialization execute? Did rollout workers use the policy
-version attributed to their samples?
-
-These are narrower claims than “the run is correct.” They are also closer to
-the assumptions on which we base our conclusions.
-
-## Training has outgrown exact-output oracles
-
-Traditional correctness techniques struggle here for a familiar reason: the
-expected output of training is rarely known. Seeds, data order, hardware,
-kernels, and distributed schedules legitimately alter the numerical
-trajectory. At frontier scale, reproducing the full environment may itself be
-impractical.
-
-But the absence of an exact-output oracle does not imply the absence of a
-specification. Training contains partial specifications everywhere:
-
-- state that is replicated should remain consistent;
-- state that is sharded should have the expected ownership;
-- an optimizer should act on the parameters associated with its gradients;
-- required operations should occur in the intended order and context;
-- versioned components should exchange mutually compatible state.
-
-These relationships say little about where the loss should end. They say a great
-deal about whether the observed loss came from the procedure we meant to study.
-
-That is the reliability layer we think is underdeveloped: not another anomaly
-score over surface metrics, but evidence about the semantics of the execution
-itself.
-
-The next post develops this idea as **training invariants**. The core question
-is not whether a checker can predict a stochastic trajectory. It is whether a
-training system can continuously test the partial specifications that make its
-results interpretable.
+We call them **training invariants**. The next post introduces
+[TrainCheck](https://github.com/OrderLab/TrainCheck), our attempt to infer these
+relationships from reference runs and report when a new execution violates
+them.
 
 ---
 
-*This is the first post in a four-part series on trustworthy ML training. Next:
-[We Cannot Predict the Loss Curve. But We Can Still Check the
-Training](training-invariants.md).*
+*This is the first post in a three-part series on trustworthy ML training. Next:
+[TrainCheck: Catching Training Bugs Before the Loss Curve
+Does](traincheck-in-practice.md).*
