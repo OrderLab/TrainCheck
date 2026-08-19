@@ -1,113 +1,166 @@
 ---
 date: 2026-07-27
 draft: true
-slug: traincheck-catching-training-bugs
+slug: why-ml-training-failures-are-hard-to-localize
 categories:
   - ML Reliability
   - Distributed Training
   - TrainCheck
-description: How TrainCheck infers execution-level invariants, catches silent training errors, and helps localize their root causes.
+description: Why ML training symptoms are often far removed from their root causes, which failure patterns recur, and how execution-level checks can narrow the search.
 ---
 
-# TrainCheck: Catching Training Bugs Before the Loss Curve Does
+# Why ML Training Failures Are So Hard to Localize
 
-Loss is often the wrong place to ask whether training executed as intended. A
-curve can tell us that optimization behaved differently; it rarely tells us
-whether replicas diverged, an optimizer updated detached parameters, or an
-initialization path silently changed.
+During the training of BLOOM-176B, LayerNorm weights that were supposed to be
+replicated began to differ across tensor-parallel ranks. Loss and accuracy
+showed no immediate anomaly. The inconsistency remained undetected for ten
+days.
 
-[TrainCheck](https://github.com/OrderLab/TrainCheck) checks those execution
-relationships directly. It learns contextual invariants from reference runs,
-then reports when a target run violates them. The bet is that exact training
-outcomes are hard to predict, but many relationships required to produce a
-meaningful outcome are not.
+The root cause was in the BF16 optimizer's gradient-clipping logic. Clipping
+executed on only one tensor-parallel rank, so nominally identical weights
+received different updates. The visible symptom was inconsistent model state.
+The cause was a rank-dependent operation earlier in the optimizer path.
+([BLOOM training
+chronicle](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr11-176B-ml/chronicles.md#2022-03-24-grad-clip-tp-sync-bug-fixing),
+[OSDI '25 paper, Sections 1 and
+2.2](https://www.usenix.org/system/files/osdi25-jiang.pdf))
 
-## From reference runs to a concrete violation
+That distance between symptom and cause is the central difficulty in debugging
+ML training. The case is useful not because of when it happened, but because
+the same structure appears whenever frameworks transform a local training
+program into a distributed one.
 
-TrainCheck's workflow has three stages:
+## One symptom supports too many explanations
 
-1. Collect selected execution events and state from short reference runs
-   believed to be correct.
-2. Infer contextual training invariants—relationships that recur when their
-   preconditions hold.
-3. Check a target run and report the first violated relationship with its API,
-   variable, iteration, stage, device, and rank context.
+A loss spike, plateau, or regression is rarely specific. Data, architecture,
+initialization, optimizer settings, numerical precision, random variation, and
+implementation errors can all produce similar curves. The more novel the
+training method, the fewer known-good expectations exist to eliminate these
+hypotheses.
+
+Additional metrics help, but they remain lossy summaries. A gradient norm can
+show that optimization changed without showing whether replicas synchronized.
+An update norm says little if the optimizer owns different parameters from
+those used in the forward pass. A healthy throughput graph says that the job is
+moving, not that it is executing the intended algorithm.
+
+Training stacks also move the root cause away from the code a researcher wrote.
+Mixed precision inserts casts and master weights. FSDP replaces and shards
+parameters. Pipeline and tensor parallelism divide operations across ranks.
+Compilers and fused kernels replace many visible operations with another
+program. Each transformation may be locally reasonable while their composition
+breaks a training assumption.
+
+Finally, many failures are relational. Nothing looks wrong on one rank in
+isolation; the error is that two ranks disagree. A model and optimizer may each
+contain valid parameters; the error is that they are not the same parameters.
+A rollout worker and learner may each hold a valid policy; the error is that
+they disagree about which version generated the data.
+
+## The failure patterns are more stable than the stacks
+
+Specific frameworks and kernels change quickly. The relationships they violate
+are more repetitive:
+
+- **Agreement:** state intended to be replicated differs across ranks or
+  implementations.
+- **Ownership:** gradients, parameters, and optimizer state refer to different
+  logical objects.
+- **State transition:** an operation that should update state does not, or an
+  update occurs where none was expected.
+- **Ordering and coverage:** a required operation runs on the wrong rank, in the
+  wrong order, or only on part of the intended state.
+- **Identity across components:** two services disagree about a model, batch,
+  tokenization, mask, or policy version they treat as shared.
+
+These patterns do not tell us the correct loss at step 10,000. They do tell us
+what kind of evidence would narrow a localization problem. In the BLOOM case,
+the useful observations were not “loss should equal X,” but “replicated weights
+should agree” and “gradient clipping should execute consistently across the
+relevant ranks.”
+
+## What a useful solution needs to preserve
+
+Teams already use several forms of execution evidence. Explicit assertions are
+precise when a failure is anticipated. Differential tests compare a new
+configuration with a trusted one. Per-rank logging exposes distributed state.
+Execution traces retain the events needed for a postmortem.
+
+Each approach trades coverage for effort. Assertions require people to specify
+the property in advance. Exact differential comparison is brittle under
+stochasticity, scaling, and legitimate implementation differences. Logs and
+traces can contain the answer while remaining too large to inspect manually.
+
+A useful checker therefore needs to operate between exact-output comparison and
+generic anomaly detection. It should compare relationships rather than exact
+values, attach the context in which those relationships should hold, and lead
+from a violated property back to the operations that produced it.
+
+## TrainCheck is one attempt at that design
+
+[TrainCheck](https://github.com/OrderLab/TrainCheck) learns contextual training
+invariants from reference executions and checks them against a target run. Its
+workflow has three stages:
+
+1. Collect selected execution events and state from short runs believed to be
+   correct.
+2. Infer recurring relationships together with their preconditions.
+3. Report the first violation with its API, variable, iteration, stage, device,
+   and rank context.
 
 ![From reference runs to a concrete invariant
 violation](../../assets/blog/traincheck-launch/03-workflow.png)
 
-The invariants cover variable consistency, state changes, contained events, API
-order, arguments, and outputs. Preconditions capture expected exceptions such
-as frozen layers, skipped optimizer steps, and sharded tensors. ([Inference
+The inferred invariants cover variable consistency, state changes, contained
+events, API order, arguments, and outputs. Preconditions describe legitimate
+exceptions such as frozen layers, skipped optimizer steps, and sharded tensors.
+([Inference
 documentation](https://github.com/OrderLab/TrainCheck/blob/main/docs/infer.md),
 [checking
 documentation](https://github.com/OrderLab/TrainCheck/blob/main/docs/check.md))
 
-## AC-2665: from a flat loss to a testable diagnosis
+For the BLOOM bug, we used the more mature FP16 implementation as a reference
+and checked a smaller-scale reproduction of the faulty BF16 job. The bug
+triggered at iteration 2. At iteration 3, TrainCheck reported that replicated
+LayerNorm weights had diverged. The associated trace showed that gradient
+clipping had executed inconsistently across ranks. ([OSDI '25 paper, Sections
+3.2 and 5.1](https://www.usenix.org/system/files/osdi25-jiang.pdf))
 
-A public Accelerate issue demonstrates a different use. A two-GPU Fully Sharded
-Data Parallel run completed its training steps while loss remained constant.
-The same model learned correctly on one GPU. ([Accelerate issue
-2665](https://github.com/huggingface/accelerate/issues/2665))
+![Historical BLOOM detection compared with the separate TrainCheck
+reproduction](../../assets/blog/traincheck-launch/02-bloom-timeline.png)
 
-We checked the failing run using invariants inferred from an official graph
-convolutional network example. TrainCheck reported that:
+This was a separate reproduction, not a claim that the original production run
+could simply have replaced ten days with one iteration. It shows that the
+violated relationship existed long before a top-level metric exposed it.
 
-- parameters stored in the optimizer did not receive gradients;
-- `optimizer.step()` did not change the model parameters; and
-- the step invoked none of the expected mathematical operations on them.
-
-Together, the violations suggested that the prepared model and optimizer held
-different parameters. Inspection confirmed it: FSDP wrapping had created
-flattened parameters, while the optimizer still referenced the originals.
-([OSDI '25 paper, Section
-5.2](https://www.usenix.org/system/files/osdi25-jiang.pdf), [root-cause
-follow-up](https://github.com/huggingface/accelerate/issues/3256))
-
-![TrainCheck violations narrow AC-2665 to a model-optimizer parameter
-mismatch](../../assets/blog/traincheck-launch/05-ac2665-diagnosis.png)
-
-Here, the flat loss had already revealed a problem. TrainCheck's value was
-reducing many possible explanations to a small hypothesis about the execution.
-
-## How often does this generalize?
+## What the current evidence establishes
 
 In the OSDI '25 evaluation, we reproduced 20 real-world silent training errors.
 TrainCheck detected 18, each no later than one training iteration after its
 trigger. Its reports identified the exact root cause in 10 cases and localized
-the failure close to it in the other eight. TrainCheck also uncovered six
-previously unknown bugs in popular training libraries; maintainers confirmed
-all six, and three had been fixed by publication. ([OSDI '25 paper, Sections
+the failure close to it in the other eight. It also uncovered six previously
+unknown bugs in popular training libraries; maintainers confirmed all six, and
+three had been fixed by publication. ([OSDI '25 paper, Sections
 5.1–5.2](https://www.usenix.org/system/files/osdi25-jiang.pdf))
 
 ![TrainCheck OSDI 2025 evaluation
 scorecard](../../assets/blog/traincheck-launch/04-evaluation-scorecard.png)
 
-The reference runs determine which invariants TrainCheck learns. In an
-experiment covering 63 programs without known bugs, false-positive rates stayed
-below 2% with five or six input programs and below 5% with two or three. Both
-the number and diversity of references mattered. ([OSDI '25 paper, Section
-5.3](https://www.usenix.org/system/files/osdi25-jiang.pdf))
+The reference runs determine what TrainCheck can learn. Across 63 programs
+without known bugs, false-positive rates stayed below 2% with five or six input
+programs and below 5% with two or three. Both the number and diversity of
+references mattered. Selective instrumentation added less than 2% overhead for
+most workloads in the paper, although one small CPU-sensitive program slowed by
+1.6×. ([OSDI '25 paper, Sections 5.3 and
+5.6](https://www.usenix.org/system/files/osdi25-jiang.pdf))
 
-Selective instrumentation added less than 2% overhead for most workloads in the
-paper, although one small CPU-sensitive program slowed by 1.6×. A newer
-ten-workload repository benchmark reports a median slowdown of 1.048× and a
-highest central estimate of approximately 1.36×. ([OSDI '25 paper, Section
-5.6](https://www.usenix.org/system/files/osdi25-jiang.pdf), [current benchmark
-data](https://github.com/OrderLab/TrainCheck/blob/main/docs/assets/csv/overhead_e2e.csv))
+These results do not make TrainCheck a correctness proof. A violation may be a
+bug, an unrepresented valid behavior, or a real difference that needs human
+interpretation. No violation means only that the inferred relationships held.
 
-## Where TrainCheck fits
+## Trying it on a training change
 
-TrainCheck is useful when a team has some evidence of correct behavior and
-wants to know whether a new execution preserves it:
-
-1. **Diagnose a suspicious run** by comparing it with a known-good or closely
-   related execution.
-2. **Regression-check a pipeline change** such as a framework upgrade,
-   precision change, distributed configuration, optimizer, or hardware move.
-3. **Guard an expensive run** with selected, high-confidence invariants.
-
-A minimal offline workflow uses four commands:
+A minimal offline workflow uses a reference run and a target run:
 
 ```bash
 pip install traincheck
@@ -132,15 +185,10 @@ with PyTorch, DeepSpeed, Megatron, Hugging Face Transformers, and Accelerate. It
 can export results through OpenTelemetry, Weights & Biases, MLflow, and
 TensorBoard.
 
-It is not yet a universal production checker. Compiled execution, additional
-frameworks, and larger-scale deployments remain active work. Its results depend
-on representative references and correctly inferred preconditions. TrainCheck
-reports violations; people or external policies decide whether to inspect,
-continue, or stop a run.
-
-We would especially like to hear which silent failures consume the most
-debugging time, when teams would run this kind of check, and which unsupported
-part of the stack currently prevents adoption.
+Compiled execution, additional frameworks, cross-service training, and
+larger-scale deployments remain open work. The final post asks where this kind
+of validation is most useful next: large-scale pretraining, RL, or more
+autonomous experimentation.
 
 - [GitHub](https://github.com/OrderLab/TrainCheck)
 - [Documentation](https://orderlab.io/TrainCheck/)

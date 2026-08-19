@@ -136,6 +136,6 @@ contact the OrderLab team.
 ---
 
 *This is the final post in a three-part series on trustworthy ML training.
-Previous: [TrainCheck: Catching Training Bugs Before the Loss Curve
-Does](traincheck-in-practice.md). Start the series: [ML Training Can Be Wrong
-Even When the Loss Goes Down](training-reliability.md).*
+Previous: [Why ML Training Failures Are So Hard to
+Localize](traincheck-in-practice.md). Start the series: [ML Training Can Be
+Wrong Even When the Loss Goes Down](training-reliability.md).*

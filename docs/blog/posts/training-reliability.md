@@ -5,101 +5,113 @@ slug: ml-training-wrong-loss-goes-down
 categories:
   - ML Reliability
   - Distributed Training
-description: Silent implementation errors in ML training can produce the same symptoms as ordinary optimization failures.
+description: A plausible loss curve can survive an implementation error that changes the training algorithm itself.
 ---
 
 # ML Training Can Be Wrong Even When the Loss Goes Down
 
-A falling loss tells us that the reported objective is decreasing. It does not
-establish that the intended training procedure ran.
+We routinely accept a plausible loss curve as evidence that an experiment
+tested the idea we intended to test. That standard is too weak.
 
-That distinction is easy to lose in modern ML because the design space is
-enormous. When training disappoints, there are many legitimate explanations:
-the data mixture, model architecture, objective, initialization, optimization
-regime, or scale may be wrong. A silent implementation error can produce the
-same symptoms.
+A falling loss establishes that the reported objective is decreasing. It does
+not establish that replicas synchronized, the right parameters were updated, or
+the distributed program preserved the gradients of the original model.
 
-**Wrong execution does not have to look like software failure. It can look like
-ordinary ML.** A job can keep every accelerator busy, produce checkpoints, and
-follow a plausible loss trajectory while synchronizing the wrong state,
-updating the wrong parameters, or skipping part of the intended procedure.
+This is not a philosophical distinction. In a recent Mixture-of-Experts bug,
+the loss matched exactly while every expert gradient was wrong.
 
-## The loss matched. The gradients did not
+## Same loss, two-times gradients
 
-In August 2025, a bug report compared TorchTitan's Mixture-of-Experts training
-with and without expert parallelism. On the same inputs and weights, both paths
-produced exactly the same loss. With two-way expert parallelism, however, every
-expert gradient was almost exactly twice as large. The reporter also observed
-equivalent loss curves in a training workload despite the doubled gradients.
+In August 2025, a bug report compared TorchTitan training with and without
+expert parallelism. The test used the same inputs and weights in both paths.
+The losses were identical to eight decimal places:
+
+```text
+Loss without expert parallelism: 0.65229332
+Loss with expert parallelism:    0.65229332
+```
+
+The expert gradients were not identical. With two-way expert parallelism, each
+was almost exactly twice as large. The total gradient norm changed from
+`0.571427` to `1.143555`, a ratio of `2.001227`. The reporter also observed
+equivalent loss curves in a non-test workload despite the doubled gradients.
 ([PyTorch issue](https://github.com/pytorch/pytorch/issues/160285))
 
-The forward computation was correct. The backward computation had the wrong
-semantics: combining FSDP with expert parallelism was missing the factor that
-normalizes reduced gradients. The fix was merged into TorchTitan the next day.
-([TorchTitan fix](https://github.com/pytorch/torchtitan/pull/1551))
+The forward computation was correct. The backward computation was not.
+Combining FSDP with expert parallelism was missing the factor that normalizes
+the reduced gradients. A small change to the reduction path fixed the semantics
+and was merged into TorchTitan the next day. ([TorchTitan
+fix](https://github.com/pytorch/torchtitan/pull/1551))
 
-This is a particularly inconvenient failure mode. A forward-loss parity check
-passed exactly, and a longer training workload produced equivalent loss curves.
-Adam-like optimizers can partially hide a uniform gradient rescaling; gradient
-clipping and other optimizers need not. Either way, the curve did not establish
-whether parallelization preserved the gradients it was supposed to compute.
+The experiment had passed an obvious check: parallel and non-parallel execution
+produced the same loss. That check had validated only the forward pass.
 
-## New ideas receive less debugging than established recipes
+## A plausible curve does not make the bug harmless
 
-When a standard recipe unexpectedly stops working, the implementation is an
-obvious suspect. There is a known-good result to recover, so the team keeps
-debugging. When a new architecture, objective, or training method
-underperforms, “the idea does not work” is a reasonable stopping condition.
+The equivalent loss curves are not as surprising as they first appear.
+Adam-like optimizers can partially cancel a uniform rescaling of gradients.
+That can hide the error in parameter updates, especially over a short
+comparison. Gradient clipping, optimizer epsilon, weight decay, other
+optimizers, and changes in parallelism degree need not preserve that
+cancellation.
 
-This makes public bug reports survivorship-biased. The cases we can document are
-the ones someone kept investigating until the implementation error was found.
-We do not see experiments that were never revisited because their bad results
-looked reasonable enough.
+More importantly, a team should not have to argue that an incorrect gradient is
+probably harmless. If enabling expert parallelism scales gradients with the
+expert-parallel degree, then it changes the training procedure. Any conclusion
+attributed to the model or method now also depends on an accidental
+implementation detail.
 
-We cannot count the ideas lost this way. A silent implementation failure and a
-legitimate negative result can leave the same artifact: a run that did not
-perform well enough to continue.
+This is the uncomfortable point: **a result can look reproducible at the metric
+level while failing to reproduce the algorithm.**
 
-## More curves do not resolve execution ambiguity
+## More ML metrics do not answer the execution question
 
-Serious training efforts inspect much more than loss and accuracy: gradient and
-update norms, activations, data statistics, per-rank values, numerical health,
-and application-specific signals. These measurements catch many failures and
-constrain the hypotheses for many others.
+Serious training efforts inspect far more than loss: gradient and update norms,
+activations, data statistics, per-rank values, numerical health, and
+application-specific signals. These measurements catch many failures.
 
-But aggregate signals discard execution detail. The same gradient norm can come
-from correctly synchronized replicas or several models drifting apart. A
-parameter update norm says little if the optimizer owns a different parameter
-from the one used in the forward pass. A plausible loss does not establish that
-initialization followed the intended code path.
+They still describe outcomes more readily than execution semantics. A total
+gradient norm might reveal the TorchTitan discrepancy if someone compares the
+right configurations closely enough. It does not say which parameters were
+scaled incorrectly or which distributed operation introduced the factor. A
+normal-looking norm does not establish that an optimizer owns the parameters
+used in the forward pass or that every required operation ran on every rank.
 
 Nor is this a clean separation between “ML failures” and “systems failures.”
 Precision changes optimization. Parallelism changes parameter ownership and
-update semantics. Data systems determine the effective objective. Compilers and
-fused kernels change the numerical program.
+update semantics. Compilers and fused kernels change the numerical program.
+The system is part of the algorithm being evaluated.
 
-The practical distinction is between observations that describe the **outcome
-of training** and observations that establish whether expected **training
-relationships** held.
+## Negative results have the weakest protection
 
-## Stochastic training still has partial specifications
+When an established recipe stops working, there is a known-good result to
+recover. The implementation becomes an obvious suspect, and the team has a
+reason to keep debugging.
 
-We usually cannot say what the loss must be at step 1,000. We can often say what
-must happen during that step: replicated state should remain consistent; an
-optimizer should act on the parameters associated with its gradients; required
-initialization should execute; and versioned components should exchange
-compatible state.
+When a new architecture, objective, or training method underperforms, “the idea
+does not work” is a reasonable stopping condition. A legitimate negative result
+and a silent implementation error can leave the same artifact: a run that did
+not perform well enough to continue.
 
-These relationships do not prove that a run is correct or that an idea is good.
-They help establish whether the run is informative about the idea at all.
+Public bug reports are therefore survivorship-biased. We see the cases someone
+investigated until they found doubled gradients or divergent replicas. We do
+not see the experiments that were abandoned because their wrong results looked
+reasonable.
 
-We call them **training invariants**. The next post introduces
-[TrainCheck](https://github.com/OrderLab/TrainCheck), our attempt to infer these
-relationships from reference runs and report when a new execution violates
-them.
+We cannot prove how often this happens. We can require better evidence before a
+run is allowed to change a research decision.
+
+Exact loss values are rarely specifiable, but parts of training execution are.
+Parallelization should preserve intended gradients. Replicated state should
+remain consistent. Optimizers should update the parameters associated with
+their gradients. Required operations should execute in the right context.
+
+The next post examines why violations of these relationships are difficult to
+localize, which patterns recur across training stacks, and where execution-level
+checks such as [TrainCheck](https://github.com/OrderLab/TrainCheck) can help.
 
 ---
 
 *This is the first post in a three-part series on trustworthy ML training. Next:
-[TrainCheck: Catching Training Bugs Before the Loss Curve
-Does](traincheck-in-practice.md).*
+[Why ML Training Failures Are So Hard to
+Localize](traincheck-in-practice.md).*
