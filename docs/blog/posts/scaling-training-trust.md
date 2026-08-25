@@ -6,132 +6,116 @@ categories:
   - ML Reliability
   - Reinforcement Learning
   - Distributed Training
-description: As training becomes larger, more interconnected, and more autonomous, what evidence will we need before we trust its results?
+description: As ML workflows involve more components and automated decisions, results need execution evidence that can be checked, combined, and carried forward.
 ---
 
 # We're Scaling Training Faster Than We're Scaling Trust
 
-Pretraining and reinforcement learning create different reliability problems.
-Pretraining concentrates risk inside one enormous, repeated computation. RL
-spreads correctness across changing policies, rollouts, rewards, learners, and
-inference systems.
+ML is advancing along many fronts at once. Training systems are becoming more
+optimized and distributed, workflows span more components, and software is
+beginning to take on more of the experimental loop. That is exciting: it
+expands the models, training procedures, and research processes we can build.
 
-Both can produce plausible top-level metrics while executing the wrong training
-procedure. Both are also becoming harder to inspect manually as experiments
-grow larger and faster.
+The reliability question is shared across these developments. Judging an idea
+now depends on more code paths, component versions, data transformations, and
+automated decisions. A final metric can look plausible when one of them is
+wrong.
 
-The open question is not whether training needs stronger validation. It is which
-failures matter most, which relationships we can check, and where such checks
-belong in real ML workflows.
+The central change is not simply that individual runs are larger. A result is
+increasingly an input to another component or decision. We think the unit of
+trust should therefore be a result together with its execution evidence, not
+the metric alone.
 
-## Pretraining concentrates the cost of one silent error
+## Results should carry their execution evidence
 
-Large-scale pretraining presents the clearest economic case for early
-detection. Its training loop is repetitive and relatively structured, but the
-system beneath it combines data, tensor, and pipeline parallelism with optimizer
-sharding, mixed precision, checkpointing, fused kernels, and custom
-infrastructure.
+An experiment often leaves behind a checkpoint, metrics, a configuration, and a
+code revision. These may not identify its data and tokenizer, which policy
+generated its rollouts, which reward model scored them, or whether expected
+training relationships held.
 
-A small inconsistency can propagate through many devices and checkpoints before
-a top-level metric makes it undeniable. By then, the team must decide whether
-to continue, roll back, restart, or accept a checkpoint whose state is not fully
-trusted.
+A result should travel with a compact record: relevant component versions, data
+lineage, checks and their outcomes, and pointers to detailed traces. It need not
+retain every event. It should say what was checked, against which expectation,
+and where the supporting evidence lives.
 
-Pretraining also has properties that make execution validation plausible. Teams
-often have smaller-scale runs, earlier software versions, alternative precision
-implementations, or known-good configurations. Many expected relationships are
-concrete: replicas should stay consistent, optimizer state should change with
-its parameters, and pipeline stages should run in the intended order.
+This makes later correction possible. If a kernel, dataset, or model version is
+faulty, teams should be able to find dependent results and mark them for
+re-evaluation. Provenance supports both reproduction and precise invalidation.
 
-The adoption problem is equally concrete. Organizations operating at this scale
-are few, their stacks are heavily customized, and the cost of instrumentation
-interfering with a production run is high. A useful checker must work with
-compiled and fused execution, transfer expectations across scales, and justify
-which checks remain enabled throughout a long run.
+## Checks should compose as workflows grow
 
-## RL moves correctness across component boundaries
+Within a training job, checks can cover relationships such as replica agreement,
+parameter and optimizer ownership, state transitions, and operation order.
+Across components, the relationships change: a rollout should name the policy
+that generated it, a reward should refer to the intended sample, and a learner
+should know which versions of its inputs it consumed.
 
-In modern RL, correctness no longer lives inside one
-forward-backward-update loop. A system may couple rollout workers, inference
-engines, reward and reference models, experience storage, policy learners,
-distributed orchestration, and evaluation.
+These checks should compose. A component should expose the identity and lineage
+of its outputs, and consumers should check their assumptions about them. The
+combined evidence should connect events across process and service boundaries
+without requiring one tool to understand every implementation detail.
 
-Each component can work locally while their relationships are wrong. A rollout
-worker may use a stale policy. The learner and inference engine may tokenize or
-mask inputs differently. Rewards may be associated with the wrong samples.
-Versioned data may arrive out of order. An update may succeed locally but never
-reach the workers expected to use it.
+The verl fused-kernel issue gives one concrete example. A kernel returned
+incorrect log probabilities when the vocabulary size was not divisible by its
+block size; finding the cause required tracing reward collapse and
+log-probability disagreement into the optimized kernel. ([original
+report](https://github.com/verl-project/verl/issues/2656),
+[investigation](https://github.com/verl-project/verl/issues/2899), [merged
+fix](https://github.com/verl-project/verl/pull/5349))
 
-This is already observable in current systems. In July 2025, verl users reported
-reward collapse after enabling a fused linear cross-entropy kernel. The fused
-path returned log probabilities that disagreed with the unfused PyTorch path.
-The investigation traced the remaining discrepancy to a Triton kernel that
-assumed particular vocabulary-size divisibility; the affected model's
-vocabulary violated that assumption. The optimization did not merely run the
-same RL computation faster. It changed values used by the algorithm. ([verl
-report](https://github.com/verl-project/verl/issues/2656), [root-cause
-analysis](https://github.com/verl-project/verl/issues/2899))
+This was a difficult diagnosis inside one component, not a cross-service
+failure. If those log probabilities feed later rollouts or updates, however, a
+larger workflow should record which results consumed them and mark those results
+for review.
 
-Final reward and benchmark scores compress these interactions into a few
-numbers. When they disappoint, the explanations range from “the algorithm does
-not work” to “one service used yesterday's weights.” This is the ambiguity of a
-conventional training loop extended across time, processes, and system
-boundaries.
+[TrainCheck](traincheck-in-practice.md) explores one part of this design:
+contextual checks within a training job. The broader challenge is to connect
+such checks with versioning, lineage, and contracts across tools.
 
-RL may therefore have a larger unexplored need for execution validation. It is
-also the harder setting. What counts as a reference run when the environment
-and policy co-evolve? How much policy staleness is acceptable? Can a checker
-distinguish bounded delay from a stuck worker? Can it validate causal
-relationships across traces produced by different services?
+## Combine routine checks with richer boundary checks
 
-The right abstraction may need to extend beyond invariants inside one Python
-process. It may need to describe data lineage, policy versions, causal ordering,
-and contracts between rollout, reward, inference, and learning.
+Not every check should run at every step. Lower-cost checks—version identifiers,
+replica hashes, collective order, required events, and selected state
+relationships—can run continuously or periodically and catch problems early.
 
-## Autonomous research makes invalid results propagate faster
+Richer checks can run after a code change, before checkpoint promotion, when
+rollouts reach a learner, or before an automated system accepts an experiment as
+evidence. They can use fuller traces, differential runs, replay, or
+cross-component lineage. The evidence record should include their outcomes.
 
-Research agents increasingly launch experiments, inspect results, form
-hypotheses, and decide what to try next. An implementation error in this loop
-does not only waste one run. It can make a promising method look weak, cause the
-agent to abandon that direction, and redirect many subsequent experiments
-around a false premise.
+This layered design is intended to keep routine monitoring affordable and
+reserve expensive validation for checkpoint promotion, cross-service handoffs,
+and automated decisions.
 
-Automation can also make richer validation practical. An agent can inspect
-execution reports continuously, quarantine a suspect experiment, request a
-reproduction, or refuse to update its hypothesis until additional checks pass.
+## Automated research needs evidence-admission rules
 
-For an autonomous research loop, deciding whether a result is trustworthy
-enough to learn from becomes part of the system itself. Losses and benchmark
-scores are not sufficient if the agent cannot tell whether the intended
-training procedure produced them.
+If a research agent plans follow-up experiments, it needs an explicit rule for
+when a result is eligible to influence the next decision. Passing a loss or
+benchmark threshold is not enough if required execution or provenance checks
+failed.
 
-## Where should this field start?
+The corresponding invalidation rule matters just as much. If an input or run is
+later discredited, downstream conclusions and experiments should be marked for
+review rather than remaining silently embedded in the research history. How to
+represent and apply these rules across that history is an open challenge.
 
-Pretraining has extraordinary cost per failure, relatively structured
-execution, and a small number of highly specialized users. RL has more
-cross-component failure modes, less stable reference behavior, and a broader
-set of rapidly changing systems. Autonomous research increases the consequence
-of errors in both domains.
+## Our position: make execution evidence part of the result
 
-[TrainCheck](traincheck-in-practice.md) is one exploration of this space. Its
-current approach—learn contextual invariants from reference executions and
-report the first violation—has worked on silent errors in distributed PyTorch
-training. We do not assume the same design transfers unchanged to every
-pretraining or RL stack.
+We can build this incrementally. Cheap checks can run continuously; richer checks
+should run where a checkpoint, rollout, or experiment will influence later work.
+As workflows become more automated, they should use a result only when the
+required checks have passed.
 
-We are trying to answer three questions:
+We do not need a proof of the entire workflow to start. We can check specific
+relationships that matter today, preserve the evidence those checks produce,
+and support precise invalidation. If validation is designed alongside new ML
+workflows, greater automation can make checking more systematic rather than
+less.
 
-1. Which silent failures cost training teams the most time, compute, or lost
-   research progress?
-2. Which execution relationships remain meaningful when exact metrics are
-   unpredictable?
-3. What must a validation tool support before a team would place it in a real
-   training workflow?
-
-If you work on pretraining, RL, or autonomous research, we would like to hear
-where this framing is wrong and which problem is worth solving first. Open a
-discussion on [TrainCheck GitHub](https://github.com/OrderLab/TrainCheck), or
-contact the OrderLab team.
+If you build training systems, RL infrastructure, or automated research tools,
+we would like to hear what evidence your results should carry and where stronger
+checks would help most. Join the [GitHub
+Discussion](https://github.com/OrderLab/TrainCheck/discussions).
 
 ---
 
