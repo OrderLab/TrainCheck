@@ -10,128 +10,120 @@ description: A falling loss does not show whether distributed training executed 
 
 # ML Training Can Be Wrong Even When the Loss Goes Down
 
-We often treat a plausible loss curve as evidence that an experiment tested the
-intended idea. But a loss curve supports a narrower claim: the reported
-objective decreased.
+We often treat the loss curve as a health check for an experiment. A smooth,
+decreasing curve gives us confidence. A spike or a sustained increase can warn
+us that something may be wrong.
 
-It does not show that replicas synchronized, the right parameters were updated,
-or the distributed program preserved the gradients of the original model.
+That instinct is useful. Loss is often the first sign of a broken run. But we
+also ask it to answer a question it cannot: did this experiment execute the
+algorithm we intended to test?
 
-A 2025 Mixture-of-Experts bug made that distinction concrete: the loss matched
-exactly while every expert gradient was wrong.
+A training run today combines the model and optimizer with kernels, precision
+casts, distributed collectives, compiler transformations, checkpoint code, and
+framework defaults. Any of these can change the computation. The loss is
+produced by the whole stack, yet it does not tell us which computation the stack
+actually performed.
 
-## Same loss, doubled gradients
+This leaves us with two problems. In the harder case, the implementation is
+wrong while the loss looks healthy. In the more familiar case, the loss looks
+wrong but cannot tell us whether the idea failed or its implementation did. The
+first lets us trust an invalid run. The second can make us abandon an idea for
+the wrong reason.
 
-In August 2025, a bug report compared TorchTitan training with and without
-expert parallelism. The test used the same inputs and weights in both paths.
-The losses were identical to eight decimal places:
+## A smooth curve does not mean the training is correct
 
-```text
-Loss without expert parallelism: 0.65229332
-Loss with expert parallelism:    0.65229332
-```
+People who train models already know that a good loss curve is not proof that
+everything underneath it is correct. The BLOOM-176B training run makes this
+limitation concrete. It is also unusually visible: the team documented the
+failure in public, an openness that deserves credit.
 
-With two-way expert parallelism, every expert gradient was almost exactly twice
-as large. The total gradient norm changed from
-`0.571427` to `1.143555`, a ratio of `2.001227`. The reporter also observed
-equivalent loss curves in a non-test workload despite the doubled gradients.
-([PyTorch issue](https://github.com/pytorch/pytorch/issues/160285))
+During BLOOM-176B training, LayerNorm weights that should have been replicated
+began to differ across tensor-parallel ranks. Loss and accuracy showed no
+immediate anomaly, so the inconsistency remained undetected for ten days. The
+eventual investigation found that gradient clipping in the BF16 optimizer ran on
+only one tensor-parallel rank. The ranks were no longer applying the same update
+to supposedly identical weights. ([BLOOM training
+chronicle](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr11-176B-ml/chronicles.md#2022-03-24-grad-clip-tp-sync-bug-fixing),
+[OSDI '25 paper, Sections 1 and
+2.2](https://www.usenix.org/system/files/osdi25-jiang.pdf))
 
-Both paths computed the same forward-pass loss, but their backward passes
-disagreed. Combining FSDP with expert parallelism omitted the factor that
-normalizes the reduced gradients. Adding that factor corrected the gradients,
-and the patch merged into TorchTitan the next day. ([TorchTitan
-fix](https://github.com/pytorch/torchtitan/pull/1551))
+The training signal did not expose the disagreement. Training continued even
+though weights that should have been replicated no longer represented the same
+state.
 
-## A plausible curve does not make the bug harmless
+Training stacks have matured since BLOOM, but frontier work still exercises
+configurations with limited prior testing. The specific bugs will differ; the
+monitoring problem remains whenever we observe only the outcome without checking
+the computation that produced it.
 
-Adam-like optimizers help explain why the loss curves remained similar. They can
-partially cancel a uniform rescaling of gradients, leaving parameter updates
-similar over a short comparison. Gradient clipping, optimizer epsilon, weight
-decay, other optimizers, and changes in parallelism degree need not preserve
-that cancellation.
+## A suspicious curve does not identify its cause
 
-Even when the optimizer partly cancels the error, enabling expert parallelism
-still changes the training procedure. Conclusions attributed to the model or
-method then also depend on an unintended implementation detail.
+Not every implementation error stays hidden behind a healthy curve. Often the
+curve eventually does look suspicious. That sounds easier: at least the run has
+given us a warning. But what do we do next? Debug the system, tune the method,
+or stop the run and conclude that the idea does not work?
 
-**Metric-level reproducibility does not imply algorithmic reproducibility.**
+In February 2026, a fix to the Flash Linear Attention implementation of Mamba-2
+corrected how `dt_bias` and `A` were initialized. The author reported a
+significant difference between training with the old and corrected
+initializations. A follow-up fix addressed another path in which FSDP2's
+distributed tensors had caused the intended initialization to be skipped.
+([initialization fix](https://github.com/fla-org/flash-linear-attention/pull/739),
+[FSDP2 fix](https://github.com/fla-org/flash-linear-attention/pull/753))
 
-## What existing monitoring approaches can—and cannot—show
+Before those fixes, a disappointing Mamba-2 curve could have invited a story
+about the architecture, the data, or the optimizer. Correcting the known
+initialization defects made the resulting curve better evidence about those
+choices; it did not by itself validate the rest of the implementation.
 
-[TensorBoard](https://www.tensorflow.org/tensorboard/get_started) and
-[Weights & Biases](https://docs.wandb.ai/models/track/log) track user-selected
-metrics, parameter and gradient distributions, and system telemetry across
-runs. [Cockpit](https://proceedings.neurips.cc/paper/2021/hash/ae3539867aaeec609a4260c6feb725f4-Abstract.html)
-adds diagnostics from gradient distributions and curvature.
-[DeepDiagnosis](https://doi.org/10.1145/3510003.3510071) checks training-time
-values for symptoms such as exploding tensors, unchanged weights, and vanishing
-gradients. These tools can catch numerical and optimization failures before
-they affect a final metric.
+A loss spike, plateau, or regression can come from data, initialization,
+optimizer settings, numerical precision, random variation, or an implementation
+error. With a new method, there are fewer known-good results for ruling these
+explanations out. That ambiguity is why teams look beyond the curve.
 
-[PyTea](https://arxiv.org/abs/2112.09037) statically checks tensor-shape
-constraints, and
-[CRADLE](https://www.cs.purdue.edu/homes/lintan/publications/cradle-icse19.pdf)
-compares model executions across deep-learning backends. In distributed runs,
-[PyTorch's debug mode](https://docs.pytorch.org/docs/stable/distributed.html#torch-distributed-debug)
-checks that ranks issue matching collective operations with consistent tensor
-shapes.
+## Existing monitoring practices are insufficient
 
-Each check establishes a particular property. None alone shows that expert
-parallelism preserved every parameter's gradient. In the TorchTitan case, a
-total gradient norm would reveal the discrepancy if the parallel and
-non-parallel configurations were compared directly. In a single run, however,
-even a doubled norm might look plausible, and the collective operations could
-still match in shape and order. The relevant check is relational: with the same
-inputs and weights, enabling expert parallelism should preserve the intended
-per-parameter gradients.
+Training teams already watch much more than loss.
+[TensorBoard](https://www.tensorflow.org/tensorboard/get_started), [Weights &
+Biases](https://docs.wandb.ai/models/track/log), and [MLflow
+Tracking](https://mlflow.org/docs/latest/ml/tracking/) let researchers record
+and compare metrics across runs. A useful dashboard may include the learning
+rate, gradient and update norms, parameter distributions, throughput, memory,
+and hardware utilization. These signals can surface signs of unstable
+optimization, a stalled input pipeline, growing memory use, or departure from a
+known baseline. But most routine monitoring still consists of high-level
+numerical signals. They describe symptoms without establishing that the intended
+computation ran.
 
-## One symptom supports too many explanations
+A stable reference enables stronger checks. Instead of asking whether a value
+looks plausible, we can compare a changed execution with one believed to be
+correct and ask what should have remained unchanged. Yet a training trace spans
+many tensors, operations, ranks, and steps. A reference run improves the
+available evidence, but the space of possible comparisons remains enormous. It
+does not by itself tell us which relationships matter or whether an unobserved
+part of the execution was wrong.
 
-A loss spike, plateau, or regression is rarely specific. Data, initialization,
-optimizer settings, numerical precision, random variation, and implementation
-errors can produce the same curve. With a novel method, there are also fewer
-known-good results for eliminating these explanations.
-
-Additional metrics can eliminate some causes but rarely identify which
-execution relationship broke. Throughput, for example, shows that the job is
-progressing, not that replicas agree or that the optimizer updates the intended
-parameters.
-
-Mixed precision, sharding, compilers, and fused kernels all change how the
-authored model executes. An error in one runtime component may first appear as
-two ranks disagreeing or as a model and optimizer referring to different
-parameters. The system is therefore part of the algorithm being evaluated.
-This ambiguity matters most when an experiment has no known-good result.
-
-## Negative results are hardest to validate
+## A broader risk: Silent implementation errors can be mistaken for negative results
 
 When an established recipe stops working, there is a known-good result to
 recover. The implementation becomes an obvious suspect, and the team has a
 reason to keep debugging.
 
 When a new architecture, objective, or training method underperforms,
-researchers may reasonably conclude that the idea failed. The same observed
-outcome—a run not worth continuing—can result from either a genuine negative
-result or a silent implementation error.
+researchers may reasonably conclude that the idea failed. Yet the same decision
+to stop a run can follow from either a genuine negative result or a silent
+implementation error.
 
-Public bug reports are therefore survivorship-biased. We see the cases someone
-investigated until they found doubled gradients or divergent replicas. We do
-not see the experiments that were abandoned because their wrong results looked
-reasonable.
+Public bug reports record the cases someone investigated far enough to find
+divergent replicas or faulty initialization. They cannot tell us how often an
+implementation error is mistaken for a negative result, because many abandoned
+experiments may never be diagnosed. Our claim is narrower: a loss curve alone
+cannot distinguish a failed idea from a faulty implementation.
 
-We cannot prove how often this happens. We can require better evidence before
-using a run to make a research decision.
-
-Although exact loss values are rarely specifiable, we can state many execution
-requirements. Parallelization should preserve intended gradients. Replicated
-state should remain consistent. Optimizers should update the parameters
-associated with their gradients. Required operations should execute in the
-right context.
-
-The next post examines why violations of these relationships are difficult to
-localize, which patterns recur across training stacks, and where execution-level
-checks such as [TrainCheck](https://github.com/OrderLab/TrainCheck) can help.
+We can ask instead whether the execution maintained the relationships required
+for the result to mean what we think it means. The next post examines those
+relationships, how we might monitor them, and how much closer a violation brings
+us to the actual fault.
 
 ---
 
