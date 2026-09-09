@@ -39,47 +39,68 @@ failure in public, an openness that deserves credit.
 
 During BLOOM-176B training, LayerNorm weights that should have been replicated
 began to differ across tensor-parallel ranks. Loss and accuracy showed no
-immediate anomaly, so the inconsistency remained undetected for ten days. The
-eventual investigation found that gradient clipping in the BF16 optimizer ran on
-only one tensor-parallel rank. The ranks were no longer applying the same update
-to supposedly identical weights. ([BLOOM training
+immediate anomaly, and cross-rank consistency was not being checked. The team
+found the divergence while investigating another problem; it had already
+persisted for ten days. The eventual investigation found that gradient clipping
+in the BF16 optimizer ran on only one tensor-parallel rank. The ranks were no
+longer applying the same update to supposedly identical weights. ([BLOOM training
 chronicle](https://github.com/bigscience-workshop/bigscience/blob/master/train/tr11-176B-ml/chronicles.md#2022-03-24-grad-clip-tp-sync-bug-fixing),
+[DeepSpeed fix](https://github.com/deepspeedai/DeepSpeed/pull/1801),
 [OSDI '25 paper, Sections 1 and
 2.2](https://www.usenix.org/system/files/osdi25-jiang.pdf))
 
-The training signal did not expose the disagreement. Training continued even
-though weights that should have been replicated no longer represented the same
-state.
+![A decreasing loss curve above replicated weights that agree before
+an update and diverge afterward](../../assets/blog/training-reliability/01-healthy-loss-hidden-divergence.png)
 
-Training stacks have matured since BLOOM, but frontier work still exercises
-configurations with limited prior testing. The specific bugs will differ; the
-monitoring problem remains whenever we observe only the outcome without checking
-the computation that produced it.
+We later reproduced the bug in a smaller CodeParrot run. Its logged gradient
+norm closely tracked a diagnostic run that synchronized the LayerNorm replicas
+before each forward pass. Their validation loss and perplexity differed early,
+then approached similar values over their shared first 2,000 steps.
+
+The curves were not identical, but their differences did not identify the
+violated relationship; gradient norm did not clearly distinguish the faulty and
+diagnostic runs either. The relevant question was whether weights intended to be
+replicated remained equal.
+
+Training stacks have matured since BLOOM, but new configurations still pose the
+same monitoring problem: high-level outcomes do not tell us which computation
+ran.
 
 ## A suspicious curve does not identify its cause
 
-Not every implementation error stays hidden behind a healthy curve. Often the
-curve eventually does look suspicious. That sounds easier: at least the run has
-given us a warning. But what do we do next? Debug the system, tune the method,
-or stop the run and conclude that the idea does not work?
+When a curve does look suspicious, it still leaves a choice: debug the system,
+tune the method, or stop the run and conclude that the idea does not work?
 
-In February 2026, a fix to the Flash Linear Attention implementation of Mamba-2
-corrected how `dt_bias` and `A` were initialized. The author reported a
-significant difference between training with the old and corrected
-initializations. A follow-up fix addressed another path in which FSDP2's
-distributed tensors had caused the intended initialization to be skipped.
-([initialization fix](https://github.com/fla-org/flash-linear-attention/pull/739),
-[FSDP2 fix](https://github.com/fla-org/flash-linear-attention/pull/753))
+In 2024, Jack Morris reported a distributed data-parallel (DDP) run whose loss
+fell until roughly step 150, then rose without a corresponding increase in
+gradient norm. Replies to the [original
+question](https://x.com/jxmnop/status/1778436832075678100) proposed learning-rate
+instability, initialization, regularization, and a missing
+`optimizer.zero_grad()` call. The same curve was consistent with all of them.
 
-Before those fixes, a disappointing Mamba-2 curve could have invited a story
-about the architecture, the data, or the optimizer. Correcting the known
-initialization defects made the resulting curve better evidence about those
-choices; it did not by itself validate the rest of the implementation.
+![A loss curve that falls, plateaus, and then rises above several possible
+explanations, including data, initialization, optimizer settings, numerical
+precision, random variation, and an implementation
+error](../../assets/blog/training-reliability/02-suspicious-loss-many-causes.png)
 
-A loss spike, plateau, or regression can come from data, initialization,
-optimizer settings, numerical precision, random variation, or an implementation
-error. With a new method, there are fewer known-good results for ruling these
-explanations out. That ambiguity is why teams look beyond the curve.
+Morris later [traced the
+problem](https://x.com/jxmnop/status/1778520637193240892) to a training path that
+called the raw `nn.Module` instead of the DDP wrapper. The gradients from that
+path did not synchronize, so each GPU updated its model from its own local
+gradients. The rising loss showed that something was wrong. It did not show that
+the GPUs were no longer training one synchronized model.
+
+A more direct check would compare the same replicated trainable parameter across
+ranks after each update. In DDP, those replicas should remain equal. A
+disagreement could have narrowed the investigation to distributed execution
+before the loss began to rise.
+
+The same ambiguity matters more when the method itself is new and there are
+fewer known-good results. Recent Mamba-2 initialization fixes show why: a
+disappointing curve could reflect the architecture, or initialization code that
+never produced the intended state. ([initialization
+fix](https://github.com/fla-org/flash-linear-attention/pull/739), [FSDP2
+fix](https://github.com/fla-org/flash-linear-attention/pull/753))
 
 ## Existing monitoring practices are insufficient
 
@@ -103,7 +124,7 @@ available evidence, but the space of possible comparisons remains enormous. It
 does not by itself tell us which relationships matter or whether an unobserved
 part of the execution was wrong.
 
-## A broader risk: Silent implementation errors can be mistaken for negative results
+## Silent implementation errors can look like negative results
 
 When an established recipe stops working, there is a known-good result to
 recover. The implementation becomes an obvious suspect, and the team has a
