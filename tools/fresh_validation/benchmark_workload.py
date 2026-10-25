@@ -6,8 +6,11 @@ PYTHONPATH. The benchmark checkout is only read. These are explicit adaptations,
 not claims to reproduce the complete benchmark's data or end-to-end training.
 """
 
+from __future__ import annotations
+
 import argparse
 import ast
+import copy
 import gzip
 import hashlib
 import json
@@ -15,8 +18,66 @@ import os
 import random
 import struct
 import subprocess
+import sys
 import time
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
+
+if TYPE_CHECKING:
+    import torch
+    import torch.nn as nn
+
+if __package__ in (None, ""):
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+from tools.fresh_validation.contracts import JSONObject, json_value  # noqa: E402
+
+
+class TracingConfig(Protocol):
+    DISABLE_WRAPPER: bool
+    MODEL_TRACKER_STYLE: str | None
+    INSTR_DESCRIPTORS: bool
+    INSTRUMENTATION_POLICY: dict[str, int]
+
+
+def configure_tracing(config: TracingConfig) -> None:
+    config.DISABLE_WRAPPER = True
+    config.MODEL_TRACKER_STYLE = None
+    config.INSTR_DESCRIPTORS = False
+    config.INSTRUMENTATION_POLICY.update(interval=1, warm_up=0)
+
+
+class WorkloadOptions(argparse.Namespace):
+    benchmark_root: Path
+    workload: Literal["mnist", "dcgan", "transformer"]
+    steps: int
+    data_steps: int | None
+    seed: int
+    output: Path
+    mode: Literal["baseline", "instrumented"]
+    device: Literal["cpu", "cuda"]
+    batch_size: int
+    cpu_threads: int
+    data_root: Path | None
+    save_checkpoint: bool
+
+
+class TensorMetadata(TypedDict):
+    shape: list[int]
+    dtype: str
+
+
+class WorkloadMetrics(TypedDict):
+    success: bool
+    error: dict[str, str] | None
+    completed_steps: int
+    steps: list[dict[str, int | float]]
+    initial_model_state_sha256: str
+    final_model_state_sha256: str
+    state_shapes_unchanged: bool
+    state_shapes: dict[str, TensorMetadata]
+    timing: str
+
 
 SOURCES = {
     "mnist": "instr-overhead/overhead-e2e/mnist/main.py",
@@ -25,15 +86,15 @@ SOURCES = {
 }
 
 
-def sha256(path):
+def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def write_json(path, value):
+def write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
 
 
-def definitions(source, names):
+def definitions(source: Path, names: Sequence[str]) -> str:
     """Extract exact source spans, never execute the benchmark's top-level CLI."""
     text = source.read_text()
     nodes = {
@@ -44,12 +105,16 @@ def definitions(source, names):
     missing = set(names) - nodes.keys()
     if missing:
         raise ValueError("Missing benchmark definitions: " + str(sorted(missing)))
-    return (
-        "\n\n".join(ast.get_source_segment(text, nodes[name]) for name in names) + "\n"
-    )
+    segments: list[str] = []
+    for name in names:
+        segment = ast.get_source_segment(text, nodes[name])
+        if segment is None:
+            raise ValueError(f"Benchmark definition {name} has no source span")
+        segments.append(segment)
+    return "\n\n".join(segments) + "\n"
 
 
-def mnist_raw(data_root, count):
+def mnist_raw(data_root: Path, count: int) -> tuple[bytes, bytes, JSONObject]:
     """Read local torchvision-style IDX cache without network or torchvision."""
     candidates = [data_root / "MNIST" / "raw", data_root / "raw", data_root]
     for root in candidates:
@@ -76,10 +141,12 @@ def mnist_raw(data_root, count):
             "--data-root must contain the cached MNIST training IDX images and labels"
         )
 
-    def prefix(path, length):
-        opener = gzip.open if path.suffix == ".gz" else open
-        with opener(path, "rb") as handle:
-            return handle.read(length)
+    def prefix(path: Path, length: int) -> bytes:
+        if path.suffix == ".gz":
+            with gzip.open(path, "rb") as handle:
+                return handle.read(length)
+        with path.open("rb") as raw_handle:
+            return raw_handle.read(length)
 
     images = prefix(image, 16 + count * 28 * 28)
     targets = prefix(labels, 8 + count)
@@ -106,7 +173,7 @@ def mnist_raw(data_root, count):
     )
 
 
-def text_prefix(path, count):
+def text_prefix(path: Path, count: int) -> tuple[list[int], int, JSONObject]:
     words = []
     with path.open() as handle:
         for line in handle:
@@ -116,7 +183,7 @@ def text_prefix(path, count):
     if len(words) < count:
         raise ValueError("WikiText source is shorter than the bounded workload")
     words = words[:count]
-    vocab = {}
+    vocab: dict[str, int] = {}
     ids = [vocab.setdefault(word, len(vocab)) for word in words]
     return (
         ids,
@@ -133,9 +200,21 @@ def text_prefix(path, count):
     )
 
 
-def prepare(args, torch):
+def module_class(namespace: Mapping[str, object], name: str) -> type[nn.Module]:
+    import torch.nn as nn
+
+    value = namespace[name]
+    if not isinstance(value, type) or not issubclass(value, nn.Module):
+        raise ValueError(f"Benchmark definition {name} must be an nn.Module class")
+    return value
+
+
+def prepare(
+    args: WorkloadOptions,
+) -> tuple[dict[str, nn.Module], Callable[[int], dict[str, torch.Tensor]], JSONObject]:
     import math
 
+    import torch
     import torch.nn as nn
     import torch.nn.functional as F
 
@@ -147,7 +226,7 @@ def prepare(args, torch):
     }[args.workload]
     extracted = definitions(source, symbols)
     (args.output / "benchmark_definitions.py").write_text(extracted)
-    ns = {
+    ns: dict[str, object] = {
         "__name__": "trace_impact_benchmark",
         "torch": torch,
         "nn": nn,
@@ -159,11 +238,11 @@ def prepare(args, torch):
         "ndf": 8,
     }
     exec(compile(extracted, str(args.output / "benchmark_definitions.py"), "exec"), ns)
-    manifest = {
+    manifest: JSONObject = {
         "workload_kind": "bounded_model_micro_workload",
         "benchmark_source": str(source),
         "benchmark_source_sha256": sha256(source),
-        "extracted_symbols": symbols,
+        "extracted_symbols": [symbol for symbol in symbols],
         "extracted_definitions_sha256": hashlib.sha256(extracted.encode()).hexdigest(),
         "steps": args.steps,
         "seed": args.seed,
@@ -190,17 +269,17 @@ def prepare(args, torch):
     count = args.steps * batch
     device = torch.device(args.device)
     if args.workload == "mnist":
-        model = ns["Net"]().to(device)
+        model = module_class(ns, "Net")().to(device)
         optimizer = torch.optim.Adadelta(model.parameters(), lr=1.0)
         if args.data_root:
-            images, labels, provenance = mnist_raw(args.data_root, count)
+            raw_images, raw_labels, provenance = mnist_raw(args.data_root, count)
             x = (
-                torch.tensor(list(images), dtype=torch.float32).reshape(
+                torch.tensor(list(raw_images), dtype=torch.float32).reshape(
                     count, 1, 28, 28
                 )
                 / 255
             )
-            y = torch.tensor(list(labels), dtype=torch.int64)
+            y = torch.tensor(list(raw_labels), dtype=torch.int64)
         else:
             x = torch.rand(count, 1, 28, 28)
             y = torch.randint(0, 10, (count,))
@@ -214,7 +293,7 @@ def prepare(args, torch):
         y = y.to(device)
         model.train()
 
-        def step(index):
+        def step(index: int) -> dict[str, torch.Tensor]:
             optimizer.zero_grad()
             output = model(x[index * batch : (index + 1) * batch])
             loss = F.nll_loss(output, y[index * batch : (index + 1) * batch])
@@ -229,10 +308,19 @@ def prepare(args, torch):
             update="Exact benchmark forward, NLL loss, backward, Adadelta(lr=1.0). Epoch scheduler/evaluation omitted.",
         )
     elif args.workload == "dcgan":
-        generator = ns["Generator"](1).to(device)
-        generator.apply(ns["weights_init"])
-        discriminator = ns["Discriminator"](1).to(device)
-        discriminator.apply(ns["weights_init"])
+        generator = module_class(ns, "Generator")(1).to(device)
+        initializer = ns["weights_init"]
+        if not callable(initializer):
+            raise ValueError("Benchmark weights_init must be callable")
+
+        def initialize(module: nn.Module) -> None:
+            result: object = initializer(module)
+            if result is not None:
+                raise ValueError("Benchmark weights_init must return None")
+
+        generator.apply(initialize)
+        discriminator = module_class(ns, "Discriminator")(1).to(device)
+        discriminator.apply(initialize)
         optimizer_d = torch.optim.Adam(
             discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999)
         )
@@ -247,7 +335,7 @@ def prepare(args, torch):
         generator.train()
         discriminator.train()
 
-        def step(index):
+        def step(index: int) -> dict[str, torch.Tensor]:
             discriminator.zero_grad()
             real = images[index * batch : (index + 1) * batch]
             label = torch.full((batch,), 1, dtype=real.dtype, device=device)
@@ -298,10 +386,12 @@ def prepare(args, torch):
             .contiguous()
             .to(device)
         )
-        model = ns["TransformerModel"](vocab, 32, 2, 64, 2, 0.2).to(device)
+        model = module_class(ns, "TransformerModel")(vocab, 32, 2, 64, 2, 0.2).to(
+            device
+        )
         model.train()
 
-        def step(index):
+        def step(index: int) -> dict[str, torch.Tensor]:
             start = index * seq
             inputs = data[start : start + seq]
             targets = data[start + 1 : start + seq + 1].reshape(-1)
@@ -334,15 +424,24 @@ def prepare(args, torch):
     return models, step, manifest
 
 
-def model_digest(models):
+def model_digest(
+    models: Mapping[str, nn.Module]
+) -> tuple[str, dict[str, TensorMetadata]]:
     """Hash tensor contents, names, dtype and shape; independent of torch.save metadata."""
+    import torch
+
     digest = hashlib.sha256()
-    shapes = {}
+    shapes: dict[str, TensorMetadata] = {}
     for model_name, model in sorted(models.items()):
         for name, value in sorted(model.state_dict().items()):
             key = model_name + "." + name
+            if not isinstance(value, torch.Tensor):
+                raise ValueError(f"Benchmark state {key} is not a tensor")
             tensor = value.detach().cpu().contiguous()
-            metadata = {"shape": list(tensor.shape), "dtype": str(tensor.dtype)}
+            metadata: TensorMetadata = {
+                "shape": list(tensor.shape),
+                "dtype": str(tensor.dtype),
+            }
             shapes[key] = metadata
             digest.update(
                 key.encode()
@@ -354,7 +453,7 @@ def model_digest(models):
     return digest.hexdigest(), shapes
 
 
-def run(args):
+def run(args: WorkloadOptions) -> None:
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     os.environ["TRAINCHECK_OUTPUT_DIR"] = str(args.output / "traces")
     import torch
@@ -368,11 +467,11 @@ def run(args):
         torch.cuda.manual_seed_all(args.seed)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    prepare_args = argparse.Namespace(**vars(args))
+    prepare_args = copy.copy(args)
     prepare_args.steps = args.data_steps or args.steps
     if prepare_args.steps < args.steps:
         raise ValueError("data_steps must cover every training step")
-    models, step, manifest = prepare(prepare_args, torch)
+    models, step, manifest = prepare(prepare_args)
     manifest.update(
         steps=args.steps,
         prepared_data_steps=prepare_args.steps,
@@ -387,7 +486,7 @@ def run(args):
         p.numel() for model in models.values() for p in model.parameters()
     )
     manifest["initial_model_state_sha256"] = initial_hash
-    manifest["state_shapes"] = shapes
+    manifest["state_shapes"] = json_value(shapes)
     manifest["instrumentation"] = {
         "target": "torch",
         "models_to_track": [],
@@ -399,20 +498,19 @@ def run(args):
     }
     manifest["python_version"] = __import__("sys").version
     write_json(args.output / "adaptation.json", manifest)
-    tc_config = None
-    start_step = None
+    tc_config: TracingConfig | None = None
+    start_step: Callable[[], object] | None = None
     if args.mode == "instrumented":
         (args.output / "traces").mkdir()
         import traincheck.instrumentor.tracer as tracer_module
-        from traincheck.config import config as tc_config
-        from traincheck.instrumentor.control import start_step
+        from traincheck.config import config as active_config
+        from traincheck.instrumentor.control import start_step as active_start_step
         from traincheck.instrumentor.tracer import Instrumentor
 
+        tc_config = active_config
+        start_step = active_start_step
         manifest["tracer_module"] = str(Path(tracer_module.__file__).resolve())
-        tc_config.DISABLE_WRAPPER = True
-        tc_config.MODEL_TRACKER_STYLE = None
-        tc_config.INSTR_DESCRIPTORS = False
-        tc_config.INSTRUMENTATION_POLICY.update(interval=1, warm_up=0)
+        configure_tracing(tc_config)
         if os.environ.get("TC_ORIGIN_AUDIT"):
             from origin_audit import install
 
@@ -435,9 +533,9 @@ def run(args):
         torch.cuda.manual_seed_all(args.seed + 1)
     manifest["training_rng_seed"] = args.seed + 1
     write_json(args.output / "adaptation.json", manifest)
-    records = []
+    records: list[dict[str, int | float]] = []
     success = False
-    error = None
+    error: dict[str, str] | None = None
     try:
         for index in range(args.steps):
             if args.device == "cuda":
@@ -470,7 +568,7 @@ def run(args):
         if tc_config is not None:
             tc_config.DISABLE_WRAPPER = True
         final_hash, final_shapes = model_digest(models)
-        result = {
+        result: WorkloadMetrics = {
             "success": success,
             "error": error,
             "completed_steps": len(records),
@@ -489,7 +587,7 @@ def run(args):
             )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--benchmark-root", type=Path, required=True)
     parser.add_argument("--workload", choices=sorted(SOURCES), required=True)
@@ -509,7 +607,7 @@ def main():
         "--data-root", type=Path, help="Optional local MNIST IDX cache; never downloads"
     )
     parser.add_argument("--save-checkpoint", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=WorkloadOptions())
     if args.steps < 1 or args.batch_size < 1 or args.cpu_threads < 1:
         parser.error("steps, batch-size, cpu-threads must be positive")
     if args.data_root and args.workload != "mnist":

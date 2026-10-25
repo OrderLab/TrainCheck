@@ -8,21 +8,79 @@ import argparse
 import copy
 import hashlib
 import json
+import sys
 from pathlib import Path
+from typing import TypedDict
+
+if __package__ in (None, ""):
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+from tools.fresh_validation.contracts import (  # noqa: E402
+    JSONObject,
+    JSONValue,
+    boolean,
+    integer,
+    json_object,
+    mapping,
+    read_object,
+    required,
+    sequence,
+    string,
+)
 
 
-def digest(path):
+class Edit(TypedDict):
+    file: str
+    zero_based_line: int
+    path: list[str | int]
+    attribute: str
+    before_value: JSONValue
+    after_value: JSONValue
+    raw_process_id: JSONValue
+    raw_thread_id: JSONValue
+
+
+class Fingerprints(TypedDict):
+    original_sha256: str
+    fault_sha256: str
+
+
+class MutationReport(TypedDict):
+    kind: str
+    selection: str
+    attribute: str
+    invariant_index: int
+    invariant: JSONObject
+    func_call_id: str
+    edits: list[Edit]
+    traces: dict[str, Fingerprints]
+    invariants_sha256: str
+    healthy_coverage_sha256: str
+    precondition_inputs_unchanged: bool
+    ids_unchanged: bool
+    invariants_not_retrained_or_rewritten: bool
+
+
+def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def differences(before, after, path=()):
+def differences(
+    before: object, after: object, path: tuple[str | int, ...] = ()
+) -> list[tuple[str | int, ...]]:
     if type(before) is not type(after):
         return [path]
     if isinstance(before, dict):
-        if before.keys() != after.keys():
+        before_dict = mapping(before, "before")
+        after_dict = mapping(after, "after")
+        if before_dict.keys() != after_dict.keys():
             return [path]
-        return [p for k in before for p in differences(before[k], after[k], (*path, k))]
+        return [
+            p
+            for k in before_dict
+            for p in differences(before_dict[k], after_dict[k], (*path, k))
+        ]
     if isinstance(before, list):
+        assert isinstance(after, list)
         if len(before) != len(after):
             return [path]
         return [
@@ -37,7 +95,7 @@ def differences(before, after, path=()):
     return [path]
 
 
-def replacement(attributes, attribute):
+def replacement(attributes: JSONValue, attribute: str) -> JSONValue:
     """Return one valid same-type unequal metadata value, or no eligible edit."""
     if not isinstance(attributes, dict):
         return None
@@ -55,35 +113,74 @@ def replacement(attributes, attribute):
     return None
 
 
-def mutate(traces, invariants, healthy, output):
-    rules = [json.loads(line) for line in invariants.read_text().splitlines()]
-    coverage = json.loads(healthy.read_text())
-    assert coverage["inputs_unchanged"] and coverage["observer_enabled"]
-    assert coverage["input_sha256"][str(invariants)] == digest(invariants)
-    chosen = None
-    call_id = None
-    post_events = {}
+def mutate(
+    traces: list[Path], invariants: Path, healthy: Path, output: Path
+) -> MutationReport:
+    rules = [
+        json_object(json.loads(line), "invariant")
+        for line in invariants.read_text().splitlines()
+    ]
+    coverage = read_object(healthy)
+    if not boolean(
+        required(coverage, "inputs_unchanged"), "inputs_unchanged"
+    ) or not boolean(required(coverage, "observer_enabled"), "observer_enabled"):
+        raise ValueError(
+            "Fault selection requires unchanged inputs and enabled observation"
+        )
+    input_hashes = mapping(required(coverage, "input_sha256"), "input_sha256")
+
+    def verify_hash(path: Path) -> None:
+        if string(required(input_hashes, str(path)), str(path)) != digest(path):
+            raise ValueError(f"Input changed since coverage collection: {path}")
+
+    verify_hash(invariants)
+    chosen: JSONObject | None = None
+    call_id: str | None = None
+    selected_index: int | None = None
+    post_events: dict[str, list[JSONObject]] = {}
     for trace in traces:
-        assert coverage["input_sha256"][str(trace)] == digest(trace)
+        verify_hash(trace)
         for line in trace.read_bytes().splitlines():
-            event = json.loads(line)
-            if event.get("type") == "function_call (post)":
-                post_events.setdefault(event["func_call_id"], []).append(event)
+            event = json_object(json.loads(line), "trace event")
+            if string(required(event, "type"), "event.type") == "function_call (post)":
+                identity = string(required(event, "func_call_id"), "event.func_call_id")
+                post_events.setdefault(identity, []).append(event)
     # Prefer shape; dtype is a prospective fallback when no live mutable shape
     # rule exists. Selection remains post hoc and does not change learned rules.
     for attribute in ("shape", "dtype"):
-        for item in coverage["per_invariant"]:
-            rule = rules[item["invariant_index"]]
-            if not (
-                rule["relation"] == "ConsistentOutputRelation"
-                and rule["params"][1]["attr_name"] == attribute
-                and item["active"]
-                and item["check_passed"]
-                and item["decisions_completed"] > 0
+        for raw_item in sequence(required(coverage, "per_invariant"), "per_invariant"):
+            item = json_object(raw_item, "per_invariant item")
+            index = integer(required(item, "invariant_index"), "invariant_index")
+            if not 0 <= index < len(rules):
+                raise ValueError(f"Invariant index out of range: {index}")
+            rule = rules[index]
+            if (
+                string(required(rule, "relation"), "relation")
+                != "ConsistentOutputRelation"
             ):
                 continue
-            for decision in item["decision_records"]:
-                events = post_events.get(decision["func_call_id"], [])
+            params = sequence(required(rule, "params"), "params")
+            if len(params) != 2:
+                raise ValueError("ConsistentOutputRelation requires two parameters")
+            output_param = mapping(params[1], "output parameter")
+            if not (
+                string(required(output_param, "attr_name"), "attr_name") == attribute
+                and boolean(required(item, "active"), "active")
+                and boolean(required(item, "check_passed"), "check_passed")
+                and integer(
+                    required(item, "decisions_completed"), "decisions_completed"
+                )
+                > 0
+            ):
+                continue
+            for raw_decision in sequence(
+                required(item, "decision_records"), "decision_records"
+            ):
+                decision = mapping(raw_decision, "decision")
+                identity = string(
+                    required(decision, "func_call_id"), "decision.func_call_id"
+                )
+                events = post_events.get(identity, [])
                 if len(events) != 1:
                     continue
                 values = events[0]["return_values"]
@@ -95,7 +192,7 @@ def mutate(traces, invariants, healthy, output):
                     for name, attributes in tensor.items()
                 )
                 if eligible:
-                    chosen, call_id = item, decision["func_call_id"]
+                    chosen, call_id, selected_index = item, identity, index
                     break
             if chosen is not None:
                 break
@@ -103,20 +200,22 @@ def mutate(traces, invariants, healthy, output):
             break
     if chosen is None:
         raise ValueError("No healthy, actually evaluated mutable shape or dtype rule")
-    rule = rules[chosen["invariant_index"]]
-    assert call_id is not None
+    assert call_id is not None and selected_index is not None
+    rule = rules[selected_index]
     output.mkdir(parents=True, exist_ok=False)
     (output / "traces").mkdir()
-    edits, fingerprints = [], {}
+    edits: list[Edit] = []
+    fingerprints: dict[str, Fingerprints] = {}
     for trace in traces:
-        assert coverage["input_sha256"][str(trace)] == digest(trace)
+        verify_hash(trace)
         raw_lines = trace.read_bytes().splitlines(keepends=True)
         transformed = list(raw_lines)
         for index, raw in enumerate(raw_lines):
-            event = json.loads(raw)
+            event = json_object(json.loads(raw), "trace event")
             if (
-                event.get("func_call_id") != call_id
-                or event.get("type") != "function_call (post)"
+                string(required(event, "type"), "event.type") != "function_call (post)"
+                or string(required(event, "func_call_id"), "event.func_call_id")
+                != call_id
             ):
                 continue
             before = copy.deepcopy(event)
@@ -126,7 +225,7 @@ def mutate(traces, invariants, healthy, output):
                 if not isinstance(value, dict):
                     continue
                 for typename, attributes in value.items():
-                    if "Tensor" not in typename:
+                    if "Tensor" not in typename or not isinstance(attributes, dict):
                         continue
                     new_value = replacement(attributes, attribute)
                     if new_value is None:
@@ -173,11 +272,11 @@ def mutate(traces, invariants, healthy, output):
             "fault_sha256": digest(target),
         }
     assert len(edits) == 1, edits
-    manifest = {
+    manifest: MutationReport = {
         "kind": "post_hoc_trace_field_sensitivity_control_not_training_fault",
         "selection": "first actually evaluated healthy mutable shape rule, otherwise a float32/float64 dtype rule",
         "attribute": attribute,
-        "invariant_index": chosen["invariant_index"],
+        "invariant_index": selected_index,
         "invariant": rule,
         "func_call_id": call_id,
         "edits": edits,

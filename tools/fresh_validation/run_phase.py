@@ -8,10 +8,33 @@ import signal
 import subprocess
 import time
 from pathlib import Path
+from typing import Literal, TypedDict
 
 
-def group_memory(group):
-    total, processes = 0, []
+class PhaseOptions(argparse.Namespace):
+    source: Path
+    output: Path
+    timeout: float
+    memory_gib: float
+    trace_mib: float
+    command: list[str]
+
+
+StopReason = Literal["process_group_rss_budget", "timeout", "trace_size_budget"]
+
+
+class PhaseResult(TypedDict):
+    exit_code: int
+    stop_reason: StopReason | None
+    source_unchanged: bool
+    pid: int
+    elapsed_seconds_operational_only: float
+    peak_process_group_rss_bytes_operational_only: int
+
+
+def group_memory(group: int) -> tuple[int, list[int]]:
+    total = 0
+    processes: list[int] = []
     for entry in Path("/proc").iterdir():
         if not entry.name.isdigit():
             continue
@@ -31,7 +54,7 @@ def group_memory(group):
     return total, processes
 
 
-def run(args):
+def run(args: PhaseOptions) -> int:
     args.output.mkdir(parents=True, exist_ok=False)
     source_hashes = {
         str(p.relative_to(args.source)): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -51,7 +74,8 @@ def run(args):
         VECLIB_MAXIMUM_THREADS="1",
     )
     command = args.command[1:] if args.command[0] == "--" else args.command
-    started, peak, reason = time.monotonic(), 0, None
+    started, peak = time.monotonic(), 0
+    reason: StopReason | None = None
     with (args.output / "stdout.log").open("w") as log:
         proc = subprocess.Popen(
             ["nice", "-n", "10", *command],
@@ -107,7 +131,8 @@ def run(args):
         hashlib.sha256((args.source / p).read_bytes()).hexdigest() == h
         for p, h in source_hashes.items()
     )
-    result = {
+    assert proc.returncode is not None, "Supervisor must reap its child"
+    result: PhaseResult = {
         "exit_code": proc.returncode,
         "stop_reason": reason,
         "source_unchanged": unchanged,
@@ -128,7 +153,7 @@ if __name__ == "__main__":
     parser.add_argument("--memory-gib", type=float, default=8)
     parser.add_argument("--trace-mib", type=float, default=256)
     parser.add_argument("command", nargs=argparse.REMAINDER)
-    options = parser.parse_args()
+    options = parser.parse_args(namespace=PhaseOptions())
     if not options.command:
         parser.error("A command is required")
     raise SystemExit(run(options))

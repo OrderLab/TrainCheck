@@ -9,10 +9,21 @@ import argparse
 import hashlib
 import json
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
 
-def main():
+class StudyOptions(argparse.Namespace):
+    source: Path
+    python: Path
+    benchmark_root: Path
+    data_root: Path | None
+    output: Path
+    workload: Literal["mnist", "transformer"]
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--python", type=Path, required=True)
@@ -20,7 +31,7 @@ def main():
     parser.add_argument("--data-root", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--workload", choices=("mnist", "transformer"), required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=StudyOptions())
     if args.workload == "mnist" and args.data_root is None:
         parser.error("MNIST requires an existing real IDX data cache")
     args.output = args.output.resolve()
@@ -47,7 +58,7 @@ def main():
         + "\n"
     )
 
-    def phase(name, command):
+    def phase(name: str, command: Sequence[str | Path | int]) -> None:
         subprocess.run(
             [
                 str(args.python),
@@ -69,7 +80,7 @@ def main():
         ("holdout", 20, 43, "instrumented"),
         ("baseline-holdout", 20, 43, "baseline"),
     ):
-        command = [
+        command: list[str | Path | int] = [
             harness / "benchmark_workload.py",
             "--benchmark-root",
             args.benchmark_root.resolve(),
