@@ -1,0 +1,186 @@
+{
+  "scope": "Frozen saved-study observer verification; no new training or performance claim",
+  "harness_source_commit": "f3804c0386454ddd1f97bf17b7a1ab9287cd23d2",
+  "source_composition": {
+    "inference": "ce25c12c7fbd9983bb78f2c4ed89842f23499228",
+    "tracing": "b64023b0651278ab987d3276aaad9141e8bf4894",
+    "state_patch": "aec748ea46b35b6b43652985f00820afa813175c"
+  },
+  "git_history": "No local merge of #144 into #148; updated production source validated in an isolated snapshot",
+  "schema_version": 2,
+  "comparison": "Every original per-invariant field, summary field, raw trace PID/TID, input hash, row count and checking mode preserved; additive schema fields allowed. JSON NaN tokens compare as retained NaN, without deleting/coercing fields. Only operational PID/runtime-source and harness-provenance fields are excluded from semantic equality. Runtime source path verified explicitly.",
+  "tests": {
+    "composed_production_linux": 140,
+    "harness_linux": 28,
+    "stronger_mypy_1_9_files": 9
+  },
+  "runtime": {
+    "python": "3.11.4",
+    "torch": "2.16.0.dev20261012+cpu",
+    "pandas": "2.3.3",
+    "numpy": "2.1.0"
+  },
+  "per_rule_reports": 3072,
+  "runs": [
+    {
+      "workload": "mnist",
+      "phase": "check-reference",
+      "equal_existing_semantic_fields": true,
+      "inputs_unchanged": true,
+      "summary": {
+        "completed": 204,
+        "active_invariants": 204,
+        "dormant_invariants": 0,
+        "identity_bearing_active": 0,
+        "violated_invariants": 0,
+        "identity_bearing_invariants": 0,
+        "coverage_unobserved_invariants": 0,
+        "check_outcome_unknown_invariants": 0,
+        "observed_violated_invariants": 0,
+        "observed_active_invariants": 204,
+        "observed_dormant_invariants": 0,
+        "observed_identity_bearing_active": 0
+      }
+    },
+    {
+      "workload": "mnist",
+      "phase": "check-control",
+      "equal_existing_semantic_fields": true,
+      "inputs_unchanged": true,
+      "summary": {
+        "completed": 204,
+        "active_invariants": 204,
+        "dormant_invariants": 0,
+        "identity_bearing_active": 0,
+        "violated_invariants": 0,
+        "identity_bearing_invariants": 0,
+        "coverage_unobserved_invariants": 0,
+        "check_outcome_unknown_invariants": 0,
+        "observed_violated_invariants": 0,
+        "observed_active_invariants": 204,
+        "observed_dormant_invariants": 0,
+        "observed_identity_bearing_active": 0
+      }
+    },
+    {
+      "workload": "mnist",
+      "phase": "check-holdout",
+      "equal_existing_semantic_fields": true,
+      "inputs_unchanged": true,
+      "summary": {
+        "completed": 204,
+        "active_invariants": 204,
+        "dormant_invariants": 0,
+        "identity_bearing_active": 0,
+        "violated_invariants": 0,
+        "identity_bearing_invariants": 0,
+        "coverage_unobserved_invariants": 0,
+        "check_outcome_unknown_invariants": 0,
+        "observed_violated_invariants": 0,
+        "observed_active_invariants": 204,
+        "observed_dormant_invariants": 0,
+        "observed_identity_bearing_active": 0
+      }
+    },
+    {
+      "workload": "mnist",
+      "phase": "check-fault",
+      "equal_existing_semantic_fields": true,
+      "inputs_unchanged": true,
+      "summary": {
+        "completed": 204,
+        "active_invariants": 204,
+        "dormant_invariants": 0,
+        "identity_bearing_active": 0,
+        "violated_invariants": 3,
+        "identity_bearing_invariants": 0,
+        "coverage_unobserved_invariants": 0,
+        "check_outcome_unknown_invariants": 0,
+        "observed_violated_invariants": 3,
+        "observed_active_invariants": 204,
+        "observed_dormant_invariants": 0,
+        "observed_identity_bearing_active": 0
+      }
+    },
+    {
+      "workload": "transformer",
+      "phase": "check-reference",
+      "equal_existing_semantic_fields": true,
+      "inputs_unchanged": true,
+      "summary": {
+        "completed": 564,
+        "active_invariants": 564,
+        "dormant_invariants": 0,
+        "identity_bearing_active": 0,
+        "violated_invariants": 0,
+        "identity_bearing_invariants": 0,
+        "coverage_unobserved_invariants": 0,
+        "check_outcome_unknown_invariants": 0,
+        "observed_violated_invariants": 0,
+        "observed_active_invariants": 564,
+        "observed_dormant_invariants": 0,
+        "observed_identity_bearing_active": 0
+      }
+    },
+    {
+      "workload": "transformer",
+      "phase": "check-control",
+      "equal_existing_semantic_fields": true,
+      "inputs_unchanged": true,
+      "summary": {
+        "completed": 564,
+        "active_invariants": 564,
+        "dormant_invariants": 0,
+        "identity_bearing_active": 0,
+        "violated_invariants": 2,
+        "identity_bearing_invariants": 0,
+        "coverage_unobserved_invariants": 0,
+        "check_outcome_unknown_invariants": 0,
+        "observed_violated_invariants": 2,
+        "observed_active_invariants": 564,
+        "observed_dormant_invariants": 0,
+        "observed_identity_bearing_active": 0
+      }
+    },
+    {
+      "workload": "transformer",
+      "phase": "check-holdout",
+      "equal_existing_semantic_fields": true,
+      "inputs_unchanged": true,
+      "summary": {
+        "completed": 564,
+        "active_invariants": 564,
+        "dormant_invariants": 0,
+        "identity_bearing_active": 0,
+        "violated_invariants": 2,
+        "identity_bearing_invariants": 0,
+        "coverage_unobserved_invariants": 0,
+        "check_outcome_unknown_invariants": 0,
+        "observed_violated_invariants": 2,
+        "observed_active_invariants": 564,
+        "observed_dormant_invariants": 0,
+        "observed_identity_bearing_active": 0
+      }
+    },
+    {
+      "workload": "transformer",
+      "phase": "check-fault",
+      "equal_existing_semantic_fields": true,
+      "inputs_unchanged": true,
+      "summary": {
+        "completed": 564,
+        "active_invariants": 564,
+        "dormant_invariants": 0,
+        "identity_bearing_active": 0,
+        "violated_invariants": 4,
+        "identity_bearing_invariants": 0,
+        "coverage_unobserved_invariants": 0,
+        "check_outcome_unknown_invariants": 0,
+        "observed_violated_invariants": 4,
+        "observed_active_invariants": 564,
+        "observed_dormant_invariants": 0,
+        "observed_identity_bearing_active": 0
+      }
+    }
+  ]
+}

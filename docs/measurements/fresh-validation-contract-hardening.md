@@ -88,3 +88,33 @@ python -m unittest tests.test_fresh_validation_coverage \
 The source-builder recipe remains pinned to its original, reproducible composition.
 Full saved-trace replay and the newly composed PR stack require separate integration
 validation. This change makes no new training-overhead or generalization claim.
+
+## Updated production-stack integration
+
+An isolated snapshot combines signed inference `ce25c12`, tracing `b64023b`,
+and only the #145 production state-isolation patch from `aec748e`, plus the exact
+signed harness source `f3804c0`. It does not change this PR's Git history or its
+reproducible original source-builder recipe. The combined production passes 140
+Linux regressions; all 28 harness regressions also pass against that source.
+Stronger Mypy 1.9 checks pass all nine harness/test files against the updated
+production interfaces with actual Torch type resolution.
+
+All eight frozen saved-study checker runs (reference, same-seed control,
+holdout, and controlled fault for each workload) complete successfully with
+unchanged sources/inputs and the expected production module path. Every original
+semantic field in **3,072 per-rule reports** matches, including decisions,
+coverage, raw trace IDs, checker payloads, and summary counts. Additive schema-2
+fields are allowed; meaningful fields and array order are never dropped. Retained
+JSON NaN tokens compare as NaN rather than using Python's non-reflexive float
+equality. Operational process IDs and changed harness/source provenance are
+separate from semantic equality.
+
+| Workload | Active rules in each run | Reference violations | Control | Holdout | Fault |
+|---|---:|---:|---:|---:|---:|
+| MNIST | 204 | 0 | 0 | 0 | 3 |
+| Transformer | 564 | 0 | 2 | 2 | 4 |
+
+The Transformer's two documented healthy false alarms remain visible. These are
+saved-input checker replays, not new model training or a generalization claim.
+[Compact integration evidence](data/fresh-validation-hardening-integration.json)
+records exact source composition, runtime, counts, and comparison rules.
