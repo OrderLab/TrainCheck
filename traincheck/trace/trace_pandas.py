@@ -1,8 +1,11 @@
 import logging
+import math
 import re
+from bisect import bisect_left, bisect_right
 from numbers import Real
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from traincheck.config import config
@@ -116,6 +119,15 @@ class TracePandas(Trace):
         self._identity_values_source: pd.DataFrame | None = None
         self._identity_values_length = -1
         self._identity_values: dict[str, tuple] = {}
+
+        # As with the other caches, time/type/PID/TID values, dtypes, and row
+        # order must remain stable. Same-size in-place edits require a new trace.
+        # Frame replacement or length changes invalidate this positional index.
+        self._func_time_source: pd.DataFrame | None = None
+        self._func_time_length = -1
+        self._func_time_positions: (
+            dict[tuple[int, int], tuple[list, list[int]]] | None
+        ) = None
 
         self.column_dtypes_cached = {}
         self.stage_traces: dict[str, "TracePandas"] = {}
@@ -1240,6 +1252,113 @@ class TracePandas(Trace):
 
         return post_record
 
+    def _get_func_call_time_positions(
+        self, time_range, process_id, thread_id
+    ) -> list[int] | None:
+        """Return exact positional matches, or None to retain pandas semantics.
+
+        The fast path deliberately excludes extension/object numeric columns and
+        mixed scalar comparisons: pandas may coerce those differently from Python
+        ordering (notably integer/float comparisons above 2**53).
+        """
+        columns = ("type", "time", "process_id", "thread_id")
+        if any(
+            name not in self.events or not isinstance(self.events[name], pd.Series)
+            for name in columns
+        ):
+            return None
+        if (
+            type(time_range) is not tuple  # noqa: E721 - exclude custom indexing
+            or len(time_range) != 2
+            or any(
+                type(value) is not int  # noqa: E721 - exact numeric comparison
+                for value in (process_id, thread_id)
+            )
+            or any(not -(2**63) <= value < 2**63 for value in (process_id, thread_id))
+            or any(
+                not isinstance(self.events[name].dtype, np.dtype)
+                or self.events[name].dtype != "int64"
+                for name in columns[2:]
+            )
+        ):
+            return None
+        time_dtype = self.events["time"].dtype
+        if not isinstance(time_dtype, np.dtype):
+            return None
+        if time_dtype == "int64":
+            if any(
+                type(bound) is not int  # noqa: E721 - exclude numeric subclasses
+                or not -(2**63) <= bound < 2**63
+                for bound in time_range
+            ):
+                return None
+        elif time_dtype == "float64":
+            if any(
+                type(bound) is not float  # noqa: E721 - preserve pandas coercion
+                or math.isnan(bound)
+                for bound in time_range
+            ):
+                return None
+        else:
+            return None
+
+        if self._func_time_source is not self.events or self._func_time_length != len(
+            self.events
+        ):
+            event_types = self.events["type"]
+            positions = None
+            # A custom __eq__ or extension dtype must still execute in pandas.
+            if (
+                isinstance(event_types.dtype, np.dtype)
+                and pd.api.types.is_object_dtype(event_types.dtype)
+                and all(
+                    type(value) is str  # noqa: E721 - exclude custom equality
+                    or value is None
+                    or value is pd.NA
+                    or (type(value) is float and math.isnan(value))  # noqa: E721
+                    for value in event_types
+                )
+            ):
+                rows: dict[tuple[int, int], list[tuple[Any, int]]] = {}
+                types = event_types.tolist()
+                times = self.events["time"].tolist()
+                processes = self.events["process_id"].tolist()
+                threads = self.events["thread_id"].tolist()
+                for position, (kind, time, process, thread) in enumerate(
+                    zip(types, times, processes, threads)
+                ):
+                    if type(kind) is not str or kind not in (  # noqa: E721
+                        TraceLineType.FUNC_CALL_PRE,
+                        TraceLineType.FUNC_CALL_POST,
+                        TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    ):
+                        continue
+                    if time_dtype == "float64" and math.isnan(time):
+                        continue
+                    rows.setdefault((process, thread), []).append((time, position))
+                positions = {}
+                for identity, records in rows.items():
+                    records.sort()
+                    positions[identity] = (
+                        [time for time, _ in records],
+                        [position for _, position in records],
+                    )
+            self._func_time_positions = positions
+            self._func_time_source = self.events
+            self._func_time_length = len(self.events)
+
+        if self._func_time_positions is None:
+            return None
+        indexed = self._func_time_positions.get((process_id, thread_id))
+        if indexed is None:
+            return []
+        times, row_positions = indexed
+        left = bisect_right(times, time_range[0])
+        right = bisect_left(times, time_range[1])
+        # pandas groupby preserves input row order within each call. Time order
+        # cannot replace that order, even when traces arrive out of order.
+        return sorted(row_positions[left:right])
+
     def query_func_call_events_within_time(
         self,
         time_range: tuple[int | float, int | float],
@@ -1250,25 +1369,30 @@ class TracePandas(Trace):
         # TODO: check if this is correct
         func_call_events: list[FuncCallEvent | FuncCallExceptionEvent] = []
 
-        func_call_records = self.events[
-            (
-                self.events["type"].isin(
-                    [
-                        TraceLineType.FUNC_CALL_PRE,
-                        TraceLineType.FUNC_CALL_POST,
-                        TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                    ]
+        positions = self._get_func_call_time_positions(
+            time_range, process_id, thread_id
+        )
+        if positions is not None:
+            func_call_records = self.events.iloc[positions]
+        else:
+            func_call_records = self.events[
+                (
+                    self.events["type"].isin(
+                        [
+                            TraceLineType.FUNC_CALL_PRE,
+                            TraceLineType.FUNC_CALL_POST,
+                            TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                        ]
+                    )
                 )
-            )
-            & (
-                self.events["time"].between(
-                    time_range[0], time_range[1], inclusive="neither"
+                & (
+                    self.events["time"].between(
+                        time_range[0], time_range[1], inclusive="neither"
+                    )
                 )
-            )
-            & (self.events["process_id"] == process_id)
-            & (self.events["thread_id"] == thread_id)
-        ]
-
+                & (self.events["process_id"] == process_id)
+                & (self.events["thread_id"] == thread_id)
+            ]
         # group function calls by func_call_id
         func_call_groups = func_call_records.groupby("func_call_id")
 
