@@ -1,6 +1,5 @@
 import functools
 import importlib
-from importlib.util import find_spec
 import inspect
 import os
 import pathlib
@@ -9,6 +8,8 @@ import threading
 import time
 import traceback
 import types
+from contextlib import ContextDecorator
+from importlib.util import find_spec
 from typing import Callable, Optional
 
 import torch
@@ -46,8 +47,6 @@ METRIC_INSTRUMENTED_FUNC_LIST: dict[str, list[str]] = {"dump": [], "no_dump": []
 
 IS_INSTRUMENTING = False
 
-DISABLE_WRAPPER = False
-
 # for prompt generation tasks using the transformers library (see traincheck/developer/instr_stage_annotation.py:annotate_answer_start_token_ids)
 GENERATE_START_TOKEN_ID: None | int = None
 GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
@@ -56,6 +55,41 @@ COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1
 
 
 THREAD_DATA = threading.local()
+
+
+class suppress_tracing(ContextDecorator):
+    """Suppress recorder-owned calls independently per thread, exception-safely.
+
+    Use a class rather than a generator context manager: Python 3.11+ contextlib
+    assigns exception.__traceback__, which breaks frozen framework exceptions.
+    Never hold this scope over the original application call.
+    """
+
+    def _recreate_cm(self):
+        # Decorated conversions may nest or run concurrently on different threads.
+        return type(self)()
+
+    def __enter__(self):
+        self.depth = getattr(THREAD_DATA, "suppression_depth", 0)
+        THREAD_DATA.suppression_depth = self.depth + 1
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        THREAD_DATA.suppression_depth = self.depth
+        return False
+
+
+class application_tracing(suppress_tracing):
+    """Restore application tracing while advancing a user-supplied generator."""
+
+    def __enter__(self):
+        super().__enter__()
+        THREAD_DATA.suppression_depth = 0
+        return self
+
+
+def tracing_suppressed():
+    return getattr(THREAD_DATA, "suppression_depth", 0) > 0
 
 
 class TraceLineType:
@@ -103,9 +137,8 @@ def get_owner_class(func):
     return owner
 
 
+@suppress_tracing()
 def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
-    global DISABLE_WRAPPER
-    DISABLE_WRAPPER = True
     if dump_args_config is None:
         result = {
             "args": {i: var_to_serializable(arg) for i, arg in enumerate(args)},
@@ -125,20 +158,17 @@ def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
 
         result["args"] = args_dicts
         result["kwargs"] = kwargs_dicts
-    DISABLE_WRAPPER = False
     return result
 
 
+@suppress_tracing()
 def to_dict_return_value(result) -> dict | list[dict]:
-    global DISABLE_WRAPPER
-    DISABLE_WRAPPER = True
     result_dict: dict | list[dict]
     if isinstance(result, tuple):
         result_dict = [var_to_serializable(r) for r in result]
     else:
         result_dict = var_to_serializable(result)
 
-    DISABLE_WRAPPER = False
     return result_dict
 
 
@@ -167,7 +197,7 @@ def function_wrapper(
 
     global PROCESS_ID
 
-    if config.DISABLE_WRAPPER:
+    if config.DISABLE_WRAPPER or tracing_suppressed():
         # TODO: all meta vars update should be done outside the function_wrapper (e.g. step increment) by applying a separate wrapper
         return original_function(*args, **kwargs)
 
@@ -179,79 +209,81 @@ def function_wrapper(
         # tracing here and just delegate to the original function.
         return original_function(*args, **kwargs)
 
-    if COLLECT_OVERHEAD_METRICS:
-        ENTER_PERF_TIME = time.perf_counter()
-
-    func_call_id = get_unique_id()
-    process_id, thread_id = get_process_thread_id()
-
-    pre_meta_vars = get_meta_vars()
-
     if IS_INSTRUMENTING:
         # during instrumentation, skip the dumping to avoid infinite recursion
         # and interference with the import system
         return original_function(*args, **kwargs)
 
-    pre_record = {
-        "func_call_id": func_call_id,
-        "thread_id": thread_id,
-        "process_id": process_id,
-        "meta_vars": pre_meta_vars,
-        "type": TraceLineType.FUNC_CALL_PRE,
-        "function": original_function_name,
-        "is_bound_method": is_bound_method,
-        "obj_id": None if not is_bound_method else id(args[0]),
-    }
+    with suppress_tracing():
+        if COLLECT_OVERHEAD_METRICS:
+            ENTER_PERF_TIME = time.perf_counter()
 
-    if dump_stack_trace:
-        pre_record["stack_trace"] = traceback.format_stack()
+        func_call_id = get_unique_id()
+        process_id, thread_id = get_process_thread_id()
 
-    if scan_proxy_in_args:
-        proxy_in_args = []
+        pre_meta_vars = get_meta_vars()
 
-        def find_proxy_in_args(args):
-            for i, arg in enumerate(args):
-                if is_proxied(arg) or is_proxyparameter(arg):
-                    proxy_in_args.append(arg)
-                elif type(arg) in [list, tuple]:
-                    find_proxy_in_args(arg)
-                elif isinstance(arg, types.GeneratorType) and not isinstance(
-                    arg, tuple
-                ):
-                    arg_list = list(arg)
-                    args[i] = iter(arg_list)
-                    find_proxy_in_args(arg_list)
+        pre_record = {
+            "func_call_id": func_call_id,
+            "thread_id": thread_id,
+            "process_id": process_id,
+            "meta_vars": pre_meta_vars,
+            "type": TraceLineType.FUNC_CALL_PRE,
+            "function": original_function_name,
+            "is_bound_method": is_bound_method,
+            "obj_id": None if not is_bound_method else id(args[0]),
+        }
 
-        args = list(args)  # type: ignore[assignment]
-        find_proxy_in_args(args)
-        args = tuple(args)
+        if dump_stack_trace:
+            pre_record["stack_trace"] = traceback.format_stack()
 
-        if proxy_in_args:
-            if "proxy_obj_names" not in pre_record:
-                pre_record["proxy_obj_names"] = []
-            for proxy in proxy_in_args:
-                if is_proxyparameter(proxy):
-                    pre_record["proxy_obj_names"].append(
-                        [proxy.__dict__["var_name"], "Parameter"]
-                    )
-                else:
-                    pre_record["proxy_obj_names"].append(
-                        [proxy.__dict__["var_name"], type(proxy._obj).__name__]
-                    )
-    if dump_args:
-        dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
-        pre_record["args"] = dict_args_kwargs["args"]
-        pre_record["kwargs"] = dict_args_kwargs["kwargs"]
-    dump_trace_API(pre_record)
+        if scan_proxy_in_args:
+            proxy_in_args = []
 
-    if trigger_var_dump:
-        """Mimicking the behavior the observer wrapper: pre-observe"""
-        get_global_registry().dump_modified(
-            dump_loc=original_function_name, dump_config=var_dump_config
-        )
+            def find_proxy_in_args(args):
+                for i, arg in enumerate(args):
+                    if is_proxied(arg) or is_proxyparameter(arg):
+                        proxy_in_args.append(arg)
+                    elif type(arg) in [list, tuple]:
+                        find_proxy_in_args(arg)
+                    elif isinstance(arg, types.GeneratorType) and not isinstance(
+                        arg, tuple
+                    ):
+                        with application_tracing():
+                            arg_list = list(arg)
+                        args[i] = iter(arg_list)
+                        find_proxy_in_args(arg_list)
 
-    if need_unproxy_args_kwargs:
-        args, kwargs = unproxy_args_kwargs(args, kwargs)
+            args = list(args)  # type: ignore[assignment]
+            find_proxy_in_args(args)
+            args = tuple(args)
+
+            if proxy_in_args:
+                if "proxy_obj_names" not in pre_record:
+                    pre_record["proxy_obj_names"] = []
+                for proxy in proxy_in_args:
+                    if is_proxyparameter(proxy):
+                        pre_record["proxy_obj_names"].append(
+                            [proxy.__dict__["var_name"], "Parameter"]
+                        )
+                    else:
+                        pre_record["proxy_obj_names"].append(
+                            [proxy.__dict__["var_name"], type(proxy._obj).__name__]
+                        )
+        if dump_args:
+            dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
+            pre_record["args"] = dict_args_kwargs["args"]
+            pre_record["kwargs"] = dict_args_kwargs["kwargs"]
+        dump_trace_API(pre_record)
+
+        if trigger_var_dump:
+            """Mimicking the behavior the observer wrapper: pre-observe"""
+            get_global_registry().dump_modified(
+                dump_loc=original_function_name, dump_config=var_dump_config
+            )
+
+        if need_unproxy_args_kwargs:
+            args, kwargs = unproxy_args_kwargs(args, kwargs)
 
     try:
         if COLLECT_OVERHEAD_METRICS:
@@ -260,134 +292,138 @@ def function_wrapper(
         if COLLECT_OVERHEAD_METRICS:
             ORIG_EXIT_PERF_TIME = time.perf_counter()
     except Exception as e:
-        if COLLECT_OVERHEAD_METRICS:
-            ORIG_EXIT_PERF_TIME = time.perf_counter()
+        with suppress_tracing():
+            if COLLECT_OVERHEAD_METRICS:
+                ORIG_EXIT_PERF_TIME = time.perf_counter()
 
+            if trigger_var_dump:
+                """Mimicking the behavior the observer wrapper: post-observe"""
+                get_global_registry().dump_modified(
+                    dump_loc=original_function_name, dump_config=var_dump_config
+                )
+
+            dump_trace_API(
+                {
+                    "func_call_id": func_call_id,
+                    "thread_id": thread_id,
+                    "process_id": process_id,
+                    "meta_vars": pre_meta_vars,
+                    "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    "function": original_function_name,
+                    "exception": typename(e, is_runtime=True),
+                    "exception_msg": str(e),
+                    "is_bound_method": is_bound_method,
+                    "obj_id": None if not is_bound_method else id(args[0]),
+                },
+            )
+
+            if COLLECT_OVERHEAD_METRICS:
+                EXIT_PERF_TIME = time.perf_counter()
+                print(
+                    f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+                )
+            raise e
+
+    with suppress_tracing():
         if trigger_var_dump:
-            """Mimicking the behavior the observer wrapper: post-observe"""
             get_global_registry().dump_modified(
                 dump_loc=original_function_name, dump_config=var_dump_config
             )
 
-        dump_trace_API(
-            {
-                "func_call_id": func_call_id,
-                "thread_id": thread_id,
-                "process_id": process_id,
-                "meta_vars": pre_meta_vars,
-                "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                "function": original_function_name,
-                "exception": typename(e, is_runtime=True),
-                "exception_msg": str(e),
-                "is_bound_method": is_bound_method,
-                "obj_id": None if not is_bound_method else id(args[0]),
-            },
-        )
+        post_record = {
+            "func_call_id": func_call_id,
+            "thread_id": thread_id,
+            "process_id": process_id,
+            "meta_vars": pre_meta_vars,
+            "type": TraceLineType.FUNC_CALL_POST,
+            "function": original_function_name,
+            "is_bound_method": is_bound_method,
+            "obj_id": None if not is_bound_method else id(args[0]),
+        }
+
+        result_to_dump = result
+
+        # if the current function name is transformers.generate, then we will dump the response tokens only, let's see.
+        # a concrete name: "transformers.models.whisper.modeling_whisper.WhisperForConditionalGeneration.generate"
+        # we want a pattern that abstracts the specific model name
+        pattern = "transformers.models.*.generate"
+        # find matches in the pattern
+        import re
+
+        if (
+            GENERATE_START_TOKEN_ID is not None
+            and re.match(pattern, original_function_name)
+            and isinstance(result, torch.Tensor)
+        ):
+            print(f"Found match for {original_function_name}")
+            # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
+            response_starting_indices = []
+            for i in range(result.size(0)):
+                # try to find the match of the start token ids in the response
+                response = result[i]
+                # Find all indices where the start_token_id matches
+                matches = (response == GENERATE_START_TOKEN_ID).nonzero(as_tuple=True)[
+                    0
+                ]
+                indexes = matches.tolist()
+                if len(indexes) == 0:
+                    # No occurrences found
+                    print(
+                        f"start_token_id ({GENERATE_START_TOKEN_ID}) not found in response {i}"
+                    )
+                    start_index = -1  # Handle case where token is not found
+                elif len(indexes) > 1:
+                    # Multiple occurrences found, raise an error
+                    raise ValueError(
+                        f"Multiple occurrences of start_token_id ({GENERATE_START_TOKEN_ID}) found in response {i}: {matches.tolist()}"
+                    )
+                else:
+                    # Single occurrence found, get the index
+                    start_index = indexes[0]
+                    if not GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN:
+                        start_index += 1
+
+                response_starting_indices.append(start_index)
+
+            # compute the length of each response
+            response_lengths = []
+            for i in range(result.size(0)):
+                response = result[i]
+                start_index = response_starting_indices[i]
+                if start_index == -1:
+                    response_lengths.append(0)
+                else:
+                    response_lengths.append(response.size(0) - start_index)
+
+            result_to_dump = result.detach()
+            setattr(
+                result_to_dump,
+                "_TRAINCHECK_RESPONSE_STARTING_INDICES",
+                response_starting_indices,
+            )
+            setattr(result_to_dump, "_TRAINCHECK_RESPONSE_LENGTHS", response_lengths)
+
+            print(response_starting_indices)
+            print(response_lengths)
+        if dump_ret:
+            post_record["return_values"] = to_dict_return_value(result_to_dump)
+        dump_trace_API(post_record)
 
         if COLLECT_OVERHEAD_METRICS:
             EXIT_PERF_TIME = time.perf_counter()
             print(
                 f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
             )
-        raise e
-
-    if trigger_var_dump:
-        get_global_registry().dump_modified(
-            dump_loc=original_function_name, dump_config=var_dump_config
-        )
-
-    post_record = {
-        "func_call_id": func_call_id,
-        "thread_id": thread_id,
-        "process_id": process_id,
-        "meta_vars": pre_meta_vars,
-        "type": TraceLineType.FUNC_CALL_POST,
-        "function": original_function_name,
-        "is_bound_method": is_bound_method,
-        "obj_id": None if not is_bound_method else id(args[0]),
-    }
-
-    result_to_dump = result
-
-    # if the current function name is transformers.generate, then we will dump the response tokens only, let's see.
-    # a concrete name: "transformers.models.whisper.modeling_whisper.WhisperForConditionalGeneration.generate"
-    # we want a pattern that abstracts the specific model name
-    pattern = "transformers.models.*.generate"
-    # find matches in the pattern
-    import re
-
-    if (
-        GENERATE_START_TOKEN_ID is not None
-        and re.match(pattern, original_function_name)
-        and isinstance(result, torch.Tensor)
-    ):
-        print(f"Found match for {original_function_name}")
-        # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
-        response_starting_indices = []
-        for i in range(result.size(0)):
-            # try to find the match of the start token ids in the response
-            response = result[i]
-            # Find all indices where the start_token_id matches
-            matches = (response == GENERATE_START_TOKEN_ID).nonzero(as_tuple=True)[0]
-            indexes = matches.tolist()
-            if len(indexes) == 0:
-                # No occurrences found
-                print(
-                    f"start_token_id ({GENERATE_START_TOKEN_ID}) not found in response {i}"
-                )
-                start_index = -1  # Handle case where token is not found
-            elif len(indexes) > 1:
-                # Multiple occurrences found, raise an error
-                raise ValueError(
-                    f"Multiple occurrences of start_token_id ({GENERATE_START_TOKEN_ID}) found in response {i}: {matches.tolist()}"
-                )
-            else:
-                # Single occurrence found, get the index
-                start_index = indexes[0]
-                if not GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN:
-                    start_index += 1
-
-            response_starting_indices.append(start_index)
-
-        # compute the length of each response
-        response_lengths = []
-        for i in range(result.size(0)):
-            response = result[i]
-            start_index = response_starting_indices[i]
-            if start_index == -1:
-                response_lengths.append(0)
-            else:
-                response_lengths.append(response.size(0) - start_index)
-
-        result_to_dump = result.detach()
-        setattr(
-            result_to_dump,
-            "_TRAINCHECK_RESPONSE_STARTING_INDICES",
-            response_starting_indices,
-        )
-        setattr(result_to_dump, "_TRAINCHECK_RESPONSE_LENGTHS", response_lengths)
-
-        print(response_starting_indices)
-        print(response_lengths)
-    if dump_ret:
-        post_record["return_values"] = to_dict_return_value(result_to_dump)
-    dump_trace_API(post_record)
-
-    if COLLECT_OVERHEAD_METRICS:
-        EXIT_PERF_TIME = time.perf_counter()
-        print(
-            f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
-        )
-    return result
+        return result
 
 
 def core_wrapper_proxy(original_function, *args, **kwargs):
     """Core wrapper that only handles unproxying for built-in functions."""
-    global DISABLE_WRAPPER
-    if DISABLE_WRAPPER:
+    if tracing_suppressed():
         return original_function(*args, **kwargs)
 
-    args, kwargs = unproxy_args_kwargs(args, kwargs)
+    with suppress_tracing():
+        args, kwargs = unproxy_args_kwargs(args, kwargs)
     return original_function(*args, **kwargs)
 
 
@@ -539,7 +575,7 @@ def get_module_path_from_file_path(file_path: str, root_module: str) -> str | No
     if spec is None or spec.origin is None:
         # raise error
         raise ImportError(f"Cannot locate root module {root_module!r}")
-    
+
     # get the path to the root module
     root_module_path = pathlib.PurePath(spec.origin).parent
 
@@ -552,12 +588,13 @@ def get_module_path_from_file_path(file_path: str, root_module: str) -> str | No
     except ValueError:
         # file_path is not under root module
         raise ImportError(f"File path is not under root module {root_module!r}")
-    
+
     # strip off .py
-    module_name = str(relative_path.with_suffix(''))
+    module_name = str(relative_path.with_suffix(""))
 
     # replace / with .
     return f"{root_module}.{module_name.replace('/', '.')}"
+
 
 class Instrumentor:
     def __init__(
