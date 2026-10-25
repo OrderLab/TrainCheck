@@ -5,6 +5,7 @@ from typing import Hashable
 import pandas as pd
 
 from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
+from traincheck.inference_sampling import sampling_rng
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
     _NOT_SET,
@@ -262,11 +263,9 @@ def get_events_of_funcs_with_tensors(
     }
 
     # sampling 1000 if more than 1000
-    import random
-
     all_func_call_ids = {
         func_name: (
-            random.sample(func_call_ids, 1000)
+            sampling_rng().sample(func_call_ids, 1000)
             if len(func_call_ids) > 1000
             else func_call_ids
         )
@@ -452,10 +451,8 @@ class ConsistentOutputRelation(Relation):
         func_call_ids = trace.get_func_call_ids(func_name)
 
         # down sample to 1000
-        import random
-
         if len(func_call_ids) > 1000:
-            func_call_ids = random.sample(func_call_ids, 1000)
+            func_call_ids = sampling_rng().sample(func_call_ids, 1000)
 
         for func_call_id in tqdm(
             func_call_ids, desc=f"Adding examples for {inv.text_description}"
@@ -867,10 +864,8 @@ class ConsistentInputOutputRelation(Relation):
         func_name = api_param.api_full_name
         func_call_ids = trace.get_func_call_ids(func_name)
 
-        import random
-
         if len(func_call_ids) > 1000:
-            func_call_ids = random.sample(func_call_ids, 1000)
+            func_call_ids = sampling_rng().sample(func_call_ids, 1000)
 
         for func_call_id in tqdm(
             func_call_ids, desc=f"Checking invariant {inv.text_description}"
@@ -1360,10 +1355,8 @@ class ThresholdRelation(Relation):
         # get all function calls for the function
         func_call_ids = trace.get_func_call_ids(func_name)
 
-        import random
-
         if len(func_call_ids) > 1000:
-            func_call_ids = random.sample(func_call_ids, 1000)
+            func_call_ids = sampling_rng().sample(func_call_ids, 1000)
 
         for func_call_id in tqdm(
             func_call_ids, desc=f"Checking invariant {inv.text_description}"

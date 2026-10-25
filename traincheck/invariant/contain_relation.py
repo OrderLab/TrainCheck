@@ -1,6 +1,5 @@
 import copy
 import logging
-import random
 import time
 from random import Random
 from typing import Type
@@ -9,6 +8,7 @@ import numpy as np
 
 import traincheck.config.config as config
 from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
+from traincheck.inference_sampling import sampling_rng
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
     _NOT_SET,
@@ -171,10 +171,10 @@ def prune_func_call(
             - whether the function call should be pruned or not
 
     The pruning logic is as follows:
-    - If the number of function calls total present in the trace is less than 1000, no pruning is done
-    - Pruning is probabilistic, with initial probability of (1 - 1000/total_func_calls)
-    - If `list_num_events_scanned` indicates that the last 10 function calls have the same number of events scanned, the pruning probability is increased by 100 times for the next function call
-    - We use random.random() to determine whether the function call should be pruned or not
+    - Initially keep all calls when there are at most 1000; otherwise keep 1000/total.
+    - After more than 10 scans, equal event counts in the last 10 reduce the keep
+      probability by 100, even below 1000 total calls.
+    - We use sampling_rng().random() to determine whether the function call should be pruned or not
     """
 
     logger = logging.getLogger(__name__)
@@ -199,7 +199,7 @@ def prune_func_call(
             f"Same number of events observed in the last 10 attempts: {list_num_events_scanned[0]}, increasing the pruning probability to: {1 - not_pruning_prob}"
         )
 
-    is_skipping = random.random() > not_pruning_prob
+    is_skipping = sampling_rng().random() > not_pruning_prob
     if is_skipping:
         logger.debug(
             f"Skipping the function call due to sampling with a pruning probability of: {1 - not_pruning_prob}"
@@ -673,7 +673,7 @@ class APIContainRelation(Relation):
                 # down sample the function calls, keep the first 10, last 10, and randomly sample 100 from the rest
                 parent_func_call_ids = (
                     parent_func_call_ids[:10]
-                    + random.sample(parent_func_call_ids[10:-10], 100)  # type: ignore
+                    + sampling_rng().sample(parent_func_call_ids[10:-10], 100)  # type: ignore
                     + parent_func_call_ids[-10:]
                 )
 
