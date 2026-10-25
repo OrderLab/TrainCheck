@@ -12,6 +12,7 @@ is not full inference and does not measure peak process memory.
 import argparse
 import gc
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -19,6 +20,7 @@ import platform
 import statistics
 import time
 from pathlib import Path
+from typing import Literal, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -27,17 +29,48 @@ import traincheck.trace.trace_pandas as trace_module
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.trace.trace_pandas import TracePandas
 
+TimingField = Literal[
+    "construction_seconds",
+    "first_query_seconds",
+    "remaining_queries_seconds",
+    "total_seconds",
+]
+TIMING_FIELDS: tuple[TimingField, ...] = (
+    "construction_seconds",
+    "first_query_seconds",
+    "remaining_queries_seconds",
+    "total_seconds",
+)
+
+
+class TrialResult(TypedDict):
+    repetition: int
+    order: int
+    variant: str
+    construction_seconds: float
+    first_query_seconds: float
+    remaining_queries_seconds: float
+    total_seconds: float
+    result_sha256: str
+
+
+class Measurement(TrialResult, total=False):
+    indexed_rows: int
+    identity_groups: int
+
 
 class LegacyRangeTrace(TracePandas):
-    def _get_func_call_time_positions(self, *args):
+    def _get_func_call_time_positions(
+        self, time_range: object, process_id: object, thread_id: object
+    ) -> None:
         return None
 
 
-def digest(value):
+def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, default=200000)
     parser.add_argument("--queries", type=int, default=1000)
@@ -60,7 +93,7 @@ def main():
             "function": "fixture.step",
         }
     )
-    queries = []
+    queries: list[tuple[tuple[float, float], int, int]] = []
     for i in range(args.queries):
         index = (i * 97) % (args.rows // 2)
         queries.append(
@@ -71,13 +104,13 @@ def main():
             )
         )
 
-    def input_hash():
+    def input_hash() -> str:
         return hashlib.sha256(
             pd.util.hash_pandas_object(data, index=True).to_numpy().tobytes()
         ).hexdigest()
 
     before = input_hash()
-    records = []
+    records: list[Measurement] = []
     for repetition in range(args.repetitions):
         variants = [("legacy", LegacyRangeTrace), ("candidate", TracePandas)]
         if repetition % 2:
@@ -106,7 +139,7 @@ def main():
                 ]
                 for events in results
             ]
-            record = {
+            record: Measurement = {
                 "repetition": repetition + 1,
                 "order": order + 1,
                 "variant": name,
@@ -131,12 +164,7 @@ def main():
             metric: statistics.median(
                 record[metric] for record in records if record["variant"] == name
             )
-            for metric in [
-                "construction_seconds",
-                "first_query_seconds",
-                "remaining_queries_seconds",
-                "total_seconds",
-            ]
+            for metric in TIMING_FIELDS
         }
         for name in ["legacy", "candidate"]
     }
@@ -160,7 +188,7 @@ def main():
                     },
                 },
                 "source_sha256": hashlib.sha256(
-                    Path(trace_module.__file__).read_bytes()
+                    Path(inspect.getfile(trace_module)).read_bytes()
                 ).hexdigest(),
                 "input_sha256": before,
                 "input_unchanged": True,

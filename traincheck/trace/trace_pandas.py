@@ -126,7 +126,7 @@ class TracePandas(Trace):
         self._func_time_source: pd.DataFrame | None = None
         self._func_time_length = -1
         self._func_time_positions: (
-            dict[tuple[int, int], tuple[list, list[int]]] | None
+            dict[tuple[int, int], tuple[list[int | float], list[int]]] | None
         ) = None
 
         self.column_dtypes_cached = {}
@@ -1269,7 +1269,7 @@ class TracePandas(Trace):
         return post_record
 
     def _get_func_call_time_positions(
-        self, time_range, process_id, thread_id
+        self, time_range: object, process_id: object, thread_id: object
     ) -> list[int] | None:
         """Return exact positional matches, or None to retain pandas semantics.
 
@@ -1286,10 +1286,8 @@ class TracePandas(Trace):
         if (
             type(time_range) is not tuple  # noqa: E721 - exclude custom indexing
             or len(time_range) != 2
-            or any(
-                type(value) is not int  # noqa: E721 - exact numeric comparison
-                for value in (process_id, thread_id)
-            )
+            or type(process_id) is not int  # noqa: E721 - exact numeric comparison
+            or type(thread_id) is not int  # noqa: E721 - exact numeric comparison
             or any(not -(2**63) <= value < 2**63 for value in (process_id, thread_id))
             or any(
                 not isinstance(self.events[name].dtype, np.dtype)
@@ -1298,21 +1296,25 @@ class TracePandas(Trace):
             )
         ):
             return None
+        start_time: object = time_range[0]
+        end_time: object = time_range[1]
         time_dtype = self.events["time"].dtype
         if not isinstance(time_dtype, np.dtype):
             return None
         if time_dtype == "int64":
-            if any(
-                type(bound) is not int  # noqa: E721 - exclude numeric subclasses
-                or not -(2**63) <= bound < 2**63
-                for bound in time_range
+            if (
+                type(start_time) is not int  # noqa: E721 - exclude numeric subclasses
+                or type(end_time) is not int  # noqa: E721
+                or not -(2**63) <= start_time < 2**63
+                or not -(2**63) <= end_time < 2**63
             ):
                 return None
         elif time_dtype == "float64":
-            if any(
-                type(bound) is not float  # noqa: E721 - preserve pandas coercion
-                or math.isnan(bound)
-                for bound in time_range
+            if (
+                type(start_time) is not float  # noqa: E721 - preserve pandas coercion
+                or type(end_time) is not float  # noqa: E721
+                or math.isnan(start_time)
+                or math.isnan(end_time)
             ):
                 return None
         else:
@@ -1322,7 +1324,9 @@ class TracePandas(Trace):
             self.events
         ):
             event_types = self.events["type"]
-            positions = None
+            positions: (
+                dict[tuple[int, int], tuple[list[int | float], list[int]]] | None
+            ) = None
             # A custom __eq__ or extension dtype must still execute in pandas.
             if (
                 isinstance(event_types.dtype, np.dtype)
@@ -1335,11 +1339,13 @@ class TracePandas(Trace):
                     for value in event_types
                 )
             ):
-                rows: dict[tuple[int, int], list[tuple[Any, int]]] = {}
-                types = event_types.tolist()
-                times = self.events["time"].tolist()
-                processes = self.events["process_id"].tolist()
-                threads = self.events["thread_id"].tolist()
+                rows: dict[tuple[int, int], list[tuple[int | float, int]]] = {}
+                types: list[object] = event_types.tolist()
+                # The exact NumPy dtypes validated above make Series.tolist()
+                # return builtin numeric scalars; extension/object data falls back.
+                times: list[int | float] = self.events["time"].tolist()
+                processes: list[int] = self.events["process_id"].tolist()
+                threads: list[int] = self.events["thread_id"].tolist()
                 for position, (kind, time, process, thread) in enumerate(
                     zip(types, times, processes, threads)
                 ):
@@ -1369,8 +1375,8 @@ class TracePandas(Trace):
         if indexed is None:
             return []
         times, row_positions = indexed
-        left = bisect_right(times, time_range[0])
-        right = bisect_left(times, time_range[1])
+        left = bisect_right(times, start_time)
+        right = bisect_left(times, end_time)
         # pandas groupby preserves input row order within each call. Time order
         # cannot replace that order, even when traces arrive out of order.
         return sorted(row_positions[left:right])
