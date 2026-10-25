@@ -106,9 +106,17 @@
     }
   },
   "full_inference": {
-    "status": "paired_unprofiled_replay_pending",
-    "profile_attempts": "Both attempts terminated with SIGSEGV at scheduled diagnostic timers; no completed profile/output. Candidate stopped before the identity-cache phase.",
-    "performance_comparison_valid": false
+    "status": "completed_unprofiled_pair",
+    "evidence": "inference-identity-cache-full-trace-20261025.json",
+    "baseline_wall_seconds": 1385.656381815672,
+    "candidate_wall_seconds": 98.55111291632056,
+    "wall_time_ratio": 14.060281419573906,
+    "invariant_records": 835,
+    "failed_hypothesis_records": 105,
+    "complete_json_multisets_equal": true,
+    "performance_comparison_valid": true,
+    "scope": "One sequential saved-trace CPU pair with six relations enabled; no repeated-run distribution or training-overhead claim.",
+    "profile_attempts": "Two earlier periodic-faulthandler plus cProfile attempts exited SIGSEGV without completed outputs and are excluded."
   },
   "limitations": [
     "Synthetic identity-lookup microbenchmark, not completed inference.",
