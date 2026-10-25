@@ -10,7 +10,7 @@ import traceback
 import types
 from contextlib import ContextDecorator
 from importlib.util import find_spec
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 import torch
 
@@ -55,7 +55,16 @@ GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
 COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1"
 
 
-THREAD_DATA = threading.local()
+class _TracingThreadState(threading.local):
+    # IDs remain lazy, matching get_process_thread_id's existing behavior.
+    thread_id: int
+    process_id: int
+
+    def __init__(self) -> None:
+        self.suppression_depth: int = 0
+
+
+THREAD_DATA = _TracingThreadState()
 
 
 class suppress_tracing(ContextDecorator):
@@ -66,16 +75,23 @@ class suppress_tracing(ContextDecorator):
     Never hold this scope over the original application call.
     """
 
-    def _recreate_cm(self):
+    depth: int
+
+    def _recreate_cm(self) -> "suppress_tracing":
         # Decorated conversions may nest or run concurrently on different threads.
         return type(self)()
 
-    def __enter__(self):
-        self.depth = getattr(THREAD_DATA, "suppression_depth", 0)
+    def __enter__(self) -> "suppress_tracing":
+        self.depth = THREAD_DATA.suppression_depth
         THREAD_DATA.suppression_depth = self.depth + 1
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> Literal[False]:
         THREAD_DATA.suppression_depth = self.depth
         return False
 
@@ -83,14 +99,14 @@ class suppress_tracing(ContextDecorator):
 class application_tracing(suppress_tracing):
     """Restore application tracing while advancing a user-supplied generator."""
 
-    def __enter__(self):
+    def __enter__(self) -> "application_tracing":
         super().__enter__()
         THREAD_DATA.suppression_depth = 0
         return self
 
 
-def tracing_suppressed():
-    return getattr(THREAD_DATA, "suppression_depth", 0) > 0
+def tracing_suppressed() -> bool:
+    return THREAD_DATA.suppression_depth > 0
 
 
 class TraceLineType:
