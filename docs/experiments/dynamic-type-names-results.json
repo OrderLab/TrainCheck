@@ -21,5 +21,32 @@
     "errors": 0,
     "passed": 7,
     "failed_tests": []
+  },
+  "linux_followup": {
+    "fix_commit": "2f034ae5d0fab7e792b7c0a5bdc6a1acfeb8962c",
+    "utils_sha256": "854c11519e7aa6d0cbbfd79694d2ad4895fb1aaf72e9efbb0068048598b70750",
+    "runtime": {
+      "python": "3.11.4 (main, Jul  5 2023, 13:45:01) [GCC 11.2.0]",
+      "torch": "2.16.0.dev20261012+cpu"
+    },
+    "ops_wrapper_names": {
+      "instrumentation": "torch._inductor.virtualized.OpsWrapper",
+      "runtime": "torch._inductor.virtualized.OpsWrapper"
+    },
+    "tests": {
+      "v3-integration-tests": {
+        "tests_passed": 29,
+        "exit_code": 0,
+        "source_unchanged": true,
+        "stdout_sha256": "be7f9c929651de7f09f383a8f3b0176ec8d3285f0ad053f4d49e6e837a40309b"
+      },
+      "v3-coverage-tests": {
+        "tests_passed": 11,
+        "exit_code": 0,
+        "source_unchanged": true,
+        "stdout_sha256": "a33575d7feb6117b55c84c6919d21911e1f76065db033ebbdd9270671c536239"
+      }
+    },
+    "scope": "Exact PR146 utility in composed source; seven type-name tests included in 29 integration tests. No training or timing claim from these preflight results."
   }
 }

@@ -41,3 +41,18 @@ The motivating Linux training run used an existing broader temporary workaround.
 Its successful collection is not evidence of an end-to-end run of this narrower
 production change; the direct real-object regression test is the evidence here.
 This is a compatibility fix, with no performance improvement claim.
+
+## Matching Linux runtime follow-up
+
+The exact signed utility change was also tested on Python 3.11.4 and PyTorch
+2.16.0.dev20261012+cpu. All seven type-name regressions passed within a **29-test
+integration suite** (also covering trace integrity, TorchScript, and precondition
+state isolation). A separate 11-test checker-observer suite passed. The real
+`OpsWrapper` returned `torch._inductor.virtualized.OpsWrapper` in both modes.
+
+The disposable integration source combined the signed tracing, TorchScript,
+cache, sampling, state-isolation, and type-name changes. Its `utils.py` matched
+commit `2f034ae5d0fab7e792b7c0a5bdc6a1acfeb8962c` exactly, and all source hashes
+were unchanged after testing. Compact evidence includes runtime versions and
+log/source hashes. These preflight results do not establish training overhead
+or cross-workload invariant generalization.
