@@ -155,3 +155,39 @@ immutable source snapshots, full outputs, and the verified harness/helper hashes
 retained in the evidence archive. Reproducing this full-trace result requires
 access to the saved trace and retained harness; the synthetic benchmark and
 regression tests are self-contained in the checkout.
+
+## Engineering hardening verification
+
+The inference stack now types task payloads and RNG scopes, validates required
+worker settings before any worker/global mutation, and types each benchmark's
+inputs and measurement output. Identity APIs describe their actual schemaless
+pandas scalar values instead of promising integers. The time index uses numeric
+containers only after the existing conservative dtype checks. Legacy context
+comparison retains one documented pandas scalar `Any` boundary; no values are
+coerced to satisfy typing and the cache stability contract is unchanged.
+
+All 97 affected inference tests pass, and the configured Ruff/Mypy/Black/isort
+hooks pass for changed files. Pinned Mypy 1.9 also passes the sampling and worker
+modules, three benchmark tools, and worker-contract tests with
+`--check-untyped-defs --disallow-untyped-defs --disallow-any-generics
+--follow-imports=silent --ignore-missing-imports`. New worker-contract tests
+produce 18 failures before runtime validation and pass afterward; missing,
+unknown, and malformed fields are rejected before state changes.
+
+A new bounded Linux replay of signed inference head `ce25c12`, with the same
+separate #145 production patch applied, completed on the original 573,494-event
+trace. **All 836 invariants, 104 failed-hypothesis records, and both context files
+are byte-for-byte identical to the corrected reference.** Source and input hashes
+remain unchanged. This one verification run took 76.794 seconds; it is not a new
+paired performance experiment, and the earlier performance claims above remain
+tied to their original measured revisions.
+
+The separately composed production source (inference, tracing, and pruning-state
+fixes) passes whole-source Mypy on 77 files, Ruff, and isort. Whole-source Black
+still reports three unchanged legacy files (`config/config.py`,
+`instrumentor/proxy_wrapper/hash.py`, and `instrumentor/proxy_wrapper/subclass.py`);
+the original base reports six. Scoped strict checks do not certify fully strict
+typing of every legacy body.
+
+[Compact hardening evidence](inference-hardening-validation-20261025.json)
+records exact composition, runtime, output hashes, and limits.
