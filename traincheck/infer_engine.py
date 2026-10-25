@@ -20,8 +20,10 @@ from traincheck.invariant import (
     find_precondition,
     relation_pool,
 )
+from traincheck.invariant.base_cls import GroupedPreconditions
 from traincheck.parallel import config_snapshot, get_worker_traces, worker_init
 from traincheck.trace import MDNONEJSONEncoder, select_trace_implementation
+from traincheck.trace.trace import Trace
 from traincheck.utils import register_custom_excepthook
 
 register_custom_excepthook()
@@ -29,7 +31,14 @@ register_custom_excepthook()
 logger = logging.getLogger(__name__)
 
 
-def _generate_hypothesis_task(trace_idx, relation, trace):
+GenerationTask = tuple[int, type[Relation]]
+GenerationResult = tuple[int, type[Relation], list[Hypothesis]]
+PreconditionTask = tuple[str, Hypothesis]
+
+
+def _generate_hypothesis_task(
+    trace_idx: int, relation: type[Relation], trace: Trace
+) -> list[Hypothesis]:
     """Use the same logical task RNG in serial and process-based generation."""
     with sampling_task(
         "generate", trace_idx, relation.__module__, relation.__qualname__
@@ -37,7 +46,7 @@ def _generate_hypothesis_task(trace_idx, relation, trace):
         return relation.generate_hypothesis(trace)
 
 
-def _hypothesis_sampling_key(hypothesis):
+def _hypothesis_sampling_key(hypothesis: Hypothesis) -> str:
     """Identify a hypothesis before dispatch, excluding mutable results/counts."""
     relation = hypothesis.invariant.relation
     identity = {
@@ -48,13 +57,15 @@ def _hypothesis_sampling_key(hypothesis):
     }
     # Normalize JSON object keys and MD_NONE with the invariant-output encoder,
     # then sort keys for insertion-order independence.
-    normalized = json.loads(json.dumps(identity, cls=MDNONEJSONEncoder))
+    normalized: object = json.loads(json.dumps(identity, cls=MDNONEJSONEncoder))
     return json.dumps(
         normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False
     )
 
 
-def _find_precondition_task(hypothesis, traces, key):
+def _find_precondition_task(
+    hypothesis: Hypothesis, traces: list[Trace], key: str
+) -> GroupedPreconditions | None:
     with sampling_task("precondition", key):
         return find_precondition(hypothesis, traces)
 
@@ -65,7 +76,7 @@ def _find_precondition_task(hypothesis, traces, key):
 # worker via worker_init, not re-pickled per task).
 
 
-def _genhypo_worker_task(task: tuple):
+def _genhypo_worker_task(task: GenerationTask) -> GenerationResult:
     """Generate hypotheses for one (trace_idx, relation) pair in a worker process.
 
     Returns (trace_idx, relation, inferred_hypos); the parent merges them in a
@@ -77,7 +88,7 @@ def _genhypo_worker_task(task: tuple):
     return trace_idx, relation, hypotheses
 
 
-def _precond_worker_task(task):
+def _precond_worker_task(task: PreconditionTask) -> GroupedPreconditions | None:
     """Run precondition inference for a single hypothesis in a worker process.
 
     Returns just the precondition (picklable); the parent applies it to its own
@@ -171,7 +182,7 @@ class InferEngine:
 
     def _generate_hypothesis_serial(
         self,
-        active_relations: list,
+        active_relations: list[type[Relation]],
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]],
         hypo_lookup: dict[Hypothesis, Hypothesis],
         merge_rng: Random,
@@ -214,7 +225,7 @@ class InferEngine:
 
     def _generate_hypothesis_parallel(
         self,
-        active_relations: list,
+        active_relations: list[type[Relation]],
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]],
         hypo_lookup: dict[Hypothesis, Hypothesis],
         merge_rng: Random,
