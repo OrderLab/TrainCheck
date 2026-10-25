@@ -39,6 +39,7 @@ from traincheck.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
+from traincheck.instrumentor.torchscript_compat import preserve_torchscript_builtin
 from traincheck.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
@@ -486,6 +487,7 @@ def wrapper(
     wrapped._traincheck_original_function = original_function
     wrapped._traincheck_instrumented = True
     wrapped._traincheck_dump_disabled = disable_dump
+    preserve_torchscript_builtin(original_function, wrapped, torch)
     return wrapped
 
 
