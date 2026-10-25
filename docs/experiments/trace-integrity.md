@@ -41,3 +41,28 @@ OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python -m unittest tests.test_trace_int
 The suite covers recorder re-entry, JSON emission re-entry, real tensor snapshots, nested application calls, generators, original and frozen exceptions, thread-local suppression, overlapping flushes, and concurrent producer ordering.
 
 [Sanitized results](trace-integrity-results.json) retain controlled counts, workload settings, base/source revisions, and evidence-file hashes. Measurements used TrainCheck base `9eb4f320d3db34d372145261704b805b88e39bda` and adapted benchmark source `ae6601978217bc0f06b9a78479cf00f0bc7242c9`; all instrumented conditions shared the same dynamic-type-name compatibility patch. No private paths, raw training traces, or checkpoint data are included.
+
+## Contract hardening (2026-10-25)
+
+Runtime checkpoint `aba4ee8e164f4d24eedae97ea641cd9a6f69c343` makes the
+thread-local suppression state, context-manager exception/traceback interface,
+and buffer queue/record types explicit. Suppression starts at zero independently
+in each thread; process/thread IDs retain their existing lazy initialization.
+`__exit__` returns `Literal[False]`, preserving application exceptions. Buffer
+serialization and queue failures propagate; a failed enqueue retains its batch
+for a later successful flush without dropping or duplicating records.
+
+Validation used Python 3.10.16, PyTorch 2.2.2, and one OpenMP/MKL/OpenBLAS thread:
+
+```sh
+python -m unittest discover -s tests -p 'test_trac*.py'
+pre-commit run --files traincheck/instrumentor/tracer.py traincheck/instrumentor/dumper.py tests/test_tracing_contracts.py
+mypy --follow-imports=silent --ignore-missing-imports --check-untyped-defs --disallow-untyped-defs --disallow-any-generics tests/test_tracing_contracts.py
+```
+
+All 15 tests passed (11 existing regressions and 4 state/write-failure contract
+tests). All repository-pinned hooks passed; the stronger check of the new test
+module used pinned mypy 1.9. Legacy serializer and proxy-wrapper annotations are
+outside this narrowly scoped change; this does not claim repository-wide strict
+typing. No benchmark timings were rerun for this typing/contract checkpoint;
+the experiment numbers above remain evidence for their original revisions.
