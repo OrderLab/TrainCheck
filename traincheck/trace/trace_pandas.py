@@ -103,6 +103,14 @@ class TracePandas(Trace):
                 "Done truncating incomplete trailing function calls from the trace."
             )
 
+        # Build call-record indexes lazily, after incomplete-call truncation.
+        # Like the other trace caches, these assume stable event values after
+        # initialization. Replacing the frame or changing its length rebuilds
+        # this index; same-shape in-place cell edits require a new TracePandas.
+        self._func_call_positions_source: pd.DataFrame | None = None
+        self._func_call_positions_length = -1
+        self._func_call_positions: dict[str, tuple[list[int], list[int]]] | None = None
+
         self.column_dtypes_cached = {}
         self.stage_traces: dict[str, "TracePandas"] = {}
 
@@ -1065,13 +1073,83 @@ class TracePandas(Trace):
             (start_time, end_time), process_id=pre_record["process_id"]
         )
 
+    def _get_func_call_record_positions(
+        self, func_call_id: str, *, post: bool
+    ) -> list[int] | None:
+        """Return indexed positions, or None to use the original pandas filter.
+
+        Index only ordinary strings/nulls: pandas equality for arbitrary objects
+        and extension dtypes can differ from Python dictionary equality.
+        """
+        if type(func_call_id) is not str:  # noqa: E721 - exclude custom equality
+            return None
+
+        if (
+            self._func_call_positions_source is not self.events
+            or self._func_call_positions_length != len(self.events)
+        ):
+            ids = self.events["func_call_id"]
+            event_types = self.events["type"]
+            positions: dict[str, tuple[list[int], list[int]]] | None = None
+            if all(
+                isinstance(column, pd.Series)
+                and (
+                    pd.api.types.is_object_dtype(column.dtype)
+                    or isinstance(column.dtype, pd.StringDtype)
+                )
+                for column in (ids, event_types)
+            ):
+                positions = {}
+                for position, (call_id, event_type) in enumerate(zip(ids, event_types)):
+                    # None, NaN, and pd.NA cannot equal an ordinary string in
+                    # the original pandas filter. All other nonstrings use it.
+                    if any(
+                        type(value) is not str  # noqa: E721 - exclude custom equality
+                        and value is not None
+                        and value is not pd.NA
+                        and not (isinstance(value, float) and pd.isna(value))
+                        for value in (call_id, event_type)
+                    ):
+                        positions = None
+                        break
+                    if (
+                        type(call_id) is not str  # noqa: E721 - exact scalar types
+                        or type(event_type) is not str  # noqa: E721
+                    ):
+                        continue
+                    if event_type == TraceLineType.FUNC_CALL_PRE:
+                        side = 0
+                    elif event_type in (
+                        TraceLineType.FUNC_CALL_POST,
+                        TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    ):
+                        side = 1
+                    else:
+                        continue
+                    if call_id not in positions:
+                        positions[call_id] = ([], [])
+                    positions[call_id][side].append(position)
+
+            self._func_call_positions = positions
+            self._func_call_positions_source = self.events
+            self._func_call_positions_length = len(self.events)
+
+        if self._func_call_positions is None:
+            return None
+        records = self._func_call_positions.get(func_call_id)
+        return records[int(post)] if records is not None else []
+
     def get_pre_func_call_record(self, func_call_id: str) -> dict:
         """Get the pre call record of a function given its func_call_id."""
         # TODO: check if this is correct
-        pre_records = self.events[
-            (self.events["func_call_id"] == func_call_id)
-            & (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
-        ]
+        positions = self._get_func_call_record_positions(func_call_id, post=False)
+        if positions is None:
+            pre_records = self.events[
+                (self.events["func_call_id"] == func_call_id)
+                & (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+            ]
+        else:
+            pre_records = self.events.iloc[positions]
 
         assert (
             len(pre_records) == 1
@@ -1086,17 +1164,21 @@ class TracePandas(Trace):
         Returns None if the post call event is not found and the pre-call event is the outermost function call. (see the doc of `_rm_incomplete_trailing_func_calls`)
         """
         # TODO: check if this is correct
-        post_records = self.events[
-            (self.events["func_call_id"] == func_call_id)
-            & (
-                self.events["type"].isin(
-                    [
-                        TraceLineType.FUNC_CALL_POST,
-                        TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                    ]
+        positions = self._get_func_call_record_positions(func_call_id, post=True)
+        if positions is None:
+            post_records = self.events[
+                (self.events["func_call_id"] == func_call_id)
+                & (
+                    self.events["type"].isin(
+                        [
+                            TraceLineType.FUNC_CALL_POST,
+                            TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                        ]
+                    )
                 )
-            )
-        ]
+            ]
+        else:
+            post_records = self.events.iloc[positions]
 
         assert (
             len(post_records) <= 1
