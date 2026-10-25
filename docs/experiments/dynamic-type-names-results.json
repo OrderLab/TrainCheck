@@ -47,6 +47,21 @@
         "stdout_sha256": "a33575d7feb6117b55c84c6919d21911e1f76065db033ebbdd9270671c536239"
       }
     },
-    "scope": "Exact PR146 utility in composed source; seven type-name tests included in 29 integration tests. No training or timing claim from these preflight results."
+    "scope": "Exact PR146 utility in composed source; seven type-name tests included in 29 integration tests. No training or timing claim from these preflight results.",
+    "collection_smoke": {
+      "workload": "Bounded benchmark MNIST Net / cached real MNIST / batch2 / CPUfloat32 / seed42",
+      "completed_steps": 10,
+      "success": true,
+      "source_unchanged": true,
+      "state_shapes_unchanged": true,
+      "source_stack": "PR144 plus PR142/143/145/146 production fixes; immutable integration-v3, signed74b harness",
+      "evidence_sha256": {
+        "phase-result.json": "03a50887287fb8e98398735e738412edd6c356bcc21dc39ee15929d5ffcf324c",
+        "metrics.json": "d99a6fd45dc534964835937a8a623ad98309052a3771e9750c3f8dfb0bfe0713",
+        "adaptation.json": "8a533afe8ea099fbb255124ba589f2edf068f1c17d5d3774d73c0ff88a63fa8e",
+        "invocation.json": "8ecea3da01502bff67024e8aa303f3d7e6ab72e7a7d1191b3aef53d61868fc75"
+      },
+      "scope": "Collection completed with exact narrow PR146 utility in composed stack. Separate later shape-only fault-selector failure does not affect this collection result. No fix-isolated training timing claim."
+    }
   }
 }

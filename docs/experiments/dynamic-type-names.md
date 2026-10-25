@@ -37,10 +37,10 @@ Reproduce the candidate suite with:
 python -m unittest tests.test_dynamic_typename -v
 ```
 
-The motivating Linux training run used an existing broader temporary workaround.
-Its successful collection is not evidence of an end-to-end run of this narrower
-production change; the direct real-object regression test is the evidence here.
-This is a compatibility fix, with no performance improvement claim.
+The first successful Linux training pilot used an existing broader temporary
+workaround. That pilot is not evidence for this narrower production change; the
+follow-up below uses the exact signed fix. This is a compatibility fix, with no
+performance improvement claim.
 
 ## Matching Linux runtime follow-up
 
@@ -56,3 +56,12 @@ commit `2f034ae5d0fab7e792b7c0a5bdc6a1acfeb8962c` exactly, and all source hashes
 were unchanged after testing. Compact evidence includes runtime versions and
 log/source hashes. These preflight results do not establish training overhead
 or cross-workload invariant generalization.
+
+The composed source also completed a fresh **10-step MNIST trace collection**
+with cached real MNIST, batch size 2, CPU float32, and seed 42. Its source hashes
+and model-state shapes stayed unchanged. This supports collection compatibility
+in the identified stack; it does not isolate training behavior to this one fix.
+The study later stopped at a shape-only negative-control selector because no
+shape invariant existed, after collection and healthy checks had succeeded.
+That harness issue and its preserved evidence are separate from the type-name
+fix. Evidence hashes for the successful collection are included in the JSON.
