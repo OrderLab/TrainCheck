@@ -47,16 +47,16 @@ def evaluate(function):
     }
 
 
-def probe(mode):
+def probe(mode: str) -> dict[str, object]:
     """Run one control in its own interpreter so JIT caches cannot leak."""
     from traincheck.instrumentor import tracer
 
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
-    records = []
+    records: list[dict[str, object]] = []
     registry = torch.jit._builtins
     original = torch.tanh
-    result = {
+    result: dict[str, object] = {
         "mode": mode,
         "torch": torch.__version__,
         "initial_registry_initialized": registry._builtin_table is not None,
@@ -87,7 +87,9 @@ def probe(mode):
                 # Disable only registration to reproduce the former wrapper;
                 # the helper controls then apply the production helper directly.
                 with patch.object(
-                    tracer, "preserve_torchscript_builtin", return_value=None
+                    tracer,
+                    "preserve_torchscript_builtin",
+                    return_value={"status": "not-registered", "operator": None},
                 ):
                     wrapped = tracer.wrapper(
                         original,

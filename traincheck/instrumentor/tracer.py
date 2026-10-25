@@ -39,7 +39,10 @@ from traincheck.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
-from traincheck.instrumentor.torchscript_compat import preserve_torchscript_builtin
+from traincheck.instrumentor.torchscript_compat import (
+    preserve_torchscript_builtin,
+    warn_unsupported_torchscript,
+)
 from traincheck.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
@@ -200,7 +203,7 @@ def function_wrapper(
     dump_ret: bool,
     dump_ret_config,
     trigger_var_dump: bool,
-    var_dump_config: dict,
+    var_dump_config: dict[str, object] | None,
     need_unproxy_args_kwargs: bool,
     *args,
     **kwargs,
@@ -445,19 +448,19 @@ def core_wrapper_proxy(original_function, *args, **kwargs):
 
 
 def wrapper(
-    original_function,
-    is_bound_method,
-    scan_proxy_in_args,
-    dump_stack_trace,
-    disable_dump=False,
-    dump_args=True,
-    dump_args_config=None,
-    dump_ret=True,
-    dump_ret_config=None,
-    handle_proxy=True,
-    trigger_var_dump=False,
-    var_dump_config=None,
-):
+    original_function: Callable[..., object],
+    is_bound_method: bool,
+    scan_proxy_in_args: bool,
+    dump_stack_trace: bool,
+    disable_dump: bool = False,
+    dump_args: bool = True,
+    dump_args_config: dict[str, object] | None = None,
+    dump_ret: bool = True,
+    dump_ret_config: dict[str, object] | None = None,
+    handle_proxy: bool = True,
+    trigger_var_dump: bool = False,
+    var_dump_config: dict[str, object] | None = None,
+) -> Callable[..., object]:
     is_builtin = is_c_level_function(original_function)
     need_unproxy_args_kwargs = handle_proxy and (
         is_builtin or is_funcs_to_be_unproxied(original_function)
@@ -468,7 +471,7 @@ def wrapper(
         METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(original_function_name)
 
         @functools.wraps(original_function)
-        def wrapped(*args, **kwargs):
+        def wrapped(*args: object, **kwargs: object) -> object:
             return function_wrapper(
                 original_function,
                 original_function_name,
@@ -491,19 +494,24 @@ def wrapper(
         if need_unproxy_args_kwargs:
 
             @functools.wraps(original_function)
-            def wrapped(*args, **kwargs):
+            def wrapped(*args: object, **kwargs: object) -> object:
                 return core_wrapper_proxy(original_function, *args, **kwargs)
 
         else:
 
             @functools.wraps(original_function)
-            def wrapped(*args, **kwargs):
+            def wrapped(*args: object, **kwargs: object) -> object:
                 return original_function(*args, **kwargs)
 
-    wrapped._traincheck_original_function = original_function
-    wrapped._traincheck_instrumented = True
-    wrapped._traincheck_dump_disabled = disable_dump
-    preserve_torchscript_builtin(original_function, wrapped, torch)
+    setattr(wrapped, "_traincheck_original_function", original_function)
+    setattr(wrapped, "_traincheck_instrumented", True)
+    setattr(wrapped, "_traincheck_dump_disabled", disable_dump)
+    builtin_preservation = preserve_torchscript_builtin(
+        original_function, wrapped, torch
+    )
+    setattr(wrapped, "_traincheck_torchscript_builtin", builtin_preservation)
+    if builtin_preservation["status"] == "unsupported-private-api":
+        warn_unsupported_torchscript()
     return wrapped
 
 
@@ -955,9 +963,9 @@ class Instrumentor:
             if func_name not in self.instr_opts.funcs_instr_opts:
                 return wrapper(
                     func_obj,
-                    is_bound_method=None,
-                    scan_proxy_in_args=None,
-                    dump_stack_trace=None,
+                    is_bound_method=False,
+                    scan_proxy_in_args=False,
+                    dump_stack_trace=False,
                     disable_dump=True,
                     handle_proxy=used_proxy,
                 )
