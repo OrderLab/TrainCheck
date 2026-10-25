@@ -65,3 +65,37 @@ The study later stopped at a shape-only negative-control selector because no
 shape invariant existed, after collection and healthy checks had succeeded.
 That harness issue and its preserved evidence are separate from the type-name
 fix. Evidence hashes for the successful collection are included in the JSON.
+
+## Contract hardening (2026-10-25)
+
+`typename` now declares its existing `object`/`bool` inputs and string result.
+The dynamic-name guards, reported-class fallback, and final string assertions
+are unchanged. All dynamic-name test helpers now have explicit annotations.
+Two additional tests preserve the negative contract: an invalid fallback class
+name still fails the final assertion, and an unexpected metadata exception
+propagates unchanged. This does not change `safe_getattr`'s pre-existing framework
+compatibility exception handling.
+
+The composed branch includes the signed #142 and #143 hardening checkpoints.
+Validation uses Python 3.10.16/PyTorch 2.2.2 with one OpenMP/MKL/OpenBLAS thread:
+
+```sh
+python -m unittest discover -s tests -p 'test_dynamic_typename.py'
+python -m unittest discover -s tests -p 'test_torchscript*.py'
+python -m unittest discover -s tests -p 'test_trac*.py'
+pre-commit run --files traincheck/utils.py tests/test_dynamic_typename.py traincheck/instrumentor/tracer.py traincheck/instrumentor/dumper.py traincheck/instrumentor/torchscript_compat.py tests/test_torchscript_compat.py tests/test_torchscript_contracts.py tests/test_tracing_contracts.py
+mypy --follow-imports=silent --ignore-missing-imports --check-untyped-defs --disallow-untyped-defs --disallow-any-generics --warn-return-any traincheck/instrumentor/torchscript_compat.py tests/test_dynamic_typename.py tests/test_torchscript_contracts.py tests/test_tracing_contracts.py
+```
+
+All 37 tests passed: 9 dynamic-name, 13 TorchScript (including six fresh-process
+controls), and 15 tracing tests. All pinned hooks and the stronger scoped check
+passed using mypy 1.9. The existing general utility/serialization modules are
+not claimed to be strictly typed in full; see the #143 evidence for the remaining
+legacy tracer/dumper diagnostics. No runtime benchmark was rerun for this
+annotation/contract update, so earlier performance numbers retain their original
+revision and workload scope.
+
+With `--check-untyped-defs`, `utils.py` reports the same single pre-existing
+`threading.__excepthook__` stub diagnostic at both original head
+`2333682cb2f3f48d338ff27a6d70682f0f4e4702` and this update; no new diagnostic
+was introduced by the `typename` annotation.

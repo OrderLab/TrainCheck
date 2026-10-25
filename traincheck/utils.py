@@ -47,7 +47,7 @@ def typename_compile(o):
         return "compile_stage"
 
 
-def typename(o, is_runtime=False):
+def typename(o: object, is_runtime: bool = False) -> str:
     if isinstance(o, torch.nn.Parameter):
         return "torch.nn.Parameter"
     if isinstance(o, torch.Tensor):
