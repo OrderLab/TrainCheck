@@ -32,6 +32,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Literal, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -39,22 +40,46 @@ import pandas as pd
 import traincheck.trace.trace_pandas as trace_module
 from traincheck.trace.trace_pandas import TracePandas
 
+TimingField = Literal["construction_seconds", "queries_seconds", "total_seconds"]
+TIMING_FIELDS: tuple[TimingField, ...] = (
+    "construction_seconds",
+    "queries_seconds",
+    "total_seconds",
+)
+
+
+class TrialResult(TypedDict):
+    repetition: int
+    position: int
+    variant: str
+    construction_seconds: float
+    queries_seconds: float
+    total_seconds: float
+    result_sha256: str
+    none_results: int
+    empty_dict_results: int
+
+
+class Measurement(TrialResult, total=False):
+    cached_identity_counts: dict[str, int]
+    cache_tuple_containers_shallow_bytes: int
+
 
 class LegacyIdentityTrace(TracePandas):
     """Original lookup expressions; all other behavior uses the same checkout."""
 
-    def get_process_ids(self):
+    def get_process_ids(self) -> list[object]:
         if "process_id" not in self.events.columns:
             return []
         return self.events["process_id"].dropna().unique().tolist()
 
-    def get_thread_ids(self):
+    def get_thread_ids(self) -> list[object]:
         if "thread_id" not in self.events.columns:
             return []
         return self.events["thread_id"].dropna().unique().tolist()
 
 
-def synthetic_frame(rows):
+def synthetic_frame(rows: int) -> pd.DataFrame:
     sequence = np.arange(rows, dtype=np.int64)
     process_ids = ((sequence // 16) % 8 + 100).astype(np.float64)
     thread_ids = (sequence % 16 + 1000).astype(np.float64)
@@ -67,7 +92,7 @@ def synthetic_frame(rows):
     )
 
 
-def fixed_queries(calls):
+def fixed_queries(calls: int) -> list[tuple[int, int, int]]:
     # Six valid, one unknown-process, and one unknown-thread call per cycle.
     # Process/thread presence remains independent, matching get_meta_vars.
     return [
@@ -80,20 +105,31 @@ def fixed_queries(calls):
     ]
 
 
-def digest(value):
+def digest(value: object) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
 
 
-def trial(cls, data, queries):
+def trial(
+    cls: type[TracePandas],
+    data: pd.DataFrame,
+    queries: list[tuple[int, int, int]],
+    *,
+    repetition: int,
+    position: int,
+    variant: str,
+) -> Measurement:
     gc.collect()
     begin = time.perf_counter()
     trace = cls(data, truncate_incomplete_func_calls=False)
     constructed = time.perf_counter()
     results = [trace.get_meta_vars(*query) for query in queries]
     finished = time.perf_counter()
-    record = {
+    record: Measurement = {
+        "repetition": repetition,
+        "position": position,
+        "variant": variant,
         "construction_seconds": constructed - begin,
         "queries_seconds": finished - constructed,
         "total_seconds": finished - begin,
@@ -112,7 +148,7 @@ def trial(cls, data, queries):
     return record
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rows", type=int, default=573494)
     parser.add_argument("--calls", type=int, default=1000)
@@ -129,20 +165,26 @@ def main():
     input_hash = hashlib.sha256(
         pd.util.hash_pandas_object(data, index=True).to_numpy().tobytes()
     ).hexdigest()
-    expected = [None if i % 8 in (6, 7) else {} for i in range(args.calls)]
+    expected: list[dict[str, object] | None] = [
+        None if i % 8 in (6, 7) else {} for i in range(args.calls)
+    ]
     expected_hash = digest(expected)
-    measurements = []
+    measurements: list[Measurement] = []
     variants = {"legacy": LegacyIdentityTrace, "candidate": TracePandas}
     for repetition in range(args.repetitions):
         order = ["legacy", "candidate"]
         if repetition % 2:
             order.reverse()
         for position, variant in enumerate(order):
-            record = trial(variants[variant], data, queries)
-            assert record["result_sha256"] == expected_hash, record
-            record.update(
-                repetition=repetition + 1, position=position + 1, variant=variant
+            record = trial(
+                variants[variant],
+                data,
+                queries,
+                repetition=repetition + 1,
+                position=position + 1,
+                variant=variant,
             )
+            assert record["result_sha256"] == expected_hash, record
             measurements.append(record)
 
     # Catch accidental mutation of the shared input by either implementation.
@@ -159,7 +201,7 @@ def main():
                 for record in measurements
                 if record["variant"] == variant
             )
-            for metric in ("construction_seconds", "queries_seconds", "total_seconds")
+            for metric in TIMING_FIELDS
         }
         for variant in variants
     }
@@ -191,13 +233,13 @@ def main():
                 )
             },
             "candidate_source_sha256": hashlib.sha256(
-                Path(trace_module.__file__).read_bytes()
+                Path(inspect.getfile(trace_module)).read_bytes()
             ).hexdigest(),
             "candidate_commit": subprocess.check_output(
                 [
                     "git",
                     "-C",
-                    str(Path(trace_module.__file__).resolve().parents[2]),
+                    str(Path(inspect.getfile(trace_module)).resolve().parents[2]),
                     "rev-parse",
                     "HEAD",
                 ],
@@ -207,7 +249,7 @@ def main():
                 [
                     "git",
                     "-C",
-                    str(Path(trace_module.__file__).resolve().parents[2]),
+                    str(Path(inspect.getfile(trace_module)).resolve().parents[2]),
                     "diff",
                     "--quiet",
                     "HEAD",
