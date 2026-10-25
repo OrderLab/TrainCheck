@@ -4,7 +4,7 @@ import os
 import threading
 import time
 from queue import Empty, Queue
-from typing import Hashable
+from typing import Callable, Hashable
 
 import orjson
 import torch
@@ -188,19 +188,22 @@ class TraceBuffer:
     """
 
     def __init__(
-        self, queue_getter, buffer_size=BUFFER_SIZE, flush_interval=FLUSH_INTERVAL
-    ):
+        self,
+        queue_getter: Callable[[], Queue[str]],
+        buffer_size: int = BUFFER_SIZE,
+        flush_interval: float = FLUSH_INTERVAL,
+    ) -> None:
         self.queue = queue_getter()
         self.buffer_size = buffer_size
         self.flush_interval = flush_interval
-        self.buffer = []
+        self.buffer: list[str] = []
         self._lock = threading.Lock()
         self.last_flush_time = time.time()
         self.flush_thread = threading.Thread(target=self._flush_periodically)
         self.flush_thread.daemon = True
         self.flush_thread.start()
 
-    def add_trace(self, trace):
+    def add_trace(self, trace: dict[str, object]) -> None:
         # Snapshot mutable values in the producer, before returning to the caller.
         serialized = serialize(trace)
         with self._lock:
@@ -211,11 +214,11 @@ class TraceBuffer:
             ):
                 self._flush_locked()
 
-    def _flush(self):
+    def _flush(self) -> None:
         with self._lock:
             self._flush_locked()
 
-    def _flush_locked(self):
+    def _flush_locked(self) -> None:
         if not self.buffer:
             return
         # Keep enqueue and clear atomic with respect to the producer and timer.
@@ -224,7 +227,7 @@ class TraceBuffer:
         self.buffer.clear()
         self.last_flush_time = time.time()
 
-    def _flush_periodically(self):
+    def _flush_periodically(self) -> None:
         while not stop_event.is_set():
             time.sleep(self.flush_interval)
             self._flush()
