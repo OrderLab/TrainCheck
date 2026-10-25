@@ -1,6 +1,6 @@
-"""Post-hoc, one-field trace sensitivity control for a live frozen shape invariant.
+"""Post-hoc, one-field trace sensitivity control for a live frozen output invariant.
 
-This does not inject a training bug. It changes one recorded tensor shape after
+This does not inject a training bug. It changes one recorded tensor shape or dtype after
 healthy training, preserves IDs and precondition inputs, and checks the same rules.
 """
 
@@ -37,6 +37,24 @@ def differences(before, after, path=()):
     return [path]
 
 
+def replacement(attributes, attribute):
+    """Return one valid same-type unequal metadata value, or no eligible edit."""
+    if not isinstance(attributes, dict):
+        return None
+    value = attributes.get(attribute)
+    if attribute == "shape":
+        if (
+            isinstance(value, list)
+            and value
+            and isinstance(value[0], int)
+            and not isinstance(value[0], bool)
+        ):
+            return [value[0] + 1, *value[1:]]
+    elif attribute == "dtype" and value in ("torch.float32", "torch.float64"):
+        return "torch.float64" if value == "torch.float32" else "torch.float32"
+    return None
+
+
 def mutate(traces, invariants, healthy, output):
     rules = [json.loads(line) for line in invariants.read_text().splitlines()]
     coverage = json.loads(healthy.read_text())
@@ -51,41 +69,40 @@ def mutate(traces, invariants, healthy, output):
             event = json.loads(line)
             if event.get("type") == "function_call (post)":
                 post_events.setdefault(event["func_call_id"], []).append(event)
-    for item in coverage["per_invariant"]:
-        rule = rules[item["invariant_index"]]
-        if not (
-            rule["relation"] == "ConsistentOutputRelation"
-            and rule["params"][1]["attr_name"] == "shape"
-            and item["active"]
-            and item["check_passed"]
-            and item["decisions_completed"] > 0
-        ):
-            continue
-        for decision in item["decision_records"]:
-            events = post_events.get(decision["func_call_id"], [])
-            if len(events) != 1:
+    # Prefer shape; dtype is a prospective fallback when no live mutable shape
+    # rule exists. Selection remains post hoc and does not change learned rules.
+    for attribute in ("shape", "dtype"):
+        for item in coverage["per_invariant"]:
+            rule = rules[item["invariant_index"]]
+            if not (
+                rule["relation"] == "ConsistentOutputRelation"
+                and rule["params"][1]["attr_name"] == attribute
+                and item["active"]
+                and item["check_passed"]
+                and item["decisions_completed"] > 0
+            ):
                 continue
-            values = events[0]["return_values"]
-            tensors = values if isinstance(values, list) else [values]
-            eligible = any(
-                "Tensor" in name
-                and isinstance(attributes, dict)
-                and isinstance(attributes.get("shape"), list)
-                and attributes["shape"]
-                and isinstance(attributes["shape"][0], int)
-                and not isinstance(attributes["shape"][0], bool)
-                for tensor in tensors
-                for name, attributes in tensor.items()
-            )
-            if eligible:
-                chosen, call_id = item, decision["func_call_id"]
+            for decision in item["decision_records"]:
+                events = post_events.get(decision["func_call_id"], [])
+                if len(events) != 1:
+                    continue
+                values = events[0]["return_values"]
+                tensors = values if isinstance(values, list) else [values]
+                eligible = any(
+                    "Tensor" in name and replacement(attributes, attribute) is not None
+                    for tensor in tensors
+                    if isinstance(tensor, dict)
+                    for name, attributes in tensor.items()
+                )
+                if eligible:
+                    chosen, call_id = item, decision["func_call_id"]
+                    break
+            if chosen is not None:
                 break
         if chosen is not None:
             break
     if chosen is None:
-        raise ValueError(
-            "No healthy, actually evaluated output-shape rule with a nonempty integer shape"
-        )
+        raise ValueError("No healthy, actually evaluated mutable shape or dtype rule")
     rule = rules[chosen["invariant_index"]]
     assert call_id is not None
     output.mkdir(parents=True, exist_ok=False)
@@ -105,23 +122,17 @@ def mutate(traces, invariants, healthy, output):
             before = copy.deepcopy(event)
             values = event["return_values"]
             tensor_values = values if isinstance(values, list) else [values]
-            for tensor_index, value in enumerate(tensor_values):
+            for value in tensor_values:
+                if not isinstance(value, dict):
+                    continue
                 for typename, attributes in value.items():
-                    if (
-                        "Tensor" not in typename
-                        or not isinstance(attributes, dict)
-                        or "shape" not in attributes
-                    ):
+                    if "Tensor" not in typename:
                         continue
-                    old = copy.deepcopy(attributes["shape"])
-                    if (
-                        not isinstance(old, list)
-                        or not old
-                        or not isinstance(old[0], int)
-                        or isinstance(old[0], bool)
-                    ):
+                    new_value = replacement(attributes, attribute)
+                    if new_value is None:
                         continue
-                    attributes["shape"][0] += 1
+                    old = copy.deepcopy(attributes[attribute])
+                    attributes[attribute] = new_value
                     diff = differences(before, event)
                     assert len(diff) == 1
                     assert diff[0][:1] == ("return_values",)
@@ -134,8 +145,9 @@ def mutate(traces, invariants, healthy, output):
                             "file": trace.name,
                             "zero_based_line": index,
                             "path": list(diff[0]),
-                            "before_shape": old,
-                            "after_shape": attributes["shape"],
+                            "attribute": attribute,
+                            "before_value": old,
+                            "after_value": attributes[attribute],
                             "raw_process_id": event["process_id"],
                             "raw_thread_id": event["thread_id"],
                         }
@@ -163,7 +175,8 @@ def mutate(traces, invariants, healthy, output):
     assert len(edits) == 1, edits
     manifest = {
         "kind": "post_hoc_trace_field_sensitivity_control_not_training_fault",
-        "selection": "first actually evaluated healthy shape rule with a mutable nonempty integer shape",
+        "selection": "first actually evaluated healthy mutable shape rule, otherwise a float32/float64 dtype rule",
+        "attribute": attribute,
         "invariant_index": chosen["invariant_index"],
         "invariant": rule,
         "func_call_id": call_id,

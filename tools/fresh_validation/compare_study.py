@@ -123,6 +123,14 @@ def compare(root):
     assert healthy["check_passed"] and healthy["active"]
     assert faulty["status"] == "completed" and not faulty["check_passed"]
     assert faulty["decisions_completed"] > 0 and faulty["precondition_group_passes"] > 0
+    assert any(
+        d.get("func_call_id") == mutation["func_call_id"]
+        for d in faulty["decision_records"]
+    )
+    assert any(
+        event.get("func_call_id") == mutation["func_call_id"]
+        for event in faulty["checker_result"]["trace"]
+    )
     assert (
         mutation["ids_unchanged"]
         and mutation["precondition_inputs_unchanged"]

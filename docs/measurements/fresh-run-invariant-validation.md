@@ -55,11 +55,16 @@ that an ID caused dormancy. A workload with no ID-bearing rules leaves the
 original TorchTitan rule set's portability unresolved.
 
 A post-hoc sensitivity control selects a healthy, actually evaluated output-shape
-rule and changes one recorded tensor's first shape dimension, retaining its type,
+rule, or an output-dtype rule when no eligible shape rule exists. It changes one
+recorded shape dimension or float32/float64 dtype value, retaining its JSON type,
 IDs and precondition inputs. Every other semantic field and every other raw line
 must remain identical. The frozen checker must activate and violate the selected
 rule. This is trace-level detector-path validation, not a reproduced training bug
-or a general defect-coverage result.
+or a general defect-coverage result. Dtype mutation changes recorded metadata only;
+the tensor type-name key remains unchanged, so it does not represent a complete
+alternative tensor execution. The original 74b3adf MNIST run completed its healthy
+phases but stopped at the shape-only selector; that diagnostic remains separate
+from fresh runs with the revised selector.
 
 `compare_study.py` verifies source/input immutability, fresh producer PIDs, exact
 same-seed control losses and canonical parameter hashes, instrumented-versus-plain
