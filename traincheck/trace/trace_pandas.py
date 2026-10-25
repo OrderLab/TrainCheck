@@ -1,5 +1,6 @@
 import logging
 import re
+from numbers import Real
 from typing import Any
 
 import pandas as pd
@@ -15,6 +16,7 @@ from traincheck.trace.types import (
     ContextManagerState,
     FuncCallEvent,
     FuncCallExceptionEvent,
+    IncompleteFuncCallEvent,
     Liveness,
     VarChangeEvent,
     VarInstId,
@@ -65,7 +67,7 @@ class TracePandas(Trace):
         self.function_pool = None
 
         self.cache_id_2_func_call_event: dict[
-            str, FuncCallEvent | FuncCallExceptionEvent
+            str, FuncCallEvent | FuncCallExceptionEvent | IncompleteFuncCallEvent
         ] = {}
 
         self.all_func_call_ids: dict[str, list[str]] = {}
@@ -312,15 +314,91 @@ class TracePandas(Trace):
             )
         ]["function"].unique()
 
-        context_manager_init_pre_records = []
-        for context_manager_name in context_manager_names:
-            context_manager_name = context_manager_name.removesuffix(".__enter__")
-            context_manager_init_pre_records.extend(
-                self.events[
-                    (self.events["function"] == f"{context_manager_name}.__init__")
-                    & (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
-                ].to_dict(orient="records")
+        # Group relevant events once, retaining their original row order. Context
+        # names and init records keep the old class-first encounter order.
+        init_functions = [
+            f"{name.removesuffix('.__enter__')}.__init__"
+            for name in context_manager_names
+        ]
+        if not init_functions:
+            self.context_manager_states = all_context_managers
+            return
+
+        init_records = self.events[
+            self.events["function"].isin(init_functions)
+            & (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+        ]
+        init_by_function = {
+            name: records.to_dict(orient="records")
+            for name, records in init_records.groupby("function", sort=False)
+        }
+        context_manager_init_pre_records = [
+            record
+            for name in init_functions
+            for record in init_by_function.get(name, [])
+        ]
+        if not context_manager_init_pre_records:
+            self.context_manager_states = all_context_managers
+            return
+
+        context_names = [
+            name.removesuffix(".__enter__") for name in context_manager_names
+        ]
+        group_columns = ["function", "type", "process_id", "thread_id", "obj_id"]
+        matching_events = self.events.loc[
+            (
+                self.events["function"].isin(
+                    [f"{name}.__enter__" for name in context_names]
+                )
+                & (self.events["type"] == TraceLineType.FUNC_CALL_POST)
             )
+            | (
+                self.events["function"].isin(
+                    [f"{name}.__exit__" for name in context_names]
+                )
+                & (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
+            ),
+            group_columns + ["time"],
+        ]
+        event_times = {}
+        for key, records in matching_events.groupby(
+            group_columns, sort=False, dropna=True, observed=True
+        ):
+            times = records["time"]
+            # Binary search is equivalent to the original first matching row
+            # only when this group's numeric times are sorted and non-null.
+            # Nullable extension arrays may promote UInt64 search values to
+            # floats and lose precision above 2**53, so keep their comparison.
+            ordered = (
+                not isinstance(times.dtype, pd.api.extensions.ExtensionDtype)
+                and times.dtype.kind in "biuf"
+                and not times.isna().any()
+                and times.is_monotonic_increasing
+            )
+            event_times[key] = (times, ordered)
+
+        def first_time_after(function, event_type, process_id, thread_id, obj_id, time):
+            if not isinstance(time, Real):
+                # Keep pandas validation for nonnumeric/null scalar thresholds,
+                # including malformed nullable timestamps, even with no group.
+                self.events["time"] > time
+            if any(pd.isna(key) for key in (process_id, thread_id, obj_id)):
+                # pandas equality never matches missing identity values, even
+                # when a custom non-null key compares equal to None.
+                raise IndexError("No matching context event")
+            group = event_times.get(
+                (function, event_type, process_id, thread_id, obj_id)
+            )
+            if group is None:
+                raise IndexError("No matching context event")
+            times, ordered = group
+            if ordered and isinstance(time, Real) and not pd.isna(time):
+                position = times.searchsorted(time, side="right")
+                return times.iloc[position : position + 1].tolist()[0]
+            # Unsorted times must retain row-order selection, not nearest time.
+            # This also preserves pandas comparison behavior for nullable and
+            # nonnumeric timestamp dtypes.
+            return times[times > time].iloc[:1].tolist()[0]
 
         for context_manager_init_pre_record in context_manager_init_pre_records:
             init_pre_record = context_manager_init_pre_record
@@ -329,55 +407,35 @@ class TracePandas(Trace):
 
             context_manager_name = init_pre_record["function"].removesuffix(".__init__")
 
-            # find nearest enter and exit events with the same obj_id
+            # Select the first later event in row order with the same identity.
             obj_id = init_pre_record["obj_id"]
             try:
-                enter_post_record = (
-                    self.events[
-                        (self.events["type"] == TraceLineType.FUNC_CALL_POST)
-                        & (
-                            self.events["function"]
-                            == f"{context_manager_name}.__enter__"
-                        )
-                        & (self.events["obj_id"] == obj_id)
-                        & (self.events["time"] > init_pre_record["time"])
-                        & (self.events["process_id"] == process_id)
-                        & (self.events["thread_id"] == thread_id)
-                    ]
-                    .iloc[0]
-                    .to_dict()
+                start_time = first_time_after(
+                    f"{context_manager_name}.__enter__",
+                    TraceLineType.FUNC_CALL_POST,
+                    process_id,
+                    thread_id,
+                    obj_id,
+                    init_pre_record["time"],
                 )
-
-                exit_pre_record = (
-                    self.events[
-                        (self.events["type"] == TraceLineType.FUNC_CALL_PRE)
-                        & (
-                            self.events["function"]
-                            == f"{context_manager_name}.__exit__"
-                        )
-                        & (self.events["obj_id"] == obj_id)
-                        & (self.events["time"] > enter_post_record["time"])
-                        & (self.events["process_id"] == process_id)
-                        & (self.events["thread_id"] == thread_id)
-                    ]
-                    .iloc[0]
-                    .to_dict()
+                end_time = first_time_after(
+                    f"{context_manager_name}.__exit__",
+                    TraceLineType.FUNC_CALL_PRE,
+                    process_id,
+                    thread_id,
+                    obj_id,
+                    start_time,
                 )
             except IndexError:
-                # sometimes this happens. an enter might not have a corresponding exit, vice versa. e.g. torch.serialization._opener.__enter__ and torch.serialization._open_zipfile_writer_file.__exit__
+                # Some traces have an unmatched entry or exit event.
                 logger.warning(
                     f"Context manager {context_manager_name} not used properly. Skipping."
                 )
                 continue
 
             assert (
-                enter_post_record["time"] < exit_pre_record["time"]
-            ), f"enter not before exit: {enter_post_record.to_dict()} {exit_pre_record.to_dict()}"
-
-            start_time, end_time = (
-                enter_post_record["time"],
-                exit_pre_record["time"],
-            )
+                start_time < end_time
+            ), f"enter not before exit: {start_time} {end_time}"
 
             args = init_pre_record["args"]
             kwargs = init_pre_record["kwargs"]
@@ -558,7 +616,7 @@ class TracePandas(Trace):
             return self.column_dtypes_cached[column_name]
 
         filtered_values = self.events[column_name].dropna()
-        #filtered_values = filtered_values[filtered_values != MD_NONE()]
+        # filtered_values = filtered_values[filtered_values != MD_NONE()]
         if filtered_values.dtype == object:
             filtered_values = filtered_values[filtered_values != MD_NONE()]
 
