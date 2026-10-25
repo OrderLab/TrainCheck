@@ -1685,10 +1685,10 @@ class ExampleList:
     uniform joint sample across lists.
     """
 
-    def __init__(self, group_names: set[str]):
+    def __init__(self, group_names: set[str]) -> None:
         self.group_names = group_names
         self.examples: list[Example] = []
-        self.max_size = config.MAX_EXAMPLE_LIST_SIZE
+        self.max_size: int | None = config.MAX_EXAMPLE_LIST_SIZE
         self._validate_cap(self.max_size)
         self.num_seen = 0
         self._rng = random.Random(config.EXAMPLE_SAMPLING_SEED)
@@ -1719,7 +1719,7 @@ class ExampleList:
                 f"retained {len(self.examples)}, expected {expected} for {self.num_seen} seen"
             )
 
-    def add_example(self, example: Example):
+    def add_example(self, example: Example) -> None:
         if len(self.group_names) == 0:
             assert len(self.examples) == 0
             self.group_names = example.get_group_names()
