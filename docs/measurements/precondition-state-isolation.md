@@ -35,6 +35,47 @@ fresh-process versus warm-process histories, not a multi-worker-count matrix.
 Because workers retain Python module state across tasks, this defect can make a
 solve depend on which earlier tasks ran in that process, independently of RNG.
 
+## Observed changes in a complete configured replay
+
+A separate correctness replay applied only this PR's two production hunks to the
+identity-cache candidate (`504e04d`), preserving that candidate's earlier RNG fix.
+The standalone source and base of this PR are unchanged. Independent inspection
+of all 76 production Python files confirmed that only `precondition.py` changed,
+exactly as intended. All 17 combined tests passed (11 cache tests and six state
+isolation tests).
+
+Both unprofiled runs completed on the same 573,494-row, single-rank trace, with
+the same Linux runtime (Python 3.11.4, PyTorch 2.16.0.dev20261012+cpu, pandas 2.3.3,
+NumPy 2.1.0), one worker, and one native thread. `FunctionLeadRelation` and
+`FunctionCoverRelation` were disabled. Input/source hashes and ordered context
+states remained unchanged.
+
+| Output | Cache only | Cache + state isolation |
+|---|---:|---:|
+| Emitted invariants | 835 | 836 |
+| Failed hypotheses | 105 | 104 |
+
+All 940 hypothesis identities match after excluding preconditions and accounting
+for the failed-record wrapper's example-count fields. One formerly failed
+`APIContainRelation` is now emitted; none moved from emitted to failed. Of the
+835 previously emitted records, 833 remain structurally identical and **two gain
+additional constraints**. These two differences persist after normalizing clause,
+disjunction, and constant-value order; they are not ordering noise.
+
+| API containment predicate | Observed change |
+|---|---|
+| `Linear.forward` calls `checkpoint._internal_assert` | Previously failed; now emitted with six autocast/context/thread clauses. |
+| `RMSNorm.forward` calls `checkpoint._internal_assert` | Retains its step clause and gains six autocast/context/thread clauses (one to seven). |
+| `get_rng_state` calls `current_device` | Retains both CUDA-device clauses and gains a thread clause (two to three). |
+
+The two existing predicates become more restrictive through added conjuncts.
+All three changed/new predicates include concrete trace-specific thread IDs.
+Their applicability to future checking runs is unvalidated; these results do not
+establish generalization or ground-truth correctness. This single replay pair is
+not a speed or memory comparison. [Compact replay evidence](precondition-state-isolation-replay-20261025.json)
+records source composition, checks, output hashes, and the observed structures
+without publishing literal thread IDs or raw traces.
+
 ## Validation and scope
 
 Six focused regression tests had five failures before the fix and all pass
