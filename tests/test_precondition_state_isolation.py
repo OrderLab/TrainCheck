@@ -7,17 +7,23 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
+from typing import Literal, TypeAlias
 from unittest.mock import patch
 
 import pandas as pd
 
 import traincheck.invariant.precondition as precondition
 from traincheck.invariant.base_cls import PT, Precondition, PreconditionClause
+from traincheck.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas
 
+Record: TypeAlias = dict[str, object]
+Example: TypeAlias = list[Record]
+ObservedChild: TypeAlias = tuple[set[PreconditionClause], bool, int]
 
-def example(phase, signal=None):
-    record = {
+
+def example(phase: str, signal: bool | None = None) -> Example:
+    record: Record = {
         "time": 0,
         "process_id": 1,
         "thread_id": 2,
@@ -29,78 +35,91 @@ def example(phase, signal=None):
     return [record]
 
 
-def trace():
+def trace() -> TracePandas:
     return TracePandas(
         pd.DataFrame({"time": [0, 1], "process_id": [1, 1], "thread_id": [2, 2]}),
         truncate_incomplete_func_calls=False,
     )
 
 
-def solve(name, **kwargs):
-    fixtures = {
+def solve(
+    name: Literal["A", "B"], *, _pruned_clauses: set[PreconditionClause] | None = None
+) -> list[Precondition]:
+    fixtures: dict[str, tuple[list[Example], list[Example]]] = {
         "A": ([example("train", True)], [example("train", False)]),
         "B": ([example("train")], [example("eval")]),
     }
     positive, negative = copy.deepcopy(fixtures[name])
     return precondition.find_precondition_from_single_group(
-        positive, negative, [trace()], **kwargs
+        positive, negative, [trace()], _pruned_clauses=_pruned_clauses
     )
 
 
-def constant(prop, dtype, value):
+def constant(prop: str, dtype: type, value: str | int | bool) -> PreconditionClause:
     return PreconditionClause(prop, dtype, PT.CONSTANT, None, {value})
 
 
 class PreconditionStateIsolationTests(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         previous = logging.root.manager.disable
         logging.disable(logging.CRITICAL)
         self.addCleanup(logging.disable, previous)
 
-    def assert_phase_condition(self, result):
+    def assert_phase_condition(self, result: list[Precondition]) -> None:
         self.assertEqual(
             result, [Precondition([constant("meta_vars.phase", str, "train")])]
         )
 
-    def test_prior_independent_solve_does_not_prune_required_clause(self):
+    def test_prior_independent_solve_does_not_prune_required_clause(self) -> None:
         self.assertEqual(
             solve("A"),
             [Precondition([constant("meta_vars.signal", bool, True)])],
         )
         self.assert_phase_condition(solve("B"))
 
-    def test_reversed_independent_order_preserves_later_result(self):
+    def test_reversed_independent_order_preserves_later_result(self) -> None:
         self.assert_phase_condition(solve("B"))
         solve("A")
         self.assert_phase_condition(solve("B"))
 
-    def test_repeated_independent_solve(self):
+    def test_repeated_independent_solve(self) -> None:
         for _ in range(3):
             self.assert_phase_condition(solve("B"))
 
-    def test_explicit_empty_set_is_updated_and_reused(self):
-        state = set()
+    def test_explicit_empty_set_is_updated_and_reused(self) -> None:
+        state: set[PreconditionClause] = set()
         solve("A", _pruned_clauses=state)
         self.assertIn(constant("meta_vars.phase", str, "train"), state)
         # Explicit state still means to suppress these clauses in this solve.
         self.assertEqual(solve("B", _pruned_clauses=state), [])
         self.assert_phase_condition(solve("B"))
 
-    def test_recursive_siblings_share_state_but_new_roots_do_not(self):
+    def test_recursive_siblings_share_state_but_new_roots_do_not(self) -> None:
         original = precondition.find_precondition_from_single_group
-        root_children = []
+        root_children: list[list[ObservedChild]] = []
         for _ in range(2):
-            children = []
+            children: list[ObservedChild] = []
 
-            def observe(*args, **kwargs):
-                children.append(
-                    (
-                        kwargs["_pruned_clauses"],
-                        kwargs["_skip_pruning"],
-                        kwargs["_current_depth"],
-                    )
+            def observe(
+                positive_examples: list[Example],
+                negative_examples: list[Example],
+                traces: list[Trace],
+                keys_to_skip: list[str],
+                *,
+                _pruned_clauses: set[PreconditionClause],
+                _skip_pruning: bool,
+                _current_depth: int,
+            ) -> list[Precondition]:
+                children.append((_pruned_clauses, _skip_pruning, _current_depth))
+                return original(
+                    positive_examples,
+                    negative_examples,
+                    traces,
+                    keys_to_skip,
+                    _pruned_clauses=_pruned_clauses,
+                    _skip_pruning=_skip_pruning,
+                    _current_depth=_current_depth,
                 )
-                return original(*args, **kwargs)
 
             positive = [example("train"), example("eval")]
             negative = [example("test")]
@@ -125,8 +144,8 @@ class PreconditionStateIsolationTests(unittest.TestCase):
             root_children.append(children)
         self.assertIsNot(root_children[0][0][0], root_children[1][0][0])
 
-    def test_fresh_and_warm_processes_find_same_clause(self):
-        outputs = []
+    def test_fresh_and_warm_processes_find_same_clause(self) -> None:
+        outputs: list[str] = []
         for order in (("B",), ("A", "B"), ("B", "A", "B")):
             script = (
                 "import json\n"
@@ -141,11 +160,14 @@ class PreconditionStateIsolationTests(unittest.TestCase):
                 text=True,
                 check=True,
             )
-            outputs.append(json.loads(child.stdout))
+            outputs.append(child.stdout.strip())
         self.assertEqual(outputs[0], outputs[1])
         self.assertEqual(outputs[0], outputs[2])
-        self.assertEqual(len(outputs[0]), 1)
-        self.assertEqual(outputs[0][0]["clauses"][0]["prop_name"], "meta_vars.phase")
+        expected = [Precondition([constant("meta_vars.phase", str, "train")])]
+        self.assertEqual(
+            outputs[0],
+            json.dumps([item.to_dict() for item in expected], sort_keys=True),
+        )
 
 
 if __name__ == "__main__":

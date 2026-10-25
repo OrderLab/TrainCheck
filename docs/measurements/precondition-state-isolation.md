@@ -98,3 +98,21 @@ uses its own unchanged candidates.
 
 [Compact reproduction evidence](precondition-state-isolation-20261025.json)
 records the fixture, before/after counts, source hashes, test results, and limits.
+
+## Engineering contract checks
+
+The regression fixture now has explicit record, example, solve, and recursion
+observer types. The observer requires the actual recursive call parameters rather
+than accepting arbitrary keyword arguments, and fresh-process comparisons check
+the entire expected serialized precondition. The production fix is unchanged.
+
+Pinned Mypy 1.9 reports **14 errors before and zero after** on the fixture with
+`--check-untyped-defs --disallow-untyped-defs --disallow-any-generics`,
+`--ignore-missing-imports`, and `--follow-imports=silent`. The last option limits
+diagnostics to this fixture; it does not certify strict typing of imported legacy
+modules. All six regressions pass on Python 3.10.16 / PyTorch 2.2.2 / pandas 2.2.3.
+The configured hooks also pass on the production function and fixture; the hooks
+exclude tests from most checks, so the explicit fixture check is necessary.
+
+These checks add no new performance measurement. The earlier replay results above
+remain tied to their recorded source revisions.
