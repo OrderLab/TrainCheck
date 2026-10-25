@@ -1,0 +1,25 @@
+{
+  "baseline_commit": "9ac61d1140cf8679c24442a174ec12f4de069980",
+  "python": "3.10.16",
+  "torch": "2.2.2",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "method": "Identical seven-test suite, candidate module globals, exact parent typename function extracted by AST versus candidate function.",
+  "before": {
+    "tests": 7,
+    "failures": 3,
+    "errors": 0,
+    "passed": 4,
+    "failed_tests": [
+      "test_dynamic_typename.DynamicTypenameTests.test_dynamic_callable_metadata_uses_class_name",
+      "test_dynamic_typename.DynamicTypenameTests.test_non_string_name_values_fall_back_without_truth_testing",
+      "test_dynamic_typename.DynamicTypenameTests.test_real_pytorch_dynamic_ops_wrapper"
+    ]
+  },
+  "after": {
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "passed": 7,
+    "failed_tests": []
+  }
+}

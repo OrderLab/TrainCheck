@@ -68,7 +68,7 @@ def typename(o, is_runtime=False):
     if not last_name:
         last_name = safe_getattr(o, "__name__", "")
         is_class_name_qualname = False
-    if not last_name:
+    if not isinstance(last_name, str) or not last_name:
         last_name = safe_getattr(o, "__class__", type(o)).__name__
         is_class_name_qualname = False
     # Handle the typename logic for method descriptors. The `is_class_name_qualname` flag is used as a heuristic to determine if `o` is likely a method descriptor.
