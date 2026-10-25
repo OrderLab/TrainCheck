@@ -6,6 +6,7 @@ import os
 import random
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from random import Random
 
 from tqdm import tqdm
 
@@ -92,14 +93,19 @@ class InferEngine:
         active_relations = [
             r for r in relation_pool if r not in self.disabled_relations
         ]
+        # One stream for the fixed parent merge order, independent of reservoir
+        # construction and stage merging. Never reset it per hypothesis.
+        merge_rng = Random(
+            f"traincheck-example-merge-v1:cross-trace:{config.EXAMPLE_SAMPLING_SEED!r}"
+        )
 
         if self.num_workers <= 1:
             self._generate_hypothesis_serial(
-                active_relations, hypotheses_and_trace_idxs, hypo_lookup
+                active_relations, hypotheses_and_trace_idxs, hypo_lookup, merge_rng
             )
         else:
             self._generate_hypothesis_parallel(
-                active_relations, hypotheses_and_trace_idxs, hypo_lookup
+                active_relations, hypotheses_and_trace_idxs, hypo_lookup, merge_rng
             )
 
         total = len(hypotheses_and_trace_idxs)
@@ -113,6 +119,7 @@ class InferEngine:
         trace_idx: int,
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]],
         hypo_lookup: dict[Hypothesis, Hypothesis],
+        merge_rng: Random,
     ) -> None:
         """Merge one trace's inferred hypotheses into the running collection.
 
@@ -126,33 +133,21 @@ class InferEngine:
             else:
                 hypotheses_and_trace_idxs[hypo].append(trace_idx)
                 original_hypo = hypo_lookup[hypo]
-                orig_num_pos_exps = len(original_hypo.positive_examples)
-                orig_num_neg_exps = len(original_hypo.negative_examples)
-                original_hypo.positive_examples.examples.extend(
-                    hypo.positive_examples.examples
+                original_hypo.positive_examples.merge(
+                    hypo.positive_examples, rng=merge_rng
                 )
-                original_hypo.negative_examples.examples.extend(
-                    hypo.negative_examples.examples
+                original_hypo.negative_examples.merge(
+                    hypo.negative_examples, rng=merge_rng
                 )
-
-                assert len(
-                    hypo_lookup[hypo].positive_examples
-                ) == orig_num_pos_exps + len(
-                    hypo.positive_examples
-                ), f"Expected {orig_num_pos_exps} + {len(hypo.positive_examples)} positive examples, got {len(hypo_lookup[hypo].positive_examples)}"
-                assert len(
-                    hypo_lookup[hypo].negative_examples
-                ) == orig_num_neg_exps + len(
-                    hypo.negative_examples
-                ), f"Expected {orig_num_neg_exps} + {len(hypo.negative_examples)} negative examples, got {len(hypo_lookup[hypo].negative_examples)}"
 
     def _generate_hypothesis_serial(
         self,
         active_relations: list,
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]],
         hypo_lookup: dict[Hypothesis, Hypothesis],
+        merge_rng: Random,
     ) -> None:
-        """Serial hypothesis generation (preserves the original behavior exactly)."""
+        """Generate hypotheses serially, merging in trace-then-relation order."""
         n_traces = len(self.traces)
         rel_bar_fmt = "{desc} {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
         for trace_idx, trace in enumerate(self.traces):
@@ -183,6 +178,7 @@ class InferEngine:
                         trace_idx,
                         hypotheses_and_trace_idxs,
                         hypo_lookup,
+                        merge_rng,
                     )
 
     def _generate_hypothesis_parallel(
@@ -190,6 +186,7 @@ class InferEngine:
         active_relations: list,
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]],
         hypo_lookup: dict[Hypothesis, Hypothesis],
+        merge_rng: Random,
     ) -> None:
         """Parallel hypothesis generation.
 
@@ -197,7 +194,7 @@ class InferEngine:
         is CPU-bound and pure w.r.t. its (per-worker) trace, so we fan them out across
         processes. Workers only PRODUCE hypothesis lists; the merge into shared state
         stays in the parent. Results are merged in trace-then-relation order (identical
-        to the serial path) regardless of completion order, so the output is unchanged.
+        to the serial path) regardless of completion order.
         """
         n_traces = len(self.traces)
         tasks = [
@@ -241,6 +238,7 @@ class InferEngine:
                     trace_idx,
                     hypotheses_and_trace_idxs,
                     hypo_lookup,
+                    merge_rng,
                 )
 
     def collect_examples(self, hypotheses: dict[Hypothesis, list[int]]):

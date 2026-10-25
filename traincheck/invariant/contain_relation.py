@@ -2,10 +2,12 @@ import copy
 import logging
 import random
 import time
+from random import Random
 from typing import Type
 
 import numpy as np
 
+import traincheck.config.config as config
 from traincheck.config.config import ANALYSIS_SKIP_FUNC_NAMES
 from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.invariant.base_cls import (
@@ -209,6 +211,15 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
     assert len(hypotheses) > 0, "Expected at least one hypotheses to be merged"
 
     logger = logging.getLogger(__name__)
+    if any(
+        examples.num_seen > len(examples)
+        for hypothesis in hypotheses
+        for examples in (hypothesis.positive_examples, hypothesis.negative_examples)
+    ):
+        # This optional generalization uses set unions and differences. Reservoirs
+        # cannot recover the discarded values or their overlap, so keep the
+        # original hypotheses instead of treating retained samples as full sets.
+        return hypotheses
     pos_exp_group_names = hypotheses[0].positive_examples.get_group_names()
     neg_exp_group_names = hypotheses[0].negative_examples.get_group_names()
     logger.debug(
@@ -221,9 +232,10 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
     all_likelihoods = [hypo.calc_likelihood() for hypo in hypotheses]
 
     # calculate the number of positive and negative examples after merge
-    all_positive_examples = set()
+    # Insertion-ordered sets keep constructor sampling independent of hash order.
+    all_positive_examples: dict[Example, None] = {}
     all_positive_parent_examples = set()
-    all_negative_examples = set()
+    all_negative_examples: dict[Example, None] = {}
 
     for idx in range(len(hypotheses)):
 
@@ -234,16 +246,22 @@ def _merge_hypotheses(hypotheses: list[Hypothesis]) -> list[Hypothesis]:
             Example({PARENT_GROUP_NAME: pre_record}) for pre_record in pre_records
         ]
         all_positive_parent_examples.update(exps_with_only_parent)
-        all_positive_examples.update(hypotheses[idx].positive_examples.examples)
-        all_negative_examples.update(hypotheses[idx].negative_examples.examples)
+        all_positive_examples.update(
+            (example, None) for example in hypotheses[idx].positive_examples.examples
+        )
+        all_negative_examples.update(
+            (example, None) for example in hypotheses[idx].negative_examples.examples
+        )
 
     # let's remove those negative examples that are present in the positive examples of other hypotheses
-    if used_dynamic_analysis:
-        all_negative_examples = all_negative_examples.difference(all_positive_examples)
-    else:
-        all_negative_examples = all_negative_examples.difference(
-            all_positive_parent_examples
-        )
+    positive_comparison = (
+        all_positive_examples if used_dynamic_analysis else all_positive_parent_examples
+    )
+    all_negative_examples = {
+        example: None
+        for example in all_negative_examples
+        if example not in positive_comparison
+    }
 
     # calculate the likelihood of the merged hypotheses now
     merged_likelihood = calc_likelihood(
@@ -575,15 +593,20 @@ class APIContainRelation(Relation):
         merged_invariants = []
         merged_successful_hypotheses: list[Hypothesis] = []
         all_stages = trace.get_all_stages()
+        # Reuse one independent stream for this stage-merge task. Cross-trace
+        # merging uses a different domain, so nested merges do not replay draws.
+        merge_rng = Random(
+            f"traincheck-example-merge-v1:stage:{config.EXAMPLE_SAMPLING_SEED!r}"
+        )
         for invariant in invariants_by_stage:
             supported_stages = set(invariants_by_stage[invariant])
             hypothesis = invariants_to_hypos[invariant][0]
             for other_hypothesis in invariants_to_hypos[invariant][1:]:
-                hypothesis.positive_examples.examples.extend(
-                    other_hypothesis.positive_examples.examples
+                hypothesis.positive_examples.merge(
+                    other_hypothesis.positive_examples, rng=merge_rng
                 )
-                hypothesis.negative_examples.examples.extend(
-                    other_hypothesis.negative_examples.examples
+                hypothesis.negative_examples.merge(
+                    other_hypothesis.negative_examples, rng=merge_rng
                 )
             hypothesis.add_stage_info(supported_stages, all_stages)
             merged_invariants.append(hypothesis.get_invariant(all_stages))

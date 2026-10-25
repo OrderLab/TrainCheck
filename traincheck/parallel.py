@@ -20,16 +20,18 @@ _WORKER_TRACES: list | None = None
 
 
 def config_snapshot() -> dict:
-    """CLI-overridable config values that must be propagated to workers.
+    """Runtime inference config values that must be propagated to workers.
 
-    These are set in the entry points' main() at runtime; workers started with
-    the 'spawn' method begin from a fresh interpreter and would otherwise see
-    only the module defaults (harmless under 'fork'). Add any future
-    CLI-overridable config here.
+    These include CLI sampling options and programmatic reservoir settings.
+    Workers started with 'spawn' begin from a fresh interpreter and would
+    otherwise see only the module defaults. Add future runtime-overridable
+    inference configuration here.
     """
     return {
         "ENABLE_PRECOND_SAMPLING": config.ENABLE_PRECOND_SAMPLING,
         "PRECOND_SAMPLING_THRESHOLD": config.PRECOND_SAMPLING_THRESHOLD,
+        "MAX_EXAMPLE_LIST_SIZE": config.MAX_EXAMPLE_LIST_SIZE,
+        "EXAMPLE_SAMPLING_SEED": config.EXAMPLE_SAMPLING_SEED,
     }
 
 
@@ -37,7 +39,7 @@ def worker_init(traces: list, snapshot: dict) -> None:
     """Initializer run once per worker process.
 
     Stores the traces in a module global (one copy per worker, not per task) and
-    restores CLI-overridable config values (see config_snapshot). Also suppresses
+    restores runtime inference config values (see config_snapshot). Also suppresses
     the per-invariant inner progress bars, otherwise every worker would fight
     over the terminal.
     """
