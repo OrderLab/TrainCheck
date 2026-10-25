@@ -14,7 +14,9 @@ import logging
 import platform
 import statistics
 import time
+from collections.abc import Callable
 from pathlib import Path
+from typing import TypedDict
 
 import numpy as np
 import pandas as pd
@@ -23,19 +25,34 @@ import traincheck.trace.trace_pandas as candidate
 from tests.fixtures import legacy_trace_pandas as legacy
 from tests.test_call_index import pair
 from tests.test_context_index import cycle, encode, event
+from traincheck.trace.trace_pandas import TracePandas
 
 
-def compare(frame, operation, repetitions):
-    seconds = {"legacy": [], "candidate": []}
-    expected = None
+class ComparisonResult(TypedDict):
+    elapsed_seconds: dict[str, list[float]]
+    median_seconds: dict[str, float]
+    speedup: float
+    exact_results_equal: bool
+
+
+def compare(
+    frame: pd.DataFrame,
+    operation: Callable[[type[TracePandas], pd.DataFrame], object],
+    repetitions: int,
+) -> ComparisonResult:
+    seconds: dict[str, list[float]] = {"legacy": [], "candidate": []}
+    expected: object = None
     for repetition in range(repetitions):
-        variants = [("legacy", legacy), ("candidate", candidate)]
+        variants = [
+            ("legacy", legacy.TracePandas),
+            ("candidate", candidate.TracePandas),
+        ]
         if repetition % 2:
             variants.reverse()
-        for name, module in variants:
+        for name, trace_type in variants:
             events = frame.copy(deep=True)
             started = time.perf_counter()
-            value = operation(module, events)
+            value = operation(trace_type, events)
             seconds[name].append(time.perf_counter() - started)
             if expected is None:
                 expected = value
@@ -49,7 +66,7 @@ def compare(frame, operation, repetitions):
     }
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["all", "context", "call"], default="all")
     parser.add_argument("--repetitions", type=int, default=3)
@@ -67,7 +84,7 @@ def main():
     if args.noise < 0:
         parser.error("--noise must be nonnegative")
     logging.disable(logging.WARNING)
-    results = {}
+    results: dict[str, object] = {}
     if args.mode in ("all", "context"):
         rows = []
         for index in range(args.contexts):
@@ -79,10 +96,8 @@ def main():
         )
         frame = pd.DataFrame(rows)
 
-        def prepare(module, events):
-            return encode(
-                module.TracePandas(events, truncate_incomplete_func_calls=False)
-            )
+        def prepare(trace_type: type[TracePandas], events: pd.DataFrame) -> object:
+            return encode(trace_type(events, truncate_incomplete_func_calls=False))
 
         results["context"] = {
             "rows": len(frame),
@@ -102,8 +117,8 @@ def main():
             f"call-{(index * 117) % args.calls:08}" for index in range(args.queries)
         ]
 
-        def lookup(module, events):
-            trace = module.TracePandas(events, truncate_incomplete_func_calls=False)
+        def lookup(trace_type: type[TracePandas], events: pd.DataFrame) -> object:
+            trace = trace_type(events, truncate_incomplete_func_calls=False)
             return [
                 (
                     trace.get_pre_func_call_record(call_id),
