@@ -1,0 +1,126 @@
+{
+  "measurement_date": "2026-10-25",
+  "scope": "construction plus repeated identity-checked get_meta_vars calls",
+  "settings": {
+    "rows": 573494,
+    "calls": 1000,
+    "repetitions": 3
+  },
+  "runtime": {
+    "python": "3.10.16",
+    "platform": "macOS-27.0.1-arm64-arm-64bit",
+    "host_class": "local Darwin arm64 workstation",
+    "logical_cpu_count": 12,
+    "pandas": "2.2.3",
+    "numpy": "1.26.4",
+    "native_thread_settings": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    },
+    "candidate_source_sha256": "41040a288284dc10041a4c06d8598219605732dd5dcd2ef080b9ed0799387f8a",
+    "candidate_commit": "504e04d4de1a4168aabb5436f1b236edef1dadd7",
+    "candidate_source_matches_commit": true,
+    "legacy_methods_source_sha256": "22a7976d0fc8558b5a3dcc77e9e527572ec1f1e36b15d5e244a4a0b7ec6f44e7"
+  },
+  "input": {
+    "sha256_pandas_row_hashes": "ce7af99430be7c9494ef8ee397049b77847897dd965c1082a3cda9e88a159f8b",
+    "query_sha256": "cd7c7c854fec82747a9704c95dc1e897d6f2dca5664b1b9167a8bd845f227384",
+    "dtypes": {
+      "time": "int64",
+      "process_id": "float64",
+      "thread_id": "float64"
+    },
+    "dataframe_deep_bytes": 13763984,
+    "context_manager_count": 0,
+    "process_count": 8,
+    "thread_count": 16
+  },
+  "medians": {
+    "legacy": {
+      "construction_seconds": 8.187499770428985e-05,
+      "queries_seconds": 9.489749166001275,
+      "total_seconds": 9.489831040998979
+    },
+    "candidate": {
+      "construction_seconds": 5.3582996770273894e-05,
+      "queries_seconds": 0.01196087500284193,
+      "total_seconds": 0.01200404100382002
+    }
+  },
+  "trials": [
+    {
+      "repetition": 1,
+      "position": 1,
+      "variant": "legacy",
+      "total_seconds": 9.2562226250011
+    },
+    {
+      "repetition": 1,
+      "position": 2,
+      "variant": "candidate",
+      "total_seconds": 0.01413512499857461
+    },
+    {
+      "repetition": 2,
+      "position": 1,
+      "variant": "candidate",
+      "total_seconds": 0.010777290997793898
+    },
+    {
+      "repetition": 2,
+      "position": 2,
+      "variant": "legacy",
+      "total_seconds": 9.489831040998979
+    },
+    {
+      "repetition": 3,
+      "position": 1,
+      "variant": "legacy",
+      "total_seconds": 9.548994832999597
+    },
+    {
+      "repetition": 3,
+      "position": 2,
+      "variant": "candidate",
+      "total_seconds": 0.01200404100382002
+    }
+  ],
+  "correctness": {
+    "all_results_equal_expected": true,
+    "result_sha256": "481e48248fde7cbd3011bd60ecb24d4b0ccaa470a6e5a1986acf27bcc3fa9570",
+    "input_unchanged": true
+  },
+  "validation": {
+    "local_combined_tests_passed": 43,
+    "matching_runtime_linux_identity_tests_passed": 11,
+    "independent_differential_comparisons": 78,
+    "independent_dtype_cases": 13,
+    "pickle_protocols": 6,
+    "spawn_worker_tasks_passed": 2,
+    "matching_linux_runtime": {
+      "python": "3.11.4",
+      "pytorch": "2.16.0.dev20261012+cpu",
+      "numpy": "2.1.0",
+      "pandas": "2.3.3"
+    }
+  },
+  "full_inference": {
+    "status": "paired_unprofiled_replay_pending",
+    "profile_attempts": "Both attempts terminated with SIGSEGV at scheduled diagnostic timers; no completed profile/output. Candidate stopped before the identity-cache phase.",
+    "performance_comparison_valid": false
+  },
+  "limitations": [
+    "Synthetic identity-lookup microbenchmark, not completed inference.",
+    "No context-manager work or trace-file loading; input generation excluded.",
+    "No RSS/PSS, peak-memory, or multiprocessing memory-scaling measurement.",
+    "Cache stores O(P+T) values and returns fresh O(P+T) lists.",
+    "Stable identity values, dtypes, and row order required within one frame."
+  ],
+  "source_evidence_sha256": {
+    "benchmark-full.json": "7c3b84db5645226b4d841b929185edad33c075c7868ad9951607a57b2852febe",
+    "review-results.json": "19e4c7bf403a8a3732e8dbf0fda3ab4f6902b99c0e997dc490d9383ffc406376",
+    "combined-tests.log": "6334a444075d2bd539f965998354922ea2d940d74536d61790e39e840bcc345c",
+    "matching-runtime-linux-tests.log": "56b695709855bb8a17cd0fbf58e1bf3e7d17ed228719d5cc2350d3718f8e3604"
+  }
+}
