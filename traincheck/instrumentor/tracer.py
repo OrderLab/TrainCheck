@@ -503,6 +503,8 @@ def wrapper(
             def wrapped(*args: object, **kwargs: object) -> object:
                 return original_function(*args, **kwargs)
 
+    # Function attributes are runtime instrumentation metadata, attached after
+    # functools.wraps copies the original function's attributes.
     setattr(wrapped, "_traincheck_original_function", original_function)
     setattr(wrapped, "_traincheck_instrumented", True)
     setattr(wrapped, "_traincheck_dump_disabled", disable_dump)
