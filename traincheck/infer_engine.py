@@ -3,7 +3,6 @@ import datetime
 import json
 import logging
 import os
-import random
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -11,6 +10,7 @@ from tqdm import tqdm
 
 import traincheck.config.config as config
 import traincheck.utils as _tc_utils
+from traincheck.inference_sampling import sampling_task
 from traincheck.invariant import (
     FailedHypothesis,
     Hypothesis,
@@ -19,16 +19,54 @@ from traincheck.invariant import (
     find_precondition,
     relation_pool,
 )
+from traincheck.invariant.base_cls import GroupedPreconditions
 from traincheck.parallel import config_snapshot, get_worker_traces, worker_init
 from traincheck.trace import MDNONEJSONEncoder, select_trace_implementation
+from traincheck.trace.trace import Trace
 from traincheck.utils import register_custom_excepthook
 
 register_custom_excepthook()
 
 logger = logging.getLogger(__name__)
 
-# set random seed
-random.seed(0)
+
+GenerationTask = tuple[int, type[Relation]]
+GenerationResult = tuple[int, type[Relation], list[Hypothesis]]
+PreconditionTask = tuple[str, Hypothesis]
+
+
+def _generate_hypothesis_task(
+    trace_idx: int, relation: type[Relation], trace: Trace
+) -> list[Hypothesis]:
+    """Use the same logical task RNG in serial and process-based generation."""
+    with sampling_task(
+        "generate", trace_idx, relation.__module__, relation.__qualname__
+    ):
+        return relation.generate_hypothesis(trace)
+
+
+def _hypothesis_sampling_key(hypothesis: Hypothesis) -> str:
+    """Identify a hypothesis before dispatch, excluding mutable results/counts."""
+    relation = hypothesis.invariant.relation
+    identity = {
+        "relation": [relation.__module__, relation.__qualname__],
+        "params": [param.to_dict() for param in hypothesis.invariant.params],
+        "valid_only_for_stages": hypothesis.valid_only_for_stages,
+        "valid_stages": sorted(hypothesis.valid_stages),
+    }
+    # Normalize JSON object keys and MD_NONE with the invariant-output encoder,
+    # then sort keys for insertion-order independence.
+    normalized: object = json.loads(json.dumps(identity, cls=MDNONEJSONEncoder))
+    return json.dumps(
+        normalized, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+
+
+def _find_precondition_task(
+    hypothesis: Hypothesis, traces: list[Trace], key: str
+) -> GroupedPreconditions | None:
+    with sampling_task("precondition", key):
+        return find_precondition(hypothesis, traces)
 
 
 # === parallel inference worker tasks ===
@@ -37,7 +75,7 @@ random.seed(0)
 # worker via worker_init, not re-pickled per task).
 
 
-def _genhypo_worker_task(task: tuple):
+def _genhypo_worker_task(task: GenerationTask) -> GenerationResult:
     """Generate hypotheses for one (trace_idx, relation) pair in a worker process.
 
     Returns (trace_idx, relation, inferred_hypos); the parent merges them in a
@@ -45,16 +83,18 @@ def _genhypo_worker_task(task: tuple):
     """
     trace_idx, relation = task
     traces = get_worker_traces()
-    return trace_idx, relation, relation.generate_hypothesis(traces[trace_idx])
+    hypotheses = _generate_hypothesis_task(trace_idx, relation, traces[trace_idx])
+    return trace_idx, relation, hypotheses
 
 
-def _precond_worker_task(hypothesis: Hypothesis):
+def _precond_worker_task(task: PreconditionTask) -> GroupedPreconditions | None:
     """Run precondition inference for a single hypothesis in a worker process.
 
     Returns just the precondition (picklable); the parent applies it to its own
     copy of the hypothesis.
     """
-    return find_precondition(hypothesis, get_worker_traces())
+    key, hypothesis = task
+    return _find_precondition_task(hypothesis, get_worker_traces(), key)
 
 
 class InferEngine:
@@ -148,11 +188,11 @@ class InferEngine:
 
     def _generate_hypothesis_serial(
         self,
-        active_relations: list,
+        active_relations: list[type[Relation]],
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]],
         hypo_lookup: dict[Hypothesis, Hypothesis],
     ) -> None:
-        """Serial hypothesis generation (preserves the original behavior exactly)."""
+        """Serial generation with the same per-task sampling as the worker path."""
         n_traces = len(self.traces)
         rel_bar_fmt = "{desc} {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
         for trace_idx, trace in enumerate(self.traces):
@@ -169,7 +209,9 @@ class InferEngine:
                         f"Generating hypotheses for relation: {relation.__name__}"
                     )
                     t0 = time.time()
-                    inferred_hypos = relation.generate_hypothesis(trace)
+                    inferred_hypos = _generate_hypothesis_task(
+                        trace_idx, relation, trace
+                    )
                     elapsed = time.time() - t0
                     tqdm.write(
                         f"  {relation.__name__}: {len(inferred_hypos)} hypotheses ({elapsed:.1f}s)"
@@ -187,7 +229,7 @@ class InferEngine:
 
     def _generate_hypothesis_parallel(
         self,
-        active_relations: list,
+        active_relations: list[type[Relation]],
         hypotheses_and_trace_idxs: dict[Hypothesis, list[int]],
         hypo_lookup: dict[Hypothesis, Hypothesis],
     ) -> None:
@@ -197,7 +239,8 @@ class InferEngine:
         is CPU-bound and pure w.r.t. its (per-worker) trace, so we fan them out across
         processes. Workers only PRODUCE hypothesis lists; the merge into shared state
         stays in the parent. Results are merged in trace-then-relation order (identical
-        to the serial path) regardless of completion order, so the output is unchanged.
+        to the serial path) regardless of completion order. Each task also has
+        its own stable RNG.
         """
         n_traces = len(self.traces)
         tasks = [
@@ -255,13 +298,15 @@ class InferEngine:
                 f"\nCollecting examples for {len(cross_trace_hypos)} cross-trace hypotheses"
             )
         for hypo, trace_idxs in cross_trace_hypos:
+            key = _hypothesis_sampling_key(hypo)
             for trace_idx, trace in enumerate(self.traces):
                 if trace_idx in trace_idxs:
                     continue
                 logger.info(
                     f"Collecting examples for hypothesis: {hypo} on trace {trace_idx + 1}/{len(self.traces)}"
                 )
-                hypo.invariant.relation.collect_examples(trace, hypo)
+                with sampling_task("collect", trace_idx, key):
+                    hypo.invariant.relation.collect_examples(trace, hypo)
 
     def prune_incorrect_hypos(self, hypotheses: dict[Hypothesis, list[int]]):
         """Prune incorrect hypotheses based on the collected examples"""
@@ -283,6 +328,8 @@ class InferEngine:
         """TODO: move the precondition inference driving code into Hypothesis.get_invariant()"""
         logger.info("============= INFERING PRECONDITIONS =============")
         all_hypotheses = list(hypotheses.keys())
+        # Build keys in the parent, before result mutation or worker pickling.
+        tasks = [(_hypothesis_sampling_key(hypo), hypo) for hypo in all_hypotheses]
         total = len(all_hypotheses)
         print(f"\nInferring preconditions for {total} hypotheses")
 
@@ -301,17 +348,19 @@ class InferEngine:
                 invariants.append(hypothesis.get_invariant(self.all_stages))
 
         if self.num_workers <= 1:
-            # Serial path (preserves the original behavior exactly).
+            # Serial path uses the same task scopes as the workers.
             _tc_utils._suppress_inner_progress = True
             try:
                 with tqdm(total=total, bar_format=bar_fmt, unit="hypo") as pbar:
                     pbar.set_description("0 done · 0 failed")
-                    for hypo_idx, hypothesis in enumerate(all_hypotheses):
+                    for hypo_idx, (key, hypothesis) in enumerate(tasks):
                         logger.info(
                             f"Inferring precondition for hypothesis {hypo_idx + 1}/{total}: "
                             f"{hypothesis.invariant.text_description}"
                         )
-                        precondition = find_precondition(hypothesis, self.traces)
+                        precondition = _find_precondition_task(
+                            hypothesis, self.traces, key
+                        )
                         _record_result(hypothesis, precondition)
                         pbar.set_description(
                             f"{len(invariants)} done · {len(failed_hypos)} failed"
@@ -334,8 +383,10 @@ class InferEngine:
                     initargs=(self.traces, config_snapshot()),
                 ) as executor:
                     future_to_hypo = {
-                        executor.submit(_precond_worker_task, hypothesis): hypothesis
-                        for hypothesis in all_hypotheses
+                        executor.submit(
+                            _precond_worker_task, (key, hypothesis)
+                        ): hypothesis
+                        for key, hypothesis in tasks
                     }
                     for future in as_completed(future_to_hypo):
                         hypothesis = future_to_hypo[future]
