@@ -69,7 +69,7 @@ modules_to_instr:
   - torch
 models_to_track:
   - model
-model_tracker_style: proxy
+model_tracker_style: subclass
 copy_all_files: false
 output_dir: traincheck_trace
 ```
@@ -87,7 +87,33 @@ Config keys use underscores, not hyphens. For example, the CLI flag `--output-di
 - `--sampling-interval`: collect every Nth step after warm-up.
 - `--warm-up-steps`: collect the first N steps.
 - `--copy-all-files`: copy files beside the training script into the output directory.
-- `--model-tracker-style`: choose `proxy`, `subclass`, or `sampler`.
+- `--model-tracker-style`: choose `subclass` (default), `proxy`, or `sampler`.
+
+### Choosing a model tracker
+
+The default `subclass` tracker keeps the model as a PyTorch `nn.Module` and
+tracks its parameters using a `torch.nn.Parameter` subclass. It requires
+`--models-to-track` (or `models_to_track` in YAML); choosing a tracker alone does
+not enable model tracking. Model tracking must be installed before creating the
+optimizer, so the optimizer uses the tracked parameters.
+
+The `proxy` tracker remains available through `--model-tracker-style proxy` or
+`model_tracker_style: proxy` in YAML. It wraps model objects and dynamically
+accessed attributes, so its coverage differs from the parameter-focused subclass
+tracker. Explicit CLI/YAML selections remain supported, and saved
+instrumentation options are not rewritten.
+
+For invariants inferred from proxy traces, keep `proxy` explicit when collecting
+the checking trace. To migrate, collect a new reference trace with `subclass`,
+infer new invariants, and verify that the intended rules actually activate during
+checking. Zero violations alone does not establish coverage; module or buffer
+rules from a proxy trace may not activate with parameter-only tracking.
+
+Selective collection keeps its existing policy: invariants requiring immediate
+variable tracking use the selected `subclass` or `proxy` tracker. When only
+cross-variable consistency rules require model tracking, collection uses the
+`sampler` tracker to observe parameters after optimizer steps. If no invariant
+requires model tracking, selective collection disables it.
 
 Run the command help for the complete option list:
 
