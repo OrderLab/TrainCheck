@@ -1,2 +1,13 @@
 include traincheck/static_analyzer/func_level/optim_func_level.log
 include traincheck/static_analyzer/func_level/nn_func_level.log
+
+# Source distributions must retain the tests' imports and provenance fixtures.
+recursive-include tests *.py *.json *.md
+
+# These are source-checkout utilities, not additional installed wheel packages.
+recursive-include tools/benchmarks *.py *.json *.md
+recursive-include tools/fresh_validation *.py *.json *.md
+recursive-include tools/release *.py *.json *.md
+
+include docs/releasing.md
+include docs/releases/v0.2.0.md
