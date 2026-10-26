@@ -1,40 +1,155 @@
-# 🧪 TrainCheck: Usage Guide
+# Use TrainCheck
 
-TrainCheck helps detect and diagnose silent errors in deep learning training runs—issues that don't crash your code but silently break correctness.
+This guide is for an ML engineer who has a training script and wants to know which TrainCheck command to run next.
 
-## 🚀 Quick Start
+TrainCheck uses a reference run to learn invariants: rules that describe normal training behavior. It then checks a target run against those invariants and reports violations.
 
-Check out the [5-minute guide](5-min-tutorial.md) for a minimal working example.
+## The Default Workflow
 
-## ✅ Common Use Cases
+### 1. Collect a Reference Trace
 
-TrainCheck is useful when your training process doesn’t converge, behaves inconsistently, or silently fails. It can help you:
+Start with a short, known-good run. The run can come from your own training code, a previous clean run, or an official example that uses the same framework features.
 
-- **Monitor** long-running training jobs and catch issues early
-- **Debug** finished runs and pinpoint where things went wrong
-- **Sanity-check** new pipelines, code changes, or infrastructure upgrades
+```bash
+traincheck-collect \
+  --pyscript reference.py \
+  --models-to-track model \
+  --output-dir reference_trace
+```
 
-TrainCheck detects a range of correctness issues—like misused APIs, incorrect training logic, or hardware faults—without requiring labels or modifications to your training code.
+`--models-to-track model` names the Python variable that holds the model in `reference.py`. If your script uses a different variable name, use that name instead.
 
-**While TrainCheck focuses on correctness, it’s also useful for *ruling out bugs* so you can focus on algorithm design with confidence.**
+TrainCheck writes trace files and an `env_dump.txt` file into `reference_trace/`.
 
-## 🧠 Tips for Effective Use
+### 2. Infer Invariants
 
-1. **Use short runs to reduce overhead.**  
-   If your hardware is stable, you can validate just the beginning of training. Use smaller models and fewer iterations to speed up turnaround time.
+Use the reference trace to produce an invariant file:
 
-2. **Choose good reference runs for inference.**  
-   - If you have a past run of the same code that worked well, just use that.
-   - You can also use small-scale example pipelines that cover different features of the framework (e.g., various optimizers, mixed precision, optional flags).
-   - If you're debugging a new or niche feature with limited history, try using the official example as a reference. Even if the example is not bug-free, invariant violations can still highlight behavioral differences between your run and the example, helping you debug faster.
+```bash
+traincheck-infer -f reference_trace -o invariants.json
+```
 
-3. **Minimize scale when collecting traces.**  
-   - Shrink the pipeline by using a smaller model, running for only ~10 iterations, and using the minimal necessary compute setup (e.g., 2 nodes for distributed training).
+You can pass multiple reference trace folders when one run does not cover enough behavior:
 
+```bash
+traincheck-infer -f reference_trace_1 reference_trace_2 -o invariants.json
+```
 
-## 🚧 Current Limitations
+More diverse reference traces reduce overfitting. Short runs are usually enough because training loops repeat the same operations many times.
 
-- **Eager mode only.** TrainCheck instrumentor currently works only in PyTorch eager mode. Features like `torch.compile` are disabled during instrumentation.
+### 3. Collect a Target Trace
 
-- **Not fully real-time (yet).** Invariant checking is semi-online. Full real-time support is planned but not yet available.
+Run the target script with the inferred invariants:
 
+```bash
+traincheck-collect \
+  --pyscript target.py \
+  --models-to-track model \
+  --invariants invariants.json \
+  --output-dir target_trace
+```
+
+Passing `--invariants` enables selective trace collection. TrainCheck traces the APIs and variables needed by the invariant file instead of collecting a full reference-style trace.
+
+For long target runs, sample steps during collection:
+
+```bash
+traincheck-collect \
+  --pyscript target.py \
+  --models-to-track model \
+  --invariants invariants.json \
+  --sampling-interval 10 \
+  --warm-up-steps 10 \
+  --output-dir target_trace
+```
+
+This traces the warm-up steps, then traces every tenth step. Sampling is a `traincheck-collect` option. The checker reads the collected trace; it does not control which steps were traced.
+
+### 4. Check the Target Run
+
+For live checking, start the online checker while `traincheck-collect` is still writing into `target_trace/`:
+
+```bash
+traincheck-onlinecheck -f target_trace -i invariants.json
+```
+
+If `traincheck-onlinecheck` fails with a missing `watchdog` package, install it in the same environment:
+
+```bash
+pip install watchdog
+```
+
+The easier path is offline checking. Wait for trace collection to finish, then run:
+
+```bash
+traincheck-check -f target_trace -i invariants.json
+```
+
+Use offline checking first when you are learning TrainCheck or reproducing an issue locally. Use live checking when you want violations while the training job is still running.
+
+## What TrainCheck Writes
+
+`traincheck-collect` writes:
+
+- `trace_*.json` files for API traces.
+- `proxy_log.json` when model-variable tracking is active.
+- `env_dump.txt` with the collection arguments.
+- an instrumented copy of the training script and execution logs.
+
+`traincheck-infer` writes:
+
+- `invariants.json` by default, or the path passed with `-o`.
+
+`traincheck-check` and `traincheck-onlinecheck` write:
+
+- `failed.log` for violated invariants.
+- `passed.log` for triggered invariants that passed.
+- `not_triggered.log` for invariants that never ran on the trace.
+- `violations_summary.json` for machine-readable violation summaries.
+- `report.html` for a browser-readable report.
+
+## Choosing Reference and Target Runs
+
+Use a reference run that should be correct. If you have a clean run of the same pipeline, use it. If you are debugging a new pipeline, start with an official example or a smaller training job that uses the same optimizer, precision mode, and distributed setup.
+
+Use a target run for the script you want to check. It can be a modified version of the reference script, a larger training job, or a run that already looks suspicious.
+
+Keep both runs short while you are iterating. TrainCheck needs representative behavior more than long training time.
+
+## Common Adjustments
+
+Use a config file when the command line gets long:
+
+```bash
+traincheck-collect --use-config --config traincheck.yml
+```
+
+A minimal config looks like this:
+
+```yaml
+pyscript: ./train.py
+models_to_track:
+  - model
+modules_to_instr:
+  - torch
+output_dir: traincheck_trace
+```
+
+When using a config file, use underscores in config keys, such as `output_dir`, instead of CLI-style hyphens.
+
+Use a shell script when your training command needs environment variables or launcher arguments:
+
+```yaml
+pyscript: ./train.py
+shscript: ./run.sh
+models_to_track:
+  - model
+```
+
+Use `--copy-all-files` if the training script reads local files through relative paths.
+
+## Current Limits
+
+TrainCheck currently instruments PyTorch eager-mode execution. If your script uses `torch.compile`, pass `--use-torch-compile` so TrainCheck can keep compatibility behavior explicit.
+
+Tracing adds overhead. Start with short runs, selective target tracing, and step sampling before scaling to a long job.
