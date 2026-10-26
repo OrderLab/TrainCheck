@@ -1,0 +1,101 @@
+# Dynamic type-name metadata
+
+## Problem and change
+
+PyTorch `torch._inductor.virtualized.ops` returns callable values for dynamic
+`__qualname__` and `__name__` attributes. TrainCheck rejected the first value but
+accepted the second, then asserted that its type name was a string. A fresh
+MNIST trace-collection attempt failed before training reached its first step.
+
+Validate `__name__` as a nonempty string before using it. Otherwise, use the
+existing reported-class fallback. This does not call dynamic metadata, truth-test
+non-string values, change valid name precedence, or replace the reported
+`__class__` with the object's actual type.
+
+## Validation
+
+An identical seven-test suite was run against the exact parent `typename`
+function extracted from commit `9ac61d1140cf8679c24442a174ec12f4de069980` and against
+the changed function, with identical module globals. Python 3.10.16 / PyTorch
+2.2.2 on macOS arm64:
+
+| Result | Parent | Changed |
+| --- | ---: | ---: |
+| Tests passed | 4 | 7 |
+| Tests failed | 3 | 0 |
+| Test errors | 0 | 0 |
+
+The three previously failing tests cover callable dynamic metadata, non-string
+names (including an unsafe truth-value implementation), and the real PyTorch
+`OpsWrapper`. The remaining tests preserve qualified/simple names, reported-class
+proxies, functions, descriptors, tensors, and parameters. Both instrumentation
+and runtime modes are exercised for dynamic metadata.
+
+Reproduce the candidate suite with:
+
+```sh
+python -m unittest tests.test_dynamic_typename -v
+```
+
+The first successful Linux training pilot used an existing broader temporary
+workaround. That pilot is not evidence for this narrower production change; the
+follow-up below uses the exact signed fix. This is a compatibility fix, with no
+performance improvement claim.
+
+## Matching Linux runtime follow-up
+
+The exact signed utility change was also tested on Python 3.11.4 and PyTorch
+2.16.0.dev20261012+cpu. All seven type-name regressions passed within a **29-test
+integration suite** (also covering trace integrity, TorchScript, and precondition
+state isolation). A separate 11-test checker-observer suite passed. The real
+`OpsWrapper` returned `torch._inductor.virtualized.OpsWrapper` in both modes.
+
+The disposable integration source combined the signed tracing, TorchScript,
+cache, sampling, state-isolation, and type-name changes. Its `utils.py` matched
+commit `2f034ae5d0fab7e792b7c0a5bdc6a1acfeb8962c` exactly, and all source hashes
+were unchanged after testing. Compact evidence includes runtime versions and
+log/source hashes. These preflight results do not establish training overhead
+or cross-workload invariant generalization.
+
+The composed source also completed a fresh **10-step MNIST trace collection**
+with cached real MNIST, batch size 2, CPU float32, and seed 42. Its source hashes
+and model-state shapes stayed unchanged. This supports collection compatibility
+in the identified stack; it does not isolate training behavior to this one fix.
+The study later stopped at a shape-only negative-control selector because no
+shape invariant existed, after collection and healthy checks had succeeded.
+That harness issue and its preserved evidence are separate from the type-name
+fix. Evidence hashes for the successful collection are included in the JSON.
+
+## Contract hardening (2026-10-25)
+
+`typename` now declares its existing `object`/`bool` inputs and string result.
+The dynamic-name guards, reported-class fallback, and final string assertions
+are unchanged. All dynamic-name test helpers now have explicit annotations.
+Two additional tests preserve the negative contract: an invalid fallback class
+name still fails the final assertion, and an unexpected metadata exception
+propagates unchanged. This does not change `safe_getattr`'s pre-existing framework
+compatibility exception handling.
+
+The composed branch includes the signed #142 and #143 hardening checkpoints.
+Validation uses Python 3.10.16/PyTorch 2.2.2 with one OpenMP/MKL/OpenBLAS thread:
+
+```sh
+python -m unittest discover -s tests -p 'test_dynamic_typename.py'
+python -m unittest discover -s tests -p 'test_torchscript*.py'
+python -m unittest discover -s tests -p 'test_trac*.py'
+pre-commit run --files traincheck/utils.py tests/test_dynamic_typename.py traincheck/instrumentor/tracer.py traincheck/instrumentor/dumper.py traincheck/instrumentor/torchscript_compat.py tests/test_torchscript_compat.py tests/test_torchscript_contracts.py tests/test_tracing_contracts.py
+mypy --follow-imports=silent --ignore-missing-imports --check-untyped-defs --disallow-untyped-defs --disallow-any-generics --warn-return-any traincheck/instrumentor/torchscript_compat.py tests/test_dynamic_typename.py tests/test_torchscript_contracts.py tests/test_tracing_contracts.py
+```
+
+All 37 tests passed: 9 dynamic-name, 13 TorchScript (including six fresh-process
+controls), and 15 tracing tests. All pinned hooks and the stronger scoped check
+passed using mypy 1.9. The existing general utility/serialization modules are
+not claimed to be strictly typed in full; see the #143 evidence for the remaining
+legacy tracer/dumper diagnostics. No runtime benchmark was rerun for this
+annotation/contract update, so earlier performance numbers retain their original
+revision and workload scope.
+
+With `--check-untyped-defs`, `utils.py` reports the same single pre-existing
+`threading.__excepthook__` stub diagnostic at both original head
+`2333682cb2f3f48d338ff27a6d70682f0f4e4702` and this update; no new diagnostic
+was introduced by the `typename` annotation.
