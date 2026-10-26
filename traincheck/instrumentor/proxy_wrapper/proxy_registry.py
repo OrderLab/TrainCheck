@@ -1,10 +1,19 @@
 import threading
+from collections import deque
+from collections.abc import Callable, Mapping
+from typing import Literal, Protocol
+
+
+class TraceableVariable(Protocol):
+    def dump_trace(self, phase: str, dump_loc: str | None) -> None: ...
 
 
 class RegistryEntry:
-    """A class to store the tracked object and its associated metadata"""
+    """A tracked object and its associated observation metadata."""
 
-    def __init__(self, obj, var_name, var_type, stale):
+    def __init__(
+        self, obj: TraceableVariable, var_name: str, var_type: str, stale: bool
+    ) -> None:
         self.var = obj
         self.var_name = var_name
         self.var_type = var_type
@@ -12,22 +21,25 @@ class RegistryEntry:
 
 
 class VarRegistry:
-    """A helper class managing all variables being tracked and allow for controlled dumps of
-    the variable states.
+    """Name-indexed variables with ordered full and modified-only sampling.
 
-    A variable is uniquely identified by its "name"
-    When a variable is added to the registry, it is marked as "not stale".
-    When a variable is dumped through `dump_sample` or `dump_modified`, it is marked as "stale".
-    A variable is only dumped through `dump_modified` if it is not stale.
-
+    Sampling snapshots membership and order, checking type and stale status at
+    each entry's turn. Additions wait for the next call; replaced entries are skipped.
+    Root finalization is deferred until the outermost sampling call ends, keeping
+    a record's canonical name stable throughout conversion and serialization.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.registry: dict[str, RegistryEntry] = {}
-        self.registry_lock = threading.Lock()
+        # GC may request retirement synchronously while the sampling thread owns
+        # the lock. Reentry only queues retirement until sampling is finished.
+        self.registry_lock = threading.RLock()
+        self._sampling_depth = 0
+        self._pending_cleanups: deque[Callable[[], None]] = deque()
+        self._draining_cleanups = False
 
-    def add_var(self, var, var_name: str, var_type: str):
-        """Add a new proxy variable to the registry"""
+    def add_var(self, var: TraceableVariable, var_name: str, var_type: str) -> None:
+        """Register a variable or mark its current observation as modified."""
         with self.registry_lock:
             if var_name in self.registry:
                 self.registry[var_name].var = var
@@ -39,59 +51,83 @@ class VarRegistry:
                     var, var_name, var_type, stale=False
                 )
 
-    def dump_sample(self, dump_loc=None, dump_config=None):
-        """A complete dump of all present proxy objects
+    def defer_cleanup(self, cleanup: Callable[[], None]) -> None:
+        """Retire immediately when idle, or after the current sample completes."""
+        with self.registry_lock:
+            self._pending_cleanups.append(cleanup)
+            self._drain_cleanups()
 
-        Calling this API mark all proxy objects as stale which
-        will affect the `dump_modified` API.
-        """
+    def _drain_cleanups(self) -> None:
+        # Caller holds registry_lock. Preserve queue order during nested requests.
+        if self._sampling_depth or self._draining_cleanups:
+            return
+        self._draining_cleanups = True
+        try:
+            while self._pending_cleanups:
+                self._pending_cleanups.popleft()()
+        finally:
+            self._draining_cleanups = False
+
+    def _dump(
+        self,
+        phase: Literal["sample", "selective-sample"],
+        dump_loc: str | None,
+        dump_config: Mapping[str, object] | None,
+    ) -> None:
+        if dump_config is None:
+            # Absence remains an error, as in the original .keys() call; it must
+            # not silently become an empty filter and a successful empty sample.
+            raise AttributeError("dump_config is required for registry sampling")
         to_dump_types = set(dump_config.keys())
         with self.registry_lock:
-            for _, entry in self.registry.items():
-                var_type = entry.var_type
-                if var_type not in to_dump_types:
-                    continue
-                entry.stale = True
-                entry.var.dump_trace(phase="sample", dump_loc=dump_loc)
+            self._sampling_depth += 1
+            try:
+                entries = [
+                    (name, entry, entry.var) for name, entry in self.registry.items()
+                ]
+                for name, entry, variable in entries:
+                    if (
+                        self.registry.get(name) is not entry
+                        or entry.var is not variable
+                    ):
+                        continue
+                    if entry.var_type not in to_dump_types:
+                        continue
+                    if phase == "selective-sample" and entry.stale:
+                        continue
+                    # Preserve the original failure contract: the attempted entry
+                    # is stale even if dumping raises; later entries stay unchanged.
+                    entry.stale = True
+                    variable.dump_trace(phase=phase, dump_loc=dump_loc)
+            finally:
+                self._sampling_depth -= 1
+                self._drain_cleanups()
 
-    def dump_modified(self, dump_loc=None, dump_config=None):
-        """Dump only the proxy variables that might be modified since last dump
+    def dump_sample(
+        self,
+        dump_loc: str | None = None,
+        dump_config: Mapping[str, object] | None = None,
+    ) -> None:
+        """Dump all selected entries in registry order and mark attempts stale."""
+        self._dump("sample", dump_loc, dump_config)
 
-        args:
-            dump_loc: the location to dump the trace, an optional string to add to trace records
-            dump_config: the config for dumping, each key would be the type of the variable and the value
-                would be whether to dump all changed vars or just one
+    def dump_modified(
+        self,
+        dump_loc: str | None = None,
+        dump_config: Mapping[str, object] | None = None,
+    ) -> None:
+        """Dump selected entries still marked modified when their turn arrives.
 
-        ** This is a middle ground between blindly dump everything everytime v.s. fully-accurate delta dumping **
-        fully-accuracy dumping is hard as for each "modifications" to the variable, you will need to compare
-        the new state v.s. the old state to ensure the state has actually changed, which introduces great overhead.
-
-        This function implements delta dumping but does not guarantee two consecutive dumps will be different,
-        we only guarantee that between two dumps there has been attempts (e.g. through __setattr__ or observer)
-        to modify the variable.
-
-
-        Side effects:
-        when calling the function, all dumped proxy vars will be marked as stale and will not be dumped next time
-        unless there are new modification attempts to t
+        Modified means an update was attempted, not that tensor contents differ.
+        Successful and failed dump attempts are marked stale until add_var marks
+        them modified again. Configuration values are retained for compatibility;
+        only its type-name keys currently select entries.
         """
-        to_dump_types = set(dump_config.keys())
-        with self.registry_lock:
-            for _, entry in self.registry.items():
-                var_type = entry.var_type
-                if var_type not in to_dump_types:
-                    continue
-
-                if entry.stale:
-                    continue
-
-                entry.stale = True
-                entry.var.dump_trace(phase="selective-sample", dump_loc=dump_loc)
+        self._dump("selective-sample", dump_loc, dump_config)
 
 
-# Global dictionary to store registered objects
 global_registry = VarRegistry()
 
 
-def get_global_registry():
+def get_global_registry() -> VarRegistry:
     return global_registry
