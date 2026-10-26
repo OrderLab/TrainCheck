@@ -3,8 +3,10 @@ import logging
 import os
 import threading
 import time
+import types
+from collections.abc import Mapping
 from queue import Empty, Queue
-from typing import Callable, Hashable
+from typing import Callable, Hashable, cast
 
 import orjson
 import torch
@@ -44,6 +46,20 @@ skip_type_due_to_errs: dict[type, int] = {}
 skip_type_due_to_recursion: dict[type, int] = {}
 
 logger = logging.getLogger(__name__)
+
+# Exact callable types have no tensor/module metadata. Subclasses and arbitrary
+# callable objects retain the generic path, including dynamic __class__ behavior.
+_METADATA_CALLABLE_TYPES: frozenset[type] = frozenset(
+    {
+        types.FunctionType,
+        types.BuiltinFunctionType,
+        types.MethodType,
+        types.MethodWrapperType,
+        types.WrapperDescriptorType,
+        types.MethodDescriptorType,
+        types.ClassMethodDescriptorType,
+    }
+)
 
 
 def _json_default(o):
@@ -325,22 +341,29 @@ class NOT_FOUND:
     pass
 
 
-def safe_getattr(obj, attr_name):
+def safe_getattr(obj: object, attr_name: str) -> object:
     import warnings
 
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            attr = getattr(obj, attr_name, NOT_FOUND)
+            attr: object = getattr(obj, attr_name, NOT_FOUND)
             if attr is NOT_FOUND:
                 if issubclass(type(obj), dict):
-                    attr = dict.get(obj, attr_name, NOT_FOUND)
+                    # The concrete-type check validates this cast without
+                    # invoking an object's potentially dynamic __class__.
+                    mapping = cast(dict[object, object], obj)
+                    attr = dict.get(mapping, attr_name, NOT_FOUND)
         return attr
     except Exception:
         return NOT_FOUND
 
 
-def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict:
+def convert_var_to_dict(
+    var: object,
+    include_tensor_data: bool = True,
+    dump_config: Mapping[str, object] | None = None,
+) -> dict[str, object]:
     """
     TODO: variables can be nested and thus this should be a recursive function (dump_config supports this).
     But this function is not recursive yet, so it only dumps the first level of attributes of the variable.
@@ -364,7 +387,10 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
                 name for name in dir(var) if not name.startswith("__")
             ]  # dir() won't get called on primitive vars (look at the logic below checking for primitive types) whose dump_config is always None, so no need to check for primitive types here.
             if issubclass(type(var), dict):
-                attr_names += [k for k in var.keys() if isinstance(k, str)]
+                # The concrete-type check excludes objects spoofing __class__;
+                # mypy cannot narrow through issubclass(type(...), ...).
+                mapping = cast(dict[object, object], var)
+                attr_names += [k for k in mapping.keys() if isinstance(k, str)]
         except Exception as e:
             if type(var) not in skip_type_due_to_errs:
                 skip_type_due_to_errs[type(var)] = 0
@@ -415,8 +441,16 @@ def convert_var_to_dict(var, include_tensor_data=True, dump_config=None) -> dict
             continue
 
         attr_name = str(attr_name)
-        if type(attr) in primitive_types:
+        attr_type = type(attr)
+        if attr_type in primitive_types:
             result[attr_name] = attr
+
+        elif type(attr_type) is type and attr_type in _METADATA_CALLABLE_TYPES:
+            # These exact built-in types cannot match the framework branches
+            # below. Retain explicitly requested TrainCheck metadata unchanged.
+            # The metaclass guard avoids extra user-defined __hash__/__eq__ calls.
+            if "_TRAINCHECK" in attr_name:
+                result[attr_name] = attr
 
         elif isinstance(attr, torch.Tensor):
             result[f"_TRAINCHECK_{attr_name}_ID"] = id(attr)
