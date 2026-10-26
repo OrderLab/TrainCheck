@@ -287,6 +287,7 @@ def proxy_parameter(
         previous_cleanup()
 
     ownership = object()
+    cleanup_requested = False
     tracked: dict[int, weakref.ReferenceType[ProxyParameter]] = {}
     hooked_modules: dict[int, weakref.ReferenceType[nn.Module]] = {}
 
@@ -339,7 +340,7 @@ def proxy_parameter(
         if not hook.callbacks:
             del owner.__dict__[SUBCLASS_HOOK_KEY]
 
-    def cleanup() -> None:
+    def retire() -> None:
         affected: dict[int, ProxyParameter] = {}
         for identity, reference in tracked.items():
             parameter = reference()
@@ -358,10 +359,20 @@ def proxy_parameter(
         if root is not None and root.__dict__.get(MODEL_CLEANUP_KEY) is cleanup:
             del root.__dict__[MODEL_CLEANUP_KEY]
 
-    def release_root(reference: weakref.ReferenceType[nn.Module]) -> None:
-        cleanup()
+    def cleanup() -> None:
+        nonlocal cleanup_requested
+        if cleanup_requested:
+            return
+        cleanup_requested = True
+        finalizer.detach()
+        get_global_registry().defer_cleanup(retire)
 
-    root_reference = weakref.ref(module, release_root)
+    # finalize keeps the death observer outside the module/session closure cycle,
+    # so ordinary model cycles (for example a saved bound forward method) retire
+    # correctly. The callback captures only a weak root, never the root itself.
+    root_reference = weakref.ref(module)
+    finalizer = weakref.finalize(module, cleanup)
+    finalizer.atexit = False
     module.__dict__[MODEL_CLEANUP_KEY] = cleanup
 
     def convert_parameter(parameter: nn.Parameter, name: str) -> nn.Parameter:
@@ -413,8 +424,10 @@ def proxy_parameter(
         return proxied
 
     def on_assignment(owner: nn.Module, name: str) -> None:
-        if in_dynamo() or (
-            name not in owner._parameters and name not in owner._modules
+        if (
+            cleanup_requested
+            or in_dynamo()
+            or (name not in owner._parameters and name not in owner._modules)
         ):
             return
         root = root_reference()
