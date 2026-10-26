@@ -182,7 +182,7 @@ class Arguments:
                         and param.default != inspect.Parameter.empty
                     ):
                         self.arguments[param_name] = var_to_serializable(param.default)
-    
+
     def __getstate__(self) -> dict:
         # ``signature`` is a cached ``inspect.Signature`` derived from
         # ``func_name``. It is not picklable -- its ``_parameters`` is a
@@ -1677,20 +1677,49 @@ class Example:
 
 
 class ExampleList:
-    def __init__(self, group_names: set[str]):
+    """A bounded sample of example occurrences, including duplicate values.
+
+    ``num_seen`` counts the underlying stream, while ``len(self)`` counts the
+    retained examples. Different lists retain the historical equal-seed RNG
+    behavior, so their samples can be correlated; merging does not promise a
+    uniform joint sample across lists.
+    """
+
+    def __init__(self, group_names: set[str]) -> None:
         self.group_names = group_names
         self.examples: list[Example] = []
-        # Bound memory: some relations produce an unbounded number of examples                                                                                             
-        # (see config.MAX_EXAMPLE_LIST_SIZE). Once at capacity we keep a uniform                                                                                           
-        # random subset via reservoir sampling; num_seen tracks the true number                                                                                            
-        # of examples added so the retained subset stays uniform. The RNG is                                                                                               
-        # seeded so results are deterministic and identical across the serial                                                                                              
-        # and parallel code paths.                                                                                                                                         
-        self.max_size = config.MAX_EXAMPLE_LIST_SIZE                                                                                                                       
-        self.num_seen = 0                                                                                                                                                  
-        self._rng = random.Random(config.EXAMPLE_SAMPLING_SEED)    
+        self.max_size: int | None = config.MAX_EXAMPLE_LIST_SIZE
+        self._validate_cap(self.max_size)
+        self.num_seen = 0
+        self._rng = random.Random(config.EXAMPLE_SAMPLING_SEED)
 
-    def add_example(self, example: Example):
+    @staticmethod
+    def _validate_cap(cap: int | None) -> None:
+        # Reject bool and int subclasses rather than accepting isinstance(int).
+        if cap is not None and (type(cap) is not int or cap < 0):  # noqa: E721
+            raise ValueError(
+                "Example reservoir capacity must be a nonnegative integer or None"
+            )
+
+    def _validate_state(self) -> None:
+        self._validate_cap(self.max_size)
+        # A population count must be a builtin integer.
+        if type(self.num_seen) is not int or self.num_seen < 0:  # noqa: E721
+            raise ValueError(
+                "Example reservoir population must be a nonnegative integer"
+            )
+        expected = (
+            self.num_seen
+            if self.max_size is None
+            else min(self.max_size, self.num_seen)
+        )
+        if len(self.examples) != expected:
+            raise ValueError(
+                "Example reservoir is underfilled or has inconsistent population accounting: "
+                f"retained {len(self.examples)}, expected {expected} for {self.num_seen} seen"
+            )
+
+    def add_example(self, example: Example) -> None:
         if len(self.group_names) == 0:
             assert len(self.examples) == 0
             self.group_names = example.get_group_names()
@@ -1698,16 +1727,79 @@ class ExampleList:
             assert (
                 example.get_group_names() == self.group_names
             ), f"Example groups do not match the expected group names, expected: {self.group_names}, got: {set(example.trace_groups.keys())}"
-        #self.examples.append(example)
-        self.num_seen += 1                                                                                                                                                 
-        if self.max_size is None or len(self.examples) < self.max_size:                                                                                                    
-            self.examples.append(example)                                                                                                                                  
-        else:                                                                                                                                                              
-            # reservoir sampling: replace an existing example with probability                                                                                             
-            # max_size / num_seen, keeping self.examples a uniform random sample                                                                                           
-            j = self._rng.randrange(self.num_seen)                                                                                                                         
-            if j < self.max_size:                                                                                                                                          
+        self.num_seen += 1
+        if self.max_size is None or len(self.examples) < self.max_size:
+            self.examples.append(example)
+        else:
+            # Algorithm R retains each occurrence with probability cap / num_seen.
+            j = self._rng.randrange(self.num_seen)
+            if j < self.max_size:
                 self.examples[j] = example
+
+    def merge(self, other: ExampleList, *, rng: random.Random) -> None:
+        """Append another stream's reservoir without exceeding this list's cap.
+
+        The caller's RNG must be independent of both input selections. Share one
+        RNG sequentially within a merge task; do not replay its state in nested
+        merge operations. This preserves each occurrence's marginal inclusion
+        probability, even when the input reservoirs are correlated. A uniform
+        joint sample additionally requires independent input reservoirs.
+
+        A sampled source cannot be expanded beyond its retained capacity or
+        merged into an uncapped destination: discarded examples cannot be
+        recovered. Invalid inputs are rejected before changing either list or
+        consuming the supplied RNG. Complete streams preserve concatenation
+        order whenever they fit in the destination.
+        """
+        if self is other:
+            raise ValueError("Cannot merge an example reservoir into itself")
+        self._validate_state()
+        other._validate_state()
+        adopt_groups = not self.group_names and self.num_seen == 0
+        source_uninitialized = not other.group_names and other.num_seen == 0
+        if (
+            not adopt_groups
+            and not source_uninitialized
+            and self.group_names != other.group_names
+        ):
+            raise ValueError(
+                "Cannot merge example reservoirs with different group names"
+            )
+
+        total = self.num_seen + other.num_seen
+        target = total if self.max_size is None else min(self.max_size, total)
+        for source in (self, other):
+            if len(source.examples) < min(target, source.num_seen):
+                raise ValueError(
+                    "Source reservoir retains too few examples for the destination capacity"
+                )
+        if other.num_seen == 0:
+            if adopt_groups:
+                self.group_names = other.group_names.copy()
+            return
+
+        if target == total:
+            # Both inputs are complete: no sampling or RNG consumption is needed.
+            examples = self.examples + other.examples
+            continuation_rng = self._rng
+        else:
+            # Sampling population positions gives an exact hypergeometric split
+            # in O(cap) space, without expanding either represented population.
+            take_self = sum(
+                index < self.num_seen for index in rng.sample(range(total), target)
+            )
+            examples = rng.sample(self.examples, take_self) + rng.sample(
+                other.examples, target - take_self
+            )
+            # Further additions must not replay RNG draws used by a longer source
+            # with the same initial reservoir seed.
+            continuation_rng = random.Random(rng.getrandbits(256))
+
+        self.examples = examples
+        self.num_seen = total
+        self._rng = continuation_rng
+        if adopt_groups:
+            self.group_names = other.group_names.copy()
 
     def get_group_from_examples(self, group_name: str) -> list[list[dict]]:
         return [example.get_group(group_name) for example in self.examples]
@@ -1725,14 +1817,10 @@ class ExampleList:
     def from_iterable_of_examples(
         input: Iterable[Example], preset_group_names: set[str]
     ) -> ExampleList:
-        examples = []
+        example_list = ExampleList(preset_group_names)
         for exp in input:
             assert preset_group_names == exp.get_group_names()
-            examples.append(exp)
-
-        example_list = ExampleList(preset_group_names)
-        example_list.examples = examples
-        example_list.num_seen = len(examples)
+            example_list.add_example(exp)
         return example_list
 
 

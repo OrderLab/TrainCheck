@@ -1,0 +1,262 @@
+{
+  "baseline_commit": "9eb4f320d3db34d372145261704b805b88e39bda",
+  "checkpoint_verified_date": "2026-10-25",
+  "combined_changed_production_source_sha256": {
+    "traincheck/infer_engine.py": "476a3ec99bef0ab823b23f94bc95842c20b6d9b7b4a57ab4a2efa2987f30f286",
+    "traincheck/invariant/base_cls.py": "2a2092626065dd871549dd7c969f085c4bc38fe5fffd92469d2ed775bda084ae",
+    "traincheck/invariant/contain_relation.py": "b32f819db4d5a11a11318bf7e38c64148f4c9360137ac5f09475b480c34c16a5",
+    "traincheck/parallel.py": "6843319dd8c5c397e93f361a29fe564161e7307fbe4f0f8368090d252d4a7bc4"
+  },
+  "combined_sampling_pr": 139,
+  "combined_source_manifest_sha256": "60f431cd032532f6b3521169c29ce3ed3943c30fb5b55449ef7ebb608d6cc811",
+  "combined_test_source_sha256": {
+    "tests/test_example_reservoir.py": "0381a81e714980f5cff16699db951d984c4f42cd95b6fa47b1611d4d38c2f636",
+    "tests/test_inference_sampling.py": "046554588613da74e5dbad524acd9ca9ed7eee9c96611d1341eab3cc6cd16e8e"
+  },
+  "controlled_probe": {
+    "after": {
+      "cap": 2,
+      "constructed_num_seen": 5,
+      "constructed_retained": 2,
+      "merged_num_seen": 20,
+      "merged_retained": 2
+    },
+    "before": {
+      "cap": 2,
+      "constructed_num_seen": 5,
+      "constructed_retained": 5,
+      "merged_num_seen": 10,
+      "merged_retained": 4
+    }
+  },
+  "limits": [
+    "Per-occurrence marginal inclusion only for correlated source reservoirs; no joint uniformity claim.",
+    "Optional containment generalization is skipped for already-sampled inputs; generalized hypotheses can change above the cap.",
+    "Retained reservoirs are bounded; temporary unions and total hypothesis/process memory are not.",
+    "Saved raw benchmark traces are external to the checked-in regression tests."
+  ],
+  "recorded_date": "2026-10-13",
+  "regression_tests": {
+    "reservoir_standalone_passed": 21,
+    "reservoir_with_sampling_passed": 21,
+    "sampling_with_reservoir_passed": 11,
+    "start_methods": [
+      "fork",
+      "spawn"
+    ],
+    "worker_counts": [
+      1,
+      2,
+      4
+    ]
+  },
+  "replay": {
+    "comparison": "Full structural JSON multiset; preserves multiplicity and array order",
+    "complete_runs": 9,
+    "disabled_relations": [
+      "FunctionLeadRelation",
+      "FunctionCoverRelation"
+    ],
+    "input_hashes_unchanged": true,
+    "native_threads": 1,
+    "repeats_per_workload_and_workers": 1,
+    "runs": [
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "8e39cf710d943898ca007478953584d363db135ce3cb458619e71836ae179820",
+          "distinct_records": 21,
+          "records": 21
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "5691e461a1fba5bf5314b18a62bf72f82fc95e56f71b26eca87218e53f321e84",
+          "distinct_records": 193,
+          "records": 193
+        },
+        "matches_sampling_only": true,
+        "workers": 1,
+        "workload": "mnist"
+      },
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "8e39cf710d943898ca007478953584d363db135ce3cb458619e71836ae179820",
+          "distinct_records": 21,
+          "records": 21
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "5691e461a1fba5bf5314b18a62bf72f82fc95e56f71b26eca87218e53f321e84",
+          "distinct_records": 193,
+          "records": 193
+        },
+        "matches_sampling_only": true,
+        "workers": 2,
+        "workload": "mnist"
+      },
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "8e39cf710d943898ca007478953584d363db135ce3cb458619e71836ae179820",
+          "distinct_records": 21,
+          "records": 21
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "5691e461a1fba5bf5314b18a62bf72f82fc95e56f71b26eca87218e53f321e84",
+          "distinct_records": 193,
+          "records": 193
+        },
+        "matches_sampling_only": true,
+        "workers": 4,
+        "workload": "mnist"
+      },
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "b3424febf9358e01c3e079362e17bc68a939a933e14f1cfab954884482073bd7",
+          "distinct_records": 10,
+          "records": 10
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "21332736553d2fe20c1fdb1e2c852597950e3b799bc399d47007a2b1f7a71b09",
+          "distinct_records": 518,
+          "records": 518
+        },
+        "matches_sampling_only": true,
+        "workers": 1,
+        "workload": "transformer"
+      },
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "b3424febf9358e01c3e079362e17bc68a939a933e14f1cfab954884482073bd7",
+          "distinct_records": 10,
+          "records": 10
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "21332736553d2fe20c1fdb1e2c852597950e3b799bc399d47007a2b1f7a71b09",
+          "distinct_records": 518,
+          "records": 518
+        },
+        "matches_sampling_only": true,
+        "workers": 2,
+        "workload": "transformer"
+      },
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "b3424febf9358e01c3e079362e17bc68a939a933e14f1cfab954884482073bd7",
+          "distinct_records": 10,
+          "records": 10
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "21332736553d2fe20c1fdb1e2c852597950e3b799bc399d47007a2b1f7a71b09",
+          "distinct_records": 518,
+          "records": 518
+        },
+        "matches_sampling_only": true,
+        "workers": 4,
+        "workload": "transformer"
+      },
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "dfba6a7ed565ce66163b9eb98921ad05857649e37f78075b48fdf9341b912204",
+          "distinct_records": 86,
+          "records": 86
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "596f82fcfb946a7fe2fe138fa9e61302bafb93465fdc529317ccf93d2da1022a",
+          "distinct_records": 512,
+          "records": 512
+        },
+        "matches_sampling_only": true,
+        "workers": 1,
+        "workload": "dcgan"
+      },
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "dfba6a7ed565ce66163b9eb98921ad05857649e37f78075b48fdf9341b912204",
+          "distinct_records": 86,
+          "records": 86
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "596f82fcfb946a7fe2fe138fa9e61302bafb93465fdc529317ccf93d2da1022a",
+          "distinct_records": 512,
+          "records": 512
+        },
+        "matches_sampling_only": true,
+        "workers": 2,
+        "workload": "dcgan"
+      },
+      {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "dfba6a7ed565ce66163b9eb98921ad05857649e37f78075b48fdf9341b912204",
+          "distinct_records": 86,
+          "records": 86
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "596f82fcfb946a7fe2fe138fa9e61302bafb93465fdc529317ccf93d2da1022a",
+          "distinct_records": 512,
+          "records": 512
+        },
+        "matches_sampling_only": true,
+        "workers": 4,
+        "workload": "dcgan"
+      }
+    ],
+    "source_hashes_unchanged": true
+  },
+  "runtime": {
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.3.3",
+      "torch": "2.2.2+cu121"
+    },
+    "platform": "Linux",
+    "python": "3.10.16"
+  },
+  "saved_evidence_sha256": {
+    "baseline-probe.json": "69d232dbeae11972ddbb9d27abb153d5f88dd0e2025417c041800583740d9289",
+    "cap-source-manifest.json": "6910fabc4a993976f9cf90cd98d68d2797e70ff306fb5ff9d4052fab2fb2f8b1",
+    "cap-tests.log": "7f512ee57813789d5bb907cdccbceaeea7782c95cf95b7dac62fccf9448e3a82",
+    "combined-reservoir-tests.log": "6b0f38d6f17bafb808ba505c604ff60306a6362452233d22b6c77700a0210dbd",
+    "combined-sampling-tests.log": "dac8a7daaff443800210eeecbadfa8b257e9cbbe7ccd30859f8951c7c0a9246c",
+    "combined-source-manifest.json": "60f431cd032532f6b3521169c29ce3ed3943c30fb5b55449ef7ebb608d6cc811",
+    "fixed-probe.json": "72161a6b9fe85d4b0df03f9ae4b0921bbe27def313da4ffa738fef10ca8a7304",
+    "replay/summary.json": "aa081af685c92f9e62c3ca7f72b9082cd2ed61af7c4f1a37b543eb8e709d914c",
+    "sampling-only-comparison.json": "e526d5cc2c9f8fa37c2aeef21a05e9481338dc142789f27edff129d3121d0a15"
+  },
+  "schema_version": 1,
+  "standalone_source_sha256": {
+    "tests/test_example_reservoir.py": "0381a81e714980f5cff16699db951d984c4f42cd95b6fa47b1611d4d38c2f636",
+    "traincheck/infer_engine.py": "741ac7701ad4fef3089fce778ddd4d422c5245432cf582bec06095e0ed6ec71c",
+    "traincheck/invariant/base_cls.py": "2a2092626065dd871549dd7c969f085c4bc38fe5fffd92469d2ed775bda084ae",
+    "traincheck/invariant/contain_relation.py": "67a6613f0048542174f6655fcb1f984fabf5c5f2fa9303eab13aed93103b410d",
+    "traincheck/parallel.py": "6843319dd8c5c397e93f361a29fe564161e7307fbe4f0f8368090d252d4a7bc4"
+  },
+  "trace_inputs": {
+    "dcgan": {
+      "file_count": 1,
+      "file_sha256": [
+        "da74105c67ff699b91d96eac1fac89f3626ba9199594c9c373eb1ff6a69b15d1"
+      ],
+      "total_bytes": 3401128
+    },
+    "mnist": {
+      "file_count": 1,
+      "file_sha256": [
+        "6e3dd86b5ed0d7b5d556a167eaf95226852dd816a33f872668fbaf1b26638c20"
+      ],
+      "total_bytes": 472863
+    },
+    "transformer": {
+      "file_count": 1,
+      "file_sha256": [
+        "467e587463e72e874f5abfd14452cabdf966fd804f448eecf85f0155ea49ffb6"
+      ],
+      "total_bytes": 1564970
+    }
+  }
+}
