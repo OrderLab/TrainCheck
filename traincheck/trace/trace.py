@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Sequence
 
 import polars as pl
 
@@ -183,14 +184,14 @@ class Trace:
             "This function should be implemented in the child class."
         )
 
-    def get_process_ids(self) -> list[int]:
-        """Find all process ids from the trace."""
+    def get_process_ids(self) -> Sequence[object]:
+        """Find process identities, preserving the backend scalar types."""
         raise NotImplementedError(
             "This function should be implemented in the child class."
         )
 
-    def get_thread_ids(self) -> list[int]:
-        """Find all thread ids from the trace."""
+    def get_thread_ids(self) -> Sequence[object]:
+        """Find thread identities, preserving the backend scalar types."""
         raise NotImplementedError(
             "This function should be implemented in the child class."
         )

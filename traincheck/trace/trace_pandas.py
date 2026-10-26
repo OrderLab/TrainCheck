@@ -111,6 +111,12 @@ class TracePandas(Trace):
         self._func_call_positions_length = -1
         self._func_call_positions: dict[str, tuple[list[int], list[int]]] | None = None
 
+        # Inference treats event identities as immutable after initialization.
+        # Keep the frame alive so object identity cannot be reused across frames.
+        self._identity_values_source: pd.DataFrame | None = None
+        self._identity_values_length = -1
+        self._identity_values: dict[str, tuple[object, ...]] = {}
+
         self.column_dtypes_cached = {}
         self.stage_traces: dict[str, "TracePandas"] = {}
 
@@ -588,23 +594,46 @@ class TracePandas(Trace):
 
         return self.events["time"].max()
 
-    def get_process_ids(self) -> list[int]:
+    def _get_identity_values(self, column: str) -> list[object]:
+        """Cache stable identity columns; return a fresh list for every caller.
+
+        As with call-record indexes, frame replacement or length changes rebuild
+        the cache. Same-size in-place identity edits, row reordering, or dtype
+        changes require a new TracePandas.
+        Identity columns are schemaless: their scalars are not necessarily ints.
+        Keep pandas' dropna/unique conversion to preserve dtype and encounter
+        order instead of replacing it with Python set semantics.
+        """
+        if (
+            self._identity_values_source is not self.events
+            or self._identity_values_length != len(self.events)
+        ):
+            self._identity_values = {}
+            self._identity_values_source = self.events
+            self._identity_values_length = len(self.events)
+        if column not in self._identity_values:
+            self._identity_values[column] = tuple(
+                self.events[column].dropna().unique().tolist()
+            )
+        return list(self._identity_values[column])
+
+    def get_process_ids(self) -> list[object]:
         """Find all process ids from the trace."""
         if "process_id" not in self.events.columns:
             logger.warning(
                 "process_id column not found in the events, no process related invariants will be extracted."
             )
             return []
-        return self.events["process_id"].dropna().unique().tolist()
+        return self._get_identity_values("process_id")
 
-    def get_thread_ids(self) -> list[int]:
+    def get_thread_ids(self) -> list[object]:
         """Find all thread ids from the trace."""
         if "thread_id" not in self.events.columns:
             logger.warning(
                 "thread_id column not found in the events, no thread related invariants will be extracted."
             )
             return []
-        return self.events["thread_id"].dropna().unique().tolist()
+        return self._get_identity_values("thread_id")
 
     def get_func_call_ids(self, func_name: str = "") -> list[str]:
         """Find all function call ids from the trace."""
