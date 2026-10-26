@@ -1,0 +1,13 @@
+{
+  "repository": "https://github.com/OrderLab/TrainCheck",
+  "commit": "9eb4f320d3db34d372145261704b805b88e39bda",
+  "source_path": "traincheck/trace/trace_pandas.py",
+  "source_sha256": "e1bb62eae653f95c5498dc921d991af013e8b5717398f94cfbc718812bb600ad",
+  "method_sha256": {
+    "_index_context_manager_meta_vars": "6b7e5646260ee0ce7377c7cf19edb4774bdf69825e15cf10ff3c29cd4555c13c",
+    "get_pre_func_call_record": "bf89fcd11b98e08a3029ee6ff3b2a4b6df980aa49bfe6c13bcdbafcb10e8d74c",
+    "get_post_func_call_record": "a36cd5bc217f8e85f0f30775c24480f0060b6f3496e8fb2a2cb45a4214d46c07",
+    "get_traces_for_stage": "583c5adfd122d86027f427beea7c7823783e14b37f078d01740f55cdd72f04f3"
+  },
+  "hash_convention": "Original indented method source including its final newline. No source transformations."
+}
