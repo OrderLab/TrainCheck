@@ -130,12 +130,18 @@ class MetadataClassificationTests(unittest.TestCase):
                     self.assertEqual(before["value"], [3.0, 4.0])
 
     def test_dynamic_class_keeps_parameter_fallback(self) -> None:
+        # Parameter.__instancecheck__ makes a different number of __class__ reads
+        # across supported PyTorch versions. Preserve the framework's exact
+        # lookup behavior, including side effects, without pinning that count.
+        native = ChangingClass()
+        self.assertFalse(isinstance(native, torch.Tensor))
+        self.assertTrue(isinstance(native, torch.nn.Parameter))
         value = ChangingClass()
         record = dumper.convert_var_to_dict(
             AttributeHolder(value), False, {"value": None}
         )
         self.assertEqual(record, {"_TRAINCHECK_value_ID": id(value)})
-        self.assertEqual(value.reads, 2)
+        self.assertEqual(value.reads, native.reads)
 
     def test_dynamic_class_exception_still_propagates(self) -> None:
         error = ValueError("dynamic class failed")
