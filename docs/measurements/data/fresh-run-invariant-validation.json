@@ -1,0 +1,1894 @@
+{
+  "study_date": "2026-10-25",
+  "harness_commit": "cad62cc98ef5fb7b313325443caa33f715ed141e",
+  "source_composition": {
+    "base": "99d16905296d83495570fdcafa91370b242d2528",
+    "trace_integrity": "7d6c683db92d83ffd6db9fc9c11fbc0ebdd2c5d4",
+    "torchscript": "9ac61d1140cf8679c24442a174ec12f4de069980",
+    "state_fix_hunks_from": "1b5aedffbeefd4cdd9d30036dbb0a833521526cf",
+    "changed_python_files": [
+      "tests/test_dynamic_typename.py",
+      "tests/test_precondition_state_isolation.py",
+      "tests/test_torchscript_compat.py",
+      "tests/test_trace_integrity.py",
+      "traincheck/instrumentor/dumper.py",
+      "traincheck/instrumentor/torchscript_compat.py",
+      "traincheck/instrumentor/tracer.py",
+      "traincheck/invariant/precondition.py",
+      "traincheck/utils.py"
+    ],
+    "dynamic_typename_fix": "2f034ae5d0fab7e792b7c0a5bdc6a1acfeb8962c",
+    "source_sha256": {
+      "tests/test_utils.py": "cc63afa128223d1a7c518becf2c215ffd0ab91891a01b23e0bbeba2e9726e56c",
+      "tests/test_dynamic_policy.py": "ac82536add642da8179acd54b07d86cff81b5856d90fc41896d18a57334ccdec",
+      "tests/test_inference_sampling.py": "41a632102208e53091615d21714b7dc1d6840465fd550efa33caf8eeca3fe361",
+      "tests/test_torchscript_compat.py": "653be1032409579030ebd3ec5694cc3e43f34df8e4f5750a76a9ffc64dd0a2e2",
+      "tests/test_trace_integrity.py": "0d12f81b39c4772e9d6743605c4a627078b4a9f5e85b254d694ad999d3496f08",
+      "tests/test_loop_injection.py": "c9fda263c5b014f2a56030d070f72144e5aea3be50c431d2a67a910e5978e11d",
+      "tests/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tests/test_display_names.py": "bf85fee31e1bb8384468df76bf30d4209aa8e14d0b9b822a2af9860ee6c624cd",
+      "tests/test_dynamic_typename.py": "fc86e92919f07a82f5f06e2d9ebcd52431ec2ea175ceb5d1c2417aab45924ba8",
+      "tests/test_call_index.py": "979c4b4489b5ca8c2468db7ee5d7b39bb9fe8b3c193f7b43f1627ada17c7b541",
+      "tests/test_example_reservoir.py": "4805845c77e5bdeaf48793dd8b8cc1ed42126e9c2ea5154c073e9fa2cc075b90",
+      "tests/test_violation_summary.py": "fa5bd46bbc5592867eb7d018a494b81aa5d59f451fd282a147ed56aefd7e3619",
+      "tests/test_precondition_state_isolation.py": "d56e2e0e3ca5d410ccef5cb1de350a21f37a6be679efd302b523aae1f7a1d919",
+      "tests/test_identity_cache.py": "733575f48f690cfc2913169bff2a8656787fe94f37e4658850e29d2f4656ac50",
+      "tests/test_context_index.py": "7702f13e695f430e2aa1e302e3719ce9d5e8bd74a2d65cac5b7fbfa2178159dc",
+      "tests/test_policy_injection.py": "9409b8f693da8b05e556f658486346422c6e9b853f1a991cad28572dfd977848",
+      "tests/test_variable_tracking_policy.py": "059178ac644d6d9305dd10ffcea75dc99e5fd5019b02f09f37a8a93728f5d989",
+      "tests/fixtures/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "tests/fixtures/legacy_trace_pandas.py": "342bef3c1de26d77cc8b1e34f94dc470f45d929e038e458ac00eff11eebc1860",
+      "traincheck/collect_trace.py": "c1db96c798af9689f8ee7f7b0b929d90694d49a234cb217beaf435d4b8d5cfb0",
+      "traincheck/checker_online.py": "2824c9ccd2f684c86884c68f2214a1a4be1d69c6098ce30b817d03f1fe1077d6",
+      "traincheck/infer_engine.py": "476a3ec99bef0ab823b23f94bc95842c20b6d9b7b4a57ab4a2efa2987f30f286",
+      "traincheck/__init__.py": "47fdcb090c4c8c5822769d642dc23a520e8d8ff3e4724583450723e05408164b",
+      "traincheck/utils.py": "854c11519e7aa6d0cbbfd79694d2ad4895fb1aaf72e9efbb0068048598b70750",
+      "traincheck/progress.py": "aab7d040324e283c8474aa82bc7550a777aec316131a26e1dc1b6a277333d1ae",
+      "traincheck/parallel.py": "6843319dd8c5c397e93f361a29fe564161e7307fbe4f0f8368090d252d4a7bc4",
+      "traincheck/inference_sampling.py": "ba566c3745ed3043ef27cbc626c21b358d1d01c95a26f1ebc9c8f56391d63681",
+      "traincheck/checker.py": "44dc20fc66ca82bb6b71fa02033aae3b7d489ae7afbc1611c44e857f399716b2",
+      "traincheck/reporting/__init__.py": "299180153357c4e6f48cf75191e915d70cfca5ae6e7b3ac4d45144066b93ddca",
+      "traincheck/reporting/checker_report.py": "0d59b1753fc348701b49a0eb74e4b1d849a47d8234005ccbbb26e09e3cd0c808",
+      "traincheck/developer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traincheck/developer/annotations.py": "0ff28d35e085b40e1e366499feec96c8eb1e13bf3100dcdd7ab304c7f2f6e963",
+      "traincheck/invariant/consistency_transient_vars.py": "a702cd1b6787e8be1904bef9119773c0e037a83017959c771020dbbbbe1549e2",
+      "traincheck/invariant/symbolic_value.py": "28627e2c2a47a146087a96510f07f7deb8463c46371e418afa3fdeff33c7e6cb",
+      "traincheck/invariant/var_periodic_change_relation.py": "8086df3b9cfe34229b8bd46b18dce22a4b746902e38d1ba4bd02bc6f6c2f2ef4",
+      "traincheck/invariant/consistency_relation.py": "bc5b14810ea8a5e0e5f3e6c2c6be24d137a444d8609216d00eafd155b4aa3917",
+      "traincheck/invariant/cover_relation.py": "0eb0e1c30ad5b34a15ce32c7b0d15e894f7a3b9b68bfcaae5b901f5dc6a092c6",
+      "traincheck/invariant/__init__.py": "773e9f767566ffd92658dc0e94107ac840672e446a41ba437a49cee9cc52197a",
+      "traincheck/invariant/DistinctArgumentRelation.py": "6e01540583668e30718ba90c341fd540cd9df53f20525a6cf502fcceee8ed7bc",
+      "traincheck/invariant/precondition.py": "dfd02e6c68a6c3f2d06d6a9beaa109dcf99ef099efeda75252fd8c559fdbb5da",
+      "traincheck/invariant/relation_pool.py": "8ac568cf1924162a791728ed5db8c41868a550f9e0cd5190fc9a19827f55d3e6",
+      "traincheck/invariant/lead_relation.py": "978a4db32b69dc1a90a84123aa93e52a3caaba97761321dbb844666cb47d4360",
+      "traincheck/invariant/base_cls.py": "31ceb584760d26e9923d2c7ce962fd6f093a3a6ba983ed177fcb4257c1da2466",
+      "traincheck/invariant/contain_relation.py": "b32f819db4d5a11a11318bf7e38c64148f4c9360137ac5f09475b480c34c16a5",
+      "traincheck/trace/trace.py": "eac49a1cb958ccaae57ac93e8aad1cbc616e7fcef23068ef5bb68bbc54890c00",
+      "traincheck/trace/trace_pandas.py": "41040a288284dc10041a4c06d8598219605732dd5dcd2ef080b9ed0799387f8a",
+      "traincheck/trace/__init__.py": "ec84edd0ff32906c20956166a51b85b3847e22e48432c6a31698080cafbcbc2b",
+      "traincheck/trace/types.py": "96c1b137f3d72fb05dcf806a4e7ea21fe453ae9cbc3e08352c55e95973fe96e0",
+      "traincheck/trace/trace_polars.py": "64136efcd60a851b0391e708108570b259c2288db6242564b636f69abd1b7b0e",
+      "traincheck/trace/utils.py": "6356156e4c5bbb6c111140302660f36ad1c126e5bc977bd55c81f097022102a3",
+      "traincheck/trace/trace_dict.py": "3aec874ef0ce2c34f6332dface604d5f79965976fd3d1c2b692f746f2af4e703",
+      "traincheck/config/config.py": "4c940a4d92f5de5fe8d3885e570078e479d9842d9626651fd60483e78f0160a9",
+      "traincheck/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traincheck/runner/runner.py": "89027b488ded8640fddb387dd80d98f059cf40be5f94863966b259acea1da7c7",
+      "traincheck/runner/__init__.py": "287ffa9cab82f01da0e82faea77589dc7d348710c862496458d2d60c364394ba",
+      "traincheck/script/num_invs_each_rel.py": "202f13d536929c52defa84cdce00dec2251ea09aabf3ae8ae57067c32d0b844d",
+      "traincheck/script/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traincheck/instrumentor/caches.py": "320eb1ffa1ce5f5b97fe4675a16d47e9591265779fdc29b94b72cdf5df93f168",
+      "traincheck/instrumentor/control.py": "3612a39b61e85fb77b40008b7fcd2f7569b246e8985ca64a109ea53733cd29ef",
+      "traincheck/instrumentor/__init__.py": "228b4f6a11cde8118cde9aba2f98b60a839f4331e7fa2b06c37cee99e79fcd50",
+      "traincheck/instrumentor/types.py": "258679aa8d0b40247d900ba2e26ab03b25cb4626b046ab6d724973226c7b5469",
+      "traincheck/instrumentor/dumper.py": "dd813a342b4531a6543995a23591f558db00d04142611a2d9656b1258833fac3",
+      "traincheck/instrumentor/source_file.py": "dad92c793efb41161d86250e89aa6a9636749564e567df8b9af92a477eb4858d",
+      "traincheck/instrumentor/variable.py": "b01219cdd74f011055e0bc2a645ed283dbc47e66a834d5555b814fa815a9eab8",
+      "traincheck/instrumentor/torchscript_compat.py": "0d0c348fa02d5f93bb74e874829e5fb4c57365b82ce973ae8ff1f21a42c2d64e",
+      "traincheck/instrumentor/replace_functions.py": "ca4f10b52083a4a5c251db194b7608406cbe36c85372dfdb9df17644f3d20b62",
+      "traincheck/instrumentor/tracer.py": "ad57320f0a3764c02c73cf4bfa623f1ef73b9835dfa6cb1365dc2988551de428",
+      "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "9dfecae65aee4185152d152a5c2fb0e1e1b63339efceab3087df59a5882410a8",
+      "traincheck/instrumentor/proxy_wrapper/subclass.py": "66c751aa8ff31ff9fbcda0a361be8187c50d6dfec0b339cd218955c5c6978a19",
+      "traincheck/instrumentor/proxy_wrapper/torch_proxy.py": "d6abd7f2eac207757fd90cbf55e179ae506b25996bed906c5a094564ff6faf2f",
+      "traincheck/instrumentor/proxy_wrapper/proxy_config.py": "afb2f8dd04ed10e628ff21339ec8ebef36357fd2a0cc084e99e99e37756cf16b",
+      "traincheck/instrumentor/proxy_wrapper/proxy.py": "fe241558f0591738391bc57d0666e3b11e04d8579eb220ce5de855abc309baf3",
+      "traincheck/instrumentor/proxy_wrapper/proxy_observer.py": "10e83570fbe1f72089e4a594a308f83e045f7d74bb9e49193012645ac906d97b",
+      "traincheck/instrumentor/proxy_wrapper/__init__.py": "7c71aaf70b978ee04e236497af6f803e4436049bc0acdf18c3edb48bfcece63d",
+      "traincheck/instrumentor/proxy_wrapper/dumper.py": "6907ac0a198443dd9138a37dc9b5de1232d3d7fb26412f8bba3fb08c85cd222d",
+      "traincheck/instrumentor/proxy_wrapper/proxy_methods.py": "6ae18928aa12e89b33102368c497aff048e3d6bed330eca2118fac051b8e3a97",
+      "traincheck/instrumentor/proxy_wrapper/hash.py": "e917bec817df1981c682d8b8645307432c6badb220b9f7c424b4089d9bf97bd7",
+      "traincheck/instrumentor/proxy_wrapper/proxy_handler.py": "4bab74647d35c64c5e9c702295dc4cb010302bf620401da0fad8539692b95ac7",
+      "traincheck/instrumentor/proxy_wrapper/utils.py": "5f058609e89a96a3545561ed82d83f7dd6a153bb0376608654c199691984dc14",
+      "traincheck/instrumentor/proxy_wrapper/proxy_basics.py": "f012e97fa51cf77be1806807ef6130b06c9cec6fde8d047d57d45b6ec9fcc6e5",
+      "traincheck/static_analyzer/config.py": "840460167bd6d26db429076cd4dc227e6c17c4e5fb157172041c48574f44edf7",
+      "traincheck/static_analyzer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traincheck/static_analyzer/graph_generator/anutils.py": "9e62b7ce5fced45a033b76de3d408bdff2fd8561ffa28bc58de82e4105b51d39",
+      "traincheck/static_analyzer/graph_generator/analyzer.py": "035684eb7ea4edf8ee0dbf4c6b12b91b428cd6dd57be5fe658253c21c8c420b1",
+      "traincheck/static_analyzer/graph_generator/call_graph_parser.py": "69e2555a1595078a2d2bca174de32cd7d4b0f023c0a20b68a01ca00d1d3b8647",
+      "traincheck/static_analyzer/graph_generator/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traincheck/static_analyzer/graph_generator/node.py": "b6a0cea44a28d33f28fee79b7f7073e69914e95565f7a8d62f9e5a5fd6b240cd",
+      "traincheck/static_analyzer/graph_generator/main.py": "a568488c50383a67a6ab8feecaf96e29b288861c1dce17481a1b5032d20748a4",
+      "traincheck/static_analyzer/func_level/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traincheck/onlinechecker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "traincheck/onlinechecker/streamhandler_filesystem.py": "b5a298bd06a9408e857ff6721578cb4ae10f227762ba3d66aec685e574cfa511",
+      "traincheck/onlinechecker/utils.py": "65ba5d8a84b748adf4267800e704df1f4662c0f483534289af20096bf9a78a00",
+      "traincheck/toolkit/analyze_trace.py": "48dfc81ef85d96678b5fe466b86ba80d892ecfc497387773fa7ab5995f22e822",
+      "traincheck/toolkit/analyze_invariant.py": "706cf8c06062b6df3f1f86691f588c91696cbef6c27698b2f0b290ad8f53ff4b",
+      "traincheck/toolkit/detect_anomaly_from_trace_diff.py": "2ffc0723dd3709ccab09cb9b58d76c7bb0558dda09b66c47184e335b815cedd3",
+      "traincheck/toolkit/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "runtime": {
+    "python": "3.11.4",
+    "torch": "2.16.0.dev20261012+cpu",
+    "pandas": "2.3.3",
+    "numpy": "2.1.0",
+    "device": "cpu",
+    "native_threads": 1
+  },
+  "protocol": {
+    "reference_seed": 42,
+    "reference_steps": 10,
+    "control_seed": 42,
+    "control_steps": 10,
+    "holdout_seed": 43,
+    "holdout_steps": 20,
+    "batch_size": 2,
+    "prepared_data_steps": 20,
+    "check_relation_first": false,
+    "inference_workers": 1,
+    "disabled_relations": [
+      "FunctionLeadRelation",
+      "FunctionCoverRelation"
+    ],
+    "each_phase_fresh_OS_process": true,
+    "holdout_inputs_overlap_reference": true,
+    "API_instrumentation": true,
+    "proxy_scanning": false
+  },
+  "tests": {
+    "local_counter_and_mutation": 13,
+    "matching_linux_counter_and_mutation": 13,
+    "matching_linux_composed_production_stack": 29
+  },
+  "archives_sha256": {
+    "harness-cad62cc-complete.tar.gz": "b9ed7f3401363e73d8b69c9b12f183429365df18c28a61c1969e3be90285cb5a",
+    "integration-v3-source.tar.gz": "4b19005ae6ecad19e48b531185a7552cdfd0d08b6d23c907460ac33adb6498c3",
+    "final-mnist-74b-diagnostic.tar.gz": "0612f10428e1f22ebc831e6e63f990a91c917aa6128044e43a86c3790ba61195",
+    "final-mnist-cad62cc-evidence.tar.gz": "6a9a6866c4ac78d6050527fd6dac1f7d9586427b2cd607cbe182e86bd8135e6d",
+    "final-transformer-cad62cc-evidence.tar.gz": "f3b5d6b4c9065362d3d59cfe2339363700137a2aec1cbe865217a3e5f6120acc"
+  },
+  "workloads": {
+    "mnist": {
+      "comparison": {
+        "status": "study_completed",
+        "invariants_sha256": "696547d55cb658fd691fbb11cad3a4ea5d7313874a22931b1615b1152608b9f7",
+        "training_comparisons": {
+          "same_seed_fresh_control": {
+            "loss_trajectory_equal": true,
+            "initial_state_sha256_equal": true,
+            "final_state_sha256_equal": true,
+            "shapes_equal": true
+          },
+          "holdout_instrumentation_comparison": {
+            "loss_trajectory_equal": true,
+            "initial_state_sha256_equal": true,
+            "final_state_sha256_equal": true,
+            "shapes_equal": true
+          }
+        },
+        "benchmark_data_runtime_source_and_harness_matched": true,
+        "observer_matches_direct_checker": true,
+        "per_run_summary": {
+          "reference": {
+            "completed": 204,
+            "active_invariants": 204,
+            "dormant_invariants": 0,
+            "violated_invariants": 0,
+            "identity_bearing_invariants": 0,
+            "identity_bearing_active": 0
+          },
+          "control": {
+            "completed": 204,
+            "active_invariants": 204,
+            "dormant_invariants": 0,
+            "violated_invariants": 0,
+            "identity_bearing_invariants": 0,
+            "identity_bearing_active": 0
+          },
+          "holdout": {
+            "completed": 204,
+            "active_invariants": 204,
+            "dormant_invariants": 0,
+            "violated_invariants": 0,
+            "identity_bearing_invariants": 0,
+            "identity_bearing_active": 0
+          },
+          "fault": {
+            "completed": 204,
+            "active_invariants": 204,
+            "dormant_invariants": 0,
+            "violated_invariants": 3,
+            "identity_bearing_invariants": 0,
+            "identity_bearing_active": 0
+          }
+        },
+        "per_relation": {
+          "reference": {
+            "APIContainRelation": {
+              "invariants": 33,
+              "active": 33,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 360,
+              "precondition_group_passes": 333,
+              "actual_decisions": 333,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 33
+            },
+            "ConsistentOutputRelation": {
+              "invariants": 71,
+              "active": 71,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 1420,
+              "precondition_group_passes": 1420,
+              "actual_decisions": 1420,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 71
+            },
+            "DistinctArgumentRelation": {
+              "invariants": 3,
+              "active": 3,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 30,
+              "precondition_group_passes": 3,
+              "actual_decisions": 30,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 3
+            },
+            "ConsistentInputOutputRelation": {
+              "invariants": 97,
+              "active": 97,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 1940,
+              "precondition_group_passes": 1940,
+              "actual_decisions": 1880,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 97
+            }
+          },
+          "control": {
+            "APIContainRelation": {
+              "invariants": 33,
+              "active": 33,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 360,
+              "precondition_group_passes": 333,
+              "actual_decisions": 333,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 33
+            },
+            "ConsistentOutputRelation": {
+              "invariants": 71,
+              "active": 71,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 1420,
+              "precondition_group_passes": 1420,
+              "actual_decisions": 1420,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 71
+            },
+            "DistinctArgumentRelation": {
+              "invariants": 3,
+              "active": 3,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 30,
+              "precondition_group_passes": 3,
+              "actual_decisions": 30,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 3
+            },
+            "ConsistentInputOutputRelation": {
+              "invariants": 97,
+              "active": 97,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 1940,
+              "precondition_group_passes": 1940,
+              "actual_decisions": 1880,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 97
+            }
+          },
+          "holdout": {
+            "APIContainRelation": {
+              "invariants": 33,
+              "active": 33,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 720,
+              "precondition_group_passes": 663,
+              "actual_decisions": 663,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 33
+            },
+            "ConsistentOutputRelation": {
+              "invariants": 71,
+              "active": 71,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 2840,
+              "precondition_group_passes": 2840,
+              "actual_decisions": 2840,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 71
+            },
+            "DistinctArgumentRelation": {
+              "invariants": 3,
+              "active": 3,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 60,
+              "precondition_group_passes": 3,
+              "actual_decisions": 60,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 3
+            },
+            "ConsistentInputOutputRelation": {
+              "invariants": 97,
+              "active": 97,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 3880,
+              "precondition_group_passes": 3880,
+              "actual_decisions": 3760,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 97
+            }
+          },
+          "fault": {
+            "APIContainRelation": {
+              "invariants": 33,
+              "active": 33,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 720,
+              "precondition_group_passes": 663,
+              "actual_decisions": 663,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 33
+            },
+            "ConsistentOutputRelation": {
+              "invariants": 71,
+              "active": 71,
+              "dormant": 0,
+              "violations": 1,
+              "opportunities": 2840,
+              "precondition_group_passes": 2801,
+              "actual_decisions": 2801,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 71
+            },
+            "DistinctArgumentRelation": {
+              "invariants": 3,
+              "active": 3,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 60,
+              "precondition_group_passes": 3,
+              "actual_decisions": 60,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 3
+            },
+            "ConsistentInputOutputRelation": {
+              "invariants": 97,
+              "active": 97,
+              "dormant": 0,
+              "violations": 2,
+              "opportunities": 3880,
+              "precondition_group_passes": 3802,
+              "actual_decisions": 3682,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 97
+            }
+          }
+        },
+        "raw_ids": {
+          "reference": {
+            "process": [
+              1347106
+            ],
+            "thread": [
+              140498110309440
+            ]
+          },
+          "control": {
+            "process": [
+              1347133
+            ],
+            "thread": [
+              140011360134208
+            ]
+          },
+          "holdout": {
+            "process": [
+              1347155
+            ],
+            "thread": [
+              140714782577728
+            ]
+          }
+        },
+        "fault": {
+          "kind": "post_hoc_trace_field_sensitivity_control_not_training_fault",
+          "invariant_index": 21,
+          "healthy_decisions": 40,
+          "fault_decisions": 1,
+          "fault_precondition_group_passes": 1,
+          "violation": true,
+          "edit": {
+            "file": "trace_API_1347155_140714782577728.log",
+            "zero_based_line": 15,
+            "path": [
+              "return_values",
+              "torch.FloatTensor",
+              "dtype"
+            ],
+            "attribute": "dtype",
+            "before_value": "torch.float32",
+            "after_value": "torch.float64",
+            "raw_process_id": 1347155,
+            "raw_thread_id": 140714782577728
+          }
+        },
+        "limitations": [
+          "One reference seed and one holdout seed per workload; no generalization estimate.",
+          "The first half of holdout inputs overlaps the reference inputs.",
+          "Offline checking; no online checker, distributed training, or runtime overhead claim.",
+          "Fault control is post-hoc trace sensitivity, not a reproduced training bug.",
+          "Source-exact checker stops at the first violation per invariant."
+        ]
+      },
+      "model": {
+        "model_config": {
+          "architecture": "exact Net class"
+        },
+        "parameter_count": 1199882,
+        "precision": "float32",
+        "extracted_symbols": [
+          "Net"
+        ],
+        "benchmark_source_sha256": "4478c5de92610a1e03d61c356801d51ffca749f99dac00f234d6b6ea2bcb2aa7",
+        "extracted_definitions_sha256": "f839142a57ce449054e05ffa79d746e5282e2599e101810e6ccf6e7a9dd33ce5",
+        "adapter_sha256": "876f28f728ef924fa97afb7be7786c8001df9e549e1d724fc6ba60c7fa6bf2f9",
+        "instrumentation": {
+          "funcs_to_instr": null,
+          "models_to_track": [],
+          "sampling_interval": 1,
+          "scan_proxy_in_args": false,
+          "target": "torch",
+          "use_full_instr": false,
+          "warm_up_steps": 0
+        },
+        "instrumented_function_count": 20998
+      },
+      "data": {
+        "count": 40,
+        "files": [
+          {
+            "path": "train-images-idx3-ubyte",
+            "sha256": "ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db"
+          },
+          {
+            "path": "train-labels-idx1-ubyte",
+            "sha256": "65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5"
+          }
+        ],
+        "kind": "cached_mnist_training_prefix",
+        "normalization": "(uint8 / 255 - 0.1307) / 0.3081",
+        "ordering": "first samples in IDX order; no shuffle"
+      },
+      "trace_rows": {
+        "reference": 1584,
+        "control": 1584,
+        "holdout": 3104,
+        "fault": 3104
+      },
+      "failed_inference_hypotheses": 20,
+      "artifact_sha256": {
+        "baseline-holdout/adaptation.json": "e513882d9150e0f71fd1389dc3a2c21901a3098c44475d207856fb0f0c0020d3",
+        "baseline-holdout/metrics.json": "b6fed469dd317b29f34b26a0be43035ce046483277b4b2ec0786deed72a4a445",
+        "baseline-holdout/phase-result.json": "57a7f3f7877aec96c5a7581b1bc3934e3aca82521719c35646b95033d56b0f34",
+        "check-control/coverage.json": "f07b558285dbc44eafccaea64f6f812f9b3ed3f52a8155b22e0c8fdc649a4a6b",
+        "check-control/phase-result.json": "3f19692915fe7560759742d1bc0e50d40a74f7c0eed628e36621e83b06dcdf3b",
+        "check-fault/coverage.json": "d3cc7954b4b07506c319bfb36ef8b60205392a02ceaaa8b4e5a17b2a8077097e",
+        "check-fault/phase-result.json": "d382c3a28c73aec5594cb5e998b58c1a32f858ba11b6126fd6479919acb3fbc4",
+        "check-holdout/coverage.json": "5dc166605d095aeaada421e5e201774f0c91d83e58cf097b1f5ac11f2cb33c2d",
+        "check-holdout/phase-result.json": "87586fb7106d5425b88dce9d696c661773b29bcf5daa123fefb57d17176f6cf7",
+        "check-holdout-direct/coverage.json": "29d316bf84d3de6dec6d2441c8a4f52e6a03a953e1f16182cf1255ae31a5fde0",
+        "check-holdout-direct/phase-result.json": "4c978a879f1af1e88595bbb7126ed8da69dc566598fe0a8958aa149d9cb24523",
+        "check-reference/coverage.json": "b30b981c7a88357ab883d3cde688e88d40c784204b474418d10d42a8643f99b8",
+        "check-reference/phase-result.json": "de96730dcb4d33a6760189b98824f0e4d5728bb9488984f7a2d69e36920c8d15",
+        "comparison.json": "e9feb79f1954ac3f5dc7a75e703a6bd00b29f4b59a6519d268f801e8a9a0697e",
+        "control/adaptation.json": "5abdf5a1f238cbd0e8a83ed88a908698e8b8cdb460a466f043f558950e7532af",
+        "control/metrics.json": "61e93a78e4612d6201decf311dde5b726d62405c5772f541c3ced16102226788",
+        "control/phase-result.json": "8c7a42816ea67cf150fe037715e14a64437f7519c803460183e8a26909f26c3c",
+        "fault/mutation.json": "c4b7db0e8d68453fb5cb89611573db5aec1773ebaca0ada67f866938e0da1a0a",
+        "holdout/adaptation.json": "2d4c4079c071a0500d8f08e734096b767c7da1998ebd667f4ace6b1c97d14f6d",
+        "holdout/metrics.json": "30e4e104d56b2a9bb5218e3b891dbab483362a435b1f3f3455fb3aba33bd6218",
+        "holdout/phase-result.json": "b00787f9a5b65f2b8b724ef6e38b71b126ec0bb0c19897806e8ae9fd24e4c754",
+        "inference/phase-result.json": "cec09cc23d492a1a5fa910ee69412d210b0cc47ca5b6dfe6ac878570f6043ad3",
+        "prepare-fault/phase-result.json": "46590662108731e2fac6096653c72c9e2dc6ddb51355c82bae69d5119993dd56",
+        "reference/adaptation.json": "8204e4744995631ee4982033a3949d1b59c99fa58cdf624031c250610dac8603",
+        "reference/metrics.json": "31a6c6e58a0ead22b57ad69584672e956491dc54872f14b8a20c08968df444b0",
+        "reference/phase-result.json": "d511dfe65964b24f114852e0ad8acfe36a016dc43aa4833e8c537f82fe23cb02",
+        "study-plan.json": "bd5d1b4ec4ffa8ef68813ef0f781de6b3cfa9790b323e4d98447cc8de501af87"
+      },
+      "invariants_jsonl_sha256": "696547d55cb658fd691fbb11cad3a4ea5d7313874a22931b1615b1152608b9f7",
+      "trace_sha256": {
+        "control/traces/trace_API_1347133_140011360134208.log": "e68a120d1713eeec0fb916a7938ee8b2ee2088ff16f9e2c41e89f1291cbee8d2",
+        "fault/traces/trace_API_1347155_140714782577728.log": "953fd8ed2ae5c7b9b8489a83b114c1b6f63a1fb210fe328ce63c65e8507f00fa",
+        "holdout/traces/trace_API_1347155_140714782577728.log": "764533de616105fecaf8f5a5b7c2bb9bf84b9a14c3cffb33fa0f88a92d047c44",
+        "reference/traces/trace_API_1347106_140498110309440.log": "c4800bbf95b3ef0fa367e107ca621beaba9768dc6a6c07fcc4e9439246da20be"
+      },
+      "training_metrics": {
+        "reference": {
+          "completed_steps": 10,
+          "initial_model_state_sha256": "877e9abeb783ae5ed703a9666a7276e921e0424b78bb2d50a41461221d90ddb0",
+          "final_model_state_sha256": "1b6002ccebfac00518fc53119b3166628a01d87a03a53b791b2759594281dc84",
+          "state_shapes_unchanged": true,
+          "success": true,
+          "losses": [
+            {
+              "loss": 2.2311902046203613
+            },
+            {
+              "loss": 3.296325445175171
+            },
+            {
+              "loss": 2.6148438453674316
+            },
+            {
+              "loss": 2.3794608116149902
+            },
+            {
+              "loss": 2.291707992553711
+            },
+            {
+              "loss": 2.423546552658081
+            },
+            {
+              "loss": 2.289013385772705
+            },
+            {
+              "loss": 2.39404559135437
+            },
+            {
+              "loss": 2.370988368988037
+            },
+            {
+              "loss": 2.282020092010498
+            }
+          ]
+        },
+        "control": {
+          "completed_steps": 10,
+          "initial_model_state_sha256": "877e9abeb783ae5ed703a9666a7276e921e0424b78bb2d50a41461221d90ddb0",
+          "final_model_state_sha256": "1b6002ccebfac00518fc53119b3166628a01d87a03a53b791b2759594281dc84",
+          "state_shapes_unchanged": true,
+          "success": true,
+          "losses": [
+            {
+              "loss": 2.2311902046203613
+            },
+            {
+              "loss": 3.296325445175171
+            },
+            {
+              "loss": 2.6148438453674316
+            },
+            {
+              "loss": 2.3794608116149902
+            },
+            {
+              "loss": 2.291707992553711
+            },
+            {
+              "loss": 2.423546552658081
+            },
+            {
+              "loss": 2.289013385772705
+            },
+            {
+              "loss": 2.39404559135437
+            },
+            {
+              "loss": 2.370988368988037
+            },
+            {
+              "loss": 2.282020092010498
+            }
+          ]
+        },
+        "holdout": {
+          "completed_steps": 20,
+          "initial_model_state_sha256": "5ce184958e1b3340cb58e0cc5f54150a9e7a3c8c84b6d5bce9a095f4c6f1256b",
+          "final_model_state_sha256": "5a1c83cc4671c529a5c7525303db31a3e9196de4619a49ef101a294c27686f3e",
+          "state_shapes_unchanged": true,
+          "success": true,
+          "losses": [
+            {
+              "loss": 2.237604856491089
+            },
+            {
+              "loss": 3.1580514907836914
+            },
+            {
+              "loss": 2.471099853515625
+            },
+            {
+              "loss": 2.4436941146850586
+            },
+            {
+              "loss": 2.2179641723632812
+            },
+            {
+              "loss": 2.353369951248169
+            },
+            {
+              "loss": 2.487359046936035
+            },
+            {
+              "loss": 2.25258731842041
+            },
+            {
+              "loss": 2.375113010406494
+            },
+            {
+              "loss": 2.3781189918518066
+            },
+            {
+              "loss": 2.244692802429199
+            },
+            {
+              "loss": 2.16099214553833
+            },
+            {
+              "loss": 1.955580711364746
+            },
+            {
+              "loss": 1.7661290168762207
+            },
+            {
+              "loss": 2.8482470512390137
+            },
+            {
+              "loss": 2.6151835918426514
+            },
+            {
+              "loss": 2.337063789367676
+            },
+            {
+              "loss": 2.2885587215423584
+            },
+            {
+              "loss": 2.2511115074157715
+            },
+            {
+              "loss": 2.382375717163086
+            }
+          ]
+        },
+        "baseline-holdout": {
+          "completed_steps": 20,
+          "initial_model_state_sha256": "5ce184958e1b3340cb58e0cc5f54150a9e7a3c8c84b6d5bce9a095f4c6f1256b",
+          "final_model_state_sha256": "5a1c83cc4671c529a5c7525303db31a3e9196de4619a49ef101a294c27686f3e",
+          "state_shapes_unchanged": true,
+          "success": true,
+          "losses": [
+            {
+              "loss": 2.237604856491089
+            },
+            {
+              "loss": 3.1580514907836914
+            },
+            {
+              "loss": 2.471099853515625
+            },
+            {
+              "loss": 2.4436941146850586
+            },
+            {
+              "loss": 2.2179641723632812
+            },
+            {
+              "loss": 2.353369951248169
+            },
+            {
+              "loss": 2.487359046936035
+            },
+            {
+              "loss": 2.25258731842041
+            },
+            {
+              "loss": 2.375113010406494
+            },
+            {
+              "loss": 2.3781189918518066
+            },
+            {
+              "loss": 2.244692802429199
+            },
+            {
+              "loss": 2.16099214553833
+            },
+            {
+              "loss": 1.955580711364746
+            },
+            {
+              "loss": 1.7661290168762207
+            },
+            {
+              "loss": 2.8482470512390137
+            },
+            {
+              "loss": 2.6151835918426514
+            },
+            {
+              "loss": 2.337063789367676
+            },
+            {
+              "loss": 2.2885587215423584
+            },
+            {
+              "loss": 2.2511115074157715
+            },
+            {
+              "loss": 2.382375717163086
+            }
+          ]
+        }
+      },
+      "coverage_columns": [
+        "opportunities",
+        "opportunity_unit",
+        "precondition_group_attempts",
+        "precondition_group_passes",
+        "precondition_group_failures",
+        "precondition_group_errors",
+        "decisions_started",
+        "decisions_completed",
+        "decisions_not_completed",
+        "visited_calls",
+        "unvisited_calls_after_stop",
+        "unvisited_pairs_after_stop",
+        "active",
+        "dormant",
+        "check_passed",
+        "variable_precondition_requested",
+        "variable_check_skipped",
+        "fully_validated_active"
+      ],
+      "fault": {
+        "kind": "post_hoc_trace_field_sensitivity_control_not_training_fault",
+        "selection": "first actually evaluated healthy mutable shape rule, otherwise a float32/float64 dtype rule",
+        "attribute": "dtype",
+        "invariant_index": 21,
+        "invariant": {
+          "text_description": "Conv2d.forward() consistently returns tensors with dtype=torch.float32",
+          "relation": "ConsistentOutputRelation",
+          "params": [
+            {
+              "param_type": "APIParam",
+              "api_full_name": "torch.nn.modules.conv.Conv2d.forward"
+            },
+            {
+              "param_type": "VarTypeParam",
+              "var_type": "torch.Tensor",
+              "attr_name": "dtype",
+              "const_value": "torch.float32"
+            }
+          ],
+          "precondition": {
+            "pre_event": {
+              "inverted": false,
+              "preconditions": [
+                {
+                  "clauses": "Unconditional"
+                }
+              ]
+            }
+          },
+          "num_positive_examples": 20,
+          "num_negative_examples": 0
+        },
+        "func_call_id": "9d110c7f11d845f9ad86b2a2e542b000_23960437373776510",
+        "edits": [
+          {
+            "file": "trace_API_1347155_140714782577728.log",
+            "zero_based_line": 15,
+            "path": [
+              "return_values",
+              "torch.FloatTensor",
+              "dtype"
+            ],
+            "attribute": "dtype",
+            "before_value": "torch.float32",
+            "after_value": "torch.float64",
+            "raw_process_id": 1347155,
+            "raw_thread_id": 140714782577728
+          }
+        ],
+        "traces": {
+          "trace_API_1347155_140714782577728.log": {
+            "original_sha256": "764533de616105fecaf8f5a5b7c2bb9bf84b9a14c3cffb33fa0f88a92d047c44",
+            "fault_sha256": "953fd8ed2ae5c7b9b8489a83b114c1b6f63a1fb210fe328ce63c65e8507f00fa"
+          }
+        },
+        "invariants_sha256": "696547d55cb658fd691fbb11cad3a4ea5d7313874a22931b1615b1152608b9f7",
+        "healthy_coverage_sha256": "5dc166605d095aeaada421e5e201774f0c91d83e58cf097b1f5ac11f2cb33c2d",
+        "precondition_inputs_unchanged": true,
+        "ids_unchanged": true,
+        "invariants_not_retrained_or_rewritten": true
+      },
+      "per_invariant_ledger": {
+        "file": "fresh-run-invariant-validation-mnist.jsonl",
+        "sha256": "59a8cf816bd4474ed4505d23959d52a7d050ef01ea222471f8fc3f1020d27bbd",
+        "format": "One rule per line; run arrays use coverage_columns in this document; null means not applicable/unobserved, never zero."
+      }
+    },
+    "transformer": {
+      "comparison": {
+        "status": "study_completed",
+        "invariants_sha256": "4d4afa40e1480809882761869195bf97e954cbc76bb7eff826125a91b8cd3996",
+        "training_comparisons": {
+          "same_seed_fresh_control": {
+            "loss_trajectory_equal": true,
+            "initial_state_sha256_equal": true,
+            "final_state_sha256_equal": true,
+            "shapes_equal": true
+          },
+          "holdout_instrumentation_comparison": {
+            "loss_trajectory_equal": true,
+            "initial_state_sha256_equal": true,
+            "final_state_sha256_equal": true,
+            "shapes_equal": true
+          }
+        },
+        "benchmark_data_runtime_source_and_harness_matched": true,
+        "observer_matches_direct_checker": true,
+        "per_run_summary": {
+          "reference": {
+            "completed": 564,
+            "active_invariants": 564,
+            "dormant_invariants": 0,
+            "violated_invariants": 0,
+            "identity_bearing_invariants": 0,
+            "identity_bearing_active": 0
+          },
+          "control": {
+            "completed": 564,
+            "active_invariants": 564,
+            "dormant_invariants": 0,
+            "violated_invariants": 2,
+            "identity_bearing_invariants": 0,
+            "identity_bearing_active": 0
+          },
+          "holdout": {
+            "completed": 564,
+            "active_invariants": 564,
+            "dormant_invariants": 0,
+            "violated_invariants": 2,
+            "identity_bearing_invariants": 0,
+            "identity_bearing_active": 0
+          },
+          "fault": {
+            "completed": 564,
+            "active_invariants": 564,
+            "dormant_invariants": 0,
+            "violated_invariants": 4,
+            "identity_bearing_invariants": 0,
+            "identity_bearing_active": 0
+          }
+        },
+        "per_relation": {
+          "reference": {
+            "APIContainRelation": {
+              "invariants": 70,
+              "active": 70,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 1100,
+              "precondition_group_passes": 1100,
+              "actual_decisions": 1100,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 70
+            },
+            "ConsistentOutputRelation": {
+              "invariants": 205,
+              "active": 205,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 6010,
+              "precondition_group_passes": 6010,
+              "actual_decisions": 6010,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 205
+            },
+            "ConsistentInputOutputRelation": {
+              "invariants": 285,
+              "active": 285,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 8450,
+              "precondition_group_passes": 8450,
+              "actual_decisions": 8450,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 285
+            },
+            "DistinctArgumentRelation": {
+              "invariants": 4,
+              "active": 4,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 220,
+              "precondition_group_passes": 4,
+              "actual_decisions": 220,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 4
+            }
+          },
+          "control": {
+            "APIContainRelation": {
+              "invariants": 70,
+              "active": 70,
+              "dormant": 0,
+              "violations": 2,
+              "opportunities": 1100,
+              "precondition_group_passes": 1082,
+              "actual_decisions": 1082,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 70
+            },
+            "ConsistentOutputRelation": {
+              "invariants": 205,
+              "active": 205,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 6010,
+              "precondition_group_passes": 6010,
+              "actual_decisions": 6010,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 205
+            },
+            "ConsistentInputOutputRelation": {
+              "invariants": 285,
+              "active": 285,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 8450,
+              "precondition_group_passes": 8450,
+              "actual_decisions": 8450,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 285
+            },
+            "DistinctArgumentRelation": {
+              "invariants": 4,
+              "active": 4,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 220,
+              "precondition_group_passes": 4,
+              "actual_decisions": 220,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 4
+            }
+          },
+          "holdout": {
+            "APIContainRelation": {
+              "invariants": 70,
+              "active": 70,
+              "dormant": 0,
+              "violations": 2,
+              "opportunities": 2200,
+              "precondition_group_passes": 2162,
+              "actual_decisions": 2162,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 70
+            },
+            "ConsistentOutputRelation": {
+              "invariants": 205,
+              "active": 205,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 12020,
+              "precondition_group_passes": 12020,
+              "actual_decisions": 12020,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 205
+            },
+            "ConsistentInputOutputRelation": {
+              "invariants": 285,
+              "active": 285,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 16900,
+              "precondition_group_passes": 16900,
+              "actual_decisions": 16900,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 285
+            },
+            "DistinctArgumentRelation": {
+              "invariants": 4,
+              "active": 4,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 440,
+              "precondition_group_passes": 4,
+              "actual_decisions": 440,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 4
+            }
+          },
+          "fault": {
+            "APIContainRelation": {
+              "invariants": 70,
+              "active": 70,
+              "dormant": 0,
+              "violations": 2,
+              "opportunities": 2200,
+              "precondition_group_passes": 2162,
+              "actual_decisions": 2162,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 70
+            },
+            "ConsistentOutputRelation": {
+              "invariants": 205,
+              "active": 205,
+              "dormant": 0,
+              "violations": 1,
+              "opportunities": 12020,
+              "precondition_group_passes": 12001,
+              "actual_decisions": 12001,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 205
+            },
+            "ConsistentInputOutputRelation": {
+              "invariants": 285,
+              "active": 285,
+              "dormant": 0,
+              "violations": 1,
+              "opportunities": 16900,
+              "precondition_group_passes": 16881,
+              "actual_decisions": 16881,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 285
+            },
+            "DistinctArgumentRelation": {
+              "invariants": 4,
+              "active": 4,
+              "dormant": 0,
+              "violations": 0,
+              "opportunities": 440,
+              "precondition_group_passes": 4,
+              "actual_decisions": 440,
+              "proxy_checks_skipped": 0,
+              "fully_validated_active": 4
+            }
+          }
+        },
+        "raw_ids": {
+          "reference": {
+            "process": [
+              1347485
+            ],
+            "thread": [
+              140490739766336
+            ]
+          },
+          "control": {
+            "process": [
+              1347544
+            ],
+            "thread": [
+              140262258558016
+            ]
+          },
+          "holdout": {
+            "process": [
+              1347647
+            ],
+            "thread": [
+              139745137321024
+            ]
+          }
+        },
+        "fault": {
+          "kind": "post_hoc_trace_field_sensitivity_control_not_training_fault",
+          "invariant_index": 84,
+          "healthy_decisions": 20,
+          "fault_decisions": 1,
+          "fault_precondition_group_passes": 1,
+          "violation": true,
+          "edit": {
+            "file": "trace_API_1347647_139745137321024.log",
+            "zero_based_line": 75,
+            "path": [
+              "return_values",
+              "torch.FloatTensor",
+              "shape",
+              0
+            ],
+            "attribute": "shape",
+            "before_value": [
+              16,
+              2,
+              32
+            ],
+            "after_value": [
+              17,
+              2,
+              32
+            ],
+            "raw_process_id": 1347647,
+            "raw_thread_id": 139745137321024
+          }
+        },
+        "limitations": [
+          "One reference seed and one holdout seed per workload; no generalization estimate.",
+          "The first half of holdout inputs overlaps the reference inputs.",
+          "Offline checking; no online checker, distributed training, or runtime overhead claim.",
+          "Fault control is post-hoc trace sensitivity, not a reproduced training bug.",
+          "Source-exact checker stops at the first violation per invariant."
+        ]
+      },
+      "model": {
+        "model_config": {
+          "clip": 0.25,
+          "dropout_argument": 0.2,
+          "lr": 1.0,
+          "nhead": 2,
+          "nhid": 64,
+          "ninp": 32,
+          "nlayers": 2,
+          "ntoken": 293,
+          "sequence_length": 16
+        },
+        "parameter_count": 36197,
+        "precision": "float32",
+        "extracted_symbols": [
+          "PositionalEncoding",
+          "TransformerModel"
+        ],
+        "benchmark_source_sha256": "e4451a33e9b16953004bc639d736d14f42a2b21f2939ccabe4cff10d3c40b74c",
+        "extracted_definitions_sha256": "1f2db95454690be6a91aaa141e3a5a246308f9abca11444c9113e4adfb78b95d",
+        "adapter_sha256": "876f28f728ef924fa97afb7be7786c8001df9e549e1d724fc6ba60c7fa6bf2f9",
+        "instrumentation": {
+          "funcs_to_instr": null,
+          "models_to_track": [],
+          "sampling_interval": 1,
+          "scan_proxy_in_args": false,
+          "target": "torch",
+          "use_full_instr": false,
+          "warm_up_steps": 0
+        },
+        "instrumented_function_count": 20998
+      },
+      "data": {
+        "adaptation": "Whitespace tokenization plus <eos>; vocabulary and tensors are bounded to the chosen prefix, unlike the full benchmark corpus.",
+        "kind": "wikitext2_training_prefix_with_prefix_only_vocabulary",
+        "path": "train.txt",
+        "prefix_sha256": "457b31f0b69fdfbf48c919d7fa9a7b073c2b03b8adfa51de3543e109b0e01903",
+        "sha256": "9e9fa1ad55b1c2c95b08e37dd8e653f638fac2c6de904b79e813611eefbc985f",
+        "token_count": 642,
+        "vocabulary_size": 293
+      },
+      "trace_rows": {
+        "reference": 4446,
+        "control": 4446,
+        "holdout": 8886,
+        "fault": 8886
+      },
+      "failed_inference_hypotheses": 11,
+      "artifact_sha256": {
+        "baseline-holdout/adaptation.json": "d73ea9cff0d15217963372d4c6b18eba13e0eaa4e03d45aa627ff9c753597a32",
+        "baseline-holdout/metrics.json": "f9d111863e26ff2023405c41cf862513d8ea167464ad4f7c10989abb257d669d",
+        "baseline-holdout/phase-result.json": "02e5f2576d7223c059e159f624d6e5030f3d08c9bab8391ee2e9bd051d1af4ef",
+        "check-control/coverage.json": "2fcdad5051bf4679d3663a0aaf86048a236e971a80517f33890a7f56b17f64c0",
+        "check-control/phase-result.json": "58d12a56e1be8fb59638f8ab13cb6257958be989bda2e0028d900a28dc3e64c6",
+        "check-fault/coverage.json": "a89b68a24e46228872553b8ee6fed51984e172e52651583be2ac4f23330d6d6d",
+        "check-fault/phase-result.json": "e063ef35ebd7eea7accff6e046e5fc2ca7650e4c94e3c3c2af7f69f8c99b114e",
+        "check-holdout/coverage.json": "079382f905a5809e6d66e2f1fd4ca4ca65423b1056eb69bdea1fa93a488f00f0",
+        "check-holdout/phase-result.json": "4807c3c7edd8e49d87150c29a3bd8aeee71992d21e08718c68976da3967c6d89",
+        "check-holdout-direct/coverage.json": "c060b0f9ef7da9002198017625d56876950518c5f4072d39d75e3982cc5019dd",
+        "check-holdout-direct/phase-result.json": "86455b01be33c9798433c7be940fc8bad767789e95852a0014fdabdbce1b34a9",
+        "check-reference/coverage.json": "771e09f0692dee2230d8e073d515945ebc74292b61baa04d830facb049284af2",
+        "check-reference/phase-result.json": "fde3c128ccc040852965261555e0d65b543a9360268f46a443cc2c8382a06eb7",
+        "comparison.json": "ce41f5fa74255424fb7c87344fbf3ba540629004f6e37662e2b5509444fed201",
+        "control/adaptation.json": "f1f9d3cebb92dc9a53a1810fd7ac2b9784f826359010fe8669209f17a2d6afef",
+        "control/metrics.json": "c91ee13d398cad807b7a62841f47e82d37492d49c23b961dcdb28a68ca7503f9",
+        "control/phase-result.json": "4d8a83a3b84ed1cc11c745392b8c3cdd5d34b395a99a4fb732c7449582de372a",
+        "fault/mutation.json": "cadfcc8f26752d903f5d05170cb38ff320b66f431e46518b190c8e3f0d7cd444",
+        "holdout/adaptation.json": "d9162c4392cf9a64111ed97779344ceda32f74e02bcf4c1274b2e14e2d7ec6da",
+        "holdout/metrics.json": "17a4d6ff99936f05e49552b26569ae8309955ff7088d69c3130327bed2b61d6c",
+        "holdout/phase-result.json": "2bb9f6cc8ffda717bb89688697da7889ce5855965c9e7f3b5087000b4c06e8d8",
+        "inference/phase-result.json": "15c4fbd12e3cf9609dd9be61491fd8a9f04e5b9813f55eed0656766b1a538d7c",
+        "prepare-fault/phase-result.json": "9b90cb87a59c3e12fb99dd819276f8b85231c431d0566a18ba88559c51b30cfb",
+        "reference/adaptation.json": "6078c8beafec0759c2742020cf94899ded01b5ebcbfb633d34ed6bb982d79c5f",
+        "reference/metrics.json": "710ef8a517ffd905f03efb88a59e35f2c7353b20d512d75e48f331738cd87b57",
+        "reference/phase-result.json": "25adbbf0eb426c585ced6ef4605d2d227bcda0b5c7079b9ceafa4908d1a89780",
+        "study-plan.json": "9d065aae89605f2fe63b299f15164f07275980c775bfe993c7baa12a6a0a9534"
+      },
+      "invariants_jsonl_sha256": "4d4afa40e1480809882761869195bf97e954cbc76bb7eff826125a91b8cd3996",
+      "trace_sha256": {
+        "control/traces/trace_API_1347544_140262258558016.log": "440ad458b125167c19146e5043ab355e236067dae7df623a8abd992e16b3df96",
+        "fault/traces/trace_API_1347647_139745137321024.log": "860ee3203f82a34b9e119cb975231ec57a6a98c548e81dae02809f422dc0dc55",
+        "holdout/traces/trace_API_1347647_139745137321024.log": "6f5985e8fb93c8e2783d28813457581e2f491592d62c0fa4c581ca2ce558f73d",
+        "reference/traces/trace_API_1347485_140490739766336.log": "4184c9abeacc8c3c49a583038f507a3b0c3fb7218733230f34530df54003f60a"
+      },
+      "training_metrics": {
+        "reference": {
+          "completed_steps": 10,
+          "initial_model_state_sha256": "83911ab0a0000c4a6fd71aa5bed8ca44de3241c5cd123367e70181c6eee5903c",
+          "final_model_state_sha256": "5034413e68786dd722b7681035bd6efb1c7d64b3c28ab450e458f5d80853fd76",
+          "state_shapes_unchanged": true,
+          "success": true,
+          "losses": [
+            {
+              "loss": 5.8035569190979
+            },
+            {
+              "loss": 5.7292656898498535
+            },
+            {
+              "loss": 5.618026256561279
+            },
+            {
+              "loss": 5.672450065612793
+            },
+            {
+              "loss": 5.592149257659912
+            },
+            {
+              "loss": 5.601678848266602
+            },
+            {
+              "loss": 5.614868640899658
+            },
+            {
+              "loss": 5.65100622177124
+            },
+            {
+              "loss": 5.449929237365723
+            },
+            {
+              "loss": 5.456549167633057
+            }
+          ]
+        },
+        "control": {
+          "completed_steps": 10,
+          "initial_model_state_sha256": "83911ab0a0000c4a6fd71aa5bed8ca44de3241c5cd123367e70181c6eee5903c",
+          "final_model_state_sha256": "5034413e68786dd722b7681035bd6efb1c7d64b3c28ab450e458f5d80853fd76",
+          "state_shapes_unchanged": true,
+          "success": true,
+          "losses": [
+            {
+              "loss": 5.8035569190979
+            },
+            {
+              "loss": 5.7292656898498535
+            },
+            {
+              "loss": 5.618026256561279
+            },
+            {
+              "loss": 5.672450065612793
+            },
+            {
+              "loss": 5.592149257659912
+            },
+            {
+              "loss": 5.601678848266602
+            },
+            {
+              "loss": 5.614868640899658
+            },
+            {
+              "loss": 5.65100622177124
+            },
+            {
+              "loss": 5.449929237365723
+            },
+            {
+              "loss": 5.456549167633057
+            }
+          ]
+        },
+        "holdout": {
+          "completed_steps": 20,
+          "initial_model_state_sha256": "31d5c753005bcf762ac2c1af38c3e71693cde10d193d80a85729ec342e69a572",
+          "final_model_state_sha256": "7e7a7529ef3c7d351ca0b0b3beccaf39c8eb8df71f2c8e8f9f9f5d936f9431c5",
+          "state_shapes_unchanged": true,
+          "success": true,
+          "losses": [
+            {
+              "loss": 5.669175624847412
+            },
+            {
+              "loss": 5.593283653259277
+            },
+            {
+              "loss": 5.664262771606445
+            },
+            {
+              "loss": 5.635302543640137
+            },
+            {
+              "loss": 5.59808874130249
+            },
+            {
+              "loss": 5.639740467071533
+            },
+            {
+              "loss": 5.552767753601074
+            },
+            {
+              "loss": 5.676934719085693
+            },
+            {
+              "loss": 5.419702529907227
+            },
+            {
+              "loss": 5.414367198944092
+            },
+            {
+              "loss": 5.355993747711182
+            },
+            {
+              "loss": 5.5031280517578125
+            },
+            {
+              "loss": 5.387535572052002
+            },
+            {
+              "loss": 5.472236633300781
+            },
+            {
+              "loss": 5.2465410232543945
+            },
+            {
+              "loss": 5.450842380523682
+            },
+            {
+              "loss": 5.42155647277832
+            },
+            {
+              "loss": 5.213186264038086
+            },
+            {
+              "loss": 5.500979423522949
+            },
+            {
+              "loss": 5.30380392074585
+            }
+          ]
+        },
+        "baseline-holdout": {
+          "completed_steps": 20,
+          "initial_model_state_sha256": "31d5c753005bcf762ac2c1af38c3e71693cde10d193d80a85729ec342e69a572",
+          "final_model_state_sha256": "7e7a7529ef3c7d351ca0b0b3beccaf39c8eb8df71f2c8e8f9f9f5d936f9431c5",
+          "state_shapes_unchanged": true,
+          "success": true,
+          "losses": [
+            {
+              "loss": 5.669175624847412
+            },
+            {
+              "loss": 5.593283653259277
+            },
+            {
+              "loss": 5.664262771606445
+            },
+            {
+              "loss": 5.635302543640137
+            },
+            {
+              "loss": 5.59808874130249
+            },
+            {
+              "loss": 5.639740467071533
+            },
+            {
+              "loss": 5.552767753601074
+            },
+            {
+              "loss": 5.676934719085693
+            },
+            {
+              "loss": 5.419702529907227
+            },
+            {
+              "loss": 5.414367198944092
+            },
+            {
+              "loss": 5.355993747711182
+            },
+            {
+              "loss": 5.5031280517578125
+            },
+            {
+              "loss": 5.387535572052002
+            },
+            {
+              "loss": 5.472236633300781
+            },
+            {
+              "loss": 5.2465410232543945
+            },
+            {
+              "loss": 5.450842380523682
+            },
+            {
+              "loss": 5.42155647277832
+            },
+            {
+              "loss": 5.213186264038086
+            },
+            {
+              "loss": 5.500979423522949
+            },
+            {
+              "loss": 5.30380392074585
+            }
+          ]
+        }
+      },
+      "coverage_columns": [
+        "opportunities",
+        "opportunity_unit",
+        "precondition_group_attempts",
+        "precondition_group_passes",
+        "precondition_group_failures",
+        "precondition_group_errors",
+        "decisions_started",
+        "decisions_completed",
+        "decisions_not_completed",
+        "visited_calls",
+        "unvisited_calls_after_stop",
+        "unvisited_pairs_after_stop",
+        "active",
+        "dormant",
+        "check_passed",
+        "variable_precondition_requested",
+        "variable_check_skipped",
+        "fully_validated_active"
+      ],
+      "fault": {
+        "kind": "post_hoc_trace_field_sensitivity_control_not_training_fault",
+        "selection": "first actually evaluated healthy mutable shape rule, otherwise a float32/float64 dtype rule",
+        "attribute": "shape",
+        "invariant_index": 84,
+        "invariant": {
+          "text_description": "Embedding.forward() consistently returns tensors with shape=(16, 2, 32)",
+          "relation": "ConsistentOutputRelation",
+          "params": [
+            {
+              "param_type": "APIParam",
+              "api_full_name": "torch.nn.modules.sparse.Embedding.forward"
+            },
+            {
+              "param_type": "VarTypeParam",
+              "var_type": "torch.Tensor",
+              "attr_name": "shape",
+              "const_value": [
+                16,
+                2,
+                32
+              ]
+            }
+          ],
+          "precondition": {
+            "pre_event": {
+              "inverted": false,
+              "preconditions": [
+                {
+                  "clauses": "Unconditional"
+                }
+              ]
+            }
+          },
+          "num_positive_examples": 10,
+          "num_negative_examples": 0
+        },
+        "func_call_id": "e4ac9bdf7ba245438bdc313f1b54c933_23960502411558452",
+        "edits": [
+          {
+            "file": "trace_API_1347647_139745137321024.log",
+            "zero_based_line": 75,
+            "path": [
+              "return_values",
+              "torch.FloatTensor",
+              "shape",
+              0
+            ],
+            "attribute": "shape",
+            "before_value": [
+              16,
+              2,
+              32
+            ],
+            "after_value": [
+              17,
+              2,
+              32
+            ],
+            "raw_process_id": 1347647,
+            "raw_thread_id": 139745137321024
+          }
+        ],
+        "traces": {
+          "trace_API_1347647_139745137321024.log": {
+            "original_sha256": "6f5985e8fb93c8e2783d28813457581e2f491592d62c0fa4c581ca2ce558f73d",
+            "fault_sha256": "860ee3203f82a34b9e119cb975231ec57a6a98c548e81dae02809f422dc0dc55"
+          }
+        },
+        "invariants_sha256": "4d4afa40e1480809882761869195bf97e954cbc76bb7eff826125a91b8cd3996",
+        "healthy_coverage_sha256": "079382f905a5809e6d66e2f1fd4ca4ca65423b1056eb69bdea1fa93a488f00f0",
+        "precondition_inputs_unchanged": true,
+        "ids_unchanged": true,
+        "invariants_not_retrained_or_rewritten": true
+      },
+      "healthy_false_alarm_evidence": [
+        {
+          "index": 523,
+          "rule": {
+            "text_description": "clip_grad.clip_grad_norm_() always calls Module._named_members()",
+            "relation": "APIContainRelation",
+            "params": [
+              {
+                "param_type": "APIParam",
+                "api_full_name": "torch.nn.utils.clip_grad.clip_grad_norm_"
+              },
+              {
+                "param_type": "APIParam",
+                "api_full_name": "torch.nn.modules.module.Module._named_members",
+                "arguments": {
+                  "args": {
+                    "prefix": {
+                      "str": ""
+                    },
+                    "recurse": {
+                      "bool": true
+                    },
+                    "remove_duplicate": {
+                      "bool": true
+                    },
+                    "self": {
+                      "trace_impact_benchmark.TransformerModel": {
+                        "batch_first": false,
+                        "call_super_init": false,
+                        "d_model": 32,
+                        "dump_patches": false,
+                        "model_type": "Transformer",
+                        "nhead": 2,
+                        "ninp": 32,
+                        "_TRAINCHECK_src_mask_ID": 140489496626592,
+                        "training": true
+                      }
+                    },
+                    "get_members_fn": {
+                      "torch.nn.modules.module.Module.named_parameters.<locals>.<lambda>": {}
+                    }
+                  },
+                  "func_name": "torch.nn.modules.module.Module._named_members"
+                }
+              }
+            ],
+            "precondition": {
+              "parent_func_call_pre": {
+                "inverted": false,
+                "preconditions": [
+                  {
+                    "clauses": "Unconditional"
+                  }
+                ]
+              }
+            },
+            "num_positive_examples": 10,
+            "num_negative_examples": 0
+          },
+          "evidence": {
+            "reference": {
+              "parent_call_id": "1ea3c64687494354b9700101b1e519a0_23960484884548567",
+              "child_call_id": "1ea3c64687494354b9700101b1e519a0_23960484884819012",
+              "same_process_and_thread": true,
+              "strictly_within_parent_times": true,
+              "self_argument_differences": {},
+              "child_raw_args": {
+                "0": {
+                  "trace_impact_benchmark.TransformerModel": {
+                    "batch_first": false,
+                    "call_super_init": false,
+                    "d_model": 32,
+                    "dump_patches": false,
+                    "model_type": "Transformer",
+                    "nhead": 2,
+                    "ninp": 32,
+                    "_TRAINCHECK_src_mask_ID": 140489496626592,
+                    "training": true
+                  }
+                },
+                "1": {
+                  "torch.nn.modules.module.Module.named_parameters.<locals>.<lambda>": {}
+                }
+              },
+              "child_raw_kwargs": {
+                "prefix": {
+                  "str": ""
+                },
+                "recurse": {
+                  "bool": true
+                },
+                "remove_duplicate": {
+                  "bool": true
+                }
+              }
+            },
+            "control": {
+              "parent_call_id": "3490429521a1490fb8fdab3ab3bb7098_23960493769087879",
+              "child_call_id": "3490429521a1490fb8fdab3ab3bb7098_23960493769353813",
+              "same_process_and_thread": true,
+              "strictly_within_parent_times": true,
+              "self_argument_differences": {
+                "_TRAINCHECK_src_mask_ID": {
+                  "expected": 140489496626592,
+                  "actual": 140261014914224
+                }
+              },
+              "child_raw_args": {
+                "0": {
+                  "trace_impact_benchmark.TransformerModel": {
+                    "batch_first": false,
+                    "call_super_init": false,
+                    "d_model": 32,
+                    "dump_patches": false,
+                    "model_type": "Transformer",
+                    "nhead": 2,
+                    "ninp": 32,
+                    "_TRAINCHECK_src_mask_ID": 140261014914224,
+                    "training": true
+                  }
+                },
+                "1": {
+                  "torch.nn.modules.module.Module.named_parameters.<locals>.<lambda>": {}
+                }
+              },
+              "child_raw_kwargs": {
+                "prefix": {
+                  "str": ""
+                },
+                "recurse": {
+                  "bool": true
+                },
+                "remove_duplicate": {
+                  "bool": true
+                }
+              }
+            },
+            "holdout": {
+              "parent_call_id": "e4ac9bdf7ba245438bdc313f1b54c933_23960502637904174",
+              "child_call_id": "e4ac9bdf7ba245438bdc313f1b54c933_23960502638163694",
+              "same_process_and_thread": true,
+              "strictly_within_parent_times": true,
+              "self_argument_differences": {
+                "_TRAINCHECK_src_mask_ID": {
+                  "expected": 140489496626592,
+                  "actual": 139743891407568
+                }
+              },
+              "child_raw_args": {
+                "0": {
+                  "trace_impact_benchmark.TransformerModel": {
+                    "batch_first": false,
+                    "call_super_init": false,
+                    "d_model": 32,
+                    "dump_patches": false,
+                    "model_type": "Transformer",
+                    "nhead": 2,
+                    "ninp": 32,
+                    "_TRAINCHECK_src_mask_ID": 139743891407568,
+                    "training": true
+                  }
+                },
+                "1": {
+                  "torch.nn.modules.module.Module.named_parameters.<locals>.<lambda>": {}
+                }
+              },
+              "child_raw_kwargs": {
+                "prefix": {
+                  "str": ""
+                },
+                "recurse": {
+                  "bool": true
+                },
+                "remove_duplicate": {
+                  "bool": true
+                }
+              }
+            }
+          }
+        },
+        {
+          "index": 525,
+          "rule": {
+            "text_description": "clip_grad.clip_grad_norm_() always calls Module.named_parameters()",
+            "relation": "APIContainRelation",
+            "params": [
+              {
+                "param_type": "APIParam",
+                "api_full_name": "torch.nn.utils.clip_grad.clip_grad_norm_"
+              },
+              {
+                "param_type": "APIParam",
+                "api_full_name": "torch.nn.modules.module.Module.named_parameters",
+                "arguments": {
+                  "args": {
+                    "recurse": {
+                      "bool": true
+                    },
+                    "self": {
+                      "trace_impact_benchmark.TransformerModel": {
+                        "batch_first": false,
+                        "call_super_init": false,
+                        "d_model": 32,
+                        "dump_patches": false,
+                        "model_type": "Transformer",
+                        "nhead": 2,
+                        "ninp": 32,
+                        "_TRAINCHECK_src_mask_ID": 140489496626592,
+                        "training": true
+                      }
+                    }
+                  },
+                  "func_name": "torch.nn.modules.module.Module.named_parameters"
+                }
+              }
+            ],
+            "precondition": {
+              "parent_func_call_pre": {
+                "inverted": false,
+                "preconditions": [
+                  {
+                    "clauses": "Unconditional"
+                  }
+                ]
+              }
+            },
+            "num_positive_examples": 10,
+            "num_negative_examples": 0
+          },
+          "evidence": {
+            "reference": {
+              "parent_call_id": "1ea3c64687494354b9700101b1e519a0_23960484884548567",
+              "child_call_id": "1ea3c64687494354b9700101b1e519a0_23960484884631538",
+              "same_process_and_thread": true,
+              "strictly_within_parent_times": true,
+              "self_argument_differences": {},
+              "child_raw_args": {
+                "0": {
+                  "trace_impact_benchmark.TransformerModel": {
+                    "batch_first": false,
+                    "call_super_init": false,
+                    "d_model": 32,
+                    "dump_patches": false,
+                    "model_type": "Transformer",
+                    "nhead": 2,
+                    "ninp": 32,
+                    "_TRAINCHECK_src_mask_ID": 140489496626592,
+                    "training": true
+                  }
+                }
+              },
+              "child_raw_kwargs": {
+                "recurse": {
+                  "bool": true
+                }
+              }
+            },
+            "control": {
+              "parent_call_id": "3490429521a1490fb8fdab3ab3bb7098_23960493769087879",
+              "child_call_id": "3490429521a1490fb8fdab3ab3bb7098_23960493769166145",
+              "same_process_and_thread": true,
+              "strictly_within_parent_times": true,
+              "self_argument_differences": {
+                "_TRAINCHECK_src_mask_ID": {
+                  "expected": 140489496626592,
+                  "actual": 140261014914224
+                }
+              },
+              "child_raw_args": {
+                "0": {
+                  "trace_impact_benchmark.TransformerModel": {
+                    "batch_first": false,
+                    "call_super_init": false,
+                    "d_model": 32,
+                    "dump_patches": false,
+                    "model_type": "Transformer",
+                    "nhead": 2,
+                    "ninp": 32,
+                    "_TRAINCHECK_src_mask_ID": 140261014914224,
+                    "training": true
+                  }
+                }
+              },
+              "child_raw_kwargs": {
+                "recurse": {
+                  "bool": true
+                }
+              }
+            },
+            "holdout": {
+              "parent_call_id": "e4ac9bdf7ba245438bdc313f1b54c933_23960502637904174",
+              "child_call_id": "e4ac9bdf7ba245438bdc313f1b54c933_23960502637977940",
+              "same_process_and_thread": true,
+              "strictly_within_parent_times": true,
+              "self_argument_differences": {
+                "_TRAINCHECK_src_mask_ID": {
+                  "expected": 140489496626592,
+                  "actual": 139743891407568
+                }
+              },
+              "child_raw_args": {
+                "0": {
+                  "trace_impact_benchmark.TransformerModel": {
+                    "batch_first": false,
+                    "call_super_init": false,
+                    "d_model": 32,
+                    "dump_patches": false,
+                    "model_type": "Transformer",
+                    "nhead": 2,
+                    "ninp": 32,
+                    "_TRAINCHECK_src_mask_ID": 139743891407568,
+                    "training": true
+                  }
+                }
+              },
+              "child_raw_kwargs": {
+                "recurse": {
+                  "bool": true
+                }
+              }
+            }
+          }
+        }
+      ],
+      "per_invariant_ledger": {
+        "file": "fresh-run-invariant-validation-transformer.jsonl",
+        "sha256": "2e7ec6dbc35408bb1a39bff7be96943e00a64cf9d464c6091d54f275d06534f9",
+        "format": "One rule per line; run arrays use coverage_columns in this document; null means not applicable/unobserved, never zero."
+      },
+      "literal_object_ID_argument_false_alarm_rules": 2
+    }
+  },
+  "limitations": [
+    "One reference/control/holdout per workload; no population generalization estimate.",
+    "Fresh initialization and training RNG with longer horizon; not disjoint-dataset validation.",
+    "Offline checking; no online, distributed, performance, or inference-memory claim.",
+    "Faults alter recorded metadata only, not real training execution.",
+    "Active means at least one actual predicate decision; it does not mean every opportunity was evaluated.",
+    "Checker stops at first violation per rule; violation counts are failing invariants, not all bad events.",
+    "No raw process/thread clauses were inferred here; original TorchTitan literal-thread-ID rules remain untested.",
+    "The 74b3adf MNIST attempt stopped after healthy phases because its shape-only fault selector had no eligible rule; preserved separately."
+  ],
+  "metric_semantics": {
+    "identity_bearing_invariants": "Frozen checker counter means raw process/thread-ID PRECONDITION clauses only; excludes object IDs in API argument selectors.",
+    "identity_bearing_active": "Active rules among that same narrow PID/TID-precondition group.",
+    "fully_validated_active": "At least one completed decision and no requested proxy-check skip; does not mean all opportunities were evaluated."
+  }
+}

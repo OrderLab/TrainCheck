@@ -1,0 +1,872 @@
+{
+  "scope": "Three alternating sequential unprofiled CPU saved-trace inference pairs; both variants include the common pruning-state correction.",
+  "date_utc": "2026-10-25",
+  "started_utc": "2026-10-25T10:44:10.532938+00:00",
+  "ended_utc": "2026-10-25T10:53:12.729963+00:00",
+  "source": {
+    "base_branch_commit": "99d16905296d83495570fdcafa91370b242d2528",
+    "candidate_production_commit": "24e7cb0f7a573ff6225a388eff189d9e4af5e8b5",
+    "candidate_benchmark_commit": "39152aded8b97ed83988e3292bb89c6e3adcf750",
+    "common_state_fix_commit": "1b5aedffbeefd4cdd9d30036dbb0a833521526cf",
+    "only_production_difference": [
+      "traincheck/trace/trace_pandas.py"
+    ],
+    "production_sha256": {
+      "baseline": {
+        "traincheck/__init__.py": "47fdcb090c4c8c5822769d642dc23a520e8d8ff3e4724583450723e05408164b",
+        "traincheck/checker.py": "44dc20fc66ca82bb6b71fa02033aae3b7d489ae7afbc1611c44e857f399716b2",
+        "traincheck/checker_online.py": "2824c9ccd2f684c86884c68f2214a1a4be1d69c6098ce30b817d03f1fe1077d6",
+        "traincheck/collect_trace.py": "c1db96c798af9689f8ee7f7b0b929d90694d49a234cb217beaf435d4b8d5cfb0",
+        "traincheck/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/config/config.py": "4c940a4d92f5de5fe8d3885e570078e479d9842d9626651fd60483e78f0160a9",
+        "traincheck/developer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/developer/annotations.py": "0ff28d35e085b40e1e366499feec96c8eb1e13bf3100dcdd7ab304c7f2f6e963",
+        "traincheck/infer_engine.py": "476a3ec99bef0ab823b23f94bc95842c20b6d9b7b4a57ab4a2efa2987f30f286",
+        "traincheck/inference_sampling.py": "ba566c3745ed3043ef27cbc626c21b358d1d01c95a26f1ebc9c8f56391d63681",
+        "traincheck/instrumentor/__init__.py": "228b4f6a11cde8118cde9aba2f98b60a839f4331e7fa2b06c37cee99e79fcd50",
+        "traincheck/instrumentor/caches.py": "320eb1ffa1ce5f5b97fe4675a16d47e9591265779fdc29b94b72cdf5df93f168",
+        "traincheck/instrumentor/control.py": "3612a39b61e85fb77b40008b7fcd2f7569b246e8985ca64a109ea53733cd29ef",
+        "traincheck/instrumentor/dumper.py": "c78bda77cfe83be10b6b385b55563fa6ca72ecc116f8bcc1557544d2e5d2df98",
+        "traincheck/instrumentor/proxy_wrapper/__init__.py": "7c71aaf70b978ee04e236497af6f803e4436049bc0acdf18c3edb48bfcece63d",
+        "traincheck/instrumentor/proxy_wrapper/dumper.py": "6907ac0a198443dd9138a37dc9b5de1232d3d7fb26412f8bba3fb08c85cd222d",
+        "traincheck/instrumentor/proxy_wrapper/hash.py": "e917bec817df1981c682d8b8645307432c6badb220b9f7c424b4089d9bf97bd7",
+        "traincheck/instrumentor/proxy_wrapper/proxy.py": "fe241558f0591738391bc57d0666e3b11e04d8579eb220ce5de855abc309baf3",
+        "traincheck/instrumentor/proxy_wrapper/proxy_basics.py": "f012e97fa51cf77be1806807ef6130b06c9cec6fde8d047d57d45b6ec9fcc6e5",
+        "traincheck/instrumentor/proxy_wrapper/proxy_config.py": "afb2f8dd04ed10e628ff21339ec8ebef36357fd2a0cc084e99e99e37756cf16b",
+        "traincheck/instrumentor/proxy_wrapper/proxy_handler.py": "4bab74647d35c64c5e9c702295dc4cb010302bf620401da0fad8539692b95ac7",
+        "traincheck/instrumentor/proxy_wrapper/proxy_methods.py": "6ae18928aa12e89b33102368c497aff048e3d6bed330eca2118fac051b8e3a97",
+        "traincheck/instrumentor/proxy_wrapper/proxy_observer.py": "10e83570fbe1f72089e4a594a308f83e045f7d74bb9e49193012645ac906d97b",
+        "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "9dfecae65aee4185152d152a5c2fb0e1e1b63339efceab3087df59a5882410a8",
+        "traincheck/instrumentor/proxy_wrapper/subclass.py": "66c751aa8ff31ff9fbcda0a361be8187c50d6dfec0b339cd218955c5c6978a19",
+        "traincheck/instrumentor/proxy_wrapper/torch_proxy.py": "d6abd7f2eac207757fd90cbf55e179ae506b25996bed906c5a094564ff6faf2f",
+        "traincheck/instrumentor/proxy_wrapper/utils.py": "5f058609e89a96a3545561ed82d83f7dd6a153bb0376608654c199691984dc14",
+        "traincheck/instrumentor/replace_functions.py": "ca4f10b52083a4a5c251db194b7608406cbe36c85372dfdb9df17644f3d20b62",
+        "traincheck/instrumentor/source_file.py": "dad92c793efb41161d86250e89aa6a9636749564e567df8b9af92a477eb4858d",
+        "traincheck/instrumentor/tracer.py": "5476b155823b4287f9cb01e498f70b99921063a052512a9f0d5d5b76974850f4",
+        "traincheck/instrumentor/types.py": "258679aa8d0b40247d900ba2e26ab03b25cb4626b046ab6d724973226c7b5469",
+        "traincheck/instrumentor/variable.py": "b01219cdd74f011055e0bc2a645ed283dbc47e66a834d5555b814fa815a9eab8",
+        "traincheck/invariant/DistinctArgumentRelation.py": "6e01540583668e30718ba90c341fd540cd9df53f20525a6cf502fcceee8ed7bc",
+        "traincheck/invariant/__init__.py": "773e9f767566ffd92658dc0e94107ac840672e446a41ba437a49cee9cc52197a",
+        "traincheck/invariant/base_cls.py": "31ceb584760d26e9923d2c7ce962fd6f093a3a6ba983ed177fcb4257c1da2466",
+        "traincheck/invariant/consistency_relation.py": "bc5b14810ea8a5e0e5f3e6c2c6be24d137a444d8609216d00eafd155b4aa3917",
+        "traincheck/invariant/consistency_transient_vars.py": "a702cd1b6787e8be1904bef9119773c0e037a83017959c771020dbbbbe1549e2",
+        "traincheck/invariant/contain_relation.py": "b32f819db4d5a11a11318bf7e38c64148f4c9360137ac5f09475b480c34c16a5",
+        "traincheck/invariant/cover_relation.py": "0eb0e1c30ad5b34a15ce32c7b0d15e894f7a3b9b68bfcaae5b901f5dc6a092c6",
+        "traincheck/invariant/lead_relation.py": "978a4db32b69dc1a90a84123aa93e52a3caaba97761321dbb844666cb47d4360",
+        "traincheck/invariant/precondition.py": "c14c7580643780954eab5a4d955b0b5d6a6768a57cd8e5e48328ad0d8f2f8703",
+        "traincheck/invariant/relation_pool.py": "8ac568cf1924162a791728ed5db8c41868a550f9e0cd5190fc9a19827f55d3e6",
+        "traincheck/invariant/symbolic_value.py": "28627e2c2a47a146087a96510f07f7deb8463c46371e418afa3fdeff33c7e6cb",
+        "traincheck/invariant/var_periodic_change_relation.py": "8086df3b9cfe34229b8bd46b18dce22a4b746902e38d1ba4bd02bc6f6c2f2ef4",
+        "traincheck/onlinechecker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/onlinechecker/streamhandler_filesystem.py": "b5a298bd06a9408e857ff6721578cb4ae10f227762ba3d66aec685e574cfa511",
+        "traincheck/onlinechecker/utils.py": "65ba5d8a84b748adf4267800e704df1f4662c0f483534289af20096bf9a78a00",
+        "traincheck/parallel.py": "6843319dd8c5c397e93f361a29fe564161e7307fbe4f0f8368090d252d4a7bc4",
+        "traincheck/progress.py": "aab7d040324e283c8474aa82bc7550a777aec316131a26e1dc1b6a277333d1ae",
+        "traincheck/reporting/__init__.py": "299180153357c4e6f48cf75191e915d70cfca5ae6e7b3ac4d45144066b93ddca",
+        "traincheck/reporting/checker_report.py": "0d59b1753fc348701b49a0eb74e4b1d849a47d8234005ccbbb26e09e3cd0c808",
+        "traincheck/runner/__init__.py": "287ffa9cab82f01da0e82faea77589dc7d348710c862496458d2d60c364394ba",
+        "traincheck/runner/runner.py": "89027b488ded8640fddb387dd80d98f059cf40be5f94863966b259acea1da7c7",
+        "traincheck/script/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/script/num_invs_each_rel.py": "202f13d536929c52defa84cdce00dec2251ea09aabf3ae8ae57067c32d0b844d",
+        "traincheck/static_analyzer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/config.py": "840460167bd6d26db429076cd4dc227e6c17c4e5fb157172041c48574f44edf7",
+        "traincheck/static_analyzer/func_level/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/graph_generator/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/graph_generator/analyzer.py": "035684eb7ea4edf8ee0dbf4c6b12b91b428cd6dd57be5fe658253c21c8c420b1",
+        "traincheck/static_analyzer/graph_generator/anutils.py": "9e62b7ce5fced45a033b76de3d408bdff2fd8561ffa28bc58de82e4105b51d39",
+        "traincheck/static_analyzer/graph_generator/call_graph_parser.py": "69e2555a1595078a2d2bca174de32cd7d4b0f023c0a20b68a01ca00d1d3b8647",
+        "traincheck/static_analyzer/graph_generator/main.py": "a568488c50383a67a6ab8feecaf96e29b288861c1dce17481a1b5032d20748a4",
+        "traincheck/static_analyzer/graph_generator/node.py": "b6a0cea44a28d33f28fee79b7f7073e69914e95565f7a8d62f9e5a5fd6b240cd",
+        "traincheck/toolkit/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/toolkit/analyze_invariant.py": "706cf8c06062b6df3f1f86691f588c91696cbef6c27698b2f0b290ad8f53ff4b",
+        "traincheck/toolkit/analyze_trace.py": "48dfc81ef85d96678b5fe466b86ba80d892ecfc497387773fa7ab5995f22e822",
+        "traincheck/toolkit/detect_anomaly_from_trace_diff.py": "2ffc0723dd3709ccab09cb9b58d76c7bb0558dda09b66c47184e335b815cedd3",
+        "traincheck/trace/__init__.py": "ec84edd0ff32906c20956166a51b85b3847e22e48432c6a31698080cafbcbc2b",
+        "traincheck/trace/trace.py": "eac49a1cb958ccaae57ac93e8aad1cbc616e7fcef23068ef5bb68bbc54890c00",
+        "traincheck/trace/trace_dict.py": "3aec874ef0ce2c34f6332dface604d5f79965976fd3d1c2b692f746f2af4e703",
+        "traincheck/trace/trace_pandas.py": "41040a288284dc10041a4c06d8598219605732dd5dcd2ef080b9ed0799387f8a",
+        "traincheck/trace/trace_polars.py": "64136efcd60a851b0391e708108570b259c2288db6242564b636f69abd1b7b0e",
+        "traincheck/trace/types.py": "96c1b137f3d72fb05dcf806a4e7ea21fe453ae9cbc3e08352c55e95973fe96e0",
+        "traincheck/trace/utils.py": "6356156e4c5bbb6c111140302660f36ad1c126e5bc977bd55c81f097022102a3",
+        "traincheck/utils.py": "c36764ec7b9d7224c82071abf2f83d5ee9952e6868774dff62d851da9d0270e1"
+      },
+      "candidate": {
+        "traincheck/__init__.py": "47fdcb090c4c8c5822769d642dc23a520e8d8ff3e4724583450723e05408164b",
+        "traincheck/checker.py": "44dc20fc66ca82bb6b71fa02033aae3b7d489ae7afbc1611c44e857f399716b2",
+        "traincheck/checker_online.py": "2824c9ccd2f684c86884c68f2214a1a4be1d69c6098ce30b817d03f1fe1077d6",
+        "traincheck/collect_trace.py": "c1db96c798af9689f8ee7f7b0b929d90694d49a234cb217beaf435d4b8d5cfb0",
+        "traincheck/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/config/config.py": "4c940a4d92f5de5fe8d3885e570078e479d9842d9626651fd60483e78f0160a9",
+        "traincheck/developer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/developer/annotations.py": "0ff28d35e085b40e1e366499feec96c8eb1e13bf3100dcdd7ab304c7f2f6e963",
+        "traincheck/infer_engine.py": "476a3ec99bef0ab823b23f94bc95842c20b6d9b7b4a57ab4a2efa2987f30f286",
+        "traincheck/inference_sampling.py": "ba566c3745ed3043ef27cbc626c21b358d1d01c95a26f1ebc9c8f56391d63681",
+        "traincheck/instrumentor/__init__.py": "228b4f6a11cde8118cde9aba2f98b60a839f4331e7fa2b06c37cee99e79fcd50",
+        "traincheck/instrumentor/caches.py": "320eb1ffa1ce5f5b97fe4675a16d47e9591265779fdc29b94b72cdf5df93f168",
+        "traincheck/instrumentor/control.py": "3612a39b61e85fb77b40008b7fcd2f7569b246e8985ca64a109ea53733cd29ef",
+        "traincheck/instrumentor/dumper.py": "c78bda77cfe83be10b6b385b55563fa6ca72ecc116f8bcc1557544d2e5d2df98",
+        "traincheck/instrumentor/proxy_wrapper/__init__.py": "7c71aaf70b978ee04e236497af6f803e4436049bc0acdf18c3edb48bfcece63d",
+        "traincheck/instrumentor/proxy_wrapper/dumper.py": "6907ac0a198443dd9138a37dc9b5de1232d3d7fb26412f8bba3fb08c85cd222d",
+        "traincheck/instrumentor/proxy_wrapper/hash.py": "e917bec817df1981c682d8b8645307432c6badb220b9f7c424b4089d9bf97bd7",
+        "traincheck/instrumentor/proxy_wrapper/proxy.py": "fe241558f0591738391bc57d0666e3b11e04d8579eb220ce5de855abc309baf3",
+        "traincheck/instrumentor/proxy_wrapper/proxy_basics.py": "f012e97fa51cf77be1806807ef6130b06c9cec6fde8d047d57d45b6ec9fcc6e5",
+        "traincheck/instrumentor/proxy_wrapper/proxy_config.py": "afb2f8dd04ed10e628ff21339ec8ebef36357fd2a0cc084e99e99e37756cf16b",
+        "traincheck/instrumentor/proxy_wrapper/proxy_handler.py": "4bab74647d35c64c5e9c702295dc4cb010302bf620401da0fad8539692b95ac7",
+        "traincheck/instrumentor/proxy_wrapper/proxy_methods.py": "6ae18928aa12e89b33102368c497aff048e3d6bed330eca2118fac051b8e3a97",
+        "traincheck/instrumentor/proxy_wrapper/proxy_observer.py": "10e83570fbe1f72089e4a594a308f83e045f7d74bb9e49193012645ac906d97b",
+        "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "9dfecae65aee4185152d152a5c2fb0e1e1b63339efceab3087df59a5882410a8",
+        "traincheck/instrumentor/proxy_wrapper/subclass.py": "66c751aa8ff31ff9fbcda0a361be8187c50d6dfec0b339cd218955c5c6978a19",
+        "traincheck/instrumentor/proxy_wrapper/torch_proxy.py": "d6abd7f2eac207757fd90cbf55e179ae506b25996bed906c5a094564ff6faf2f",
+        "traincheck/instrumentor/proxy_wrapper/utils.py": "5f058609e89a96a3545561ed82d83f7dd6a153bb0376608654c199691984dc14",
+        "traincheck/instrumentor/replace_functions.py": "ca4f10b52083a4a5c251db194b7608406cbe36c85372dfdb9df17644f3d20b62",
+        "traincheck/instrumentor/source_file.py": "dad92c793efb41161d86250e89aa6a9636749564e567df8b9af92a477eb4858d",
+        "traincheck/instrumentor/tracer.py": "5476b155823b4287f9cb01e498f70b99921063a052512a9f0d5d5b76974850f4",
+        "traincheck/instrumentor/types.py": "258679aa8d0b40247d900ba2e26ab03b25cb4626b046ab6d724973226c7b5469",
+        "traincheck/instrumentor/variable.py": "b01219cdd74f011055e0bc2a645ed283dbc47e66a834d5555b814fa815a9eab8",
+        "traincheck/invariant/DistinctArgumentRelation.py": "6e01540583668e30718ba90c341fd540cd9df53f20525a6cf502fcceee8ed7bc",
+        "traincheck/invariant/__init__.py": "773e9f767566ffd92658dc0e94107ac840672e446a41ba437a49cee9cc52197a",
+        "traincheck/invariant/base_cls.py": "31ceb584760d26e9923d2c7ce962fd6f093a3a6ba983ed177fcb4257c1da2466",
+        "traincheck/invariant/consistency_relation.py": "bc5b14810ea8a5e0e5f3e6c2c6be24d137a444d8609216d00eafd155b4aa3917",
+        "traincheck/invariant/consistency_transient_vars.py": "a702cd1b6787e8be1904bef9119773c0e037a83017959c771020dbbbbe1549e2",
+        "traincheck/invariant/contain_relation.py": "b32f819db4d5a11a11318bf7e38c64148f4c9360137ac5f09475b480c34c16a5",
+        "traincheck/invariant/cover_relation.py": "0eb0e1c30ad5b34a15ce32c7b0d15e894f7a3b9b68bfcaae5b901f5dc6a092c6",
+        "traincheck/invariant/lead_relation.py": "978a4db32b69dc1a90a84123aa93e52a3caaba97761321dbb844666cb47d4360",
+        "traincheck/invariant/precondition.py": "c14c7580643780954eab5a4d955b0b5d6a6768a57cd8e5e48328ad0d8f2f8703",
+        "traincheck/invariant/relation_pool.py": "8ac568cf1924162a791728ed5db8c41868a550f9e0cd5190fc9a19827f55d3e6",
+        "traincheck/invariant/symbolic_value.py": "28627e2c2a47a146087a96510f07f7deb8463c46371e418afa3fdeff33c7e6cb",
+        "traincheck/invariant/var_periodic_change_relation.py": "8086df3b9cfe34229b8bd46b18dce22a4b746902e38d1ba4bd02bc6f6c2f2ef4",
+        "traincheck/onlinechecker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/onlinechecker/streamhandler_filesystem.py": "b5a298bd06a9408e857ff6721578cb4ae10f227762ba3d66aec685e574cfa511",
+        "traincheck/onlinechecker/utils.py": "65ba5d8a84b748adf4267800e704df1f4662c0f483534289af20096bf9a78a00",
+        "traincheck/parallel.py": "6843319dd8c5c397e93f361a29fe564161e7307fbe4f0f8368090d252d4a7bc4",
+        "traincheck/progress.py": "aab7d040324e283c8474aa82bc7550a777aec316131a26e1dc1b6a277333d1ae",
+        "traincheck/reporting/__init__.py": "299180153357c4e6f48cf75191e915d70cfca5ae6e7b3ac4d45144066b93ddca",
+        "traincheck/reporting/checker_report.py": "0d59b1753fc348701b49a0eb74e4b1d849a47d8234005ccbbb26e09e3cd0c808",
+        "traincheck/runner/__init__.py": "287ffa9cab82f01da0e82faea77589dc7d348710c862496458d2d60c364394ba",
+        "traincheck/runner/runner.py": "89027b488ded8640fddb387dd80d98f059cf40be5f94863966b259acea1da7c7",
+        "traincheck/script/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/script/num_invs_each_rel.py": "202f13d536929c52defa84cdce00dec2251ea09aabf3ae8ae57067c32d0b844d",
+        "traincheck/static_analyzer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/config.py": "840460167bd6d26db429076cd4dc227e6c17c4e5fb157172041c48574f44edf7",
+        "traincheck/static_analyzer/func_level/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/graph_generator/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/graph_generator/analyzer.py": "035684eb7ea4edf8ee0dbf4c6b12b91b428cd6dd57be5fe658253c21c8c420b1",
+        "traincheck/static_analyzer/graph_generator/anutils.py": "9e62b7ce5fced45a033b76de3d408bdff2fd8561ffa28bc58de82e4105b51d39",
+        "traincheck/static_analyzer/graph_generator/call_graph_parser.py": "69e2555a1595078a2d2bca174de32cd7d4b0f023c0a20b68a01ca00d1d3b8647",
+        "traincheck/static_analyzer/graph_generator/main.py": "a568488c50383a67a6ab8feecaf96e29b288861c1dce17481a1b5032d20748a4",
+        "traincheck/static_analyzer/graph_generator/node.py": "b6a0cea44a28d33f28fee79b7f7073e69914e95565f7a8d62f9e5a5fd6b240cd",
+        "traincheck/toolkit/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/toolkit/analyze_invariant.py": "706cf8c06062b6df3f1f86691f588c91696cbef6c27698b2f0b290ad8f53ff4b",
+        "traincheck/toolkit/analyze_trace.py": "48dfc81ef85d96678b5fe466b86ba80d892ecfc497387773fa7ab5995f22e822",
+        "traincheck/toolkit/detect_anomaly_from_trace_diff.py": "2ffc0723dd3709ccab09cb9b58d76c7bb0558dda09b66c47184e335b815cedd3",
+        "traincheck/trace/__init__.py": "ec84edd0ff32906c20956166a51b85b3847e22e48432c6a31698080cafbcbc2b",
+        "traincheck/trace/trace.py": "eac49a1cb958ccaae57ac93e8aad1cbc616e7fcef23068ef5bb68bbc54890c00",
+        "traincheck/trace/trace_dict.py": "3aec874ef0ce2c34f6332dface604d5f79965976fd3d1c2b692f746f2af4e703",
+        "traincheck/trace/trace_pandas.py": "819f7a60271da11522bb451920835e2651efb7117dec8cb08c3cc23d0c193464",
+        "traincheck/trace/trace_polars.py": "64136efcd60a851b0391e708108570b259c2288db6242564b636f69abd1b7b0e",
+        "traincheck/trace/types.py": "96c1b137f3d72fb05dcf806a4e7ea21fe453ae9cbc3e08352c55e95973fe96e0",
+        "traincheck/trace/utils.py": "6356156e4c5bbb6c111140302660f36ad1c126e5bc977bd55c81f097022102a3",
+        "traincheck/utils.py": "c36764ec7b9d7224c82071abf2f83d5ee9952e6868774dff62d851da9d0270e1"
+      }
+    },
+    "all_source_files_unchanged_after_all_runs": true
+  },
+  "runtime": {
+    "python": "3.11.4 (main, Jul  5 2023, 13:45:01) [GCC 11.2.0]",
+    "packages": {
+      "numpy": "2.1.0",
+      "pandas": "2.3.3",
+      "torch": "2.16.0.dev20261012+cpu"
+    },
+    "torch_git_revision": "8f9045d72f71e7aa9e16b6d7a055ec5bc1f720b5",
+    "original_training_runtime_difference": "Original training used Python 3.12.3 and CUDA 13.0; inference uses Python 3.11.4 and CPU torch from the same source revision."
+  },
+  "workload": {
+    "saved_model_parameters": 6163712,
+    "training_steps": 10,
+    "sequence_length": 256,
+    "batch_size": 1,
+    "seed": 42,
+    "trace_events": 573494,
+    "raw_bytes": 286335289,
+    "traces": {
+      "trace_API_1088885_23438542501568.log": {
+        "bytes": 82668375,
+        "sha256": "883d288d6955b12c49dc741c166bcca7d191c890d19565802dad60708979278d"
+      },
+      "trace_API_1088885_23456244348224.log": {
+        "bytes": 203666914,
+        "sha256": "416b8ca45b4df361fc73052447573d7cb23d433d16c0947d74bbc18f7cc6c9a8"
+      }
+    },
+    "all_traces_unchanged_after_all_runs": true,
+    "enabled_relation_count": 6,
+    "disabled_relations": [
+      "FunctionLeadRelation",
+      "FunctionCoverRelation"
+    ],
+    "eligible_api_count": 41,
+    "api_coverage_limit": "Original name set was not recorded; matching count alone does not establish exact original-environment API coverage."
+  },
+  "settings": {
+    "backend": "pandas",
+    "workers": 1,
+    "native_threads": 1,
+    "CUDA_VISIBLE_DEVICES": "",
+    "PYTHONHASHSEED": "0",
+    "timeout_seconds": 1800,
+    "sampled_child_session_pss_budget_gib": 12,
+    "memory_sample_interval_seconds": 1,
+    "cprofile": false,
+    "periodic_traceback_dumps": false,
+    "fatal_faulthandler": true,
+    "fresh_process_and_trace_per_run": true,
+    "lazy_index_build_included": true,
+    "cpu_affinity": null,
+    "exclusive_host": false,
+    "run_order": [
+      [
+        "baseline",
+        "candidate"
+      ],
+      [
+        "candidate",
+        "baseline"
+      ],
+      [
+        "baseline",
+        "candidate"
+      ]
+    ]
+  },
+  "runs": [
+    {
+      "pair": 1,
+      "order": 1,
+      "variant": "baseline",
+      "monitor_returncode": 0,
+      "result": {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "5e4933736061977b60f01396ef03e14a7549faf67fda9b70743c116a62de0798",
+          "distinct_records": 104,
+          "records": 104
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "955ecefffb96cc5f1acf3b95aaf82de2d808e13d86371c4aee27f5a811b07bdb",
+          "distinct_records": 836,
+          "records": 836
+        },
+        "sampled_peak_concurrent_memory": {
+          "pss_bytes": 2327513088,
+          "rss_bytes": 2335973376,
+          "uss_bytes": 2324221952
+        },
+        "source_unchanged": true,
+        "stage_times": {
+          "marker_durations": {
+            "cross_trace_collection_seconds": 0.0,
+            "generation_and_pruning_seconds": 75.47,
+            "precondition_and_output_sort_seconds": 12.565
+          },
+          "markers": {
+            "collection_start": "2026-10-25T06:45:38.025000",
+            "generation_start": "2026-10-25T06:44:22.555000",
+            "inference_end": "2026-10-25T06:45:50.590000",
+            "precondition_start": "2026-10-25T06:45:38.025000"
+          },
+          "note": "Log marker intervals; missing endpoints mean incomplete phases, not zero duration.",
+          "reported": {
+            "inference_seconds": 88.07923460006714,
+            "load_seconds": 10.64183259010315
+          }
+        },
+        "stop_reason": null,
+        "success": true,
+        "traces_unchanged": true,
+        "wall_seconds": 102.65519127622247
+      },
+      "all_outputs_equal_corrected_reference": true,
+      "background_load": {
+        "before": {
+          "loadavg_1_5_15_minutes": [
+            1.29,
+            1.24,
+            1.16
+          ],
+          "host_cpu_percent_sample": 4.6,
+          "available_memory_bytes": 52341108736
+        },
+        "after": {
+          "loadavg_1_5_15_minutes": [
+            1.93,
+            1.5,
+            1.27
+          ],
+          "host_cpu_percent_sample": 3.5,
+          "available_memory_bytes": 52397568000
+        }
+      }
+    },
+    {
+      "pair": 1,
+      "order": 2,
+      "variant": "candidate",
+      "monitor_returncode": 0,
+      "result": {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "5e4933736061977b60f01396ef03e14a7549faf67fda9b70743c116a62de0798",
+          "distinct_records": 104,
+          "records": 104
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "955ecefffb96cc5f1acf3b95aaf82de2d808e13d86371c4aee27f5a811b07bdb",
+          "distinct_records": 836,
+          "records": 836
+        },
+        "sampled_peak_concurrent_memory": {
+          "pss_bytes": 2328130560,
+          "rss_bytes": 2336595968,
+          "uss_bytes": 2324832256
+        },
+        "source_unchanged": true,
+        "stage_times": {
+          "marker_durations": {
+            "cross_trace_collection_seconds": 0.0,
+            "generation_and_pruning_seconds": 49.225,
+            "precondition_and_output_sort_seconds": 12.592
+          },
+          "markers": {
+            "collection_start": "2026-10-25T06:46:55.427000",
+            "generation_start": "2026-10-25T06:46:06.202000",
+            "inference_end": "2026-10-25T06:47:08.019000",
+            "precondition_start": "2026-10-25T06:46:55.427000"
+          },
+          "note": "Log marker intervals; missing endpoints mean incomplete phases, not zero duration.",
+          "reported": {
+            "inference_seconds": 61.86267161369324,
+            "load_seconds": 10.646003484725952
+          }
+        },
+        "stop_reason": null,
+        "success": true,
+        "traces_unchanged": true,
+        "wall_seconds": 76.7478895187378
+      },
+      "all_outputs_equal_corrected_reference": true,
+      "background_load": {
+        "before": {
+          "loadavg_1_5_15_minutes": [
+            1.93,
+            1.5,
+            1.27
+          ],
+          "host_cpu_percent_sample": 3.3,
+          "available_memory_bytes": 52395216896
+        },
+        "after": {
+          "loadavg_1_5_15_minutes": [
+            2.14,
+            1.64,
+            1.34
+          ],
+          "host_cpu_percent_sample": 3.3,
+          "available_memory_bytes": 52372901888
+        }
+      }
+    },
+    {
+      "pair": 2,
+      "order": 1,
+      "variant": "candidate",
+      "monitor_returncode": 0,
+      "result": {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "5e4933736061977b60f01396ef03e14a7549faf67fda9b70743c116a62de0798",
+          "distinct_records": 104,
+          "records": 104
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "955ecefffb96cc5f1acf3b95aaf82de2d808e13d86371c4aee27f5a811b07bdb",
+          "distinct_records": 836,
+          "records": 836
+        },
+        "sampled_peak_concurrent_memory": {
+          "pss_bytes": 2328266752,
+          "rss_bytes": 2336739328,
+          "uss_bytes": 2324983808
+        },
+        "source_unchanged": true,
+        "stage_times": {
+          "marker_durations": {
+            "cross_trace_collection_seconds": 0.001,
+            "generation_and_pruning_seconds": 49.337,
+            "precondition_and_output_sort_seconds": 12.469
+          },
+          "markers": {
+            "collection_start": "2026-10-25T06:48:13.227000",
+            "generation_start": "2026-10-25T06:47:23.890000",
+            "inference_end": "2026-10-25T06:48:25.697000",
+            "precondition_start": "2026-10-25T06:48:13.228000"
+          },
+          "note": "Log marker intervals; missing endpoints mean incomplete phases, not zero duration.",
+          "reported": {
+            "inference_seconds": 61.853256940841675,
+            "load_seconds": 10.614852905273438
+          }
+        },
+        "stop_reason": null,
+        "success": true,
+        "traces_unchanged": true,
+        "wall_seconds": 76.78805723041296
+      },
+      "all_outputs_equal_corrected_reference": true,
+      "background_load": {
+        "before": {
+          "loadavg_1_5_15_minutes": [
+            2.14,
+            1.64,
+            1.34
+          ],
+          "host_cpu_percent_sample": 3.3,
+          "available_memory_bytes": 52375351296
+        },
+        "after": {
+          "loadavg_1_5_15_minutes": [
+            2.0,
+            1.73,
+            1.4
+          ],
+          "host_cpu_percent_sample": 3.7,
+          "available_memory_bytes": 52377493504
+        }
+      }
+    },
+    {
+      "pair": 2,
+      "order": 2,
+      "variant": "baseline",
+      "monitor_returncode": 0,
+      "result": {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "5e4933736061977b60f01396ef03e14a7549faf67fda9b70743c116a62de0798",
+          "distinct_records": 104,
+          "records": 104
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "955ecefffb96cc5f1acf3b95aaf82de2d808e13d86371c4aee27f5a811b07bdb",
+          "distinct_records": 836,
+          "records": 836
+        },
+        "sampled_peak_concurrent_memory": {
+          "pss_bytes": 2286166016,
+          "rss_bytes": 2294603776,
+          "uss_bytes": 2282872832
+        },
+        "source_unchanged": true,
+        "stage_times": {
+          "marker_durations": {
+            "cross_trace_collection_seconds": 0.0,
+            "generation_and_pruning_seconds": 73.854,
+            "precondition_and_output_sort_seconds": 12.484
+          },
+          "markers": {
+            "collection_start": "2026-10-25T06:49:55.626000",
+            "generation_start": "2026-10-25T06:48:41.772000",
+            "inference_end": "2026-10-25T06:50:08.110000",
+            "precondition_start": "2026-10-25T06:49:55.626000"
+          },
+          "note": "Log marker intervals; missing endpoints mean incomplete phases, not zero duration.",
+          "reported": {
+            "inference_seconds": 86.3845362663269,
+            "load_seconds": 10.706615447998047
+          }
+        },
+        "stop_reason": null,
+        "success": true,
+        "traces_unchanged": true,
+        "wall_seconds": 101.79567445069551
+      },
+      "all_outputs_equal_corrected_reference": true,
+      "background_load": {
+        "before": {
+          "loadavg_1_5_15_minutes": [
+            2.0,
+            1.73,
+            1.4
+          ],
+          "host_cpu_percent_sample": 3.6,
+          "available_memory_bytes": 52377260032
+        },
+        "after": {
+          "loadavg_1_5_15_minutes": [
+            2.19,
+            1.88,
+            1.49
+          ],
+          "host_cpu_percent_sample": 3.6,
+          "available_memory_bytes": 52357947392
+        }
+      }
+    },
+    {
+      "pair": 3,
+      "order": 1,
+      "variant": "baseline",
+      "monitor_returncode": 0,
+      "result": {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "5e4933736061977b60f01396ef03e14a7549faf67fda9b70743c116a62de0798",
+          "distinct_records": 104,
+          "records": 104
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "955ecefffb96cc5f1acf3b95aaf82de2d808e13d86371c4aee27f5a811b07bdb",
+          "distinct_records": 836,
+          "records": 836
+        },
+        "sampled_peak_concurrent_memory": {
+          "pss_bytes": 2286102528,
+          "rss_bytes": 2294554624,
+          "uss_bytes": 2282823680
+        },
+        "source_unchanged": true,
+        "stage_times": {
+          "marker_durations": {
+            "cross_trace_collection_seconds": 0.0,
+            "generation_and_pruning_seconds": 73.811,
+            "precondition_and_output_sort_seconds": 12.432
+          },
+          "markers": {
+            "collection_start": "2026-10-25T06:51:38.197000",
+            "generation_start": "2026-10-25T06:50:24.386000",
+            "inference_end": "2026-10-25T06:51:50.629000",
+            "precondition_start": "2026-10-25T06:51:38.197000"
+          },
+          "note": "Log marker intervals; missing endpoints mean incomplete phases, not zero duration.",
+          "reported": {
+            "inference_seconds": 86.28747224807739,
+            "load_seconds": 10.534409046173096
+          }
+        },
+        "stop_reason": null,
+        "success": true,
+        "traces_unchanged": true,
+        "wall_seconds": 101.61026244610548
+      },
+      "all_outputs_equal_corrected_reference": true,
+      "background_load": {
+        "before": {
+          "loadavg_1_5_15_minutes": [
+            2.19,
+            1.88,
+            1.49
+          ],
+          "host_cpu_percent_sample": 3.4,
+          "available_memory_bytes": 52357136384
+        },
+        "after": {
+          "loadavg_1_5_15_minutes": [
+            2.25,
+            1.98,
+            1.57
+          ],
+          "host_cpu_percent_sample": 3.3,
+          "available_memory_bytes": 52370046976
+        }
+      }
+    },
+    {
+      "pair": 3,
+      "order": 2,
+      "variant": "candidate",
+      "monitor_returncode": 0,
+      "result": {
+        "exit_code": 0,
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "5e4933736061977b60f01396ef03e14a7549faf67fda9b70743c116a62de0798",
+          "distinct_records": 104,
+          "records": 104
+        },
+        "invariants": {
+          "canonical_multiset_sha256": "955ecefffb96cc5f1acf3b95aaf82de2d808e13d86371c4aee27f5a811b07bdb",
+          "distinct_records": 836,
+          "records": 836
+        },
+        "sampled_peak_concurrent_memory": {
+          "pss_bytes": 2328313856,
+          "rss_bytes": 2336751616,
+          "uss_bytes": 2325057536
+        },
+        "source_unchanged": true,
+        "stage_times": {
+          "marker_durations": {
+            "cross_trace_collection_seconds": 0.001,
+            "generation_and_pruning_seconds": 49.004,
+            "precondition_and_output_sort_seconds": 12.445
+          },
+          "markers": {
+            "collection_start": "2026-10-25T06:52:56.197000",
+            "generation_start": "2026-10-25T06:52:07.193000",
+            "inference_end": "2026-10-25T06:53:08.643000",
+            "precondition_start": "2026-10-25T06:52:56.198000"
+          },
+          "note": "Log marker intervals; missing endpoints mean incomplete phases, not zero duration.",
+          "reported": {
+            "inference_seconds": 61.49606490135193,
+            "load_seconds": 10.764497995376587
+          }
+        },
+        "stop_reason": null,
+        "success": true,
+        "traces_unchanged": true,
+        "wall_seconds": 76.6580608561635
+      },
+      "all_outputs_equal_corrected_reference": true,
+      "background_load": {
+        "before": {
+          "loadavg_1_5_15_minutes": [
+            2.25,
+            1.98,
+            1.57
+          ],
+          "host_cpu_percent_sample": 3.6,
+          "available_memory_bytes": 52370046976
+        },
+        "after": {
+          "loadavg_1_5_15_minutes": [
+            2.26,
+            2.03,
+            1.62
+          ],
+          "host_cpu_percent_sample": 3.5,
+          "available_memory_bytes": 52363665408
+        }
+      }
+    }
+  ],
+  "medians": {
+    "baseline": {
+      "wall_seconds": 101.79567445069551,
+      "wall_min_seconds": 101.61026244610548,
+      "wall_max_seconds": 102.65519127622247,
+      "peak_pss_bytes": 2286166016,
+      "load_seconds": 10.64183259010315,
+      "inference_seconds": 86.3845362663269,
+      "generation_and_pruning_seconds": 73.854,
+      "precondition_and_output_sort_seconds": 12.484
+    },
+    "candidate": {
+      "wall_seconds": 76.7478895187378,
+      "wall_min_seconds": 76.6580608561635,
+      "wall_max_seconds": 76.78805723041296,
+      "peak_pss_bytes": 2328266752,
+      "load_seconds": 10.646003484725952,
+      "inference_seconds": 61.853256940841675,
+      "generation_and_pruning_seconds": 49.225,
+      "precondition_and_output_sort_seconds": 12.469
+    }
+  },
+  "ratio_of_median_wall_times": 1.3263644784113884,
+  "median_wall_reduction_percent": 24.605942312499295,
+  "median_peak_pss_increase_bytes": 42100736,
+  "equivalence": {
+    "all_outputs_equal_corrected_reference": true,
+    "comparison": "Complete structural JSON multisets; duplicate multiplicity and array order preserved, object key and record line order ignored.",
+    "outputs": {
+      "invariants": {
+        "records": 836,
+        "distinct_records": 836,
+        "canonical_multiset_sha256": "955ecefffb96cc5f1acf3b95aaf82de2d808e13d86371c4aee27f5a811b07bdb"
+      },
+      "failed_hypotheses": {
+        "records": 104,
+        "distinct_records": 104,
+        "canonical_multiset_sha256": "5e4933736061977b60f01396ef03e14a7549faf67fda9b70743c116a62de0798"
+      }
+    },
+    "all_six_output_files_also_byte_identical": true,
+    "raw_output_sha256": {
+      "invariants.jsonl": "67ae805da54231ecfcfba060280ca8d5a0b2e98b44523f06b7c64490e9e3a8f0",
+      "invariants.jsonl.failed": "173364b2792421ae048975cc5e7c6a89230f74223f166af046f7a7c9c95d11b2"
+    },
+    "all_full_and_stage_context_files_equal_reference": true,
+    "context_sha256": {
+      "contexts-0.json": "bea2a909d42bc621be2fea66ad7de4e7e871b7f40903f546934e3d7e4d9c1207",
+      "contexts-1.json": "bea2a909d42bc621be2fea66ad7de4e7e871b7f40903f546934e3d7e4d9c1207"
+    }
+  },
+  "fast_path_probe": {
+    "rows": 573494,
+    "dtypes": {
+      "type": "object",
+      "time": "int64",
+      "process_id": "int64",
+      "thread_id": "int64",
+      "func_call_id": "object"
+    },
+    "sampled_queries": 24,
+    "all_sampled_queries_hit": true,
+    "indexed_rows": 573494,
+    "identity_groups": 2,
+    "limit": "Sampled real-call queries in a separate probe, not a measured hit count for every inference query."
+  },
+  "validation": {
+    "local_combined_tests": 61,
+    "matching_runtime_combined_tests": 67,
+    "matching_runtime_tests_note": "Includes six common pruning-state tests. First packaging attempt lacked tests.fixtures; completed test-support-only rerun passed without production changes.",
+    "matching_runtime_test_log_sha256": "84cfeba80e7c2032b2e7a28baebc4c7bd2fc2e778f27bf6eb16362b4f857b5d3",
+    "independent_differential_audit": {
+      "parent_commit": "99d16905296d83495570fdcafa91370b242d2528",
+      "parent_source_sha256": "41040a288284dc10041a4c06d8598219605732dd5dcd2ef080b9ed0799387f8a",
+      "candidate_source_sha256": "819f7a60271da11522bb451920835e2651efb7117dec8cb08c3cc23d0c193464",
+      "pandas": "2.3.3",
+      "numpy": "2.1.0",
+      "cases": 144,
+      "comparisons": 6480,
+      "differences": []
+    },
+    "independent_evidence_audit": {
+      "passed": true,
+      "archive_files_verified": 295,
+      "all_outputs_and_contexts_equal_corrected_reference": true,
+      "only_signed_production_delta_confirmed": true,
+      "raw_trace_hash_verification_scope": "Before/after hashes computed remotely and reviewed; raw input is not in evidence archive and was not rehashed locally."
+    }
+  },
+  "synthetic_benchmark": {
+    "scope": "synthetic function-call window queries, including construction and lazy build; not full inference or peak memory",
+    "settings": {
+      "rows": 200000,
+      "queries": 1000,
+      "repetitions": 3
+    },
+    "runtime": {
+      "python": "3.11.4",
+      "platform": "Linux-6.1.0-1027-oem-x86_64-with-glibc2.35",
+      "pandas": "2.3.3",
+      "numpy": "2.1.0",
+      "native_threads": {
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
+        "MKL_NUM_THREADS": "1"
+      }
+    },
+    "source_sha256": "819f7a60271da11522bb451920835e2651efb7117dec8cb08c3cc23d0c193464",
+    "input_sha256": "4d2a33e4e4c692eaa5339751b3db19fbb8a2335cb1c9ebd26ba073fbbf407c1f",
+    "input_unchanged": true,
+    "all_ordered_results_equal": true,
+    "measurements": [
+      {
+        "repetition": 1,
+        "order": 1,
+        "variant": "legacy",
+        "construction_seconds": 0.04303494095802307,
+        "first_query_seconds": 0.006073214113712311,
+        "remaining_queries_seconds": 2.613212414085865,
+        "total_seconds": 2.6623205691576004,
+        "result_sha256": "30844ebafc1edb92116075982549646f9c626aab9f63a9bbfc5a3e21771439eb"
+      },
+      {
+        "repetition": 1,
+        "order": 2,
+        "variant": "candidate",
+        "construction_seconds": 0.0409860722720623,
+        "first_query_seconds": 0.07652264088392258,
+        "remaining_queries_seconds": 0.21955957636237144,
+        "total_seconds": 0.3370682895183563,
+        "result_sha256": "30844ebafc1edb92116075982549646f9c626aab9f63a9bbfc5a3e21771439eb",
+        "indexed_rows": 200000,
+        "identity_groups": 8
+      },
+      {
+        "repetition": 2,
+        "order": 1,
+        "variant": "candidate",
+        "construction_seconds": 0.044426146894693375,
+        "first_query_seconds": 0.07581401616334915,
+        "remaining_queries_seconds": 0.21997691318392754,
+        "total_seconds": 0.34021707624197006,
+        "result_sha256": "30844ebafc1edb92116075982549646f9c626aab9f63a9bbfc5a3e21771439eb",
+        "indexed_rows": 200000,
+        "identity_groups": 8
+      },
+      {
+        "repetition": 2,
+        "order": 2,
+        "variant": "legacy",
+        "construction_seconds": 0.04476165026426315,
+        "first_query_seconds": 0.003517802804708481,
+        "remaining_queries_seconds": 2.71007227152586,
+        "total_seconds": 2.7583517245948315,
+        "result_sha256": "30844ebafc1edb92116075982549646f9c626aab9f63a9bbfc5a3e21771439eb"
+      },
+      {
+        "repetition": 3,
+        "order": 1,
+        "variant": "legacy",
+        "construction_seconds": 0.04182035103440285,
+        "first_query_seconds": 0.0035678334534168243,
+        "remaining_queries_seconds": 2.596189245581627,
+        "total_seconds": 2.6415774300694466,
+        "result_sha256": "30844ebafc1edb92116075982549646f9c626aab9f63a9bbfc5a3e21771439eb"
+      },
+      {
+        "repetition": 3,
+        "order": 2,
+        "variant": "candidate",
+        "construction_seconds": 0.04158874601125717,
+        "first_query_seconds": 0.0771775059401989,
+        "remaining_queries_seconds": 0.22500132396817207,
+        "total_seconds": 0.34376757591962814,
+        "result_sha256": "30844ebafc1edb92116075982549646f9c626aab9f63a9bbfc5a3e21771439eb",
+        "indexed_rows": 200000,
+        "identity_groups": 8
+      }
+    ],
+    "medians": {
+      "legacy": {
+        "construction_seconds": 0.04303494095802307,
+        "first_query_seconds": 0.0035678334534168243,
+        "remaining_queries_seconds": 2.613212414085865,
+        "total_seconds": 2.6623205691576004
+      },
+      "candidate": {
+        "construction_seconds": 0.04158874601125717,
+        "first_query_seconds": 0.07652264088392258,
+        "remaining_queries_seconds": 0.21997691318392754,
+        "total_seconds": 0.34021707624197006
+      }
+    },
+    "median_total_ratio": 7.825358440456698
+  },
+  "provenance": {
+    "evidence_archive_name": "timing-evidence.tar.gz",
+    "evidence_archive_bytes": 1705821,
+    "evidence_archive_sha256": "7f45cee3ca5bf8f4b8b1fa2f29ee54234fafd1fe81b57fd0badb7cb38fa81c36",
+    "evidence_archive_access": "Retained study artifact; raw trace/output data are not published in this repository.",
+    "harness_sha256": "2dd8d63a8bae80a944defee70be6bf33e9c9c8934e22e4b909ff222b4f7d6777",
+    "helper_sha256": "1fc8409ec68d23da26223424a41dcaeff252ede84723b4256fd7dc5797f8e994",
+    "controller_sha256": "416db6554b02299ccc44ef73ed4eba7735bfe925a0e68a708701ae0f6baf1271",
+    "paired_runs_json_sha256": "5304104c25281c369b00ff217fb2989a0be712dc9f4cfe08ac4d54c2b3af9b27",
+    "snapshot_manifest_sha256": "2f85ca6e20061565b6b6cf02ad2760f3c8abb70978ce76eb5d1ed69cd032d750",
+    "final_integrity_validation_sha256": "0bf446f2fe7387e4fdcc9e30f0c4e9012162251b340158e844d8e0712f1a2913",
+    "independent_audit_json_sha256": "6ca49fd92ede07e153c81c373d3242fa49c379204e3dc2e8fc3d1497057cfdd8",
+    "fast_path_probe_json_sha256": "dbc0be5aacdab32979a46e21a11c55fa6f4bcdf49a25c4d369113925a22006c7",
+    "process_check_utc": "2026-10-25T10:54:52.654222+00:00",
+    "remaining_study_processes": []
+  },
+  "limits": [
+    "Three pairs on one saved trace and six enabled relations, with unrelated background load and no exclusive host or CPU affinity.",
+    "Measures offline inference, not training overhead or distributed scalability; output equality is not independent invariant ground truth.",
+    "Wall time includes child startup/imports/output writes and monitor polling, excludes integrity hashing; load includes harness context serialization.",
+    "Reported inference ends before invariant JSON writes; marker durations are subphases, not additive extra time.",
+    "One-second sampled concurrent child-session PSS excludes the monitor and depends on shared pages; the 12-GiB budget is a monitor threshold, not an OS hard limit.",
+    "The per-frame index stores O(N) values/positions and adds first-query build cost; same-size in-place edits to cached fields or row order require a new TracePandas.",
+    "This incremental speedup must not be multiplied by the previous single-pair identity-cache measurement as an independently measured combined speedup."
+  ]
+}
