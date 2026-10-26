@@ -34,7 +34,8 @@ dependencies = [
   "polars",
   "pyyaml",
   "orjson",
-  "numpy"
+  "numpy",
+  "watchdog"
 ]
 readme = "README.md"
 license = {text = "Apache-2.0"}
