@@ -1344,6 +1344,11 @@ class ReportEmitter:
         self._wandb_run = None
         self._mlflow_active = False
 
+    def should_emit(self, report_state: tuple[int, int], force: bool = False) -> bool:
+        """Public throttle check so callers can skip the (expensive) report build
+        entirely when nothing would be emitted. Does not mutate emitter state."""
+        return self._should_emit(report_state, force)
+
     def _should_emit(self, report_state: tuple[int, int], force: bool) -> bool:
         if force:
             return True

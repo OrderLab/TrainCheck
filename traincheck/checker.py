@@ -3,11 +3,13 @@ import datetime
 import json
 import logging
 import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from tqdm import tqdm
 
 import traincheck.utils as _tc_utils
 from traincheck.invariant import CheckerResult, Invariant, read_inv_file
+from traincheck.parallel import config_snapshot, get_worker_traces, worker_init
 from traincheck.reporting import (
     ReportEmitter,
     build_offline_report_data,
@@ -36,9 +38,32 @@ def parse_checker_results(file_name: str):
     return all_results
 
 
+def _check_worker_task(task: tuple):
+    """Check a single invariant against the worker's trace in a worker process.
+
+    Returns (inv_idx, CheckerResult); the parent re-attaches its own invariant
+    object and computes the detection-time percentage, mirroring the serial path.
+    """
+    inv_idx, inv, check_relation_first = task
+    trace = get_worker_traces()[0]
+    return inv_idx, inv.check(trace, check_relation_first)
+
+
 def check_engine(
+    trace: Trace,
+    invariants: list[Invariant],
+    check_relation_first: bool,
+    num_workers: int = 1,
+) -> list[CheckerResult]:
+    if num_workers <= 1:
+        return _check_engine_serial(trace, invariants, check_relation_first)
+    return _check_engine_parallel(trace, invariants, check_relation_first, num_workers)
+
+
+def _check_engine_serial(
     trace: Trace, invariants: list[Invariant], check_relation_first: bool
 ) -> list[CheckerResult]:
+    """Serial invariant checking (preserves the original behavior exactly)."""
     logger = logging.getLogger(__name__)
     results = []
     total = len(invariants)
@@ -75,6 +100,71 @@ def check_engine(
         finally:
             _tc_utils._suppress_inner_progress = False
     return results
+
+
+def _check_engine_parallel(
+    trace: Trace,
+    invariants: list[Invariant],
+    check_relation_first: bool,
+    num_workers: int,
+) -> list[CheckerResult]:
+    """Parallel invariant checking.
+
+    Each invariant check is an independent, CPU-bound scan over a read-only
+    trace, so we fan one task per invariant out across processes (threads would
+    serialize on the GIL). Workers load the trace once via the pool initializer;
+    results are placed by invariant index so the returned list is in the same
+    order as the serial path regardless of completion order.
+    """
+    logger = logging.getLogger(__name__)
+    total = len(invariants)
+    print(f"  Using {num_workers} worker processes")
+    results: list[CheckerResult | None] = [None] * total
+    n_violated = 0
+    n_done = 0
+    bar_fmt = (
+        "{desc} {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]"
+    )
+    with tqdm(
+        total=total,
+        bar_format=bar_fmt,
+        unit="inv",
+        desc=f"0 checked · {total} left · 0 violated",
+    ) as pbar:
+        with ProcessPoolExecutor(
+            max_workers=num_workers,
+            initializer=worker_init,
+            initargs=([trace], config_snapshot()),
+        ) as executor:
+            future_to_idx = {
+                executor.submit(
+                    _check_worker_task, (inv_idx, inv, check_relation_first)
+                ): inv_idx
+                for inv_idx, inv in enumerate(invariants)
+            }
+            for future in as_completed(future_to_idx):
+                inv_idx, res = future.result()
+                # the result carries the worker's pickled copy of the invariant;
+                # point it back at the parent's object
+                res.invariant = invariants[inv_idx]
+                res.calc_and_set_time_precentage(
+                    trace.get_start_time(), trace.get_end_time()
+                )
+                logger.info("Invariant %s on trace %s: %s", res.invariant, trace, res)
+                results[inv_idx] = res
+                n_done += 1
+                if not res.check_passed:
+                    n_violated += 1
+                pbar.set_description(
+                    f"{n_done} checked · {total - n_done} left · {n_violated} violated"
+                )
+                pbar.update(1)
+
+    final_results: list[CheckerResult] = []
+    for inv_idx, res_or_none in enumerate(results):
+        assert res_or_none is not None, f"Missing result for invariant {inv_idx}"
+        final_results.append(res_or_none)
+    return final_results
 
 
 def main():
@@ -129,6 +219,16 @@ def main():
         "--output-dir",
         type=str,
         help="Output folder to store the results, defaulted to traincheck_checker_results_{timestamp}/",
+    )
+    parser.add_argument(
+        "-j",
+        "--num-workers",
+        type=int,
+        default=1,
+        help="Number of worker processes for invariant checking. 1 (default) runs "
+        "serially. Use a value > 1 to parallelize across cores (0 = use all "
+        "available cores). Note: each worker keeps its own copy of the trace, so "
+        "memory scales with the number of workers.",
     )
     parser.add_argument(
         "--no-html-report",
@@ -274,10 +374,16 @@ def main():
     )
     logger.addHandler(stream_handler)
 
+    num_workers = args.num_workers
+    if num_workers == 0:
+        num_workers = os.cpu_count() or 1
+
     results_by_trace: list[tuple[str, list[CheckerResult]]] = []
 
     for trace, trace_parent_folder in zip(traces, trace_parent_folders):
-        results_per_trace = check_engine(trace, invs, args.check_relation_first)
+        results_per_trace = check_engine(
+            trace, invs, args.check_relation_first, num_workers=num_workers
+        )
         results_per_trace_failed = [
             res for res in results_per_trace if not res.check_passed
         ]

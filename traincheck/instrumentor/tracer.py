@@ -1,13 +1,14 @@
 import functools
 import importlib
-from importlib.util import find_spec
 import inspect
 import os
 import pathlib
+import sys
 import threading
 import time
 import traceback
 import types
+from importlib.util import find_spec
 from typing import Callable, Optional
 
 import torch
@@ -168,6 +169,14 @@ def function_wrapper(
 
     if config.DISABLE_WRAPPER:
         # TODO: all meta vars update should be done outside the function_wrapper (e.g. step increment) by applying a separate wrapper
+        return original_function(*args, **kwargs)
+
+    if sys.meta_path is None:
+        # Interpreter is shutting down: the import system is already torn down,
+        # so any serialization path that imports a module would raise
+        # "ImportError: sys.meta_path is None". Instrumented functions can still
+        # be invoked from finalizers (e.g. CheckpointManager.__del__), so skip
+        # tracing here and just delegate to the original function.
         return original_function(*args, **kwargs)
 
     if COLLECT_OVERHEAD_METRICS:
@@ -530,7 +539,7 @@ def get_module_path_from_file_path(file_path: str, root_module: str) -> str | No
     if spec is None or spec.origin is None:
         # raise error
         raise ImportError(f"Cannot locate root module {root_module!r}")
-    
+
     # get the path to the root module
     root_module_path = pathlib.PurePath(spec.origin).parent
 
@@ -543,12 +552,13 @@ def get_module_path_from_file_path(file_path: str, root_module: str) -> str | No
     except ValueError:
         # file_path is not under root module
         raise ImportError(f"File path is not under root module {root_module!r}")
-    
+
     # strip off .py
-    module_name = str(relative_path.with_suffix(''))
+    module_name = str(relative_path.with_suffix(""))
 
     # replace / with .
     return f"{root_module}.{module_name.replace('/', '.')}"
+
 
 class Instrumentor:
     def __init__(
