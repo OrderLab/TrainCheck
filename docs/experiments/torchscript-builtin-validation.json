@@ -1,0 +1,208 @@
+{
+  "historical_cpu_study": {
+    "linux": {
+      "controls": [
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 0,
+          "exception_type": null,
+          "graph_has_aten_tanh": true,
+          "mode": "baseline",
+          "registered_operator": "aten::tanh",
+          "script_compilation": "passed",
+          "scripted_output_and_gradients_equal_baseline": true,
+          "scripted_records": 0
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": "TypeError",
+          "graph_has_aten_tanh": false,
+          "mode": "buggy-unprimed",
+          "registered_operator": null,
+          "script_compilation": "failed",
+          "scripted_output_and_gradients_equal_baseline": null,
+          "scripted_records": null
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": "TypeError",
+          "graph_has_aten_tanh": false,
+          "mode": "buggy-warm",
+          "registered_operator": null,
+          "script_compilation": "failed",
+          "scripted_output_and_gradients_equal_baseline": null,
+          "scripted_records": null
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": null,
+          "graph_has_aten_tanh": true,
+          "mode": "fixed-unprimed",
+          "registered_operator": "aten::tanh",
+          "script_compilation": "passed",
+          "scripted_output_and_gradients_equal_baseline": true,
+          "scripted_records": 0
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": null,
+          "graph_has_aten_tanh": true,
+          "mode": "fixed-warm",
+          "registered_operator": "aten::tanh",
+          "script_compilation": "passed",
+          "scripted_output_and_gradients_equal_baseline": true,
+          "scripted_records": 0
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": null,
+          "graph_has_aten_tanh": true,
+          "mode": "integrated-fixed-warm",
+          "registered_operator": "aten::tanh",
+          "script_compilation": "passed",
+          "scripted_output_and_gradients_equal_baseline": true,
+          "scripted_records": 0
+        }
+      ],
+      "device": "cpu",
+      "helper_test_log_sha256": "feabb4add9e2ca3374e538560634d1ec97dc4f4ce89aab12f3d726e36ea9b2f6",
+      "helper_unit_tests_passed": 4,
+      "native_threads": 1,
+      "python": "3.10.16",
+      "registry_already_initialized_after_import": true,
+      "semantic_trace_checks_passed": 13,
+      "summary_sha256": "68c1888b7df4a9a0248e6d218ea5e82d2daeb90c3efcf50b852faaf7e3bfa7c2",
+      "torch": "2.2.2+cu121"
+    },
+    "macos": {
+      "controls": [
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 0,
+          "exception_type": null,
+          "graph_has_aten_tanh": true,
+          "mode": "baseline",
+          "registered_operator": "aten::tanh",
+          "script_compilation": "passed",
+          "scripted_output_and_gradients_equal_baseline": true,
+          "scripted_records": 0
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": "TypeError",
+          "graph_has_aten_tanh": false,
+          "mode": "buggy-unprimed",
+          "registered_operator": null,
+          "script_compilation": "failed",
+          "scripted_output_and_gradients_equal_baseline": null,
+          "scripted_records": null
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": "TypeError",
+          "graph_has_aten_tanh": false,
+          "mode": "buggy-warm",
+          "registered_operator": null,
+          "script_compilation": "failed",
+          "scripted_output_and_gradients_equal_baseline": null,
+          "scripted_records": null
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": null,
+          "graph_has_aten_tanh": true,
+          "mode": "fixed-unprimed",
+          "registered_operator": "aten::tanh",
+          "script_compilation": "passed",
+          "scripted_output_and_gradients_equal_baseline": true,
+          "scripted_records": 0
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": null,
+          "graph_has_aten_tanh": true,
+          "mode": "fixed-warm",
+          "registered_operator": "aten::tanh",
+          "script_compilation": "passed",
+          "scripted_output_and_gradients_equal_baseline": true,
+          "scripted_records": 0
+        },
+        {
+          "eager_output_and_gradients_equal_baseline": true,
+          "eager_records": 2,
+          "exception_type": null,
+          "graph_has_aten_tanh": true,
+          "mode": "integrated-fixed-warm",
+          "registered_operator": "aten::tanh",
+          "script_compilation": "passed",
+          "scripted_output_and_gradients_equal_baseline": true,
+          "scripted_records": 0
+        }
+      ],
+      "device": "cpu",
+      "helper_test_log_sha256": "d094b1bd2c8318c96097f80c50da282add5b2972970a77046de8db6c8935f6ca",
+      "helper_unit_tests_passed": 4,
+      "native_threads": 1,
+      "python": "3.10.16",
+      "registry_already_initialized_after_import": true,
+      "semantic_trace_checks_passed": 13,
+      "summary_sha256": "4e8775e72f31a344f6e82f59f6b3009fddebc9f71c9463f6f5a009b5885d8c43",
+      "torch": "2.2.2"
+    }
+  },
+  "historical_source_sha256": {
+    "bias_gelu_fixture.py": "c6d7503996e5fa2872114aa7ba8b3b37151f03e8f7cc2302a76e6c451fb70059",
+    "builtin_compat_candidate.py": "744506a0c035396aea443f39394a700ef7908bc7d36b8117ba76fae97c92e845",
+    "candidate-src/traincheck/instrumentor/torchscript_compat.py": "744506a0c035396aea443f39394a700ef7908bc7d36b8117ba76fae97c92e845",
+    "candidate-src/traincheck/instrumentor/tracer.py": "a8e39a9dea2c4940543174c2bca97146665f0f08068bdf350b3f16802d4e79bd",
+    "probe.py": "58b0ce8f8a1fb65b96cd5a756bb82ef5ff8d315b3673081ea58d49ebffb0b29c",
+    "run.py": "f4c549ea1dd21c47f4e98f35df4126b23895391eacb2f89c182aaf7f2ccf8d12",
+    "test_candidate.py": "6f5fbbab5053e2303a53209ec25d71c1c240e9c06b9038af844adf762f636eff",
+    "torchscript-builtin-identity.patch": "8ae809f16bf6464d5a152d9612e37bd81edf04ef6680fee7e3042b42c8f026a5"
+  },
+  "limits": [
+    "Registry was already initialized after imports; no genuinely cold-registry result is claimed.",
+    "Scripted operators bypass Python recorder hooks; successful graphs emit no inner tanh API records.",
+    "Registered wrappers remain alive for the process lifetime; repeated creation retains additional objects.",
+    "Full Megatron startup, checkpoint-shape compatibility, and other PyTorch versions/operators are not established.",
+    "The converted portable checkout test ran locally on macOS; Linux evidence comes from the prior equivalent focused study."
+  ],
+  "linux_saved_evidence_archive_sha256": "81f5ede08024c3e099ad61b7489ffa420e4da490c743cded9d9236fd6453a339",
+  "portable_checkout_validation": {
+    "fresh_probe_processes": 6,
+    "fresh_process_regression_methods": 1,
+    "helper_test_methods": 4,
+    "log_sha256": "4e23c888ea4641c17ac45c1a413ba0a9b74afbbda23c87e364458b283a4b2438",
+    "platform": "macOS",
+    "python": "3.10.16",
+    "semantic_trace_checks": 13,
+    "source_includes_trace_integrity_fix": true,
+    "test_methods_passed": 5,
+    "tested_base_commit": "7d6c683db92d83ffd6db9fc9c11fbc0ebdd2c5d4",
+    "tested_base_pr": 142,
+    "timeout_seconds_per_probe": 90,
+    "torch": "2.2.2"
+  },
+  "recorded_date": "2026-10-25",
+  "schema_version": 1,
+  "source": {
+    "base_dumper_sha256": "dd813a342b4531a6543995a23591f558db00d04142611a2d9656b1258833fac3",
+    "base_tracer_sha256": "bce6546cfa13a263150dff891f2f8d7d4af8c5ccb28dc2faedcedc691c5857da",
+    "candidate_dumper_sha256": "dd813a342b4531a6543995a23591f558db00d04142611a2d9656b1258833fac3",
+    "candidate_tracer_sha256": "ad57320f0a3764c02c73cf4bfa623f1ef73b9835dfa6cb1365dc2988551de428",
+    "helper_implementation_ast_unchanged_except_docstring": true,
+    "helper_sha256": "0d0c348fa02d5f93bb74e874829e5fb4c57365b82ce973ae8ff1f21a42c2d64e",
+    "integration_patch_sha256": "b374501d22408ebace2d1e2e69c03d2a98abcf3ebfa2e4e056b62adf27874397",
+    "portable_test_sha256": "653be1032409579030ebd3ec5694cc3e43f34df8e4f5750a76a9ffc64dd0a2e2",
+    "validated_helper_before_docstring_sha256": "744506a0c035396aea443f39394a700ef7908bc7d36b8117ba76fae97c92e845"
+  }
+}
