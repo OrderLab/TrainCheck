@@ -1,0 +1,319 @@
+{
+  "measurement_date": "2026-10-25",
+  "source": {
+    "repository": "https://github.com/OrderLab/TrainCheck",
+    "base_commit": "9eb4f320d3db34d372145261704b805b88e39bda",
+    "unchanged_prerequisites": [
+      "deterministic inference sampling",
+      "example reservoir cap fixes"
+    ],
+    "trace_pandas_sha256": {
+      "legacy": "e1bb62eae653f95c5498dc921d991af013e8b5717398f94cfbc718812bb600ad",
+      "context_index": "13d5d1273595f8183d0511ae288a998cb57e3ea66dc232e4bfec503739de825c",
+      "context_and_call_index": "8e4c3589371449b78430ed5039d0159d3d0435664b218f3a96c81935be0d75d5"
+    },
+    "pr_copies": {
+      "variants": {
+        "context_index": {
+          "measured_source_sha256": "13d5d1273595f8183d0511ae288a998cb57e3ea66dc232e4bfec503739de825c",
+          "pr_source_sha256": "52c296917bba877b1e87aebb54cfee1e05813e2ae32f85744d5ddfe27383d5e0",
+          "equivalent_ast_after_normalizing_only_documented_typing_change": true
+        },
+        "context_and_call_index": {
+          "measured_source_sha256": "8e4c3589371449b78430ed5039d0159d3d0435664b218f3a96c81935be0d75d5",
+          "pr_source_sha256": "58aebdba9955834f4d6b152527e8ba2f9166f6e62f43a098c48b115b0bbc48f5",
+          "equivalent_ast_after_normalizing_only_documented_typing_change": true
+        }
+      },
+      "changes_from_measured_sources": [
+        "Both PR copies widen the inherited call-event cache annotation to include IncompleteFuncCallEvent, matching the base Trace contract, and import that existing type.",
+        "Final PR copy adds narrow E721 suppressions to preserve intentional exact-string checks; only comments/parentheses changed in lookup logic.",
+        "Existing explicit None-or-cache annotations are retained for the new lazy index."
+      ],
+      "no_frozen_source_edits": true,
+      "local_validation_tools": {
+        "ruff": "0.15.7",
+        "mypy": "1.19.1",
+        "black": "26.3.1",
+        "isort": "6.0.1"
+      },
+      "pinned_repository_hooks_need_final_worktree_verification": true
+    }
+  },
+  "saved_trace": {
+    "events": 573494,
+    "model_parameters": 6163712,
+    "training_steps": 10,
+    "archive_sha256": "62022da5a997c16ffe49aa44486a495b651c8758199f29732a216c7cf257559d",
+    "raw_inputs_unchanged": true,
+    "collection_pytorch": "2.16.0.dev20261012+cu130"
+  },
+  "runtime": {
+    "platform": "Linux",
+    "python": "3.10.16",
+    "pandas": "2.3.3",
+    "numpy": "1.26.4",
+    "torch": "2.2.2+cu121",
+    "workers": 1,
+    "native_threads": 1
+  },
+  "preparation": {
+    "runs": {
+      "legacy": {
+        "context_index_seconds": 159.43910144269466,
+        "load_seconds": 90.64373006299138,
+        "rows": 573494,
+        "stage_rows": {
+          "training": 573494
+        },
+        "stage_split_seconds": 80.21087664365768,
+        "total_seconds": 170.85460681840777,
+        "sampled_peak_pss_bytes": 2409772032,
+        "context_states": [
+          {
+            "call": 0,
+            "contexts": 711,
+            "rows": 573494,
+            "seconds": 79.72032228112221,
+            "states_sha256": "a5ddb221a3679a50c476776b19aaa3cbc5277174775c8559eb0dcef0a28e2dd0"
+          },
+          {
+            "call": 1,
+            "contexts": 711,
+            "rows": 573494,
+            "seconds": 79.71877916157246,
+            "states_sha256": "a5ddb221a3679a50c476776b19aaa3cbc5277174775c8559eb0dcef0a28e2dd0"
+          }
+        ]
+      },
+      "context_index": {
+        "context_index_seconds": 0.8803581297397614,
+        "load_seconds": 10.837436098605394,
+        "rows": 573494,
+        "stage_rows": {
+          "training": 573494
+        },
+        "stage_split_seconds": 0.8764883801341057,
+        "total_seconds": 11.713924750685692,
+        "sampled_peak_pss_bytes": 2411297792,
+        "context_states": [
+          {
+            "call": 0,
+            "contexts": 711,
+            "rows": 573494,
+            "seconds": 0.4527508243918419,
+            "states_sha256": "a5ddb221a3679a50c476776b19aaa3cbc5277174775c8559eb0dcef0a28e2dd0"
+          },
+          {
+            "call": 1,
+            "contexts": 711,
+            "rows": 573494,
+            "seconds": 0.42760730534791946,
+            "states_sha256": "a5ddb221a3679a50c476776b19aaa3cbc5277174775c8559eb0dcef0a28e2dd0"
+          }
+        ]
+      }
+    },
+    "comparison": {
+      "same_number_of_calls": true,
+      "calls": [
+        {
+          "call": 0,
+          "rows": 573494,
+          "contexts": 711,
+          "equal": true
+        },
+        {
+          "call": 1,
+          "rows": 573494,
+          "contexts": 711,
+          "equal": true
+        }
+      ],
+      "all_equal": true
+    },
+    "paired_repetitions": 1,
+    "timing_scope": "Load/init plus stage splitting, excluding process startup; includes context-state serialization. Context-index timers exclude serialization. PSS peaks are sampled."
+  },
+  "large_trace_diagnostic": {
+    "runs": {
+      "optimized-infer-profile": {
+        "wall_seconds": 546.4971170388162,
+        "exit_code": 1,
+        "stop_reason": null,
+        "source_unchanged": true,
+        "traces_unchanged": true,
+        "error": "ValueError: Too many positional arguments for function torch._prims_common.is_contiguous, expecting 1 (['a']) but got 2",
+        "lookups": [
+          {
+            "function": "get_pre_func_call_record",
+            "primitive_calls": 6891,
+            "calls": 6891,
+            "self_seconds": 0.087277701,
+            "cumulative_seconds": 187.91447304200003
+          },
+          {
+            "function": "get_post_func_call_record",
+            "primitive_calls": 13498,
+            "calls": 13498,
+            "self_seconds": 0.18074669200000001,
+            "cumulative_seconds": 289.47232359500003
+          }
+        ]
+      },
+      "call-index-infer-profile": {
+        "wall_seconds": 71.98188185319304,
+        "exit_code": 1,
+        "stop_reason": null,
+        "source_unchanged": true,
+        "traces_unchanged": true,
+        "error": "ValueError: Too many positional arguments for function torch._prims_common.is_contiguous, expecting 1 (['a']) but got 2",
+        "lookups": [
+          {
+            "function": "get_pre_func_call_record",
+            "primitive_calls": 6891,
+            "calls": 6891,
+            "self_seconds": 0.020590995,
+            "cumulative_seconds": 1.034124108
+          },
+          {
+            "function": "get_post_func_call_record",
+            "primitive_calls": 13498,
+            "calls": 13498,
+            "self_seconds": 0.038829666000000006,
+            "cumulative_seconds": 3.888496781
+          }
+        ]
+      }
+    },
+    "same_error": true,
+    "completed_inference": false
+  },
+  "diagnostic_scope": {
+    "completed_inference": false,
+    "profiled": true,
+    "disabled_relations": [
+      "FunctionLeadRelation",
+      "FunctionCoverRelation"
+    ],
+    "same_error_is_framework_version_mismatch": true,
+    "eligible_containment_apis_in_replay": 35,
+    "eligible_containment_apis_in_collection_environment_log": 41,
+    "time_to_error_is_not_completed_inference_throughput": true
+  },
+  "correctness": {
+    "differential_tests": 32,
+    "context_randomized_traces": 80,
+    "independent_extra_call_query_comparisons": 640,
+    "small_replay_run_count": 9,
+    "all_full_json_comparisons_equal": true,
+    "comparison": "Structural JSON multisets; object-key and file-line order ignored, multiplicity and array order retained.",
+    "runs": [
+      {
+        "case": "mnist-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "base"
+      },
+      {
+        "case": "mnist-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "optimized"
+      },
+      {
+        "case": "transformer-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "optimized"
+      },
+      {
+        "case": "transformer-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "base"
+      },
+      {
+        "case": "dcgan-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "base"
+      },
+      {
+        "case": "dcgan-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "optimized"
+      },
+      {
+        "case": "mnist-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "context_and_call_index"
+      },
+      {
+        "case": "transformer-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "context_and_call_index"
+      },
+      {
+        "case": "dcgan-fixed-seed42",
+        "exit_code": 0,
+        "workers": 1,
+        "valid_outputs": true,
+        "source": "context_and_call_index"
+      }
+    ],
+    "outputs_by_workload": {
+      "mnist-fixed-seed42": {
+        "invariants": {
+          "canonical_multiset_sha256": "5691e461a1fba5bf5314b18a62bf72f82fc95e56f71b26eca87218e53f321e84",
+          "distinct_records": 193,
+          "records": 193
+        },
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "8e39cf710d943898ca007478953584d363db135ce3cb458619e71836ae179820",
+          "distinct_records": 21,
+          "records": 21
+        }
+      },
+      "transformer-fixed-seed42": {
+        "invariants": {
+          "canonical_multiset_sha256": "21332736553d2fe20c1fdb1e2c852597950e3b799bc399d47007a2b1f7a71b09",
+          "distinct_records": 518,
+          "records": 518
+        },
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "b3424febf9358e01c3e079362e17bc68a939a933e14f1cfab954884482073bd7",
+          "distinct_records": 10,
+          "records": 10
+        }
+      },
+      "dcgan-fixed-seed42": {
+        "invariants": {
+          "canonical_multiset_sha256": "596f82fcfb946a7fe2fe138fa9e61302bafb93465fdc529317ccf93d2da1022a",
+          "distinct_records": 512,
+          "records": 512
+        },
+        "failed_hypotheses": {
+          "canonical_multiset_sha256": "dfba6a7ed565ce66163b9eb98921ad05857649e37f78075b48fdf9341b912204",
+          "distinct_records": 86,
+          "records": 86
+        }
+      }
+    }
+  },
+  "limitations": [
+    "Event row order, call IDs, and event types must remain stable after initialization. Frame replacement or a length change rebuilds the call index; same-size in-place changes or reordering are unsupported.",
+    "The large trace uses a different PyTorch version; both diagnostic variants end at the same signature error. No complete large-trace inference or online-checker overhead result is claimed."
+  ]
+}

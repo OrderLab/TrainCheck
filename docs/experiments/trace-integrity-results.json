@@ -1,0 +1,125 @@
+{
+  "measurement_date": "2026-10-13",
+  "traincheck_base": "9eb4f320d3db34d372145261704b805b88e39bda",
+  "benchmark_source": "ae6601978217bc0f06b9a78479cf00f0bc7242c9",
+  "controlled_reentry": {
+    "buggy": {
+      "application_calls": 100,
+      "events": 400,
+      "metadata_helper_events": 200,
+      "application_results_match": true,
+      "recursion_errors": 0,
+      "scope": "Controlled injected conversion helper, not a natural workload frequency"
+    },
+    "fixed": {
+      "application_calls": 100,
+      "events": 200,
+      "metadata_helper_events": 0,
+      "application_results_match": true,
+      "recursion_errors": 0,
+      "scope": "Controlled injected conversion helper, not a natural workload frequency"
+    }
+  },
+  "controlled_buffer_interleavings": {
+    "scope": "Controlled forced interleavings, not a natural workload frequency or performance benchmark",
+    "trials_per_mode": 50,
+    "records_preloaded_per_trial": 100,
+    "results": {
+      "buggy": {
+        "duplicate": {
+          "records": 10000,
+          "duplicates": 5000,
+          "missing": 0
+        },
+        "loss": {
+          "records": 5000,
+          "duplicates": 0,
+          "missing": 50
+        }
+      },
+      "fixed": {
+        "duplicate": {
+          "records": 5000,
+          "duplicates": 0,
+          "missing": 0
+        },
+        "loss": {
+          "records": 5050,
+          "duplicates": 0,
+          "missing": 0
+        }
+      }
+    }
+  },
+  "natural_workload_matrix": {
+    "runs_completed": 45,
+    "instrumented_runs": 36,
+    "conditions": [
+      "baseline",
+      "buggy",
+      "guard",
+      "buffer",
+      "fixed"
+    ],
+    "seeds": [
+      42,
+      43,
+      44
+    ],
+    "training_steps": 5,
+    "batch_size": 2,
+    "native_threads": 1,
+    "runtime": {
+      "python": "3.10.16",
+      "torch": "2.2.2+cu121",
+      "gpu": "RTX A2000 12 GB"
+    },
+    "scope": "Adapted small model workloads with ordinary local tensors; not full published benchmark reproductions. All instrumented variants share the same dynamic-type-name compatibility patch.",
+    "instrumentation": "Default API coverage, use_full_instr=False, sampling interval one, no model/proxy tracking; training bodies only.",
+    "workloads": [
+      {
+        "name": "mnist",
+        "parameters": 1199882,
+        "instrumented_runs": 12,
+        "records_per_run": 654,
+        "raw_bytes_per_run": 472863,
+        "instrumented_variants_and_seeds_equal": true
+      },
+      {
+        "name": "transformer",
+        "parameters": 23522,
+        "instrumented_runs": 12,
+        "records_per_run": 2006,
+        "raw_bytes_per_run": 1564970,
+        "instrumented_variants_and_seeds_equal": true
+      },
+      {
+        "name": "dcgan",
+        "parameters": 190672,
+        "instrumented_runs": 12,
+        "records_per_run": 4596,
+        "raw_bytes_per_run": 3401128,
+        "instrumented_variants_and_seeds_equal": true
+      }
+    ],
+    "total_instrumented_records": 87072,
+    "total_instrumented_raw_bytes": 65267532,
+    "all_recorded_losses_and_final_model_state_hashes_match_baseline": true,
+    "observed_duplicate_records": 0,
+    "observed_recursion_error_events": 0,
+    "natural_trace_size_reduction_observed": false
+  },
+  "evidence_artifact_sha256": {
+    "matrix.csv": "f196211cc478ec532338de06247895cfa5bcd379770fd66583c5b80189127cfe",
+    "matrix-summary.json": "a6a18173e3a0550500160b0e0b3169553ee714bb0ce175048cc5998f19c2ba06",
+    "controlled-races.json": "6b0ab42d2d8f1ff37557627bd8b261610f7d84adf65f88e2025739dfd875c4aa",
+    "finite-reentry-buggy.json": "25f5dfeab0f68c080682f21f0fd6e0314e7c4254a2a9e538b9081aad3a382475",
+    "finite-reentry-fixed.json": "18470fb8d6c929296feecf3485242775dd63331e89c0669244d7ed763bdf6595"
+  },
+  "limitations": [
+    "Injected helpers and forced interleavings establish possible failure severity, not natural occurrence rates.",
+    "All 45 ordinary-tensor runs completed; none of the 36 instrumented runs showed trace inflation or a trace-size reduction from these fixes.",
+    "No general performance improvement or invariant-checking overhead claim is made.",
+    "Historical incomplete and completed TorchTitan traces are not comparable percentage-size-reduction measurements."
+  ]
+}

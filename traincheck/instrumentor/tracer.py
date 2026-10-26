@@ -8,8 +8,9 @@ import threading
 import time
 import traceback
 import types
+from contextlib import ContextDecorator
 from importlib.util import find_spec
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 import torch
 
@@ -38,6 +39,10 @@ from traincheck.instrumentor.replace_functions import (
     funcs_to_be_replaced,
     is_funcs_to_be_unproxied,
 )
+from traincheck.instrumentor.torchscript_compat import (
+    preserve_torchscript_builtin,
+    warn_unsupported_torchscript,
+)
 from traincheck.utils import get_timestamp_ns, get_unique_id, typename
 
 _instancemethod_t = type(torch._C._distributed_c10d.ProcessGroup.broadcast)
@@ -46,8 +51,6 @@ METRIC_INSTRUMENTED_FUNC_LIST: dict[str, list[str]] = {"dump": [], "no_dump": []
 
 IS_INSTRUMENTING = False
 
-DISABLE_WRAPPER = False
-
 # for prompt generation tasks using the transformers library (see traincheck/developer/instr_stage_annotation.py:annotate_answer_start_token_ids)
 GENERATE_START_TOKEN_ID: None | int = None
 GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
@@ -55,7 +58,58 @@ GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN = False
 COLLECT_OVERHEAD_METRICS = os.environ.get("COLLECT_OVERHEAD_METRICS", "0") == "1"
 
 
-THREAD_DATA = threading.local()
+class _TracingThreadState(threading.local):
+    # IDs remain lazy, matching get_process_thread_id's existing behavior.
+    thread_id: int
+    process_id: int
+
+    def __init__(self) -> None:
+        self.suppression_depth: int = 0
+
+
+THREAD_DATA = _TracingThreadState()
+
+
+class suppress_tracing(ContextDecorator):
+    """Suppress recorder-owned calls independently per thread, exception-safely.
+
+    Use a class rather than a generator context manager: Python 3.11+ contextlib
+    assigns exception.__traceback__, which breaks frozen framework exceptions.
+    Never hold this scope over the original application call.
+    """
+
+    depth: int
+
+    def _recreate_cm(self) -> "suppress_tracing":
+        # Decorated conversions may nest or run concurrently on different threads.
+        return type(self)()
+
+    def __enter__(self) -> "suppress_tracing":
+        self.depth = THREAD_DATA.suppression_depth
+        THREAD_DATA.suppression_depth = self.depth + 1
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
+    ) -> Literal[False]:
+        THREAD_DATA.suppression_depth = self.depth
+        return False
+
+
+class application_tracing(suppress_tracing):
+    """Restore application tracing while advancing a user-supplied generator."""
+
+    def __enter__(self) -> "application_tracing":
+        super().__enter__()
+        THREAD_DATA.suppression_depth = 0
+        return self
+
+
+def tracing_suppressed() -> bool:
+    return THREAD_DATA.suppression_depth > 0
 
 
 class TraceLineType:
@@ -103,9 +157,8 @@ def get_owner_class(func):
     return owner
 
 
+@suppress_tracing()
 def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
-    global DISABLE_WRAPPER
-    DISABLE_WRAPPER = True
     if dump_args_config is None:
         result = {
             "args": {i: var_to_serializable(arg) for i, arg in enumerate(args)},
@@ -125,20 +178,17 @@ def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
 
         result["args"] = args_dicts
         result["kwargs"] = kwargs_dicts
-    DISABLE_WRAPPER = False
     return result
 
 
+@suppress_tracing()
 def to_dict_return_value(result) -> dict | list[dict]:
-    global DISABLE_WRAPPER
-    DISABLE_WRAPPER = True
     result_dict: dict | list[dict]
     if isinstance(result, tuple):
         result_dict = [var_to_serializable(r) for r in result]
     else:
         result_dict = var_to_serializable(result)
 
-    DISABLE_WRAPPER = False
     return result_dict
 
 
@@ -153,7 +203,7 @@ def function_wrapper(
     dump_ret: bool,
     dump_ret_config,
     trigger_var_dump: bool,
-    var_dump_config: dict,
+    var_dump_config: dict[str, object] | None,
     need_unproxy_args_kwargs: bool,
     *args,
     **kwargs,
@@ -167,7 +217,7 @@ def function_wrapper(
 
     global PROCESS_ID
 
-    if config.DISABLE_WRAPPER:
+    if config.DISABLE_WRAPPER or tracing_suppressed():
         # TODO: all meta vars update should be done outside the function_wrapper (e.g. step increment) by applying a separate wrapper
         return original_function(*args, **kwargs)
 
@@ -179,79 +229,81 @@ def function_wrapper(
         # tracing here and just delegate to the original function.
         return original_function(*args, **kwargs)
 
-    if COLLECT_OVERHEAD_METRICS:
-        ENTER_PERF_TIME = time.perf_counter()
-
-    func_call_id = get_unique_id()
-    process_id, thread_id = get_process_thread_id()
-
-    pre_meta_vars = get_meta_vars()
-
     if IS_INSTRUMENTING:
         # during instrumentation, skip the dumping to avoid infinite recursion
         # and interference with the import system
         return original_function(*args, **kwargs)
 
-    pre_record = {
-        "func_call_id": func_call_id,
-        "thread_id": thread_id,
-        "process_id": process_id,
-        "meta_vars": pre_meta_vars,
-        "type": TraceLineType.FUNC_CALL_PRE,
-        "function": original_function_name,
-        "is_bound_method": is_bound_method,
-        "obj_id": None if not is_bound_method else id(args[0]),
-    }
+    with suppress_tracing():
+        if COLLECT_OVERHEAD_METRICS:
+            ENTER_PERF_TIME = time.perf_counter()
 
-    if dump_stack_trace:
-        pre_record["stack_trace"] = traceback.format_stack()
+        func_call_id = get_unique_id()
+        process_id, thread_id = get_process_thread_id()
 
-    if scan_proxy_in_args:
-        proxy_in_args = []
+        pre_meta_vars = get_meta_vars()
 
-        def find_proxy_in_args(args):
-            for i, arg in enumerate(args):
-                if is_proxied(arg) or is_proxyparameter(arg):
-                    proxy_in_args.append(arg)
-                elif type(arg) in [list, tuple]:
-                    find_proxy_in_args(arg)
-                elif isinstance(arg, types.GeneratorType) and not isinstance(
-                    arg, tuple
-                ):
-                    arg_list = list(arg)
-                    args[i] = iter(arg_list)
-                    find_proxy_in_args(arg_list)
+        pre_record = {
+            "func_call_id": func_call_id,
+            "thread_id": thread_id,
+            "process_id": process_id,
+            "meta_vars": pre_meta_vars,
+            "type": TraceLineType.FUNC_CALL_PRE,
+            "function": original_function_name,
+            "is_bound_method": is_bound_method,
+            "obj_id": None if not is_bound_method else id(args[0]),
+        }
 
-        args = list(args)  # type: ignore[assignment]
-        find_proxy_in_args(args)
-        args = tuple(args)
+        if dump_stack_trace:
+            pre_record["stack_trace"] = traceback.format_stack()
 
-        if proxy_in_args:
-            if "proxy_obj_names" not in pre_record:
-                pre_record["proxy_obj_names"] = []
-            for proxy in proxy_in_args:
-                if is_proxyparameter(proxy):
-                    pre_record["proxy_obj_names"].append(
-                        [proxy.__dict__["var_name"], "Parameter"]
-                    )
-                else:
-                    pre_record["proxy_obj_names"].append(
-                        [proxy.__dict__["var_name"], type(proxy._obj).__name__]
-                    )
-    if dump_args:
-        dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
-        pre_record["args"] = dict_args_kwargs["args"]
-        pre_record["kwargs"] = dict_args_kwargs["kwargs"]
-    dump_trace_API(pre_record)
+        if scan_proxy_in_args:
+            proxy_in_args = []
 
-    if trigger_var_dump:
-        """Mimicking the behavior the observer wrapper: pre-observe"""
-        get_global_registry().dump_modified(
-            dump_loc=original_function_name, dump_config=var_dump_config
-        )
+            def find_proxy_in_args(args):
+                for i, arg in enumerate(args):
+                    if is_proxied(arg) or is_proxyparameter(arg):
+                        proxy_in_args.append(arg)
+                    elif type(arg) in [list, tuple]:
+                        find_proxy_in_args(arg)
+                    elif isinstance(arg, types.GeneratorType) and not isinstance(
+                        arg, tuple
+                    ):
+                        with application_tracing():
+                            arg_list = list(arg)
+                        args[i] = iter(arg_list)
+                        find_proxy_in_args(arg_list)
 
-    if need_unproxy_args_kwargs:
-        args, kwargs = unproxy_args_kwargs(args, kwargs)
+            args = list(args)  # type: ignore[assignment]
+            find_proxy_in_args(args)
+            args = tuple(args)
+
+            if proxy_in_args:
+                if "proxy_obj_names" not in pre_record:
+                    pre_record["proxy_obj_names"] = []
+                for proxy in proxy_in_args:
+                    if is_proxyparameter(proxy):
+                        pre_record["proxy_obj_names"].append(
+                            [proxy.__dict__["var_name"], "Parameter"]
+                        )
+                    else:
+                        pre_record["proxy_obj_names"].append(
+                            [proxy.__dict__["var_name"], type(proxy._obj).__name__]
+                        )
+        if dump_args:
+            dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
+            pre_record["args"] = dict_args_kwargs["args"]
+            pre_record["kwargs"] = dict_args_kwargs["kwargs"]
+        dump_trace_API(pre_record)
+
+        if trigger_var_dump:
+            """Mimicking the behavior the observer wrapper: pre-observe"""
+            get_global_registry().dump_modified(
+                dump_loc=original_function_name, dump_config=var_dump_config
+            )
+
+        if need_unproxy_args_kwargs:
+            args, kwargs = unproxy_args_kwargs(args, kwargs)
 
     try:
         if COLLECT_OVERHEAD_METRICS:
@@ -260,151 +312,155 @@ def function_wrapper(
         if COLLECT_OVERHEAD_METRICS:
             ORIG_EXIT_PERF_TIME = time.perf_counter()
     except Exception as e:
-        if COLLECT_OVERHEAD_METRICS:
-            ORIG_EXIT_PERF_TIME = time.perf_counter()
+        with suppress_tracing():
+            if COLLECT_OVERHEAD_METRICS:
+                ORIG_EXIT_PERF_TIME = time.perf_counter()
 
+            if trigger_var_dump:
+                """Mimicking the behavior the observer wrapper: post-observe"""
+                get_global_registry().dump_modified(
+                    dump_loc=original_function_name, dump_config=var_dump_config
+                )
+
+            dump_trace_API(
+                {
+                    "func_call_id": func_call_id,
+                    "thread_id": thread_id,
+                    "process_id": process_id,
+                    "meta_vars": pre_meta_vars,
+                    "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
+                    "function": original_function_name,
+                    "exception": typename(e, is_runtime=True),
+                    "exception_msg": str(e),
+                    "is_bound_method": is_bound_method,
+                    "obj_id": None if not is_bound_method else id(args[0]),
+                },
+            )
+
+            if COLLECT_OVERHEAD_METRICS:
+                EXIT_PERF_TIME = time.perf_counter()
+                print(
+                    f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
+                )
+            raise e
+
+    with suppress_tracing():
         if trigger_var_dump:
-            """Mimicking the behavior the observer wrapper: post-observe"""
             get_global_registry().dump_modified(
                 dump_loc=original_function_name, dump_config=var_dump_config
             )
 
-        dump_trace_API(
-            {
-                "func_call_id": func_call_id,
-                "thread_id": thread_id,
-                "process_id": process_id,
-                "meta_vars": pre_meta_vars,
-                "type": TraceLineType.FUNC_CALL_POST_EXCEPTION,
-                "function": original_function_name,
-                "exception": typename(e, is_runtime=True),
-                "exception_msg": str(e),
-                "is_bound_method": is_bound_method,
-                "obj_id": None if not is_bound_method else id(args[0]),
-            },
-        )
+        post_record = {
+            "func_call_id": func_call_id,
+            "thread_id": thread_id,
+            "process_id": process_id,
+            "meta_vars": pre_meta_vars,
+            "type": TraceLineType.FUNC_CALL_POST,
+            "function": original_function_name,
+            "is_bound_method": is_bound_method,
+            "obj_id": None if not is_bound_method else id(args[0]),
+        }
+
+        result_to_dump = result
+
+        # if the current function name is transformers.generate, then we will dump the response tokens only, let's see.
+        # a concrete name: "transformers.models.whisper.modeling_whisper.WhisperForConditionalGeneration.generate"
+        # we want a pattern that abstracts the specific model name
+        pattern = "transformers.models.*.generate"
+        # find matches in the pattern
+        import re
+
+        if (
+            GENERATE_START_TOKEN_ID is not None
+            and re.match(pattern, original_function_name)
+            and isinstance(result, torch.Tensor)
+        ):
+            print(f"Found match for {original_function_name}")
+            # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
+            response_starting_indices = []
+            for i in range(result.size(0)):
+                # try to find the match of the start token ids in the response
+                response = result[i]
+                # Find all indices where the start_token_id matches
+                matches = (response == GENERATE_START_TOKEN_ID).nonzero(as_tuple=True)[
+                    0
+                ]
+                indexes = matches.tolist()
+                if len(indexes) == 0:
+                    # No occurrences found
+                    print(
+                        f"start_token_id ({GENERATE_START_TOKEN_ID}) not found in response {i}"
+                    )
+                    start_index = -1  # Handle case where token is not found
+                elif len(indexes) > 1:
+                    # Multiple occurrences found, raise an error
+                    raise ValueError(
+                        f"Multiple occurrences of start_token_id ({GENERATE_START_TOKEN_ID}) found in response {i}: {matches.tolist()}"
+                    )
+                else:
+                    # Single occurrence found, get the index
+                    start_index = indexes[0]
+                    if not GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN:
+                        start_index += 1
+
+                response_starting_indices.append(start_index)
+
+            # compute the length of each response
+            response_lengths = []
+            for i in range(result.size(0)):
+                response = result[i]
+                start_index = response_starting_indices[i]
+                if start_index == -1:
+                    response_lengths.append(0)
+                else:
+                    response_lengths.append(response.size(0) - start_index)
+
+            result_to_dump = result.detach()
+            setattr(
+                result_to_dump,
+                "_TRAINCHECK_RESPONSE_STARTING_INDICES",
+                response_starting_indices,
+            )
+            setattr(result_to_dump, "_TRAINCHECK_RESPONSE_LENGTHS", response_lengths)
+
+            print(response_starting_indices)
+            print(response_lengths)
+        if dump_ret:
+            post_record["return_values"] = to_dict_return_value(result_to_dump)
+        dump_trace_API(post_record)
 
         if COLLECT_OVERHEAD_METRICS:
             EXIT_PERF_TIME = time.perf_counter()
             print(
                 f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
             )
-        raise e
-
-    if trigger_var_dump:
-        get_global_registry().dump_modified(
-            dump_loc=original_function_name, dump_config=var_dump_config
-        )
-
-    post_record = {
-        "func_call_id": func_call_id,
-        "thread_id": thread_id,
-        "process_id": process_id,
-        "meta_vars": pre_meta_vars,
-        "type": TraceLineType.FUNC_CALL_POST,
-        "function": original_function_name,
-        "is_bound_method": is_bound_method,
-        "obj_id": None if not is_bound_method else id(args[0]),
-    }
-
-    result_to_dump = result
-
-    # if the current function name is transformers.generate, then we will dump the response tokens only, let's see.
-    # a concrete name: "transformers.models.whisper.modeling_whisper.WhisperForConditionalGeneration.generate"
-    # we want a pattern that abstracts the specific model name
-    pattern = "transformers.models.*.generate"
-    # find matches in the pattern
-    import re
-
-    if (
-        GENERATE_START_TOKEN_ID is not None
-        and re.match(pattern, original_function_name)
-        and isinstance(result, torch.Tensor)
-    ):
-        print(f"Found match for {original_function_name}")
-        # the first dimension is the batch size, and each corresponds to a separate response, let's try to match the batch size with the start token ids first
-        response_starting_indices = []
-        for i in range(result.size(0)):
-            # try to find the match of the start token ids in the response
-            response = result[i]
-            # Find all indices where the start_token_id matches
-            matches = (response == GENERATE_START_TOKEN_ID).nonzero(as_tuple=True)[0]
-            indexes = matches.tolist()
-            if len(indexes) == 0:
-                # No occurrences found
-                print(
-                    f"start_token_id ({GENERATE_START_TOKEN_ID}) not found in response {i}"
-                )
-                start_index = -1  # Handle case where token is not found
-            elif len(indexes) > 1:
-                # Multiple occurrences found, raise an error
-                raise ValueError(
-                    f"Multiple occurrences of start_token_id ({GENERATE_START_TOKEN_ID}) found in response {i}: {matches.tolist()}"
-                )
-            else:
-                # Single occurrence found, get the index
-                start_index = indexes[0]
-                if not GENERATE_START_TOKEN_ID_INCLUDE_START_TOKEN:
-                    start_index += 1
-
-            response_starting_indices.append(start_index)
-
-        # compute the length of each response
-        response_lengths = []
-        for i in range(result.size(0)):
-            response = result[i]
-            start_index = response_starting_indices[i]
-            if start_index == -1:
-                response_lengths.append(0)
-            else:
-                response_lengths.append(response.size(0) - start_index)
-
-        result_to_dump = result.detach()
-        setattr(
-            result_to_dump,
-            "_TRAINCHECK_RESPONSE_STARTING_INDICES",
-            response_starting_indices,
-        )
-        setattr(result_to_dump, "_TRAINCHECK_RESPONSE_LENGTHS", response_lengths)
-
-        print(response_starting_indices)
-        print(response_lengths)
-    if dump_ret:
-        post_record["return_values"] = to_dict_return_value(result_to_dump)
-    dump_trace_API(post_record)
-
-    if COLLECT_OVERHEAD_METRICS:
-        EXIT_PERF_TIME = time.perf_counter()
-        print(
-            f"WRAPPER TIME: {original_function_name},{ORIG_EXIT_PERF_TIME - ORIG_ENTER_PERF_TIME},{EXIT_PERF_TIME - ENTER_PERF_TIME}"
-        )
-    return result
+        return result
 
 
 def core_wrapper_proxy(original_function, *args, **kwargs):
     """Core wrapper that only handles unproxying for built-in functions."""
-    global DISABLE_WRAPPER
-    if DISABLE_WRAPPER:
+    if tracing_suppressed():
         return original_function(*args, **kwargs)
 
-    args, kwargs = unproxy_args_kwargs(args, kwargs)
+    with suppress_tracing():
+        args, kwargs = unproxy_args_kwargs(args, kwargs)
     return original_function(*args, **kwargs)
 
 
 def wrapper(
-    original_function,
-    is_bound_method,
-    scan_proxy_in_args,
-    dump_stack_trace,
-    disable_dump=False,
-    dump_args=True,
-    dump_args_config=None,
-    dump_ret=True,
-    dump_ret_config=None,
-    handle_proxy=True,
-    trigger_var_dump=False,
-    var_dump_config=None,
-):
+    original_function: Callable[..., object],
+    is_bound_method: bool,
+    scan_proxy_in_args: bool,
+    dump_stack_trace: bool,
+    disable_dump: bool = False,
+    dump_args: bool = True,
+    dump_args_config: dict[str, object] | None = None,
+    dump_ret: bool = True,
+    dump_ret_config: dict[str, object] | None = None,
+    handle_proxy: bool = True,
+    trigger_var_dump: bool = False,
+    var_dump_config: dict[str, object] | None = None,
+) -> Callable[..., object]:
     is_builtin = is_c_level_function(original_function)
     need_unproxy_args_kwargs = handle_proxy and (
         is_builtin or is_funcs_to_be_unproxied(original_function)
@@ -415,7 +471,7 @@ def wrapper(
         METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(original_function_name)
 
         @functools.wraps(original_function)
-        def wrapped(*args, **kwargs):
+        def wrapped(*args: object, **kwargs: object) -> object:
             return function_wrapper(
                 original_function,
                 original_function_name,
@@ -438,18 +494,26 @@ def wrapper(
         if need_unproxy_args_kwargs:
 
             @functools.wraps(original_function)
-            def wrapped(*args, **kwargs):
+            def wrapped(*args: object, **kwargs: object) -> object:
                 return core_wrapper_proxy(original_function, *args, **kwargs)
 
         else:
 
             @functools.wraps(original_function)
-            def wrapped(*args, **kwargs):
+            def wrapped(*args: object, **kwargs: object) -> object:
                 return original_function(*args, **kwargs)
 
-    wrapped._traincheck_original_function = original_function
-    wrapped._traincheck_instrumented = True
-    wrapped._traincheck_dump_disabled = disable_dump
+    # Function attributes are runtime instrumentation metadata, attached after
+    # functools.wraps copies the original function's attributes.
+    setattr(wrapped, "_traincheck_original_function", original_function)
+    setattr(wrapped, "_traincheck_instrumented", True)
+    setattr(wrapped, "_traincheck_dump_disabled", disable_dump)
+    builtin_preservation = preserve_torchscript_builtin(
+        original_function, wrapped, torch
+    )
+    setattr(wrapped, "_traincheck_torchscript_builtin", builtin_preservation)
+    if builtin_preservation["status"] == "unsupported-private-api":
+        warn_unsupported_torchscript()
     return wrapped
 
 
@@ -901,9 +965,9 @@ class Instrumentor:
             if func_name not in self.instr_opts.funcs_instr_opts:
                 return wrapper(
                     func_obj,
-                    is_bound_method=None,
-                    scan_proxy_in_args=None,
-                    dump_stack_trace=None,
+                    is_bound_method=False,
+                    scan_proxy_in_args=False,
+                    dump_stack_trace=False,
                     disable_dump=True,
                     handle_proxy=used_proxy,
                 )

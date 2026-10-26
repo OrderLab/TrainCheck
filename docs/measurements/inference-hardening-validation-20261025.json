@@ -1,0 +1,61 @@
+{
+  "scope": "Engineering hardening verification; one bounded unprofiled replay, not a new before/after performance experiment",
+  "inference_source_commit": "ce25c12c7fbd9983bb78f2c4ed89842f23499228",
+  "common_correctness_patch_commit": "aec748ea46b35b6b43652985f00820afa813175c",
+  "patch_scope": "Only the two production pruning-state hunks, preserving deterministic sampling",
+  "runtime": {
+    "python": "3.11.4",
+    "torch": "2.16.0.dev20261012+cpu",
+    "pandas": "2.3.3",
+    "numpy": "2.1.0"
+  },
+  "workload": {
+    "trace_rows": 573494,
+    "workers": 1,
+    "native_threads": 1,
+    "disabled_relations": [
+      "FunctionLeadRelation",
+      "FunctionCoverRelation"
+    ]
+  },
+  "success": true,
+  "source_unchanged": true,
+  "traces_unchanged": true,
+  "validation_run_wall_seconds": 76.79424141719937,
+  "parity": {
+    "source": "ce25c12 + aec748e production state patch",
+    "comparison": "Complete structural JSON multisets; object-key and file-line order only; duplicate multiplicity and array order retained",
+    "outputs": {
+      "invariants.jsonl": {
+        "before_records": 836,
+        "after_records": 836,
+        "equal": true,
+        "raw_bytes_equal": true,
+        "candidate_sha256": "67ae805da54231ecfcfba060280ca8d5a0b2e98b44523f06b7c64490e9e3a8f0"
+      },
+      "invariants.jsonl.failed": {
+        "before_records": 104,
+        "after_records": 104,
+        "equal": true,
+        "raw_bytes_equal": true,
+        "candidate_sha256": "173364b2792421ae048975cc5e7c6a89230f74223f166af046f7a7c9c95d11b2"
+      }
+    },
+    "contexts": {
+      "contexts-0.json": true,
+      "contexts-1.json": true
+    }
+  },
+  "whole_production_checks": {
+    "mypy_1_9": "77 files pass",
+    "ruff_0_3_3": "pass",
+    "isort_5_10_1": "pass",
+    "black_24_3_0": "3 unchanged legacy files fail; original base has6 failures",
+    "strict_typing_limit": "Scoped to newly introduced modules/tools/tests; legacy modules retain documented pre-existing diagnostics",
+    "composition": {
+      "inference": "ce25c12c7fbd9983bb78f2c4ed89842f23499228",
+      "tracing": "b64023b0651278ab987d3276aaad9141e8bf4894",
+      "state_patch": "aec748ea46b35b6b43652985f00820afa813175c"
+    }
+  }
+}

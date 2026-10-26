@@ -1,0 +1,67 @@
+{
+  "baseline_commit": "9ac61d1140cf8679c24442a174ec12f4de069980",
+  "python": "3.10.16",
+  "torch": "2.2.2",
+  "platform": "macOS-27.0.1-arm64-arm-64bit",
+  "method": "Identical seven-test suite, candidate module globals, exact parent typename function extracted by AST versus candidate function.",
+  "before": {
+    "tests": 7,
+    "failures": 3,
+    "errors": 0,
+    "passed": 4,
+    "failed_tests": [
+      "test_dynamic_typename.DynamicTypenameTests.test_dynamic_callable_metadata_uses_class_name",
+      "test_dynamic_typename.DynamicTypenameTests.test_non_string_name_values_fall_back_without_truth_testing",
+      "test_dynamic_typename.DynamicTypenameTests.test_real_pytorch_dynamic_ops_wrapper"
+    ]
+  },
+  "after": {
+    "tests": 7,
+    "failures": 0,
+    "errors": 0,
+    "passed": 7,
+    "failed_tests": []
+  },
+  "linux_followup": {
+    "fix_commit": "2f034ae5d0fab7e792b7c0a5bdc6a1acfeb8962c",
+    "utils_sha256": "854c11519e7aa6d0cbbfd79694d2ad4895fb1aaf72e9efbb0068048598b70750",
+    "runtime": {
+      "python": "3.11.4 (main, Jul  5 2023, 13:45:01) [GCC 11.2.0]",
+      "torch": "2.16.0.dev20261012+cpu"
+    },
+    "ops_wrapper_names": {
+      "instrumentation": "torch._inductor.virtualized.OpsWrapper",
+      "runtime": "torch._inductor.virtualized.OpsWrapper"
+    },
+    "tests": {
+      "v3-integration-tests": {
+        "tests_passed": 29,
+        "exit_code": 0,
+        "source_unchanged": true,
+        "stdout_sha256": "be7f9c929651de7f09f383a8f3b0176ec8d3285f0ad053f4d49e6e837a40309b"
+      },
+      "v3-coverage-tests": {
+        "tests_passed": 11,
+        "exit_code": 0,
+        "source_unchanged": true,
+        "stdout_sha256": "a33575d7feb6117b55c84c6919d21911e1f76065db033ebbdd9270671c536239"
+      }
+    },
+    "scope": "Exact PR146 utility in composed source; seven type-name tests included in 29 integration tests. No training or timing claim from these preflight results.",
+    "collection_smoke": {
+      "workload": "Bounded benchmark MNIST Net / cached real MNIST / batch2 / CPUfloat32 / seed42",
+      "completed_steps": 10,
+      "success": true,
+      "source_unchanged": true,
+      "state_shapes_unchanged": true,
+      "source_stack": "PR144 plus PR142/143/145/146 production fixes; immutable integration-v3, signed74b harness",
+      "evidence_sha256": {
+        "phase-result.json": "03a50887287fb8e98398735e738412edd6c356bcc21dc39ee15929d5ffcf324c",
+        "metrics.json": "d99a6fd45dc534964835937a8a623ad98309052a3771e9750c3f8dfb0bfe0713",
+        "adaptation.json": "8a533afe8ea099fbb255124ba589f2edf068f1c17d5d3774d73c0ff88a63fa8e",
+        "invocation.json": "8ecea3da01502bff67024e8aa303f3d7e6ab72e7a7d1191b3aef53d61868fc75"
+      },
+      "scope": "Collection completed with exact narrow PR146 utility in composed stack. Separate later shape-only fault-selector failure does not affect this collection result. No fix-isolated training timing claim."
+    }
+  }
+}

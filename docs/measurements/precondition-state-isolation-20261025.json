@@ -1,0 +1,130 @@
+{
+  "measurement_date": "2026-10-25",
+  "base_commit": "9eb4f320d3db34d372145261704b805b88e39bda",
+  "base_source_sha256": "b32c83db3546567b3a5bc4d8b6a589a862c39b5fb59bd284b885d72e47d47a68",
+  "fixed_source_sha256": "af6a2d33b7aff2f09260144dd73a828910357e520be259995c5a2d529b719f7a",
+  "fixture": {
+    "common_record": {
+      "time": 0,
+      "process_id": 1,
+      "thread_id": 2,
+      "function": "fixture.step"
+    },
+    "A": {
+      "positive": {
+        "meta_vars.phase": "train",
+        "meta_vars.signal": true
+      },
+      "negative": {
+        "meta_vars.phase": "train",
+        "meta_vars.signal": false
+      }
+    },
+    "B": {
+      "positive": {
+        "meta_vars.phase": "train"
+      },
+      "negative": {
+        "meta_vars.phase": "eval"
+      }
+    },
+    "expected_A_clause": {
+      "prop_name": "meta_vars.signal",
+      "type": "constant",
+      "values": [
+        true
+      ]
+    },
+    "expected_B_clause": {
+      "prop_name": "meta_vars.phase",
+      "type": "constant",
+      "values": [
+        "train"
+      ]
+    }
+  },
+  "fresh_process_sequences": [
+    {
+      "order": [
+        "B"
+      ],
+      "before_counts": [
+        1
+      ],
+      "after_counts": [
+        1
+      ],
+      "python_random_state_unchanged_before_and_after": true
+    },
+    {
+      "order": [
+        "A",
+        "B"
+      ],
+      "before_counts": [
+        1,
+        0
+      ],
+      "after_counts": [
+        1,
+        1
+      ],
+      "python_random_state_unchanged_before_and_after": true
+    },
+    {
+      "order": [
+        "B",
+        "A"
+      ],
+      "before_counts": [
+        1,
+        1
+      ],
+      "after_counts": [
+        1,
+        1
+      ],
+      "python_random_state_unchanged_before_and_after": true
+    },
+    {
+      "order": [
+        "B",
+        "B"
+      ],
+      "before_counts": [
+        1,
+        1
+      ],
+      "after_counts": [
+        1,
+        1
+      ],
+      "python_random_state_unchanged_before_and_after": true
+    }
+  ],
+  "regression_tests": {
+    "total": 6,
+    "before_failures": 5,
+    "before_passes": 1,
+    "after_passes": 6
+  },
+  "coverage": [
+    "independent and reversed order",
+    "repeated independent solves",
+    "explicit set updated and reused",
+    "recursive sibling sharing with distinct root sets",
+    "fresh versus warm process histories"
+  ],
+  "limits": [
+    "No multi-worker-count scheduling matrix measured.",
+    "No global inference ordering or scheduling determinism claim.",
+    "No unchanged large-trace output claim; fixing leakage may recover additional preconditions and change inference outputs.",
+    "Independent correctness fix; not part of the identity-cache performance comparison."
+  ],
+  "evidence_sha256": {
+    "before.json": "cb4fe5ac7cdb5ebe1544dc61ec06ed18de2a435cba2fad2d33fbbfb4ac022119",
+    "after.json": "62beead0bab542c5b7961588ed99d8c0977696169caacbca77d845c0b74e1383",
+    "tests-before.log": "970f9696404be2409515ab16d0a44d452e3a82d4d85acfb42844ef3b8f23b0d5",
+    "tests-after.log": "bebcffb3ddb091ef39bac8cfea9085bbe09e97363ba67c01acd50c3821e1096d"
+  }
+}

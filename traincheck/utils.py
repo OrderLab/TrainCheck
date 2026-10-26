@@ -47,7 +47,7 @@ def typename_compile(o):
         return "compile_stage"
 
 
-def typename(o, is_runtime=False):
+def typename(o: object, is_runtime: bool = False) -> str:
     if isinstance(o, torch.nn.Parameter):
         return "torch.nn.Parameter"
     if isinstance(o, torch.Tensor):
@@ -68,7 +68,7 @@ def typename(o, is_runtime=False):
     if not last_name:
         last_name = safe_getattr(o, "__name__", "")
         is_class_name_qualname = False
-    if not last_name:
+    if not isinstance(last_name, str) or not last_name:
         last_name = safe_getattr(o, "__class__", type(o)).__name__
         is_class_name_qualname = False
     # Handle the typename logic for method descriptors. The `is_class_name_qualname` flag is used as a heuristic to determine if `o` is likely a method descriptor.
