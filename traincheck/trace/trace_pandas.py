@@ -71,7 +71,7 @@ class TracePandas(Trace):
         ] = {}
 
         self.all_func_call_ids: dict[str, list[str]] = {}
-        self.context_manager_states: dict[PTID, list[ContextManagerState]]
+        self.context_manager_states: dict[PTID, list[ContextManagerState]] | None
         self.cache_high_level_events_within_id: dict[
             str, list[FuncCallEvent | FuncCallExceptionEvent | VarChangeEvent]
         ] = {}
@@ -115,7 +115,7 @@ class TracePandas(Trace):
         # Keep the frame alive so object identity cannot be reused across frames.
         self._identity_values_source: pd.DataFrame | None = None
         self._identity_values_length = -1
-        self._identity_values: dict[str, tuple] = {}
+        self._identity_values: dict[str, tuple[object, ...]] = {}
 
         self.column_dtypes_cached = {}
         self.stage_traces: dict[str, "TracePandas"] = {}
@@ -299,12 +299,14 @@ class TracePandas(Trace):
 
         # test_dump(self.events)
 
-    def _index_context_manager_meta_vars(self):
+    def _index_context_manager_meta_vars(
+        self,
+    ) -> dict[PTID, list[ContextManagerState]] | None:
         """Identify context manager entry and exit events, and add them to the meta_vars."""
         # 1. Find all trace records that are related to __enter__ and __exit__ functions
         if "function" not in self.events.columns:
             self.context_manager_states = None
-            return
+            return None
 
         if (
             hasattr(self, "context_manager_states")
@@ -336,7 +338,7 @@ class TracePandas(Trace):
         ]
         if not init_functions:
             self.context_manager_states = all_context_managers
-            return
+            return None
 
         init_records = self.events[
             self.events["function"].isin(init_functions)
@@ -353,7 +355,7 @@ class TracePandas(Trace):
         ]
         if not context_manager_init_pre_records:
             self.context_manager_states = all_context_managers
-            return
+            return None
 
         context_names = [
             name.removesuffix(".__enter__") for name in context_manager_names
@@ -374,7 +376,9 @@ class TracePandas(Trace):
             ),
             group_columns + ["time"],
         ]
-        event_times = {}
+        event_times: dict[
+            tuple[object, object, object, object, object], tuple[pd.Series, bool]
+        ] = {}
         for key, records in matching_events.groupby(
             group_columns, sort=False, dropna=True, observed=True
         ):
@@ -391,7 +395,17 @@ class TracePandas(Trace):
             )
             event_times[key] = (times, ordered)
 
-        def first_time_after(function, event_type, process_id, thread_id, obj_id, time):
+        # pandas object/extension columns may return arbitrary comparable scalar
+        # types. Keep Any only for this legacy comparison boundary: narrowing to
+        # float/int (or coercing) changes nullable, UInt64, and object semantics.
+        def first_time_after(
+            function: str,
+            event_type: str,
+            process_id: object,
+            thread_id: object,
+            obj_id: object,
+            time: Any,
+        ) -> Any:
             if not isinstance(time, Real):
                 # Keep pandas validation for nonnumeric/null scalar thresholds,
                 # including malformed nullable timestamps, even with no group.
@@ -483,6 +497,7 @@ class TracePandas(Trace):
         logger.info(f"Found {len(all_context_managers)} context managers.")
 
         self.context_manager_states = all_context_managers
+        return None
 
     def is_stage_annotated(self):
         # ideally we want to have a static manifest for the trace produced by the instrumentor according to the args
@@ -579,12 +594,13 @@ class TracePandas(Trace):
 
         return self.events["time"].max()
 
-    def _get_identity_values(self, column: str) -> list:
+    def _get_identity_values(self, column: str) -> list[object]:
         """Cache stable identity columns; return a fresh list for every caller.
 
         As with call-record indexes, frame replacement or length changes rebuild
         the cache. Same-size in-place identity edits, row reordering, or dtype
         changes require a new TracePandas.
+        Identity columns are schemaless: their scalars are not necessarily ints.
         Keep pandas' dropna/unique conversion to preserve dtype and encounter
         order instead of replacing it with Python set semantics.
         """
@@ -601,7 +617,7 @@ class TracePandas(Trace):
             )
         return list(self._identity_values[column])
 
-    def get_process_ids(self) -> list[int]:
+    def get_process_ids(self) -> list[object]:
         """Find all process ids from the trace."""
         if "process_id" not in self.events.columns:
             logger.warning(
@@ -610,7 +626,7 @@ class TracePandas(Trace):
             return []
         return self._get_identity_values("process_id")
 
-    def get_thread_ids(self) -> list[int]:
+    def get_thread_ids(self) -> list[object]:
         """Find all thread ids from the trace."""
         if "thread_id" not in self.events.columns:
             logger.warning(

@@ -1,110 +1,152 @@
-# TrainCheck Checker Usage Guide
+# CLI Reference: Check Traces
 
-`traincheck-check` is the **final stage** of the TrainCheck workflow. It verifies a set of invariants against trace files or streams from target programs, reporting any detected violations—helping you catch silent issues in your ML training pipelines.
+Start with [Use TrainCheck](usage-guide.md) if you want the full workflow. This page explains `traincheck-onlinecheck` and `traincheck-check`.
 
-## 🔧 Checking Modes
+TrainCheck has two checking modes:
 
-TrainCheck supports two checking modes:
+- `traincheck-onlinecheck` checks traces while `traincheck-collect` is still writing them.
+- `traincheck-check` checks completed trace files after collection finishes.
 
-- **Post-training Checking (`traincheck-check`)**:  
-   Perform invariant checking on completed trace files after the training job finishes. ✅
+Use online checking when you want violations during a running job. Use offline checking when you want the easiest path or a reproducible local workflow.
 
-- **On-the-fly Checking (`traincheck-onlinecheck`):**
-   Perform real-time checking while the target training job is running. ✅
+## Live Checking
 
-## How to Use: On-the-fly Checking
-
-While training is in progress with `traincheck-collect`, run the following command:
+Start trace collection for the target run:
 
 ```bash
-traincheck-onlinecheck -f <trace_folder> -i <path_to_invariant_file>
+traincheck-collect \
+  --pyscript target.py \
+  --models-to-track model \
+  --invariants invariants.json \
+  --output-dir target_trace
 ```
 
-- `-f <trace_folder>`: Path to the folder where traces are:
-  - Already collected, or
-  - **Actively being collected** by `traincheck-collect` during the training job.
-
-- `-i <path_to_invariant_file>`: Path to the JSON file containing inferred invariants.
-
-## How to Use: Post-training Checking
-
-Run the following command:
+In another terminal, start the online checker:
 
 ```bash
-traincheck-check -f <trace_folder> -i <path_to_invariant_file>
+traincheck-onlinecheck -f target_trace -i invariants.json
 ```
 
-- `-f <trace_folder>`: Path to the folder containing traces collected by `traincheck-collect`.
-- `-i <path_to_invariant_file>`: Path to the JSON file containing inferred invariants.
+The online checker watches `target_trace/` and updates its report as new traces arrive.
 
-## Report Visualization Options
+If the command fails with a missing `watchdog` package, install it in the same environment:
 
-Both checkers can produce a standalone HTML report and optionally log summary metrics to external monitoring tools.
-
-### Standalone HTML Report (default)
-
-- Output: `<output_dir>/report.html`
-- Includes summary counts, relation breakdown, and top violations.
-- Disable with `--no-html-report`.
-
-**Offline example**
 ```bash
-traincheck-check -f <trace_folder> -i <path_to_invariant_file>
+pip install watchdog
 ```
 
-**Online example**
-```bash
-traincheck-onlinecheck -f <trace_folder> -i <path_to_invariant_file>
-```
-
-### W&B Integration
-
-Enable with `--report-wandb`. You can also pass:
-`--wandb-project`, `--wandb-entity`, `--wandb-run-name`, `--wandb-group`, `--wandb-tags`.
+Control the report refresh interval with:
 
 ```bash
-traincheck-check -f <trace_folder> -i <path_to_invariant_file> \
-  --report-wandb --wandb-project <project>
-```
-
-```bash
-traincheck-onlinecheck -f <trace_folder> -i <path_to_invariant_file> \
-  --report-wandb --wandb-project <project>
-```
-
-### MLflow Integration
-
-Enable with `--report-mlflow`. Optional:
-`--mlflow-experiment`, `--mlflow-run-name`.
-
-```bash
-traincheck-check -f <trace_folder> -i <path_to_invariant_file> \
-  --report-mlflow --mlflow-experiment <experiment>
-```
-
-```bash
-traincheck-onlinecheck -f <trace_folder> -i <path_to_invariant_file> \
-  --report-mlflow --mlflow-experiment <experiment>
-```
-
-### Online Report Refresh
-
-The online checker refreshes the report when violations change, and also on a periodic timer.
-Control the interval with `--report-interval-seconds` (default: 10).
-
-```bash
-traincheck-onlinecheck -f <trace_folder> -i <path_to_invariant_file> \
+traincheck-onlinecheck \
+  -f target_trace \
+  -i invariants.json \
   --report-interval-seconds 30
 ```
 
-**Note:** W&B and MLflow logging are optional. If the packages are not installed, TrainCheck will skip logging and emit a warning.
+## Offline Checking
 
-## Interpreting the Results
+The offline path is simpler. First let `traincheck-collect` finish, then run:
 
-After running either checking mode, TrainCheck will output a summary of detected invariant violations. Each violation entry typically includes:
+```bash
+traincheck-check -f target_trace -i invariants.json
+```
 
-- **Trace file or stream name**: Identifies where the issue was found.
-- **Invariant description**: Details the specific invariant that was violated.
-- **Violation details**: Provides context, such as the step or epoch where the violation occurred.
+Offline checking reads the completed trace folder and writes a results directory.
 
-Review these results to pinpoint silent errors or unexpected behaviors in your ML training pipeline. For more information on result formats and how to diagnose issues, see [5. Detection & Diagnosis](./5-min-tutorial.md#5-detection--diagnosis) in the **5-Minute Tutorial**.
+## Sampling and Checking
+
+Sampling is configured during trace collection:
+
+```bash
+traincheck-collect \
+  --pyscript target.py \
+  --models-to-track model \
+  --invariants invariants.json \
+  --sampling-interval 10 \
+  --warm-up-steps 10 \
+  --output-dir target_trace
+```
+
+Then run either checker normally:
+
+```bash
+traincheck-onlinecheck -f target_trace -i invariants.json
+```
+
+```bash
+traincheck-check -f target_trace -i invariants.json
+```
+
+The checker does not decide which steps were traced. It checks the trace files that collection produced.
+
+## Reports and Logs
+
+Both checkers write:
+
+- `failed.log`: violated invariants.
+- `passed.log`: triggered invariants that passed.
+- `not_triggered.log`: invariants that never ran on the trace.
+- `violations_summary.json`: compact violation summaries.
+- `report.html`: browser-readable summary.
+
+The default output directory is timestamped. Use `-o` or `--output-dir` to choose a path:
+
+```bash
+traincheck-check \
+  -f target_trace \
+  -i invariants.json \
+  --output-dir check_results
+```
+
+## W&B and MLflow
+
+Log checker results to Weights & Biases:
+
+```bash
+traincheck-check \
+  -f target_trace \
+  -i invariants.json \
+  --report-wandb \
+  --wandb-project traincheck
+```
+
+Attach offline checker metrics to an existing W&B run:
+
+```bash
+traincheck-check \
+  -f target_trace \
+  -i invariants.json \
+  --report-wandb \
+  --wandb-run-id <run-id>
+```
+
+Log checker results to MLflow:
+
+```bash
+traincheck-check \
+  -f target_trace \
+  -i invariants.json \
+  --report-mlflow \
+  --mlflow-experiment traincheck
+```
+
+The online checker supports the same W&B and MLflow reporting flags.
+
+## Useful Options
+
+- `-f, --trace-folders`: trace directories produced by `traincheck-collect`.
+- `-t, --traces`: individual trace files.
+- `-i, --invariants`: invariant files produced by `traincheck-infer`.
+- `-o, --output-dir`: results directory.
+- `--no-html-report`: skip `report.html`.
+- `--report-wandb`: log summary metrics and the HTML report to W&B.
+- `--report-mlflow`: log summary metrics and the HTML report to MLflow.
+- `--report-interval-seconds`: online checker report refresh interval.
+
+Run the command help for the complete option list:
+
+```bash
+traincheck-check --help
+traincheck-onlinecheck --help
+```
