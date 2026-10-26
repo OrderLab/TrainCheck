@@ -144,6 +144,16 @@ checks described below.
 
 ## Hashing is an unmeasured path in this audit
 
+A subsequent [four-mode API/model tracing study](tracer-components-20261026.md)
+activates subclass model tracking and tensor hashing. It measures the added
+model-tracing cost on MNIST and preserves a Transformer compatibility failure.
+Those results are distinct from this initial API-only audit.
+
+A subsequent [CPU/CUDA hash-backend study](tensor-hash-backends-20261026.md)
+measures the hash function directly and finds shape/stream correctness blockers
+to blanket CUDA enablement. It does not assign hashing a share of this earlier
+metadata-only training profile.
+
 Both profiles contain no calls to `dump_tensor`, `tensor_hash`, or `tensor_stats`.
 API metadata conversion passes `include_tensor_data=False`, and model/proxy
 tracking is disabled. The harness's initial/final model SHA-256 checks run outside
