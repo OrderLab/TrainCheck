@@ -12,7 +12,7 @@ include = ["traincheck", "traincheck.*"]
 [project]
 requires-python = ">= 3.10"
 name = "traincheck"
-version = "0.1.2"
+version = "0.2.0"
 description = "Training with Confidence: Catching Silent DL Training Bugs with Automated Proactive Checks"
 authors = [
   { name = "Yuxuan Jiang", email = "jyuxuan@umich.edu" },
@@ -53,7 +53,7 @@ classifiers = [
 Homepage = "https://github.com/OrderLab/TrainCheck"
 
 [project.scripts]
-traincheck-collect = "traincheck:collect_trace.main"
-traincheck-infer = "traincheck:infer_engine.main"
-traincheck-check = "traincheck:checker.main"
-traincheck-onlinecheck = "traincheck:checker_online.main"
+traincheck-collect = "traincheck.collect_trace:main"
+traincheck-infer = "traincheck.infer_engine:main"
+traincheck-check = "traincheck.checker:main"
+traincheck-onlinecheck = "traincheck.checker_online:main"
