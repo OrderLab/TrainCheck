@@ -1,0 +1,247 @@
+{
+  "measurement_date": "2026-10-25",
+  "scope": "One baseline-first sequential unprofiled pair on the same saved training trace; no repeats, affinity, or exclusive host reservation.",
+  "workload": {
+    "model_parameters": 6163712,
+    "training_steps": 10,
+    "sequence_length": 256,
+    "batch_size": 1,
+    "seed": 42,
+    "events": 573494,
+    "raw_trace_bytes": 286335289,
+    "training_run": "20261012T163111Z-88c4d357",
+    "trace_files": {
+      "trace_API_1088885_23438542501568.log": {
+        "bytes": 82668375,
+        "sha256": "883d288d6955b12c49dc741c166bcca7d191c890d19565802dad60708979278d"
+      },
+      "trace_API_1088885_23456244348224.log": {
+        "bytes": 203666914,
+        "sha256": "416b8ca45b4df361fc73052447573d7cb23d433d16c0947d74bbc18f7cc6c9a8"
+      }
+    }
+  },
+  "settings": {
+    "backend": "pandas",
+    "workers": 1,
+    "native_threads": 1,
+    "python_hash_seed": 0,
+    "gpu": false,
+    "disabled_relations": [
+      "FunctionLeadRelation",
+      "FunctionCoverRelation"
+    ],
+    "timeout_seconds": 1800,
+    "sampled_child_session_pss_limit_gib": 12,
+    "memory_sampling_seconds": 1,
+    "profile_enabled": false,
+    "periodic_traceback_dumps": false,
+    "eligible_api_count": 41
+  },
+  "runtime": {
+    "host": "labmach",
+    "python": "3.11.4",
+    "torch": "2.16.0.dev20261012+cpu",
+    "torch_git_version": "8f9045d72f71e7aa9e16b6d7a055ec5bc1f720b5",
+    "pandas": "2.3.3",
+    "numpy": "2.1.0",
+    "original_trace_runtime_difference": "Original training used Python 3.12.3 and a CUDA 13.0 Torch build at the same Torch source revision. Original eligible API name set was not logged; only its count of 41 is available."
+  },
+  "sources": {
+    "baseline": "Frozen call-index snapshot underlying PR141; before publication-only typing/comment formatting changes.",
+    "candidate_commit": "504e04d4de1a4168aabb5436f1b236edef1dadd7",
+    "trace_pandas_sha256": {
+      "baseline": "8e4c3589371449b78430ed5039d0159d3d0435664b218f3a96c81935be0d75d5",
+      "candidate": "41040a288284dc10041a4c06d8598219605732dd5dcd2ef080b9ed0799387f8a"
+    },
+    "provenance_manifest_sha256": {
+      "baseline": "7e8e267085ece31844a820752004af6a1c5bb293a3a2733990b039d72fcd872a",
+      "candidate": "b48d705bd9dccbdf7bce17e8704e7ae5554a7d6239cfd545d7b5ffc66a888b09"
+    },
+    "candidate_production_delta": "Identity caching plus publication-only import/type-annotation changes, comments/docstrings and formatting; all other production behavior unchanged. Independent pruning-state fix PR145 excluded from both variants."
+  },
+  "comparison": {
+    "complete_pair": true,
+    "scope": "one sequential unprofiled run per source; no replicate/median claim",
+    "harness_sha256": "2dd8d63a8bae80a944defee70be6bf33e9c9c8934e22e4b909ff222b4f7d6777",
+    "baseline": {
+      "exit_code": 0,
+      "failed_hypotheses": {
+        "canonical_multiset_sha256": "f3872b21c9ed7103e1020ccb83ef54b41009f2ec06348ce1b7dc5893e545f291",
+        "distinct_records": 105,
+        "records": 105
+      },
+      "invariants": {
+        "canonical_multiset_sha256": "f4f5db6772b857074d113e1c6ea091d5c4ed2452e091607fa425efab4edeed65",
+        "distinct_records": 835,
+        "records": 835
+      },
+      "sampled_peak_concurrent_memory": {
+        "pss_bytes": 2283671552,
+        "rss_bytes": 2291527680,
+        "uss_bytes": 2280935424
+      },
+      "source_unchanged": true,
+      "stage_times": {
+        "marker_durations": {
+          "cross_trace_collection_seconds": 0.001,
+          "generation_and_pruning_seconds": 619.58,
+          "precondition_and_output_sort_seconds": 751.403
+        },
+        "markers": {
+          "collection_start": "2026-10-25T03:37:57.781000",
+          "generation_start": "2026-10-25T03:27:38.201000",
+          "inference_end": "2026-10-25T03:50:29.185000",
+          "precondition_start": "2026-10-25T03:37:57.782000"
+        },
+        "note": "Log marker intervals; missing endpoints mean incomplete phases, not zero duration.",
+        "reported": {
+          "inference_seconds": 1371.0323550701141,
+          "load_seconds": 10.503035306930542
+        }
+      },
+      "stop_reason": null,
+      "success": true,
+      "traces_unchanged": true,
+      "wall_seconds": 1385.656381815672
+    },
+    "candidate": {
+      "exit_code": 0,
+      "failed_hypotheses": {
+        "canonical_multiset_sha256": "f3872b21c9ed7103e1020ccb83ef54b41009f2ec06348ce1b7dc5893e545f291",
+        "distinct_records": 105,
+        "records": 105
+      },
+      "invariants": {
+        "canonical_multiset_sha256": "f4f5db6772b857074d113e1c6ea091d5c4ed2452e091607fa425efab4edeed65",
+        "distinct_records": 835,
+        "records": 835
+      },
+      "sampled_peak_concurrent_memory": {
+        "pss_bytes": 2286718976,
+        "rss_bytes": 2294530048,
+        "uss_bytes": 2283991040
+      },
+      "source_unchanged": true,
+      "stage_times": {
+        "marker_durations": {
+          "cross_trace_collection_seconds": 0.0,
+          "generation_and_pruning_seconds": 72.759,
+          "precondition_and_output_sort_seconds": 10.913
+        },
+        "markers": {
+          "collection_start": "2026-10-25T03:51:57.205000",
+          "generation_start": "2026-10-25T03:50:44.446000",
+          "inference_end": "2026-10-25T03:52:08.118000",
+          "precondition_start": "2026-10-25T03:51:57.205000"
+        },
+        "note": "Log marker intervals; missing endpoints mean incomplete phases, not zero duration.",
+        "reported": {
+          "inference_seconds": 83.71693992614746,
+          "load_seconds": 10.698827981948853
+        }
+      },
+      "stop_reason": null,
+      "success": true,
+      "traces_unchanged": true,
+      "wall_seconds": 98.55111291632056
+    },
+    "invariants": {
+      "comparison": "structural_json_multiset",
+      "equal": true,
+      "reference": {
+        "records": 835,
+        "distinct_records": 835,
+        "canonical_multiset_sha256": "f4f5db6772b857074d113e1c6ea091d5c4ed2452e091607fa425efab4edeed65"
+      },
+      "candidate": {
+        "records": 835,
+        "distinct_records": 835,
+        "canonical_multiset_sha256": "f4f5db6772b857074d113e1c6ea091d5c4ed2452e091607fa425efab4edeed65"
+      },
+      "missing_records": 0,
+      "extra_records": 0,
+      "missing_examples": [],
+      "extra_examples": []
+    },
+    "failed_hypotheses": {
+      "comparison": "structural_json_multiset",
+      "equal": true,
+      "reference": {
+        "records": 105,
+        "distinct_records": 105,
+        "canonical_multiset_sha256": "f3872b21c9ed7103e1020ccb83ef54b41009f2ec06348ce1b7dc5893e545f291"
+      },
+      "candidate": {
+        "records": 105,
+        "distinct_records": 105,
+        "canonical_multiset_sha256": "f3872b21c9ed7103e1020ccb83ef54b41009f2ec06348ce1b7dc5893e545f291"
+      },
+      "missing_records": 0,
+      "extra_records": 0,
+      "missing_examples": [],
+      "extra_examples": []
+    },
+    "wall_time_ratio_baseline_over_candidate": 14.060281419573906
+  },
+  "context_index": {
+    "baseline": [
+      {
+        "call": 0,
+        "contexts": 711,
+        "rows": 573494,
+        "seconds": 0.46406279876828194,
+        "states_sha256": "02a9f08ad19e890f92d26367b4a8c433c4953770d5359554bf496fc6f17e3b07"
+      },
+      {
+        "call": 1,
+        "contexts": 711,
+        "rows": 573494,
+        "seconds": 0.4610072821378708,
+        "states_sha256": "02a9f08ad19e890f92d26367b4a8c433c4953770d5359554bf496fc6f17e3b07"
+      }
+    ],
+    "candidate": [
+      {
+        "call": 0,
+        "contexts": 711,
+        "rows": 573494,
+        "seconds": 0.4815337397158146,
+        "states_sha256": "02a9f08ad19e890f92d26367b4a8c433c4953770d5359554bf496fc6f17e3b07"
+      },
+      {
+        "call": 1,
+        "contexts": 711,
+        "rows": 573494,
+        "seconds": 0.46630632504820824,
+        "states_sha256": "02a9f08ad19e890f92d26367b4a8c433c4953770d5359554bf496fc6f17e3b07"
+      }
+    ]
+  },
+  "verification": {
+    "complete_structural_json_multisets_equal": true,
+    "duplicate_multiplicity_and_array_order_preserved": true,
+    "json_object_key_order_and_record_line_order_ignored": true,
+    "both_full_and_stage_context_files_byte_identical": true,
+    "all_source_and_input_hashes_unchanged": true
+  },
+  "timer_scope": {
+    "wall": "Child startup through exit and monitor polling, including imports and JSON serialization; initial/final integrity hashing excluded.",
+    "load": "Read/concatenate/TracePandas construction, including harness context serialization.",
+    "inference": "Engine construction, hypothesis generation/pruning, collection, final preconditions and sort; ends before invariant JSON serialization.",
+    "marker_intervals": "Millisecond log timestamp resolution; generation/pruning and final preconditions/sort are parts of inference, not additional wall time."
+  },
+  "memory_scope": "Peak concurrent child-session samples, excluding monitor; PSS depends on shared pages. No memory improvement or multiprocessing scaling claim.",
+  "evidence_archive": {
+    "name": "matching-runtime-unprofiled-pair-evidence.tar.gz",
+    "bytes": 314914,
+    "sha256": "d78a815e1516131b28342c7d7e9251bc195f9708bab247c9f2d184558ec26f9e"
+  },
+  "limitations": [
+    "One sequential pair, no distribution or confidence interval.",
+    "Offline saved-trace CPU inference, not training, distributed scaling, online checking overhead, or new trace collection.",
+    "Six enabled relations; FunctionLeadRelation and FunctionCoverRelation disabled identically.",
+    "This preserves existing inference behavior; it does not certify inferred invariants as ground truth.",
+    "Earlier periodic-faulthandler plus cProfile attempts crashed and are excluded; this successful pair alone does not isolate the crash cause."
+  ]
+}
