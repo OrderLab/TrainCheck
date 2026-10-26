@@ -3,6 +3,7 @@
 import gc
 import unittest
 import weakref
+from typing import Callable, TypeAlias, cast
 from unittest.mock import patch
 
 import torch
@@ -11,6 +12,7 @@ from torch.nn.modules.module import (
     register_module_module_registration_hook,
     register_module_parameter_registration_hook,
 )
+from torch.utils.hooks import RemovableHandle
 
 import traincheck.config.config as config
 from traincheck.instrumentor.proxy_wrapper import subclass
@@ -18,6 +20,25 @@ from traincheck.instrumentor.proxy_wrapper.proxy_registry import VarRegistry
 from traincheck.instrumentor.proxy_wrapper.subclass import (
     ProxyParameter,
     proxy_parameter,
+)
+
+ParameterRegistrationHook: TypeAlias = Callable[
+    [nn.Module, str, nn.Parameter | None], nn.Parameter | None
+]
+ModuleRegistrationHook: TypeAlias = Callable[
+    [nn.Module, str, nn.Module | None], nn.Module | None
+]
+# PyTorch 2.2 declares these callbacks as returning None, but both API docstrings
+# explicitly allow replacement values and the native setters use those values.
+# These narrow boundary casts preserve that documented callback/handle contract;
+# the tests below verify the replacement is registered and tracked exactly once.
+register_parameter_hook = cast(
+    Callable[[ParameterRegistrationHook], RemovableHandle],
+    register_module_parameter_registration_hook,
+)
+register_module_hook = cast(
+    Callable[[ModuleRegistrationHook], RemovableHandle],
+    register_module_module_registration_hook,
 )
 
 
@@ -80,8 +101,11 @@ class SubclassAssignmentTests(unittest.TestCase):
         self.track(module)
         tensor = torch.ones(2)
         module.mask = tensor
-        module.counter = 3
-        module.label = None
+        # Module.__setattr__ in PyTorch 2.2 omits ordinary attributes and None
+        # from its annotation. setattr exercises the same runtime setter without
+        # misrepresenting those values as Tensor | Module.
+        setattr(module, "counter", 3)
+        setattr(module, "label", None)
         self.assertIs(module.mask, tensor)
         self.assertEqual(module.counter, 3)
         self.assertIsNone(module.label)
@@ -99,7 +123,7 @@ class SubclassAssignmentTests(unittest.TestCase):
         self.assertIs(module.persistent, replacement)
         self.assertIs(module.temporary, replacement)
         self.assertEqual(list(module.state_dict()), ["persistent"])
-        module.persistent = None
+        setattr(module, "persistent", None)
         self.assertIsNone(module.persistent)
         self.assertEqual(list(module.state_dict()), [])
 
@@ -113,15 +137,15 @@ class SubclassAssignmentTests(unittest.TestCase):
         gradient = torch.full((2,), 7.0)
         replacement.grad = gradient
         marker = object()
-        replacement.user_marker = marker
+        setattr(replacement, "user_marker", marker)
         module.weight = replacement
         self.assertIsInstance(module.weight, ProxyParameter)
         self.assertIsNot(module.weight, first)
         self.assertFalse(module.weight.requires_grad)
         self.assertIs(module.weight.grad, gradient)
-        self.assertIs(module.weight.user_marker, marker)
+        self.assertIs(module.weight.__dict__["user_marker"], marker)
         self.assertIs(self.registry.registry["model.weight"].var, module.weight)
-        module.weight = None
+        setattr(module, "weight", None)
         self.assertIsNone(module.weight)
         self.assertEqual(list(module.parameters()), [])
 
@@ -181,7 +205,7 @@ class SubclassAssignmentTests(unittest.TestCase):
             child.mask = torch.ones(2)
             child[0].weight = nn.Parameter(torch.zeros_like(child[0].weight))
             self.assertIsInstance(child[0].weight, ProxyParameter)
-        module.child = None
+        setattr(module, "child", None)
         self.assertIsNone(module.child)
         self.assertEqual(list(module.children()), [])
 
@@ -198,11 +222,12 @@ class SubclassAssignmentTests(unittest.TestCase):
         self.assertIs(module.weight, child.weight)
         module.later_alias = parameter
         self.assertIs(module.weight, module.later_alias)
-        metadata_name = module.weight.var_name
+        metadata_name: object = module.weight.__dict__["var_name"]
+        self.assertIsInstance(metadata_name, str)
         module.proxy_alias = module.weight
         self.track(module)
         self.assertIs(module.weight, module.proxy_alias)
-        self.assertEqual(module.weight.var_name, metadata_name)
+        self.assertEqual(module.weight.__dict__["var_name"], metadata_name)
         self.assertEqual(len(list(module.parameters())), 1)
 
     def test_alias_cache_does_not_keep_replaced_source_alive(self) -> None:
@@ -282,7 +307,7 @@ class SubclassAssignmentTests(unittest.TestCase):
         module.register_buffer("mask", buffer)
         self.track(module)
         with self.assertRaisesRegex(TypeError, "as buffer 'mask'"):
-            module.mask = 42
+            setattr(module, "mask", 42)
         self.assertIs(module.mask, buffer)
 
     def test_parameter_registration_hook_replacement_is_tracked_once(self) -> None:
@@ -300,7 +325,7 @@ class SubclassAssignmentTests(unittest.TestCase):
             calls.append(value)
             return replacement
 
-        handle = register_module_parameter_registration_hook(replace)
+        handle = register_parameter_hook(replace)
         try:
             module.weight = incoming
         finally:
@@ -324,7 +349,7 @@ class SubclassAssignmentTests(unittest.TestCase):
             calls.append(value)
             return replacement
 
-        handle = register_module_module_registration_hook(replace)
+        handle = register_module_hook(replace)
         try:
             module.child = incoming
         finally:
@@ -348,7 +373,7 @@ class SubclassAssignmentTests(unittest.TestCase):
         def reject(owner: nn.Module, name: str, value: nn.Module | None) -> None:
             raise error
 
-        handle = register_module_module_registration_hook(reject)
+        handle = register_module_hook(reject)
         try:
             with self.assertRaises(RuntimeError) as caught:
                 module.child = child
@@ -367,7 +392,7 @@ class SubclassAssignmentTests(unittest.TestCase):
                 module = nn.Module()
                 module.__dict__[subclass.SUBCLASS_HOOK_KEY] = malformed
                 with self.assertRaisesRegex(TypeError, "tracking hook"):
-                    module.label = "new"
+                    setattr(module, "label", "new")
                 self.assertNotIn("label", module.__dict__)
 
 
