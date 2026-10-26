@@ -10,7 +10,7 @@ import traceback
 import types
 from contextlib import ContextDecorator
 from importlib.util import find_spec
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal, Mapping, Optional, Sequence, TypedDict
 
 import torch
 
@@ -22,6 +22,7 @@ from traincheck.config.config import (
     WRAP_WITHOUT_DUMP_WHITELIST,
 )
 from traincheck.instrumentor.caches import META_VARS
+from traincheck.instrumentor.constructor_snapshot import constructor_receiver_snapshot
 from traincheck.instrumentor.dumper import (
     convert_var_to_dict,
     dump_trace_API,
@@ -157,20 +158,45 @@ def get_owner_class(func):
     return owner
 
 
+class SerializedArguments(TypedDict):
+    args: dict[int, dict[str, object]]
+    kwargs: dict[str, dict[str, object]]
+
+
 @suppress_tracing()
-def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
+def to_dict_args_kwargs(
+    args: Sequence[object],
+    kwargs: Mapping[str, object],
+    dump_args_config: Mapping[str, object] | None = None,
+    *,
+    function_name: str | None = None,
+) -> SerializedArguments:
+    def serialize_argument(index: int, argument: object) -> dict[str, object]:
+        argument_config = (
+            dump_args_config[str(index)] if dump_args_config is not None else None
+        )
+        if index == 0 and function_name is not None:
+            snapshot = constructor_receiver_snapshot(
+                function_name, argument, argument_config
+            )
+            if snapshot is not None:
+                return snapshot
+        if dump_args_config is None:
+            return var_to_serializable(argument)
+        return var_to_serializable(argument, argument_config)
+
     if dump_args_config is None:
-        result = {
-            "args": {i: var_to_serializable(arg) for i, arg in enumerate(args)},
+        result: SerializedArguments = {
+            "args": {i: serialize_argument(i, arg) for i, arg in enumerate(args)},
             "kwargs": {k: var_to_serializable(v) for k, v in kwargs.items()},
         }
     else:
         result = {"args": {}, "kwargs": {}}
-        args_dicts = {}
-        kwargs_dicts = {}
+        args_dicts: dict[int, dict[str, object]] = {}
+        kwargs_dicts: dict[str, dict[str, object]] = {}
         for i, arg in enumerate(args):
             if str(i) in dump_args_config:
-                args_dicts[i] = var_to_serializable(arg, dump_args_config[str(i)])
+                args_dicts[i] = serialize_argument(i, arg)
 
         for k, v in kwargs.items():
             if k in dump_args_config:
@@ -291,7 +317,9 @@ def function_wrapper(
                             [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                         )
         if dump_args:
-            dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
+            dict_args_kwargs = to_dict_args_kwargs(
+                args, kwargs, dump_args_config, function_name=original_function_name
+            )
             pre_record["args"] = dict_args_kwargs["args"]
             pre_record["kwargs"] = dict_args_kwargs["kwargs"]
         dump_trace_API(pre_record)
