@@ -1,0 +1,1224 @@
+{
+  "artifacts": {
+    "adapter_sha256": "3a9723a7bc2c165493eb4e45b0dbe1f4e44e0f991b2e0bf64f5ef2b9c05d8ab5",
+    "archive_bytes": 80977920,
+    "archive_name": "remote-evidence.tar",
+    "archive_sha256": "31ad9746dc9b5318b3f49d9119c86606dce48194ac92701695960bb537a84036",
+    "audit_runner_sha256": "5ac3cb8f5a20bcdeefb2d6146a4060453f50d4d4d5a97e2c734ed93e410f4530",
+    "remote_directory": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+    "source_archive_sha256": "2574db44cdf2854160385dadef013968188f6688d2d70e57bf577a1bbfc20973"
+  },
+  "configuration": {
+    "batch_size": 2,
+    "case_limits": {
+      "main_RSS_bytes": 4294967296,
+      "timeout_seconds": 90,
+      "trace_bytes": 268435456
+    },
+    "device": "cpu",
+    "dtype": "float32",
+    "hash_seed": 0,
+    "instrumentation": "Normal torch API coverage, unfiltered argument/return metadata, use_full_instr=False, descriptors disabled, no proxy/model tracking, no tensor-value dump, interval1,warmup0",
+    "instrumented_function_count": 20998,
+    "seed": 42,
+    "steps": 3,
+    "training_seed": 43
+  },
+  "hardware": {
+    "cpu": "Intel Core i9-13900K",
+    "cpu_affinity": false,
+    "exclusive_host": false,
+    "host_alias": "labmach",
+    "hostname": "yuxuan-Precision-3660",
+    "logical_cpus": 32,
+    "native_threads": 1,
+    "platform": "Linux-6.1.0-1027-oem-x86_64-with-glibc2.35",
+    "python": "3.11.4 (main, Jul  5 2023, 13:45:01) [GCC 11.2.0]"
+  },
+  "limits": [
+    "Two alternating unprofiled pairs and one distinct profile per workload; three steps including first-step effects; no steady-state or confidence claim",
+    "Tiny CPU training workloads; no GPU/distributed/online-checking overhead claim",
+    "cProfile slows Python-heavy paths; its percentages are profiled main-thread time and cannot be applied directly to unprofiled wall time",
+    "Profile excludes setup,start_step,loss extraction,state hashing,background writer and shutdown; unprofiled training wall includes start_step and wrapper-disable assignment",
+    "Raw traces across fresh processes contain different timestamps and identities; no normalization or trace-equivalence claim",
+    "Current full-API metadata collection, not selective checking mode or full tensor-value capture",
+    "No production optimization or speedup candidate was implemented"
+  ],
+  "production_source_modified": false,
+  "schema_version": 1,
+  "source_commit": "205a687eef30e498bd2d9a9951652b7cc05bec68",
+  "source_hashes_verified_after_download": true,
+  "source_python_file_count": 77,
+  "source_tree": "2177e2fa826bb4623c3c9cdbb3bdcb61fafbedab",
+  "verification": {
+    "all_downloaded_trace_digests_counts_and_pairs_verified": true,
+    "all_model_and_loss_parity_checks_passed": true,
+    "completed_cases": 10,
+    "verified_raw_trace_files": 6
+  },
+  "workloads": {
+    "mnist": {
+      "adaptation": {
+        "adapter_sha256": "3a9723a7bc2c165493eb4e45b0dbe1f4e44e0f991b2e0bf64f5ef2b9c05d8ab5",
+        "batch_size": 2,
+        "benchmark_source": "/home/yuxuan/experiments/codex-trace-impact-20261013/benchmarks/instr-overhead/overhead-e2e/mnist/main.py",
+        "benchmark_source_sha256": "4478c5de92610a1e03d61c356801d51ffca749f99dac00f234d6b6ea2bcb2aa7",
+        "data": {
+          "count": 6,
+          "files": [
+            {
+              "path": "/home/yuxuan/gitrepos/data/MNIST/raw/train-images-idx3-ubyte",
+              "sha256": "ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db"
+            },
+            {
+              "path": "/home/yuxuan/gitrepos/data/MNIST/raw/train-labels-idx1-ubyte",
+              "sha256": "65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5"
+            }
+          ],
+          "kind": "cached_mnist_training_prefix",
+          "normalization": "(uint8 / 255 - 0.1307) / 0.3081",
+          "ordering": "first samples in IDX order; no shuffle"
+        },
+        "extracted_definitions_sha256": "f839142a57ce449054e05ffa79d746e5282e2599e101810e6ccf6e7a9dd33ce5",
+        "model_config": {
+          "architecture": "exact Net class"
+        },
+        "parameter_count": 1199882,
+        "seed": 42,
+        "steps": 3,
+        "torch_version": "2.16.0.dev20261012+cpu",
+        "training_rng_seed": 43
+      },
+      "parity": {
+        "all_canonical_state_hashes_equal": true,
+        "all_state_shapes_equal": true,
+        "complete_loss_trajectories_equal": true,
+        "every_call_has_one_pre_and_one_post": true,
+        "final_state_sha256": "f20e5ffbd73ae70379e3a9360e4fe2cf78c4cae0168b259f8070a8d77fc2f097",
+        "initial_state_sha256": "877e9abeb783ae5ed703a9666a7276e921e0424b78bb2d50a41461221d90ddb0",
+        "raw_trace_equality_between_runs_claimed": false,
+        "trace_files_checked_by_raw_sha256": true
+      },
+      "profile": {
+        "attribute_access_with_warning_context": {
+          "cumulative_percent": 54.53479215939012,
+          "cumulative_seconds": 0.497381218,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/dumper.py",
+          "function": "safe_getattr",
+          "line": 328,
+          "primitive_calls": 172768,
+          "self_percent": 16.20618712576155,
+          "self_seconds": 0.14780753300000002,
+          "total_calls": 172768
+        },
+        "context_getter": {
+          "cumulative_percent": 0.0024794860466412875,
+          "cumulative_seconds": 2.2614e-05,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/tracer.py",
+          "function": "get_meta_vars",
+          "line": 138,
+          "primitive_calls": 260,
+          "self_percent": 0.0024794860466412875,
+          "self_seconds": 2.2614e-05,
+          "total_calls": 260
+        },
+        "cumulative_rows_overlap_do_not_sum": true,
+        "denominator": "cProfile total time over the three training steps, main thread only",
+        "metadata_conversion": {
+          "cumulative_percent": 94.15436461744682,
+          "cumulative_seconds": 0.858729092,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/dumper.py",
+          "function": "convert_var_to_dict",
+          "line": 343,
+          "primitive_calls": 404,
+          "self_percent": 19.154807962358383,
+          "self_seconds": 0.174700248,
+          "total_calls": 404
+        },
+        "pid_tid_lookup": {
+          "cumulative_percent": 0.019916586247470443,
+          "cumulative_seconds": 0.00018164800000000002,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/tracer.py",
+          "function": "get_process_thread_id",
+          "line": 122,
+          "primitive_calls": 260,
+          "self_percent": 0.013997572594782584,
+          "self_seconds": 0.00012766400000000002,
+          "total_calls": 260
+        },
+        "profile_total_seconds": 0.9120438500000003,
+        "pstats_sha256": "8f4191c81b0b8e0dda4c405290ca2dd608787b591d29c6f2f2ba5f1cd1268514",
+        "stdlib_warning_functions_exclusive": {
+          "percent": 28.06110342172692,
+          "self_seconds": 0.255929568
+        },
+        "trace_json_serialization": {
+          "cumulative_percent": 0.4030543048999233,
+          "cumulative_seconds": 0.003676032,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/dumper.py",
+          "function": "serialize",
+          "line": 85,
+          "primitive_calls": 520,
+          "self_percent": 0.0383724971118439,
+          "self_seconds": 0.000349974,
+          "total_calls": 520
+        }
+      },
+      "runs": [
+        {
+          "after_load_average": [
+            1.15771484375,
+            1.1103515625,
+            1.09326171875
+          ],
+          "before_load_average": [
+            1.083984375,
+            1.09521484375,
+            1.087890625
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "mnist",
+            "--mode",
+            "baseline",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/mnist-baseline-r1"
+          ],
+          "exit_code": 0,
+          "label": "mnist-baseline-r1",
+          "mode": "baseline",
+          "peak_main_RSS_bytes": 344936448,
+          "process_wall_seconds": 1.503827378153801,
+          "profiled": false,
+          "repetition": 1,
+          "steps": [
+            {
+              "loss": 2.2311902046203613,
+              "seconds": 0.027345649898052216,
+              "step": 1
+            },
+            {
+              "loss": 3.296325445175171,
+              "seconds": 0.008510682731866837,
+              "step": 2
+            },
+            {
+              "loss": 2.6148438453674316,
+              "seconds": 0.007245682179927826,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 0,
+            "call_count": 0,
+            "files": [],
+            "incomplete_or_exception_call_groups": {},
+            "records": 0,
+            "records_by_api": {}
+          },
+          "training_seconds": 0.04310201480984688
+        },
+        {
+          "after_load_average": [
+            1.14501953125,
+            1.1083984375,
+            1.09228515625
+          ],
+          "before_load_average": [
+            1.15771484375,
+            1.1103515625,
+            1.09326171875
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "mnist",
+            "--mode",
+            "instrumented",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/mnist-instrumented-r1"
+          ],
+          "exit_code": 0,
+          "label": "mnist-instrumented-r1",
+          "mode": "instrumented",
+          "peak_main_RSS_bytes": 572383232,
+          "process_wall_seconds": 6.21296213939786,
+          "profiled": false,
+          "repetition": 1,
+          "steps": [
+            {
+              "loss": 2.2311902046203613,
+              "seconds": 0.14448309317231178,
+              "step": 1
+            },
+            {
+              "loss": 3.296325445175171,
+              "seconds": 0.09355559572577477,
+              "step": 2
+            },
+            {
+              "loss": 2.6148438453674316,
+              "seconds": 0.0937160812318325,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 351073,
+            "call_count": 260,
+            "files": [
+              {
+                "bytes": 351073,
+                "name": "trace_API_1673618_140358980621376.log",
+                "records": 520,
+                "sha256": "fd96459630c6d399e52280068c79dcb8b890002bd3f20934d7588b35fcf7c693"
+              }
+            ],
+            "incomplete_or_exception_call_groups": {},
+            "records": 520,
+            "records_by_api": {
+              "torch._VariableFunctionsClass.conv2d": 12,
+              "torch._VariableFunctionsClass.flatten": 6,
+              "torch._VariableFunctionsClass.is_complex": 144,
+              "torch._VariableFunctionsClass.max_pool2d": 6,
+              "torch._VariableFunctionsClass.ones_like": 6,
+              "torch._VariableFunctionsClass.relu": 18,
+              "torch._VariableFunctionsClass.zeros": 16,
+              "torch._VariableFunctionsClass.zeros_like": 32,
+              "torch._ops.TorchBindOpOverload.__call__": 12,
+              "torch._ops._contains_fake_script_object": 12,
+              "torch._ops._must_dispatch_in_python": 12,
+              "torch._tensor.Tensor.backward": 6,
+              "torch.accelerator.current_accelerator": 6,
+              "torch.compiler.is_compiling": 24,
+              "torch.compiler.is_exporting": 6,
+              "torch.is_grad_enabled": 18,
+              "torch.nn._reduction.get_enum": 6,
+              "torch.nn.functional.boolean_dispatch.<locals>.fn": 6,
+              "torch.nn.functional.dropout": 12,
+              "torch.nn.functional.log_softmax": 6,
+              "torch.nn.functional.nll_loss": 6,
+              "torch.nn.functional.relu": 18,
+              "torch.nn.modules.conv.Conv2d._conv_forward": 12,
+              "torch.nn.modules.conv.Conv2d.forward": 12,
+              "torch.nn.modules.dropout.Dropout.forward": 12,
+              "torch.nn.modules.linear.Linear.forward": 12,
+              "torch.optim.adadelta.Adadelta._init_group": 6,
+              "torch.optim.adadelta.Adadelta.step": 6,
+              "torch.optim.adadelta._single_tensor_adadelta": 6,
+              "torch.optim.adadelta.adadelta": 6,
+              "torch.optim.optimizer.Optimizer._accelerator_graph_capture_health_check": 6,
+              "torch.optim.optimizer.Optimizer._optimizer_step_code": 6,
+              "torch.optim.optimizer.Optimizer.zero_grad": 6,
+              "torch.optim.optimizer._default_to_fused_or_foreach": 6,
+              "torch.optim.optimizer._get_scalar_dtype": 16,
+              "torch.optim.optimizer._to_scalar": 6,
+              "torch.utils._foreach_utils._get_foreach_kernels_supported_devices": 6,
+              "torch.utils._foreach_utils._get_fused_kernels_supported_devices": 6
+            }
+          },
+          "training_seconds": 0.33175477012991905
+        },
+        {
+          "after_load_average": [
+            1.2939453125,
+            1.14013671875,
+            1.1025390625
+          ],
+          "before_load_average": [
+            1.14501953125,
+            1.1083984375,
+            1.09228515625
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "mnist",
+            "--mode",
+            "instrumented",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/mnist-instrumented-r2"
+          ],
+          "exit_code": 0,
+          "label": "mnist-instrumented-r2",
+          "mode": "instrumented",
+          "peak_main_RSS_bytes": 561512448,
+          "process_wall_seconds": 6.114231258630753,
+          "profiled": false,
+          "repetition": 2,
+          "steps": [
+            {
+              "loss": 2.2311902046203613,
+              "seconds": 0.1442841961979866,
+              "step": 1
+            },
+            {
+              "loss": 3.296325445175171,
+              "seconds": 0.09362511709332466,
+              "step": 2
+            },
+            {
+              "loss": 2.6148438453674316,
+              "seconds": 0.09420855715870857,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 351073,
+            "call_count": 260,
+            "files": [
+              {
+                "bytes": 351073,
+                "name": "trace_API_1673639_140638032565312.log",
+                "records": 520,
+                "sha256": "f7128590cb337830d498663a62ccaa99dc0e2298ab5cc96a853ffeb8f7df0f01"
+              }
+            ],
+            "incomplete_or_exception_call_groups": {},
+            "records": 520,
+            "records_by_api": {
+              "torch._VariableFunctionsClass.conv2d": 12,
+              "torch._VariableFunctionsClass.flatten": 6,
+              "torch._VariableFunctionsClass.is_complex": 144,
+              "torch._VariableFunctionsClass.max_pool2d": 6,
+              "torch._VariableFunctionsClass.ones_like": 6,
+              "torch._VariableFunctionsClass.relu": 18,
+              "torch._VariableFunctionsClass.zeros": 16,
+              "torch._VariableFunctionsClass.zeros_like": 32,
+              "torch._ops.TorchBindOpOverload.__call__": 12,
+              "torch._ops._contains_fake_script_object": 12,
+              "torch._ops._must_dispatch_in_python": 12,
+              "torch._tensor.Tensor.backward": 6,
+              "torch.accelerator.current_accelerator": 6,
+              "torch.compiler.is_compiling": 24,
+              "torch.compiler.is_exporting": 6,
+              "torch.is_grad_enabled": 18,
+              "torch.nn._reduction.get_enum": 6,
+              "torch.nn.functional.boolean_dispatch.<locals>.fn": 6,
+              "torch.nn.functional.dropout": 12,
+              "torch.nn.functional.log_softmax": 6,
+              "torch.nn.functional.nll_loss": 6,
+              "torch.nn.functional.relu": 18,
+              "torch.nn.modules.conv.Conv2d._conv_forward": 12,
+              "torch.nn.modules.conv.Conv2d.forward": 12,
+              "torch.nn.modules.dropout.Dropout.forward": 12,
+              "torch.nn.modules.linear.Linear.forward": 12,
+              "torch.optim.adadelta.Adadelta._init_group": 6,
+              "torch.optim.adadelta.Adadelta.step": 6,
+              "torch.optim.adadelta._single_tensor_adadelta": 6,
+              "torch.optim.adadelta.adadelta": 6,
+              "torch.optim.optimizer.Optimizer._accelerator_graph_capture_health_check": 6,
+              "torch.optim.optimizer.Optimizer._optimizer_step_code": 6,
+              "torch.optim.optimizer.Optimizer.zero_grad": 6,
+              "torch.optim.optimizer._default_to_fused_or_foreach": 6,
+              "torch.optim.optimizer._get_scalar_dtype": 16,
+              "torch.optim.optimizer._to_scalar": 6,
+              "torch.utils._foreach_utils._get_foreach_kernels_supported_devices": 6,
+              "torch.utils._foreach_utils._get_fused_kernels_supported_devices": 6
+            }
+          },
+          "training_seconds": 0.33211787045001984
+        },
+        {
+          "after_load_average": [
+            1.2939453125,
+            1.14013671875,
+            1.1025390625
+          ],
+          "before_load_average": [
+            1.2939453125,
+            1.14013671875,
+            1.1025390625
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "mnist",
+            "--mode",
+            "baseline",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/mnist-baseline-r2"
+          ],
+          "exit_code": 0,
+          "label": "mnist-baseline-r2",
+          "mode": "baseline",
+          "peak_main_RSS_bytes": 345812992,
+          "process_wall_seconds": 1.403785590082407,
+          "profiled": false,
+          "repetition": 2,
+          "steps": [
+            {
+              "loss": 2.2311902046203613,
+              "seconds": 0.015248574316501617,
+              "step": 1
+            },
+            {
+              "loss": 3.296325445175171,
+              "seconds": 0.007440429180860519,
+              "step": 2
+            },
+            {
+              "loss": 2.6148438453674316,
+              "seconds": 0.007134035229682922,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 0,
+            "call_count": 0,
+            "files": [],
+            "incomplete_or_exception_call_groups": {},
+            "records": 0,
+            "records_by_api": {}
+          },
+          "training_seconds": 0.02982303872704506
+        },
+        {
+          "after_load_average": [
+            1.39599609375,
+            1.16845703125,
+            1.11181640625
+          ],
+          "before_load_average": [
+            1.2939453125,
+            1.14013671875,
+            1.1025390625
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "mnist",
+            "--mode",
+            "instrumented",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/mnist-instrumented-r1-profile",
+            "--profile"
+          ],
+          "exit_code": 0,
+          "label": "mnist-instrumented-r1-profile",
+          "mode": "instrumented",
+          "peak_main_RSS_bytes": 567246848,
+          "process_wall_seconds": 6.615078143775463,
+          "profiled": true,
+          "repetition": 1,
+          "steps": [
+            {
+              "loss": 2.2311902046203613,
+              "seconds": 0.3891378231346607,
+              "step": 1
+            },
+            {
+              "loss": 3.296325445175171,
+              "seconds": 0.2634742856025696,
+              "step": 2
+            },
+            {
+              "loss": 2.6148438453674316,
+              "seconds": 0.2595182843506336,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 351073,
+            "call_count": 260,
+            "files": [
+              {
+                "bytes": 351073,
+                "name": "trace_API_1673690_140017730217024.log",
+                "records": 520,
+                "sha256": "09a7bfa5f591018ce027bfe5e72fdf6708a152964cc0981974f8cfa88a59c315"
+              }
+            ],
+            "incomplete_or_exception_call_groups": {},
+            "records": 520,
+            "records_by_api": {
+              "torch._VariableFunctionsClass.conv2d": 12,
+              "torch._VariableFunctionsClass.flatten": 6,
+              "torch._VariableFunctionsClass.is_complex": 144,
+              "torch._VariableFunctionsClass.max_pool2d": 6,
+              "torch._VariableFunctionsClass.ones_like": 6,
+              "torch._VariableFunctionsClass.relu": 18,
+              "torch._VariableFunctionsClass.zeros": 16,
+              "torch._VariableFunctionsClass.zeros_like": 32,
+              "torch._ops.TorchBindOpOverload.__call__": 12,
+              "torch._ops._contains_fake_script_object": 12,
+              "torch._ops._must_dispatch_in_python": 12,
+              "torch._tensor.Tensor.backward": 6,
+              "torch.accelerator.current_accelerator": 6,
+              "torch.compiler.is_compiling": 24,
+              "torch.compiler.is_exporting": 6,
+              "torch.is_grad_enabled": 18,
+              "torch.nn._reduction.get_enum": 6,
+              "torch.nn.functional.boolean_dispatch.<locals>.fn": 6,
+              "torch.nn.functional.dropout": 12,
+              "torch.nn.functional.log_softmax": 6,
+              "torch.nn.functional.nll_loss": 6,
+              "torch.nn.functional.relu": 18,
+              "torch.nn.modules.conv.Conv2d._conv_forward": 12,
+              "torch.nn.modules.conv.Conv2d.forward": 12,
+              "torch.nn.modules.dropout.Dropout.forward": 12,
+              "torch.nn.modules.linear.Linear.forward": 12,
+              "torch.optim.adadelta.Adadelta._init_group": 6,
+              "torch.optim.adadelta.Adadelta.step": 6,
+              "torch.optim.adadelta._single_tensor_adadelta": 6,
+              "torch.optim.adadelta.adadelta": 6,
+              "torch.optim.optimizer.Optimizer._accelerator_graph_capture_health_check": 6,
+              "torch.optim.optimizer.Optimizer._optimizer_step_code": 6,
+              "torch.optim.optimizer.Optimizer.zero_grad": 6,
+              "torch.optim.optimizer._default_to_fused_or_foreach": 6,
+              "torch.optim.optimizer._get_scalar_dtype": 16,
+              "torch.optim.optimizer._to_scalar": 6,
+              "torch.utils._foreach_utils._get_foreach_kernels_supported_devices": 6,
+              "torch.utils._foreach_utils._get_fused_kernels_supported_devices": 6
+            }
+          },
+          "training_seconds": 0.9121303930878639
+        }
+      ],
+      "unprofiled": {
+        "baseline_median_seconds": 0.03646252676844597,
+        "baseline_three_step_seconds": [
+          0.04310201480984688,
+          0.02982303872704506
+        ],
+        "ratio_of_two_medians": 9.103491987758273,
+        "traced_median_seconds": 0.33193632028996944,
+        "traced_three_step_seconds": [
+          0.33175477012991905,
+          0.33211787045001984
+        ]
+      }
+    },
+    "transformer": {
+      "adaptation": {
+        "adapter_sha256": "3a9723a7bc2c165493eb4e45b0dbe1f4e44e0f991b2e0bf64f5ef2b9c05d8ab5",
+        "batch_size": 2,
+        "benchmark_source": "/home/yuxuan/experiments/codex-trace-impact-20261013/benchmarks/false-positive/RNN/trainset/word_language_model-RNN_TANH-3epo/model.py",
+        "benchmark_source_sha256": "e4451a33e9b16953004bc639d736d14f42a2b21f2939ccabe4cff10d3c40b74c",
+        "data": {
+          "adaptation": "Whitespace tokenization plus <eos>; vocabulary and tensors are bounded to the chosen prefix, unlike the full benchmark corpus.",
+          "kind": "wikitext2_training_prefix_with_prefix_only_vocabulary",
+          "path": "/home/yuxuan/experiments/codex-trace-impact-20261013/benchmarks/false-positive/RNN/trainset/word_language_model-RNN_TANH-3epo/data/wikitext-2/train.txt",
+          "prefix_sha256": "9b0b504c73ee103a9128f2072536e99b2696039399bd57669477f030db10eb35",
+          "sha256": "9e9fa1ad55b1c2c95b08e37dd8e653f638fac2c6de904b79e813611eefbc985f",
+          "token_count": 98,
+          "vocabulary_size": 60
+        },
+        "extracted_definitions_sha256": "1f2db95454690be6a91aaa141e3a5a246308f9abca11444c9113e4adfb78b95d",
+        "model_config": {
+          "clip": 0.25,
+          "dropout_argument": 0.2,
+          "lr": 1.0,
+          "nhead": 2,
+          "nhid": 64,
+          "ninp": 32,
+          "nlayers": 2,
+          "ntoken": 60,
+          "sequence_length": 16
+        },
+        "parameter_count": 21052,
+        "seed": 42,
+        "steps": 3,
+        "torch_version": "2.16.0.dev20261012+cpu",
+        "training_rng_seed": 43
+      },
+      "parity": {
+        "all_canonical_state_hashes_equal": true,
+        "all_state_shapes_equal": true,
+        "complete_loss_trajectories_equal": true,
+        "every_call_has_one_pre_and_one_post": true,
+        "final_state_sha256": "8f17d60efae8fc6f1fcdc3995f560af9a16a85a39c48074810f243f7946cdbc1",
+        "initial_state_sha256": "e197d3c2a3f351146bc265c5b3eb54dcd1d921499ce24d1cc61bdc5e6dce886d",
+        "raw_trace_equality_between_runs_claimed": false,
+        "trace_files_checked_by_raw_sha256": true
+      },
+      "profile": {
+        "attribute_access_with_warning_context": {
+          "cumulative_percent": 56.290137875646614,
+          "cumulative_seconds": 1.3929320920000001,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/dumper.py",
+          "function": "safe_getattr",
+          "line": 328,
+          "primitive_calls": 477225,
+          "self_percent": 16.62318152653597,
+          "self_seconds": 0.41135026300000005,
+          "total_calls": 477225
+        },
+        "context_getter": {
+          "cumulative_percent": 0.002171862639509602,
+          "cumulative_seconds": 5.3744000000000006e-05,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/tracer.py",
+          "function": "get_meta_vars",
+          "line": 138,
+          "primitive_calls": 669,
+          "self_percent": 0.002171862639509602,
+          "self_seconds": 5.3744000000000006e-05,
+          "total_calls": 669
+        },
+        "cumulative_rows_overlap_do_not_sum": true,
+        "denominator": "cProfile total time over the three training steps, main thread only",
+        "metadata_conversion": {
+          "cumulative_percent": 97.54291716798443,
+          "cumulative_seconds": 2.413756029,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/dumper.py",
+          "function": "convert_var_to_dict",
+          "line": 343,
+          "primitive_calls": 1709,
+          "self_percent": 19.938888778539205,
+          "self_seconds": 0.49339936100000004,
+          "total_calls": 1709
+        },
+        "pid_tid_lookup": {
+          "cumulative_percent": 0.017974200069335363,
+          "cumulative_seconds": 0.000444782,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/tracer.py",
+          "function": "get_process_thread_id",
+          "line": 122,
+          "primitive_calls": 669,
+          "self_percent": 0.012582812931703359,
+          "self_seconds": 0.00031136900000000003,
+          "total_calls": 669
+        },
+        "profile_total_seconds": 2.4745579680000014,
+        "pstats_sha256": "899e7be474ac75cf3d9febe7ec7f6b4467f2b47cae2f0b936ccbe9ec95a0c7f9",
+        "stdlib_warning_functions_exclusive": {
+          "percent": 28.89372369716091,
+          "self_seconds": 0.7149919419999999
+        },
+        "trace_json_serialization": {
+          "cumulative_percent": 0.3973933982216574,
+          "cumulative_seconds": 0.00983373,
+          "file": "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/source/traincheck/instrumentor/dumper.py",
+          "function": "serialize",
+          "line": 85,
+          "primitive_calls": 1338,
+          "self_percent": 0.03603447611779687,
+          "self_seconds": 0.0008916940000000001,
+          "total_calls": 1338
+        }
+      },
+      "runs": [
+        {
+          "after_load_average": [
+            1.39599609375,
+            1.16845703125,
+            1.11181640625
+          ],
+          "before_load_average": [
+            1.39599609375,
+            1.16845703125,
+            1.11181640625
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "transformer",
+            "--mode",
+            "baseline",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/transformer-baseline-r1"
+          ],
+          "exit_code": 0,
+          "label": "transformer-baseline-r1",
+          "mode": "baseline",
+          "peak_main_RSS_bytes": 336105472,
+          "process_wall_seconds": 1.4032803736627102,
+          "profiled": false,
+          "repetition": 1,
+          "steps": [
+            {
+              "loss": 4.222344875335693,
+              "seconds": 0.005870260298252106,
+              "step": 1
+            },
+            {
+              "loss": 4.122839450836182,
+              "seconds": 0.0014097988605499268,
+              "step": 2
+            },
+            {
+              "loss": 4.136002063751221,
+              "seconds": 0.001257430762052536,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 0,
+            "call_count": 0,
+            "files": [],
+            "incomplete_or_exception_call_groups": {},
+            "records": 0,
+            "records_by_api": {}
+          },
+          "training_seconds": 0.008537489920854568
+        },
+        {
+          "after_load_average": [
+            1.44482421875,
+            1.1826171875,
+            1.11669921875
+          ],
+          "before_load_average": [
+            1.39599609375,
+            1.16845703125,
+            1.11181640625
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "transformer",
+            "--mode",
+            "instrumented",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/transformer-instrumented-r1"
+          ],
+          "exit_code": 0,
+          "label": "transformer-instrumented-r1",
+          "mode": "instrumented",
+          "peak_main_RSS_bytes": 542380032,
+          "process_wall_seconds": 6.612125892192125,
+          "profiled": false,
+          "repetition": 1,
+          "steps": [
+            {
+              "loss": 4.222344875335693,
+              "seconds": 0.28463035449385643,
+              "step": 1
+            },
+            {
+              "loss": 4.122839450836182,
+              "seconds": 0.2833110876381397,
+              "step": 2
+            },
+            {
+              "loss": 4.136002063751221,
+              "seconds": 0.3104921653866768,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 1014134,
+            "call_count": 669,
+            "files": [
+              {
+                "bytes": 1014134,
+                "name": "trace_API_1673711_139733505803328.log",
+                "records": 1338,
+                "sha256": "897ba9b25efe0db0ec305e732e476996c88fb0ab3c80528e962f5bbead9be043"
+              }
+            ],
+            "incomplete_or_exception_call_groups": {},
+            "records": 1338,
+            "records_by_api": {
+              "torch._VariableFunctionsClass._foreach_mul_": 6,
+              "torch._VariableFunctionsClass._foreach_norm": 6,
+              "torch._VariableFunctionsClass.clamp": 6,
+              "torch._VariableFunctionsClass.embedding": 6,
+              "torch._VariableFunctionsClass.full": 6,
+              "torch._VariableFunctionsClass.is_floating_point": 42,
+              "torch._VariableFunctionsClass.layer_norm": 30,
+              "torch._VariableFunctionsClass.log": 2,
+              "torch._VariableFunctionsClass.ones": 2,
+              "torch._VariableFunctionsClass.ones_like": 6,
+              "torch._VariableFunctionsClass.relu": 12,
+              "torch._VariableFunctionsClass.stack": 6,
+              "torch._VariableFunctionsClass.tril": 2,
+              "torch._VariableFunctionsClass.triu": 6,
+              "torch._tensor.Tensor.backward": 6,
+              "torch._tensor.Tensor.unflatten": 12,
+              "torch.backends.mha.get_fastpath_enabled": 30,
+              "torch.is_grad_enabled": 90,
+              "torch.nn._reduction.get_enum": 6,
+              "torch.nn.functional._canonical_mask": 72,
+              "torch.nn.functional._in_projection_packed": 12,
+              "torch.nn.functional._mha_shape_check": 12,
+              "torch.nn.functional._none_or_dtype": 42,
+              "torch.nn.functional.dropout": 42,
+              "torch.nn.functional.embedding": 6,
+              "torch.nn.functional.layer_norm": 30,
+              "torch.nn.functional.log_softmax": 6,
+              "torch.nn.functional.multi_head_attention_forward": 12,
+              "torch.nn.functional.nll_loss": 6,
+              "torch.nn.modules.activation.MultiheadAttention.forward": 12,
+              "torch.nn.modules.container.ModuleList._get_abs_string_index": 6,
+              "torch.nn.modules.dropout.Dropout.forward": 42,
+              "torch.nn.modules.linear.Linear.forward": 30,
+              "torch.nn.modules.module.Module._named_members": 18,
+              "torch.nn.modules.module.Module.named_modules": 504,
+              "torch.nn.modules.module.Module.named_parameters": 18,
+              "torch.nn.modules.module.Module.parameters": 18,
+              "torch.nn.modules.module.Module.zero_grad": 6,
+              "torch.nn.modules.normalization.LayerNorm.forward": 30,
+              "torch.nn.modules.sparse.Embedding.forward": 6,
+              "torch.nn.modules.transformer.TransformerEncoder.forward": 6,
+              "torch.nn.modules.transformer.TransformerEncoderLayer._ff_block": 12,
+              "torch.nn.modules.transformer.TransformerEncoderLayer._sa_block": 12,
+              "torch.nn.modules.transformer.TransformerEncoderLayer.forward": 12,
+              "torch.nn.modules.transformer._detect_is_causal_mask": 6,
+              "torch.nn.modules.transformer._generate_square_subsequent_mask": 6,
+              "torch.nn.modules.transformer._get_seq_len": 6,
+              "torch.nn.utils.clip_grad._clip_grads_with_norm_": 6,
+              "torch.nn.utils.clip_grad._get_total_norm": 6,
+              "torch.nn.utils.clip_grad.clip_grad_norm_": 6,
+              "torch.utils._foreach_utils._device_has_foreach_support": 12,
+              "torch.utils._foreach_utils._get_foreach_kernels_supported_devices": 12,
+              "torch.utils._foreach_utils._group_tensors_by_device_and_dtype": 12,
+              "torch.utils._foreach_utils._has_foreach_support": 12
+            }
+          },
+          "training_seconds": 0.8784336075186729
+        },
+        {
+          "after_load_average": [
+            1.53076171875,
+            1.2099609375,
+            1.12646484375
+          ],
+          "before_load_average": [
+            1.44482421875,
+            1.1826171875,
+            1.11669921875
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "transformer",
+            "--mode",
+            "instrumented",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/transformer-instrumented-r2"
+          ],
+          "exit_code": 0,
+          "label": "transformer-instrumented-r2",
+          "mode": "instrumented",
+          "peak_main_RSS_bytes": 542195712,
+          "process_wall_seconds": 6.514302123337984,
+          "profiled": false,
+          "repetition": 2,
+          "steps": [
+            {
+              "loss": 4.222344875335693,
+              "seconds": 0.2782718352973461,
+              "step": 1
+            },
+            {
+              "loss": 4.122839450836182,
+              "seconds": 0.2699402682483196,
+              "step": 2
+            },
+            {
+              "loss": 4.136002063751221,
+              "seconds": 0.27383317053318024,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 1014134,
+            "call_count": 669,
+            "files": [
+              {
+                "bytes": 1014134,
+                "name": "trace_API_1673771_140584477529152.log",
+                "records": 1338,
+                "sha256": "98e024c367f52bfde3bfd810bda836a08edb618eb98dc42a912233bfa1b7450b"
+              }
+            ],
+            "incomplete_or_exception_call_groups": {},
+            "records": 1338,
+            "records_by_api": {
+              "torch._VariableFunctionsClass._foreach_mul_": 6,
+              "torch._VariableFunctionsClass._foreach_norm": 6,
+              "torch._VariableFunctionsClass.clamp": 6,
+              "torch._VariableFunctionsClass.embedding": 6,
+              "torch._VariableFunctionsClass.full": 6,
+              "torch._VariableFunctionsClass.is_floating_point": 42,
+              "torch._VariableFunctionsClass.layer_norm": 30,
+              "torch._VariableFunctionsClass.log": 2,
+              "torch._VariableFunctionsClass.ones": 2,
+              "torch._VariableFunctionsClass.ones_like": 6,
+              "torch._VariableFunctionsClass.relu": 12,
+              "torch._VariableFunctionsClass.stack": 6,
+              "torch._VariableFunctionsClass.tril": 2,
+              "torch._VariableFunctionsClass.triu": 6,
+              "torch._tensor.Tensor.backward": 6,
+              "torch._tensor.Tensor.unflatten": 12,
+              "torch.backends.mha.get_fastpath_enabled": 30,
+              "torch.is_grad_enabled": 90,
+              "torch.nn._reduction.get_enum": 6,
+              "torch.nn.functional._canonical_mask": 72,
+              "torch.nn.functional._in_projection_packed": 12,
+              "torch.nn.functional._mha_shape_check": 12,
+              "torch.nn.functional._none_or_dtype": 42,
+              "torch.nn.functional.dropout": 42,
+              "torch.nn.functional.embedding": 6,
+              "torch.nn.functional.layer_norm": 30,
+              "torch.nn.functional.log_softmax": 6,
+              "torch.nn.functional.multi_head_attention_forward": 12,
+              "torch.nn.functional.nll_loss": 6,
+              "torch.nn.modules.activation.MultiheadAttention.forward": 12,
+              "torch.nn.modules.container.ModuleList._get_abs_string_index": 6,
+              "torch.nn.modules.dropout.Dropout.forward": 42,
+              "torch.nn.modules.linear.Linear.forward": 30,
+              "torch.nn.modules.module.Module._named_members": 18,
+              "torch.nn.modules.module.Module.named_modules": 504,
+              "torch.nn.modules.module.Module.named_parameters": 18,
+              "torch.nn.modules.module.Module.parameters": 18,
+              "torch.nn.modules.module.Module.zero_grad": 6,
+              "torch.nn.modules.normalization.LayerNorm.forward": 30,
+              "torch.nn.modules.sparse.Embedding.forward": 6,
+              "torch.nn.modules.transformer.TransformerEncoder.forward": 6,
+              "torch.nn.modules.transformer.TransformerEncoderLayer._ff_block": 12,
+              "torch.nn.modules.transformer.TransformerEncoderLayer._sa_block": 12,
+              "torch.nn.modules.transformer.TransformerEncoderLayer.forward": 12,
+              "torch.nn.modules.transformer._detect_is_causal_mask": 6,
+              "torch.nn.modules.transformer._generate_square_subsequent_mask": 6,
+              "torch.nn.modules.transformer._get_seq_len": 6,
+              "torch.nn.utils.clip_grad._clip_grads_with_norm_": 6,
+              "torch.nn.utils.clip_grad._get_total_norm": 6,
+              "torch.nn.utils.clip_grad.clip_grad_norm_": 6,
+              "torch.utils._foreach_utils._device_has_foreach_support": 12,
+              "torch.utils._foreach_utils._get_foreach_kernels_supported_devices": 12,
+              "torch.utils._foreach_utils._group_tensors_by_device_and_dtype": 12,
+              "torch.utils._foreach_utils._has_foreach_support": 12
+            }
+          },
+          "training_seconds": 0.822045274078846
+        },
+        {
+          "after_load_average": [
+            1.53076171875,
+            1.2099609375,
+            1.12646484375
+          ],
+          "before_load_average": [
+            1.53076171875,
+            1.2099609375,
+            1.12646484375
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "transformer",
+            "--mode",
+            "baseline",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/transformer-baseline-r2"
+          ],
+          "exit_code": 0,
+          "label": "transformer-baseline-r2",
+          "mode": "baseline",
+          "peak_main_RSS_bytes": 336072704,
+          "process_wall_seconds": 1.4045208059251308,
+          "profiled": false,
+          "repetition": 2,
+          "steps": [
+            {
+              "loss": 4.222344875335693,
+              "seconds": 0.002191394567489624,
+              "step": 1
+            },
+            {
+              "loss": 4.122839450836182,
+              "seconds": 0.0013248734176158905,
+              "step": 2
+            },
+            {
+              "loss": 4.136002063751221,
+              "seconds": 0.0012663193047046661,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 0,
+            "call_count": 0,
+            "files": [],
+            "incomplete_or_exception_call_groups": {},
+            "records": 0,
+            "records_by_api": {}
+          },
+          "training_seconds": 0.004782587289810181
+        },
+        {
+          "after_load_average": [
+            1.568359375,
+            1.22314453125,
+            1.13134765625
+          ],
+          "before_load_average": [
+            1.53076171875,
+            1.2099609375,
+            1.12646484375
+          ],
+          "command": [
+            "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/audit_runner.py",
+            "--root",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687",
+            "--child",
+            "--workload",
+            "transformer",
+            "--mode",
+            "instrumented",
+            "--output",
+            "/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687/runs/transformer-instrumented-r1-profile",
+            "--profile"
+          ],
+          "exit_code": 0,
+          "label": "transformer-instrumented-r1-profile",
+          "mode": "instrumented",
+          "peak_main_RSS_bytes": 541638656,
+          "process_wall_seconds": 8.118554219603539,
+          "profiled": true,
+          "repetition": 1,
+          "steps": [
+            {
+              "loss": 4.222344875335693,
+              "seconds": 0.8321634531021118,
+              "step": 1
+            },
+            {
+              "loss": 4.122839450836182,
+              "seconds": 0.8210002928972244,
+              "step": 2
+            },
+            {
+              "loss": 4.136002063751221,
+              "seconds": 0.8215112648904324,
+              "step": 3
+            }
+          ],
+          "stop_reason": null,
+          "trace": {
+            "bytes": 1014134,
+            "call_count": 669,
+            "files": [
+              {
+                "bytes": 1014134,
+                "name": "trace_API_1673827_140219656655936.log",
+                "records": 1338,
+                "sha256": "31caf36c9d5d45616f663f96b5f5d51615c842bacff67810aee61554c8b3a5cc"
+              }
+            ],
+            "incomplete_or_exception_call_groups": {},
+            "records": 1338,
+            "records_by_api": {
+              "torch._VariableFunctionsClass._foreach_mul_": 6,
+              "torch._VariableFunctionsClass._foreach_norm": 6,
+              "torch._VariableFunctionsClass.clamp": 6,
+              "torch._VariableFunctionsClass.embedding": 6,
+              "torch._VariableFunctionsClass.full": 6,
+              "torch._VariableFunctionsClass.is_floating_point": 42,
+              "torch._VariableFunctionsClass.layer_norm": 30,
+              "torch._VariableFunctionsClass.log": 2,
+              "torch._VariableFunctionsClass.ones": 2,
+              "torch._VariableFunctionsClass.ones_like": 6,
+              "torch._VariableFunctionsClass.relu": 12,
+              "torch._VariableFunctionsClass.stack": 6,
+              "torch._VariableFunctionsClass.tril": 2,
+              "torch._VariableFunctionsClass.triu": 6,
+              "torch._tensor.Tensor.backward": 6,
+              "torch._tensor.Tensor.unflatten": 12,
+              "torch.backends.mha.get_fastpath_enabled": 30,
+              "torch.is_grad_enabled": 90,
+              "torch.nn._reduction.get_enum": 6,
+              "torch.nn.functional._canonical_mask": 72,
+              "torch.nn.functional._in_projection_packed": 12,
+              "torch.nn.functional._mha_shape_check": 12,
+              "torch.nn.functional._none_or_dtype": 42,
+              "torch.nn.functional.dropout": 42,
+              "torch.nn.functional.embedding": 6,
+              "torch.nn.functional.layer_norm": 30,
+              "torch.nn.functional.log_softmax": 6,
+              "torch.nn.functional.multi_head_attention_forward": 12,
+              "torch.nn.functional.nll_loss": 6,
+              "torch.nn.modules.activation.MultiheadAttention.forward": 12,
+              "torch.nn.modules.container.ModuleList._get_abs_string_index": 6,
+              "torch.nn.modules.dropout.Dropout.forward": 42,
+              "torch.nn.modules.linear.Linear.forward": 30,
+              "torch.nn.modules.module.Module._named_members": 18,
+              "torch.nn.modules.module.Module.named_modules": 504,
+              "torch.nn.modules.module.Module.named_parameters": 18,
+              "torch.nn.modules.module.Module.parameters": 18,
+              "torch.nn.modules.module.Module.zero_grad": 6,
+              "torch.nn.modules.normalization.LayerNorm.forward": 30,
+              "torch.nn.modules.sparse.Embedding.forward": 6,
+              "torch.nn.modules.transformer.TransformerEncoder.forward": 6,
+              "torch.nn.modules.transformer.TransformerEncoderLayer._ff_block": 12,
+              "torch.nn.modules.transformer.TransformerEncoderLayer._sa_block": 12,
+              "torch.nn.modules.transformer.TransformerEncoderLayer.forward": 12,
+              "torch.nn.modules.transformer._detect_is_causal_mask": 6,
+              "torch.nn.modules.transformer._generate_square_subsequent_mask": 6,
+              "torch.nn.modules.transformer._get_seq_len": 6,
+              "torch.nn.utils.clip_grad._clip_grads_with_norm_": 6,
+              "torch.nn.utils.clip_grad._get_total_norm": 6,
+              "torch.nn.utils.clip_grad.clip_grad_norm_": 6,
+              "torch.utils._foreach_utils._device_has_foreach_support": 12,
+              "torch.utils._foreach_utils._get_foreach_kernels_supported_devices": 12,
+              "torch.utils._foreach_utils._group_tensors_by_device_and_dtype": 12,
+              "torch.utils._foreach_utils._has_foreach_support": 12
+            }
+          },
+          "training_seconds": 2.4746750108897686
+        }
+      ],
+      "unprofiled": {
+        "baseline_median_seconds": 0.006660038605332375,
+        "baseline_three_step_seconds": [
+          0.008537489920854568,
+          0.004782587289810181
+        ],
+        "ratio_of_two_medians": 127.66283968954976,
+        "traced_median_seconds": 0.8502394407987595,
+        "traced_three_step_seconds": [
+          0.8784336075186729,
+          0.822045274078846
+        ]
+      }
+    }
+  }
+}
