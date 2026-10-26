@@ -2,6 +2,8 @@ import functools
 import logging
 import os
 import threading
+import weakref
+from typing import Callable, cast
 
 import torch
 from torch import nn
@@ -215,76 +217,139 @@ class ProxyParameter(torch.nn.Parameter):
 
 def proxy_parameter(
     module: nn.Module,
-    logdir="proxy_log.log",
-    log_level=logging.INFO,
-    # TODO
-    # recurse=False,
-    parent_name="",
-    should_dump_trace=True,
-    from_call=False,
-    from_iter=False,
-    # TODO
-    # from_copy=False,
-):
+    logdir: str = "proxy_log.log",
+    log_level: int = logging.INFO,
+    parent_name: str = "",
+    should_dump_trace: bool = True,
+    from_call: bool = False,
+    from_iter: bool = False,
+) -> None:
+    """Track a module's parameters and subsequent assignments to its module tree.
+
+    Aliases within this tracking session share one proxy and its first registered
+    name. Weak identity entries avoid retaining replaced source parameters or
+    comparing Tensor values. Separate calls do not share this cache. Callers must
+    serialize model tracking and assignment; concurrent model mutation is unsupported.
+    """
+    if not isinstance(module, nn.Module):
+        raise TypeError("proxy_parameter expects a torch.nn.Module")
     if in_dynamo():
         return
-    for name, t in list(module.named_parameters(recurse=False)):
-        var_type = typename(t, is_runtime=True)
-        logger.debug(
-            f"[ProxyParameter] Proxying parameter: {parent_name}.{name} of type {var_type}"
-        )
-        module._parameters[name] = ProxyParameter(
-            t,
+
+    aliases: dict[
+        int,
+        tuple[weakref.ReferenceType[nn.Parameter], weakref.ReferenceType[nn.Parameter]],
+    ] = {}
+
+    def track_parameter(parameter: nn.Parameter, name: str) -> nn.Parameter:
+        if not isinstance(parameter, nn.Parameter):
+            raise TypeError(
+                f"Registered parameter {name!r} is not a torch.nn.Parameter"
+            )
+        # Calling ProxyParameter again reruns __init__, overwriting its canonical
+        # name and emitting another initialization record even for the same object.
+        if isinstance(parameter, ProxyParameter):
+            return parameter
+        identity = id(parameter)
+        cached = aliases.get(identity)  # Absence means this source has no live proxy.
+        if cached is not None and cached[0]() is parameter:
+            existing = cached[1]()
+            if existing is not None:
+                return existing
+        proxied = ProxyParameter(
+            parameter,
             logdir,
             log_level,
-            parent_name + "." + name,
-            var_type,
-            should_dump_trace,
-            from_call,
-            from_iter,
-        )
-    for name, child in module.named_children():
-        proxy_parameter(
-            child,
-            logdir,
-            log_level,
-            parent_name + "." + name,
+            name,
+            typename(parameter, is_runtime=True),
             should_dump_trace,
             from_call,
             from_iter,
         )
 
-    # we need to instrument the __setattr__ of the module to capture parameter updates
-    def subclass_setattr_hook(self, name, value):
-        logger.debug(
-            f"[ProxyParameter] Module __setattr__ called: {parent_name}.{name} = {type(value)}"
-        )
-        if isinstance(value, torch.Tensor) or isinstance(value, torch.nn.Module):
-            proxy_parameter(
-                value,
-                logdir,
-                log_level,
-                parent_name + "." + name,
-                should_dump_trace,
-                from_call,
-                from_iter,
+        # Tensor autograd hook dictionaries are slots, not entries in __dict__.
+        # Share them rather than copying so existing removable handles still work.
+        torch.Tensor.__setattr__(proxied, "_backward_hooks", parameter._backward_hooks)
+        # Post-accumulation hooks are absent on older supported PyTorch versions.
+        if hasattr(parameter, "_post_accumulate_grad_hooks"):
+            torch.Tensor.__setattr__(
+                proxied,
+                "_post_accumulate_grad_hooks",
+                parameter._post_accumulate_grad_hooks,
             )
 
-    module.__dict__[SUBCLASS_HOOK_KEY] = subclass_setattr_hook
+        def forget(reference: weakref.ReferenceType[nn.Parameter]) -> None:
+            current = aliases.get(identity)
+            if current is not None and (
+                current[0] is reference or current[1] is reference
+            ):
+                del aliases[identity]
+
+        aliases[identity] = (
+            weakref.ref(parameter, forget),
+            weakref.ref(proxied, forget),
+        )
+        return proxied
+
+    def track_module(current: nn.Module, path: str, visited: set[int]) -> None:
+        if not isinstance(current, nn.Module):
+            raise TypeError(f"Registered child {path!r} is not a torch.nn.Module")
+        if id(current) in visited:
+            return
+        visited.add(id(current))
+        # Include aliases rather than named_parameters' default deduplication.
+        for name, parameter in list(current._parameters.items()):
+            if parameter is not None:
+                current._parameters[name] = track_parameter(
+                    parameter, path + "." + name
+                )
+        for name, child in current._modules.items():
+            if child is not None:
+                track_module(child, path + "." + name, visited)
+
+        def subclass_setattr_hook(owner: nn.Module, name: str) -> None:
+            if in_dynamo():
+                return
+            # The native setter has already validated and registered the value,
+            # including any replacement made by PyTorch registration hooks. Buffer
+            # and ordinary Tensor assignments must never become parameters.
+            if name in owner._parameters:
+                parameter = owner._parameters[name]
+                if parameter is not None:
+                    owner._parameters[name] = track_parameter(
+                        parameter, path + "." + name
+                    )
+            elif name in owner._modules:
+                child = owner._modules[name]
+                if child is not None:
+                    track_module(child, path + "." + name, set())
+
+        current.__dict__[SUBCLASS_HOOK_KEY] = subclass_setattr_hook
+
+    track_module(module, parent_name, set())
 
 
 # instrument torch.nn.Module's setattr
-orig_setattr = torch.nn.Module.__setattr__
+# PyTorch 2.2 annotates only Tensor | Module, but its native setter also accepts
+# arbitrary Python attributes (for example training=False and cached masks=None).
+# This cast states that existing runtime contract; it does not coerce the value.
+orig_setattr = cast(
+    Callable[[nn.Module, str, object], None], torch.nn.Module.__setattr__
+)
 
 
 @functools.wraps(orig_setattr)
-def wrapped_setattr(self, name, value):
-    #hook = getattr(self, SUBCLASS_HOOK_KEY, None)
-    hook = self.__dict__.get(SUBCLASS_HOOK_KEY)
-    if hook is not None:
-        # If hook returns True, skip the original setattr; otherwise continue.
-        hook(self, name, value)
-    return orig_setattr(self, name, value)
+def wrapped_setattr(self: nn.Module, name: str, value: object) -> None:
+    # Absence identifies an untracked module. A present malformed hook is a
+    # broken tracking contract, not an instruction to silently disable tracking.
+    if SUBCLASS_HOOK_KEY not in self.__dict__:
+        orig_setattr(self, name, value)
+        return
+    hook: object = self.__dict__[SUBCLASS_HOOK_KEY]
+    if not callable(hook):
+        raise TypeError("TrainCheck module tracking hook must be callable")
+    orig_setattr(self, name, value)
+    hook(self, name)
 
 
 torch.nn.Module.__setattr__ = wrapped_setattr
