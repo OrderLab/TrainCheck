@@ -78,14 +78,18 @@ uv pip install traincheck
     ```
 
 6. **Verify Installation**
-    You should now have three clis installed in your system. Do a quick test to see of these commands are available and functional.
+    You should now have the TrainCheck CLIs installed in your environment. Run:
     ```bash
     traincheck-collect --help
     traincheck-infer --help
+    traincheck-onlinecheck --help
     traincheck-check --help
     ```
 
 ## Next Steps
+
+- **Use TrainCheck**  
+  Follow the [workflow guide](./usage-guide.md) to collect a reference trace, infer invariants, collect a target trace, and run the checker.
 
 - **5‑Minute TrainCheck Experience**  
   Follow the [5‑Minute Tutorial](./5-min-tutorial.md) to instrument a script, infer invariants, and catch silent bugs in under five minutes.
