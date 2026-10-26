@@ -1,0 +1,2505 @@
+{
+  "artifacts": {
+    "driver_sha256": "3a89d821238902362b110abbc9d66bb2b87c1b1cef09144bf7407a5400cd72f4",
+    "evidence_archive_bytes": 24826924,
+    "evidence_archive_sha256": "1de069eb0dd5d8dd4ce60e758a4d3dae5716fa69bda1f3e30570b983f4e69773",
+    "remote": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed",
+    "runner_sha256": "d17315872c4e412d3a2be075fa733eebb9c7d4f8189dff82d53dc6bae92c0818"
+  },
+  "limitations": [
+    "CPU only, one native thread, three cold steps and five pairs on a shared host",
+    "Subclass tracker only; unchanged CPU hashing, tensor dump format, tracing coverage and sample policy",
+    "Timing excludes setup, diagnostics and final writer drain; process time and post-metrics exit separately retained",
+    "Post-metrics exit includes Python shutdown and polling delay; it is not a pure writer timer",
+    "Full raw traces retained; no normalized cross-process trace equivalence claim"
+  ],
+  "production_changed_files": [
+    "traincheck/instrumentor/dumper.py"
+  ],
+  "smoke": [
+    {
+      "logical_hash_input_bytes": 0,
+      "mode": "plain",
+      "records": {
+        "API": 0,
+        "VAR": 0
+      },
+      "tensor_hash_fields": 0,
+      "trace_bytes": {
+        "API": 0,
+        "VAR": 0
+      },
+      "tracked_variables": [],
+      "training_seconds": 0.01541786640882492
+    },
+    {
+      "logical_hash_input_bytes": 0,
+      "mode": "api",
+      "records": {
+        "API": 1338,
+        "VAR": 0
+      },
+      "tensor_hash_fields": 0,
+      "trace_bytes": {
+        "API": 1014134,
+        "VAR": 0
+      },
+      "tracked_variables": [],
+      "training_seconds": 0.8779591619968414
+    },
+    {
+      "logical_hash_input_bytes": 214496,
+      "mode": "var",
+      "records": {
+        "API": 0,
+        "VAR": 64
+      },
+      "tensor_hash_fields": 64,
+      "trace_bytes": {
+        "API": 0,
+        "VAR": 54078
+      },
+      "tracked_variables": [
+        "model.decoder.bias",
+        "model.decoder.weight",
+        "model.encoder.layers.0.linear1.bias",
+        "model.encoder.layers.0.linear1.weight",
+        "model.encoder.layers.0.linear2.bias",
+        "model.encoder.layers.0.linear2.weight",
+        "model.encoder.layers.0.norm1.bias",
+        "model.encoder.layers.0.norm1.weight",
+        "model.encoder.layers.0.norm2.bias",
+        "model.encoder.layers.0.norm2.weight",
+        "model.encoder.layers.0.self_attn.in_proj_bias",
+        "model.encoder.layers.0.self_attn.in_proj_weight",
+        "model.encoder.layers.0.self_attn.out_proj.bias",
+        "model.encoder.layers.0.self_attn.out_proj.weight",
+        "model.encoder.layers.1.linear1.bias",
+        "model.encoder.layers.1.linear1.weight",
+        "model.encoder.layers.1.linear2.bias",
+        "model.encoder.layers.1.linear2.weight",
+        "model.encoder.layers.1.norm1.bias",
+        "model.encoder.layers.1.norm1.weight",
+        "model.encoder.layers.1.norm2.bias",
+        "model.encoder.layers.1.norm2.weight",
+        "model.encoder.layers.1.self_attn.in_proj_bias",
+        "model.encoder.layers.1.self_attn.in_proj_weight",
+        "model.encoder.layers.1.self_attn.out_proj.bias",
+        "model.encoder.layers.1.self_attn.out_proj.weight",
+        "model.encoder.norm.bias",
+        "model.encoder.norm.weight",
+        "model.input_emb.weight"
+      ],
+      "training_seconds": 0.08836576342582703
+    },
+    {
+      "logical_hash_input_bytes": 214496,
+      "mode": "combined",
+      "records": {
+        "API": 1340,
+        "VAR": 64
+      },
+      "tensor_hash_fields": 64,
+      "trace_bytes": {
+        "API": 1034378,
+        "VAR": 54078
+      },
+      "tracked_variables": [
+        "model.decoder.bias",
+        "model.decoder.weight",
+        "model.encoder.layers.0.linear1.bias",
+        "model.encoder.layers.0.linear1.weight",
+        "model.encoder.layers.0.linear2.bias",
+        "model.encoder.layers.0.linear2.weight",
+        "model.encoder.layers.0.norm1.bias",
+        "model.encoder.layers.0.norm1.weight",
+        "model.encoder.layers.0.norm2.bias",
+        "model.encoder.layers.0.norm2.weight",
+        "model.encoder.layers.0.self_attn.in_proj_bias",
+        "model.encoder.layers.0.self_attn.in_proj_weight",
+        "model.encoder.layers.0.self_attn.out_proj.bias",
+        "model.encoder.layers.0.self_attn.out_proj.weight",
+        "model.encoder.layers.1.linear1.bias",
+        "model.encoder.layers.1.linear1.weight",
+        "model.encoder.layers.1.linear2.bias",
+        "model.encoder.layers.1.linear2.weight",
+        "model.encoder.layers.1.norm1.bias",
+        "model.encoder.layers.1.norm1.weight",
+        "model.encoder.layers.1.norm2.bias",
+        "model.encoder.layers.1.norm2.weight",
+        "model.encoder.layers.1.self_attn.in_proj_bias",
+        "model.encoder.layers.1.self_attn.in_proj_weight",
+        "model.encoder.layers.1.self_attn.out_proj.bias",
+        "model.encoder.layers.1.self_attn.out_proj.weight",
+        "model.encoder.norm.bias",
+        "model.encoder.norm.weight",
+        "model.input_emb.weight"
+      ],
+      "training_seconds": 0.9408722668886185
+    }
+  ],
+  "sources": {
+    "baseline": {
+      "adapter_sha256": "a5b5e597d4921a5b4baceeada541a6a1765f13c97ab3bd1c2ef79dea331f0934",
+      "production_files_verified": 77,
+      "production_hashes": {
+        "traincheck/__init__.py": "47fdcb090c4c8c5822769d642dc23a520e8d8ff3e4724583450723e05408164b",
+        "traincheck/checker.py": "44dc20fc66ca82bb6b71fa02033aae3b7d489ae7afbc1611c44e857f399716b2",
+        "traincheck/checker_online.py": "2824c9ccd2f684c86884c68f2214a1a4be1d69c6098ce30b817d03f1fe1077d6",
+        "traincheck/collect_trace.py": "c1db96c798af9689f8ee7f7b0b929d90694d49a234cb217beaf435d4b8d5cfb0",
+        "traincheck/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/config/config.py": "4c940a4d92f5de5fe8d3885e570078e479d9842d9626651fd60483e78f0160a9",
+        "traincheck/developer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/developer/annotations.py": "0ff28d35e085b40e1e366499feec96c8eb1e13bf3100dcdd7ab304c7f2f6e963",
+        "traincheck/infer_engine.py": "16bf736b498a5f86583b2f1207d31f37479db72510b04121abcb1158d0141f73",
+        "traincheck/inference_sampling.py": "d261b3416aba3ead6fa1e9b15091511eb3525137d531e4f0147146e76308976f",
+        "traincheck/instrumentor/__init__.py": "228b4f6a11cde8118cde9aba2f98b60a839f4331e7fa2b06c37cee99e79fcd50",
+        "traincheck/instrumentor/caches.py": "320eb1ffa1ce5f5b97fe4675a16d47e9591265779fdc29b94b72cdf5df93f168",
+        "traincheck/instrumentor/control.py": "3612a39b61e85fb77b40008b7fcd2f7569b246e8985ca64a109ea53733cd29ef",
+        "traincheck/instrumentor/dumper.py": "cd4a56d4eb95049dcab85bacc1c64d7e55bfe45087fe5096ed247e4d0d7e8373",
+        "traincheck/instrumentor/proxy_wrapper/__init__.py": "7c71aaf70b978ee04e236497af6f803e4436049bc0acdf18c3edb48bfcece63d",
+        "traincheck/instrumentor/proxy_wrapper/dumper.py": "6907ac0a198443dd9138a37dc9b5de1232d3d7fb26412f8bba3fb08c85cd222d",
+        "traincheck/instrumentor/proxy_wrapper/hash.py": "e917bec817df1981c682d8b8645307432c6badb220b9f7c424b4089d9bf97bd7",
+        "traincheck/instrumentor/proxy_wrapper/proxy.py": "fe241558f0591738391bc57d0666e3b11e04d8579eb220ce5de855abc309baf3",
+        "traincheck/instrumentor/proxy_wrapper/proxy_basics.py": "f012e97fa51cf77be1806807ef6130b06c9cec6fde8d047d57d45b6ec9fcc6e5",
+        "traincheck/instrumentor/proxy_wrapper/proxy_config.py": "afb2f8dd04ed10e628ff21339ec8ebef36357fd2a0cc084e99e99e37756cf16b",
+        "traincheck/instrumentor/proxy_wrapper/proxy_handler.py": "4bab74647d35c64c5e9c702295dc4cb010302bf620401da0fad8539692b95ac7",
+        "traincheck/instrumentor/proxy_wrapper/proxy_methods.py": "6ae18928aa12e89b33102368c497aff048e3d6bed330eca2118fac051b8e3a97",
+        "traincheck/instrumentor/proxy_wrapper/proxy_observer.py": "10e83570fbe1f72089e4a594a308f83e045f7d74bb9e49193012645ac906d97b",
+        "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "9dfecae65aee4185152d152a5c2fb0e1e1b63339efceab3087df59a5882410a8",
+        "traincheck/instrumentor/proxy_wrapper/subclass.py": "6152488b768edb35617451424c4e494b8924bf72ab0c21f198bca9dab15588bb",
+        "traincheck/instrumentor/proxy_wrapper/torch_proxy.py": "d6abd7f2eac207757fd90cbf55e179ae506b25996bed906c5a094564ff6faf2f",
+        "traincheck/instrumentor/proxy_wrapper/utils.py": "5f058609e89a96a3545561ed82d83f7dd6a153bb0376608654c199691984dc14",
+        "traincheck/instrumentor/replace_functions.py": "ca4f10b52083a4a5c251db194b7608406cbe36c85372dfdb9df17644f3d20b62",
+        "traincheck/instrumentor/source_file.py": "dad92c793efb41161d86250e89aa6a9636749564e567df8b9af92a477eb4858d",
+        "traincheck/instrumentor/torchscript_compat.py": "1b42072c80b29c2432f3ef83d6849365ecc0ae8c015dd2051a5b192ba209f88a",
+        "traincheck/instrumentor/tracer.py": "be6511d748415b17dc8056e2d120a2901003fcc242cfd2e0a16772432021bd9d",
+        "traincheck/instrumentor/types.py": "258679aa8d0b40247d900ba2e26ab03b25cb4626b046ab6d724973226c7b5469",
+        "traincheck/instrumentor/variable.py": "b01219cdd74f011055e0bc2a645ed283dbc47e66a834d5555b814fa815a9eab8",
+        "traincheck/invariant/DistinctArgumentRelation.py": "6e01540583668e30718ba90c341fd540cd9df53f20525a6cf502fcceee8ed7bc",
+        "traincheck/invariant/__init__.py": "773e9f767566ffd92658dc0e94107ac840672e446a41ba437a49cee9cc52197a",
+        "traincheck/invariant/base_cls.py": "8c419a0ea675146900be1b78a47de2da07f27442019b632ff224be870d48d5e6",
+        "traincheck/invariant/consistency_relation.py": "bc5b14810ea8a5e0e5f3e6c2c6be24d137a444d8609216d00eafd155b4aa3917",
+        "traincheck/invariant/consistency_transient_vars.py": "a702cd1b6787e8be1904bef9119773c0e037a83017959c771020dbbbbe1549e2",
+        "traincheck/invariant/contain_relation.py": "b32f819db4d5a11a11318bf7e38c64148f4c9360137ac5f09475b480c34c16a5",
+        "traincheck/invariant/cover_relation.py": "0eb0e1c30ad5b34a15ce32c7b0d15e894f7a3b9b68bfcaae5b901f5dc6a092c6",
+        "traincheck/invariant/lead_relation.py": "978a4db32b69dc1a90a84123aa93e52a3caaba97761321dbb844666cb47d4360",
+        "traincheck/invariant/precondition.py": "c14c7580643780954eab5a4d955b0b5d6a6768a57cd8e5e48328ad0d8f2f8703",
+        "traincheck/invariant/relation_pool.py": "8ac568cf1924162a791728ed5db8c41868a550f9e0cd5190fc9a19827f55d3e6",
+        "traincheck/invariant/symbolic_value.py": "28627e2c2a47a146087a96510f07f7deb8463c46371e418afa3fdeff33c7e6cb",
+        "traincheck/invariant/var_periodic_change_relation.py": "8086df3b9cfe34229b8bd46b18dce22a4b746902e38d1ba4bd02bc6f6c2f2ef4",
+        "traincheck/onlinechecker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/onlinechecker/streamhandler_filesystem.py": "b5a298bd06a9408e857ff6721578cb4ae10f227762ba3d66aec685e574cfa511",
+        "traincheck/onlinechecker/utils.py": "65ba5d8a84b748adf4267800e704df1f4662c0f483534289af20096bf9a78a00",
+        "traincheck/parallel.py": "a431d169022264109c56b7057ebcdc8a587b698a8670a1257b765189d9e5bf76",
+        "traincheck/progress.py": "aab7d040324e283c8474aa82bc7550a777aec316131a26e1dc1b6a277333d1ae",
+        "traincheck/reporting/__init__.py": "299180153357c4e6f48cf75191e915d70cfca5ae6e7b3ac4d45144066b93ddca",
+        "traincheck/reporting/checker_report.py": "0d59b1753fc348701b49a0eb74e4b1d849a47d8234005ccbbb26e09e3cd0c808",
+        "traincheck/runner/__init__.py": "287ffa9cab82f01da0e82faea77589dc7d348710c862496458d2d60c364394ba",
+        "traincheck/runner/runner.py": "89027b488ded8640fddb387dd80d98f059cf40be5f94863966b259acea1da7c7",
+        "traincheck/script/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/script/num_invs_each_rel.py": "202f13d536929c52defa84cdce00dec2251ea09aabf3ae8ae57067c32d0b844d",
+        "traincheck/static_analyzer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/config.py": "840460167bd6d26db429076cd4dc227e6c17c4e5fb157172041c48574f44edf7",
+        "traincheck/static_analyzer/func_level/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/graph_generator/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/graph_generator/analyzer.py": "035684eb7ea4edf8ee0dbf4c6b12b91b428cd6dd57be5fe658253c21c8c420b1",
+        "traincheck/static_analyzer/graph_generator/anutils.py": "9e62b7ce5fced45a033b76de3d408bdff2fd8561ffa28bc58de82e4105b51d39",
+        "traincheck/static_analyzer/graph_generator/call_graph_parser.py": "69e2555a1595078a2d2bca174de32cd7d4b0f023c0a20b68a01ca00d1d3b8647",
+        "traincheck/static_analyzer/graph_generator/main.py": "a568488c50383a67a6ab8feecaf96e29b288861c1dce17481a1b5032d20748a4",
+        "traincheck/static_analyzer/graph_generator/node.py": "b6a0cea44a28d33f28fee79b7f7073e69914e95565f7a8d62f9e5a5fd6b240cd",
+        "traincheck/toolkit/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/toolkit/analyze_invariant.py": "706cf8c06062b6df3f1f86691f588c91696cbef6c27698b2f0b290ad8f53ff4b",
+        "traincheck/toolkit/analyze_trace.py": "48dfc81ef85d96678b5fe466b86ba80d892ecfc497387773fa7ab5995f22e822",
+        "traincheck/toolkit/detect_anomaly_from_trace_diff.py": "2ffc0723dd3709ccab09cb9b58d76c7bb0558dda09b66c47184e335b815cedd3",
+        "traincheck/trace/__init__.py": "ec84edd0ff32906c20956166a51b85b3847e22e48432c6a31698080cafbcbc2b",
+        "traincheck/trace/trace.py": "c4f6fae85de0a9d95591ab88d52ad8acf24f052f42978ec381a53042e1e49e67",
+        "traincheck/trace/trace_dict.py": "3aec874ef0ce2c34f6332dface604d5f79965976fd3d1c2b692f746f2af4e703",
+        "traincheck/trace/trace_pandas.py": "953d9cac029f83e015eb22e3bc9c8abc7b63919a0eef18b9794517392117ec24",
+        "traincheck/trace/trace_polars.py": "64136efcd60a851b0391e708108570b259c2288db6242564b636f69abd1b7b0e",
+        "traincheck/trace/types.py": "96c1b137f3d72fb05dcf806a4e7ea21fe453ae9cbc3e08352c55e95973fe96e0",
+        "traincheck/trace/utils.py": "6356156e4c5bbb6c111140302660f36ad1c126e5bc977bd55c81f097022102a3",
+        "traincheck/utils.py": "71034730f74a15978d37dc9fc9b748133389a69e0ea7f9c9109dd1bc573fd272"
+      },
+      "source_archive_sha256": "ac1a830f490bef1af6b1b15ba49d116ff28a8de2e57f51dd80afc714f4e8d909",
+      "source_commit": "88b6df2401e187ca6bd81bf0a83bc7c5d9a5cd54",
+      "source_tree": "5415a3b0e5eb08d119dffa91631d76866e6e1d11"
+    },
+    "candidate": {
+      "adapter_sha256": "a5b5e597d4921a5b4baceeada541a6a1765f13c97ab3bd1c2ef79dea331f0934",
+      "production_files_verified": 77,
+      "production_hashes": {
+        "traincheck/__init__.py": "47fdcb090c4c8c5822769d642dc23a520e8d8ff3e4724583450723e05408164b",
+        "traincheck/checker.py": "44dc20fc66ca82bb6b71fa02033aae3b7d489ae7afbc1611c44e857f399716b2",
+        "traincheck/checker_online.py": "2824c9ccd2f684c86884c68f2214a1a4be1d69c6098ce30b817d03f1fe1077d6",
+        "traincheck/collect_trace.py": "c1db96c798af9689f8ee7f7b0b929d90694d49a234cb217beaf435d4b8d5cfb0",
+        "traincheck/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/config/config.py": "4c940a4d92f5de5fe8d3885e570078e479d9842d9626651fd60483e78f0160a9",
+        "traincheck/developer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/developer/annotations.py": "0ff28d35e085b40e1e366499feec96c8eb1e13bf3100dcdd7ab304c7f2f6e963",
+        "traincheck/infer_engine.py": "16bf736b498a5f86583b2f1207d31f37479db72510b04121abcb1158d0141f73",
+        "traincheck/inference_sampling.py": "d261b3416aba3ead6fa1e9b15091511eb3525137d531e4f0147146e76308976f",
+        "traincheck/instrumentor/__init__.py": "228b4f6a11cde8118cde9aba2f98b60a839f4331e7fa2b06c37cee99e79fcd50",
+        "traincheck/instrumentor/caches.py": "320eb1ffa1ce5f5b97fe4675a16d47e9591265779fdc29b94b72cdf5df93f168",
+        "traincheck/instrumentor/control.py": "3612a39b61e85fb77b40008b7fcd2f7569b246e8985ca64a109ea53733cd29ef",
+        "traincheck/instrumentor/dumper.py": "faf87dcfb0aa08dd97bb544aa80120925ec1eed05d03947a1de743fdf5da53e2",
+        "traincheck/instrumentor/proxy_wrapper/__init__.py": "7c71aaf70b978ee04e236497af6f803e4436049bc0acdf18c3edb48bfcece63d",
+        "traincheck/instrumentor/proxy_wrapper/dumper.py": "6907ac0a198443dd9138a37dc9b5de1232d3d7fb26412f8bba3fb08c85cd222d",
+        "traincheck/instrumentor/proxy_wrapper/hash.py": "e917bec817df1981c682d8b8645307432c6badb220b9f7c424b4089d9bf97bd7",
+        "traincheck/instrumentor/proxy_wrapper/proxy.py": "fe241558f0591738391bc57d0666e3b11e04d8579eb220ce5de855abc309baf3",
+        "traincheck/instrumentor/proxy_wrapper/proxy_basics.py": "f012e97fa51cf77be1806807ef6130b06c9cec6fde8d047d57d45b6ec9fcc6e5",
+        "traincheck/instrumentor/proxy_wrapper/proxy_config.py": "afb2f8dd04ed10e628ff21339ec8ebef36357fd2a0cc084e99e99e37756cf16b",
+        "traincheck/instrumentor/proxy_wrapper/proxy_handler.py": "4bab74647d35c64c5e9c702295dc4cb010302bf620401da0fad8539692b95ac7",
+        "traincheck/instrumentor/proxy_wrapper/proxy_methods.py": "6ae18928aa12e89b33102368c497aff048e3d6bed330eca2118fac051b8e3a97",
+        "traincheck/instrumentor/proxy_wrapper/proxy_observer.py": "10e83570fbe1f72089e4a594a308f83e045f7d74bb9e49193012645ac906d97b",
+        "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "9dfecae65aee4185152d152a5c2fb0e1e1b63339efceab3087df59a5882410a8",
+        "traincheck/instrumentor/proxy_wrapper/subclass.py": "6152488b768edb35617451424c4e494b8924bf72ab0c21f198bca9dab15588bb",
+        "traincheck/instrumentor/proxy_wrapper/torch_proxy.py": "d6abd7f2eac207757fd90cbf55e179ae506b25996bed906c5a094564ff6faf2f",
+        "traincheck/instrumentor/proxy_wrapper/utils.py": "5f058609e89a96a3545561ed82d83f7dd6a153bb0376608654c199691984dc14",
+        "traincheck/instrumentor/replace_functions.py": "ca4f10b52083a4a5c251db194b7608406cbe36c85372dfdb9df17644f3d20b62",
+        "traincheck/instrumentor/source_file.py": "dad92c793efb41161d86250e89aa6a9636749564e567df8b9af92a477eb4858d",
+        "traincheck/instrumentor/torchscript_compat.py": "1b42072c80b29c2432f3ef83d6849365ecc0ae8c015dd2051a5b192ba209f88a",
+        "traincheck/instrumentor/tracer.py": "be6511d748415b17dc8056e2d120a2901003fcc242cfd2e0a16772432021bd9d",
+        "traincheck/instrumentor/types.py": "258679aa8d0b40247d900ba2e26ab03b25cb4626b046ab6d724973226c7b5469",
+        "traincheck/instrumentor/variable.py": "b01219cdd74f011055e0bc2a645ed283dbc47e66a834d5555b814fa815a9eab8",
+        "traincheck/invariant/DistinctArgumentRelation.py": "6e01540583668e30718ba90c341fd540cd9df53f20525a6cf502fcceee8ed7bc",
+        "traincheck/invariant/__init__.py": "773e9f767566ffd92658dc0e94107ac840672e446a41ba437a49cee9cc52197a",
+        "traincheck/invariant/base_cls.py": "8c419a0ea675146900be1b78a47de2da07f27442019b632ff224be870d48d5e6",
+        "traincheck/invariant/consistency_relation.py": "bc5b14810ea8a5e0e5f3e6c2c6be24d137a444d8609216d00eafd155b4aa3917",
+        "traincheck/invariant/consistency_transient_vars.py": "a702cd1b6787e8be1904bef9119773c0e037a83017959c771020dbbbbe1549e2",
+        "traincheck/invariant/contain_relation.py": "b32f819db4d5a11a11318bf7e38c64148f4c9360137ac5f09475b480c34c16a5",
+        "traincheck/invariant/cover_relation.py": "0eb0e1c30ad5b34a15ce32c7b0d15e894f7a3b9b68bfcaae5b901f5dc6a092c6",
+        "traincheck/invariant/lead_relation.py": "978a4db32b69dc1a90a84123aa93e52a3caaba97761321dbb844666cb47d4360",
+        "traincheck/invariant/precondition.py": "c14c7580643780954eab5a4d955b0b5d6a6768a57cd8e5e48328ad0d8f2f8703",
+        "traincheck/invariant/relation_pool.py": "8ac568cf1924162a791728ed5db8c41868a550f9e0cd5190fc9a19827f55d3e6",
+        "traincheck/invariant/symbolic_value.py": "28627e2c2a47a146087a96510f07f7deb8463c46371e418afa3fdeff33c7e6cb",
+        "traincheck/invariant/var_periodic_change_relation.py": "8086df3b9cfe34229b8bd46b18dce22a4b746902e38d1ba4bd02bc6f6c2f2ef4",
+        "traincheck/onlinechecker/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/onlinechecker/streamhandler_filesystem.py": "b5a298bd06a9408e857ff6721578cb4ae10f227762ba3d66aec685e574cfa511",
+        "traincheck/onlinechecker/utils.py": "65ba5d8a84b748adf4267800e704df1f4662c0f483534289af20096bf9a78a00",
+        "traincheck/parallel.py": "a431d169022264109c56b7057ebcdc8a587b698a8670a1257b765189d9e5bf76",
+        "traincheck/progress.py": "aab7d040324e283c8474aa82bc7550a777aec316131a26e1dc1b6a277333d1ae",
+        "traincheck/reporting/__init__.py": "299180153357c4e6f48cf75191e915d70cfca5ae6e7b3ac4d45144066b93ddca",
+        "traincheck/reporting/checker_report.py": "0d59b1753fc348701b49a0eb74e4b1d849a47d8234005ccbbb26e09e3cd0c808",
+        "traincheck/runner/__init__.py": "287ffa9cab82f01da0e82faea77589dc7d348710c862496458d2d60c364394ba",
+        "traincheck/runner/runner.py": "89027b488ded8640fddb387dd80d98f059cf40be5f94863966b259acea1da7c7",
+        "traincheck/script/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/script/num_invs_each_rel.py": "202f13d536929c52defa84cdce00dec2251ea09aabf3ae8ae57067c32d0b844d",
+        "traincheck/static_analyzer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/config.py": "840460167bd6d26db429076cd4dc227e6c17c4e5fb157172041c48574f44edf7",
+        "traincheck/static_analyzer/func_level/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/graph_generator/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/static_analyzer/graph_generator/analyzer.py": "035684eb7ea4edf8ee0dbf4c6b12b91b428cd6dd57be5fe658253c21c8c420b1",
+        "traincheck/static_analyzer/graph_generator/anutils.py": "9e62b7ce5fced45a033b76de3d408bdff2fd8561ffa28bc58de82e4105b51d39",
+        "traincheck/static_analyzer/graph_generator/call_graph_parser.py": "69e2555a1595078a2d2bca174de32cd7d4b0f023c0a20b68a01ca00d1d3b8647",
+        "traincheck/static_analyzer/graph_generator/main.py": "a568488c50383a67a6ab8feecaf96e29b288861c1dce17481a1b5032d20748a4",
+        "traincheck/static_analyzer/graph_generator/node.py": "b6a0cea44a28d33f28fee79b7f7073e69914e95565f7a8d62f9e5a5fd6b240cd",
+        "traincheck/toolkit/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "traincheck/toolkit/analyze_invariant.py": "706cf8c06062b6df3f1f86691f588c91696cbef6c27698b2f0b290ad8f53ff4b",
+        "traincheck/toolkit/analyze_trace.py": "48dfc81ef85d96678b5fe466b86ba80d892ecfc497387773fa7ab5995f22e822",
+        "traincheck/toolkit/detect_anomaly_from_trace_diff.py": "2ffc0723dd3709ccab09cb9b58d76c7bb0558dda09b66c47184e335b815cedd3",
+        "traincheck/trace/__init__.py": "ec84edd0ff32906c20956166a51b85b3847e22e48432c6a31698080cafbcbc2b",
+        "traincheck/trace/trace.py": "c4f6fae85de0a9d95591ab88d52ad8acf24f052f42978ec381a53042e1e49e67",
+        "traincheck/trace/trace_dict.py": "3aec874ef0ce2c34f6332dface604d5f79965976fd3d1c2b692f746f2af4e703",
+        "traincheck/trace/trace_pandas.py": "953d9cac029f83e015eb22e3bc9c8abc7b63919a0eef18b9794517392117ec24",
+        "traincheck/trace/trace_polars.py": "64136efcd60a851b0391e708108570b259c2288db6242564b636f69abd1b7b0e",
+        "traincheck/trace/types.py": "96c1b137f3d72fb05dcf806a4e7ea21fe453ae9cbc3e08352c55e95973fe96e0",
+        "traincheck/trace/utils.py": "6356156e4c5bbb6c111140302660f36ad1c126e5bc977bd55c81f097022102a3",
+        "traincheck/utils.py": "71034730f74a15978d37dc9fc9b748133389a69e0ea7f9c9109dd1bc573fd272"
+      },
+      "source_archive_sha256": "b945a9d4c2b43def8481660bc3fc6ae45dbfbd34e3a5e8a0c848e5ca379276e6",
+      "source_commit": "3232887a8bdb6dbf6abcab233ead43a9697f0c18",
+      "source_tree": "cb74fdd3a8185deb0b3d31c0d20d2a7eac0b8097"
+    }
+  },
+  "validation": {
+    "cases": [
+      {
+        "label": "mnist-combined-r1",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "baseline",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r1",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "candidate",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r2",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "candidate",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r2",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "baseline",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r3",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "baseline",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r3",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "candidate",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r4",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "candidate",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r4",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "baseline",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r5",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "baseline",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r5",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "candidate",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r1-profile",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "baseline",
+        "workload": "mnist"
+      },
+      {
+        "label": "mnist-combined-r1-profile",
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "trace_bytes": {
+          "API": 363634,
+          "VAR": 55795
+        },
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ],
+        "variant": "candidate",
+        "workload": "mnist"
+      },
+      {
+        "label": "transformer-combined-r1",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "baseline",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r1",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "candidate",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r2",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "candidate",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r2",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "baseline",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r3",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "baseline",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r3",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "candidate",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r4",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "candidate",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r4",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "baseline",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r5",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "baseline",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r5",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "candidate",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r1-profile",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "baseline",
+        "workload": "transformer"
+      },
+      {
+        "label": "transformer-combined-r1-profile",
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "trace_bytes": {
+          "API": 1034378,
+          "VAR": 54078
+        },
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ],
+        "variant": "candidate",
+        "workload": "transformer"
+      }
+    ],
+    "exact_model_loss_rng_parity": true,
+    "source_and_raw_trace_hashes_verified": true
+  },
+  "workloads": {
+    "mnist": {
+      "coverage": {
+        "logical_hash_input_bytes": 67193392,
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 112,
+        "tracked_variables": [
+          "model.conv1.bias",
+          "model.conv1.weight",
+          "model.conv2.bias",
+          "model.conv2.weight",
+          "model.fc1.bias",
+          "model.fc1.weight",
+          "model.fc2.bias",
+          "model.fc2.weight"
+        ]
+      },
+      "median_reduction_percent_of_baseline_training": 8.67150236741045,
+      "median_reduction_seconds": 0.07534057646989822,
+      "paired_reduction_percent": [
+        13.675527655335843,
+        16.865382859319496,
+        4.564578664356592,
+        12.20544322789504,
+        -1.9939121206708794
+      ],
+      "paired_reductions_seconds": [
+        0.12899113073945045,
+        0.14653143286705017,
+        0.037951767444610596,
+        0.11024190858006477,
+        -0.016614548861980438
+      ],
+      "profiles": {
+        "baseline": {
+          "interpretation": "Separate cProfile run; cumulative rows overlap and are not an exclusive breakdown of ordinary timing.",
+          "rows": [
+            {
+              "calls": 1503363,
+              "cumulative_seconds": 0.171535822,
+              "file": "~",
+              "function": "<built-in method builtins.isinstance>",
+              "line": 0,
+              "percent_of_profile_total": 10.72127954899098,
+              "self_seconds": 0.099762033
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.087001201,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__enter__",
+              "line": 466,
+              "percent_of_profile_total": 5.43772248935242,
+              "self_seconds": 0.078316964
+            },
+            {
+              "calls": 260,
+              "cumulative_seconds": 0.60086757,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_args_kwargs",
+              "line": 160,
+              "percent_of_profile_total": 37.555241318008235,
+              "self_seconds": 0.000341501
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.44745846,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_tensor",
+              "line": 302,
+              "percent_of_profile_total": 27.96691198542191,
+              "self_seconds": 0.009669434000000001
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.626706756,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "safe_getattr",
+              "line": 328,
+              "percent_of_profile_total": 39.17023422849416,
+              "self_seconds": 0.18447759700000002
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.38490406600000004,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "hash_tensor_cpu",
+              "line": 47,
+              "percent_of_profile_total": 24.0571563596161,
+              "self_seconds": 0.175302747
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.437784751,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "tensor_hash",
+              "line": 95,
+              "percent_of_profile_total": 27.362288780453152,
+              "self_seconds": 0.015663134000000002
+            },
+            {
+              "calls": 468,
+              "cumulative_seconds": 1.537323336,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "convert_var_to_dict",
+              "line": 343,
+              "percent_of_profile_total": 96.08531355301047,
+              "self_seconds": 0.22469802900000002
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.6535382190000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+              "function": "dump_trace",
+              "line": 183,
+              "percent_of_profile_total": 40.84724613293129,
+              "self_seconds": 0.00018410100000000002
+            },
+            {
+              "calls": 1780,
+              "cumulative_seconds": 0.00043699300000000005,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/utils.py",
+              "function": "safe_getattr",
+              "line": 21,
+              "percent_of_profile_total": 0.027312803001300897,
+              "self_seconds": 0.00023170500000000002
+            },
+            {
+              "calls": 584,
+              "cumulative_seconds": 0.004350003,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "serialize",
+              "line": 85,
+              "percent_of_profile_total": 0.27188255874594763,
+              "self_seconds": 0.00040800200000000003
+            },
+            {
+              "calls": 520,
+              "cumulative_seconds": 0.006313733,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_API",
+              "line": 241,
+              "percent_of_profile_total": 0.394619011361309,
+              "self_seconds": 0.00042752400000000004
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.000849358,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_VAR",
+              "line": 250,
+              "percent_of_profile_total": 0.05308631426951673,
+              "self_seconds": 6.1226e-05
+            },
+            {
+              "calls": 260,
+              "cumulative_seconds": 0.291809378,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_return_value",
+              "line": 184,
+              "percent_of_profile_total": 18.238580607117616,
+              "self_seconds": 0.0001231
+            },
+            {
+              "calls": 203335,
+              "cumulative_seconds": 0.085047091,
+              "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
+              "function": "__instancecheck__",
+              "line": 21,
+              "percent_of_profile_total": 5.315587303038517,
+              "self_seconds": 0.060003436
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.066681273,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__exit__",
+              "line": 487,
+              "percent_of_profile_total": 4.167692556459633,
+              "self_seconds": 0.058937562000000006
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.158621435,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "_add_filter",
+              "line": 181,
+              "percent_of_profile_total": 9.914108477569789,
+              "self_seconds": 0.08925611400000001
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.032625206000000004,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__init__",
+              "line": 440,
+              "percent_of_profile_total": 2.039130659655555,
+              "self_seconds": 0.032625206000000004
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.227450228,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "simplefilter",
+              "line": 165,
+              "percent_of_profile_total": 14.216024673083945,
+              "self_seconds": 0.061110547
+            }
+          ],
+          "sha256": "4b33291b26a436e50fa02aa5d32713c8ff6552284184829c3c94dfab103d2a94",
+          "total_seconds": 1.5999566209999987
+        },
+        "candidate": {
+          "interpretation": "Separate cProfile run; cumulative rows overlap and are not an exclusive breakdown of ordinary timing.",
+          "rows": [
+            {
+              "calls": 464357,
+              "cumulative_seconds": 0.020462695000000003,
+              "file": "~",
+              "function": "<built-in method builtins.isinstance>",
+              "line": 0,
+              "percent_of_profile_total": 1.5475891033585303,
+              "self_seconds": 0.018717590000000003
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.08338677300000001,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__enter__",
+              "line": 466,
+              "percent_of_profile_total": 6.306523224777151,
+              "self_seconds": 0.07591249800000001
+            },
+            {
+              "calls": 260,
+              "cumulative_seconds": 0.466124882,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_args_kwargs",
+              "line": 160,
+              "percent_of_profile_total": 35.25292187502578,
+              "self_seconds": 0.00034057300000000005
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.419081605,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_tensor",
+              "line": 318,
+              "percent_of_profile_total": 31.695049225725334,
+              "self_seconds": 0.004339631
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.60530919,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "safe_getattr",
+              "line": 344,
+              "percent_of_profile_total": 45.77940034813489,
+              "self_seconds": 0.177432474
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.365371013,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "hash_tensor_cpu",
+              "line": 47,
+              "percent_of_profile_total": 27.63292901555088,
+              "self_seconds": 0.168094142
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.414737693,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "tensor_hash",
+              "line": 95,
+              "percent_of_profile_total": 31.366520120583107,
+              "self_seconds": 0.013457708
+            },
+            {
+              "calls": 468,
+              "cumulative_seconds": 1.257303035,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "convert_var_to_dict",
+              "line": 362,
+              "percent_of_profile_total": 95.08955084291725,
+              "self_seconds": 0.14695986900000002
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.574950325,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+              "function": "dump_trace",
+              "line": 183,
+              "percent_of_profile_total": 43.483366093393144,
+              "self_seconds": 0.000187755
+            },
+            {
+              "calls": 1780,
+              "cumulative_seconds": 0.00045410000000000003,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/utils.py",
+              "function": "safe_getattr",
+              "line": 21,
+              "percent_of_profile_total": 0.03434348270524037,
+              "self_seconds": 0.000239024
+            },
+            {
+              "calls": 584,
+              "cumulative_seconds": 0.004386208,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "serialize",
+              "line": 101,
+              "percent_of_profile_total": 0.33172794228052616,
+              "self_seconds": 0.00041095600000000003
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.000981751,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_VAR",
+              "line": 266,
+              "percent_of_profile_total": 0.0742496112956451,
+              "self_seconds": 6.239800000000001e-05
+            },
+            {
+              "calls": 520,
+              "cumulative_seconds": 0.006941215000000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_API",
+              "line": 257,
+              "percent_of_profile_total": 0.5249625573791126,
+              "self_seconds": 0.00043592500000000004
+            },
+            {
+              "calls": 260,
+              "cumulative_seconds": 0.22543626700000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_return_value",
+              "line": 184,
+              "percent_of_profile_total": 17.04969508224719,
+              "self_seconds": 0.000130289
+            },
+            {
+              "calls": 2817,
+              "cumulative_seconds": 0.0020264320000000003,
+              "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
+              "function": "__instancecheck__",
+              "line": 21,
+              "percent_of_profile_total": 0.15325860459226084,
+              "self_seconds": 0.001462605
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.064519857,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__exit__",
+              "line": 487,
+              "percent_of_profile_total": 4.879622534737021,
+              "self_seconds": 0.057657651000000004
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.15187645200000002,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "_add_filter",
+              "line": 181,
+              "percent_of_profile_total": 11.486382520579761,
+              "self_seconds": 0.08526881400000001
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.031807165000000005,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__init__",
+              "line": 440,
+              "percent_of_profile_total": 2.4055688638630848,
+              "self_seconds": 0.031807165000000005
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.21994069500000002,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "simplefilter",
+              "line": 165,
+              "percent_of_profile_total": 16.634066185666256,
+              "self_seconds": 0.059943076000000005
+            }
+          ],
+          "sha256": "7862ce8c96dc80a4a95a25f1214a5e32b733419ba3b32082b301ce91b1b4731e",
+          "total_seconds": 1.3222304910000007
+        }
+      },
+      "speedup_ratio_of_medians": 1.0949484836846382,
+      "variants": {
+        "baseline": {
+          "peak_RSS_bytes": {
+            "max": 592883712.0,
+            "median": 588767232.0,
+            "min": 584212480.0,
+            "values": [
+              584212480.0,
+              588173312.0,
+              592883712.0,
+              588767232.0,
+              590761984.0
+            ]
+          },
+          "post_metrics_exit_seconds": {
+            "max": 2.17674096301198,
+            "median": 2.077751439064741,
+            "min": 2.0082851946353912,
+            "values": [
+              2.1645433455705643,
+              2.076347693800926,
+              2.17674096301198,
+              2.0082851946353912,
+              2.077751439064741
+            ]
+          },
+          "process_seconds": {
+            "max": 7.2223930433392525,
+            "median": 7.0179259441792965,
+            "min": 6.817594639956951,
+            "values": [
+              7.2223930433392525,
+              7.0179259441792965,
+              7.1210783533751965,
+              6.817594639956951,
+              6.91872750595212
+            ]
+          },
+          "setup_seconds": {
+            "max": 2.778099913150072,
+            "median": 2.702235735952854,
+            "min": 2.592470161616802,
+            "values": [
+              2.778099913150072,
+              2.702235735952854,
+              2.7643737457692623,
+              2.592470161616802,
+              2.694968421012163
+            ]
+          },
+          "trace_bytes": {
+            "max": 419429.0,
+            "median": 419429.0,
+            "min": 419429.0,
+            "values": [
+              419429.0,
+              419429.0,
+              419429.0,
+              419429.0,
+              419429.0
+            ]
+          },
+          "training_seconds": {
+            "max": 0.9432259872555733,
+            "median": 0.8688295669853687,
+            "min": 0.8314407579600811,
+            "values": [
+              0.9432259872555733,
+              0.8688295669853687,
+              0.8314407579600811,
+              0.9032192155718803,
+              0.833263847976923
+            ]
+          }
+        },
+        "candidate": {
+          "peak_RSS_bytes": {
+            "max": 588763136.0,
+            "median": 588550144.0,
+            "min": 582574080.0,
+            "values": [
+              588550144.0,
+              588550144.0,
+              588763136.0,
+              582574080.0,
+              588165120.0
+            ]
+          },
+          "post_metrics_exit_seconds": {
+            "max": 2.1754636578261852,
+            "median": 2.1305285543203354,
+            "min": 2.0753588266670704,
+            "values": [
+              2.1305285543203354,
+              2.1754636578261852,
+              2.0753588266670704,
+              2.13845232501626,
+              2.092308398336172
+            ]
+          },
+          "process_seconds": {
+            "max": 7.326598588377237,
+            "median": 7.019078567624092,
+            "min": 6.816429901868105,
+            "values": [
+              7.124290060251951,
+              7.019078567624092,
+              7.326598588377237,
+              6.818062514066696,
+              6.816429901868105
+            ]
+          },
+          "setup_seconds": {
+            "max": 2.9761409126222134,
+            "median": 2.70905052497983,
+            "min": 2.5668062567710876,
+            "values": [
+              2.70905052497983,
+              2.7149592004716396,
+              2.9761409126222134,
+              2.5683862902224064,
+              2.5668062567710876
+            ]
+          },
+          "trace_bytes": {
+            "max": 419429.0,
+            "median": 419429.0,
+            "min": 419429.0,
+            "values": [
+              419429.0,
+              419429.0,
+              419429.0,
+              419429.0,
+              419429.0
+            ]
+          },
+          "training_seconds": {
+            "max": 0.8498783968389034,
+            "median": 0.7934889905154705,
+            "min": 0.7222981341183186,
+            "values": [
+              0.8142348565161228,
+              0.7222981341183186,
+              0.7934889905154705,
+              0.7929773069918156,
+              0.8498783968389034
+            ]
+          }
+        }
+      },
+      "workload_manifest": {
+        "adapter_sha256": "a5b5e597d4921a5b4baceeada541a6a1765f13c97ab3bd1c2ef79dea331f0934",
+        "api_disabled_ablation": "var mode keeps Instrumentor wrappers with funcs_to_instr=[]; uses production no-dump fast path",
+        "batch_size": 2,
+        "benchmark_git_head": null,
+        "benchmark_source": "/home/yuxuan/experiments/codex-trace-impact-20261013/benchmarks/instr-overhead/overhead-e2e/mnist/main.py",
+        "benchmark_source_sha256": "4478c5de92610a1e03d61c356801d51ffca749f99dac00f234d6b6ea2bcb2aa7",
+        "cpu_threads": 1,
+        "data": {
+          "count": 6,
+          "files": [
+            {
+              "path": "/home/yuxuan/gitrepos/data/MNIST/raw/train-images-idx3-ubyte",
+              "sha256": "ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db"
+            },
+            {
+              "path": "/home/yuxuan/gitrepos/data/MNIST/raw/train-labels-idx1-ubyte",
+              "sha256": "65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5"
+            }
+          ],
+          "kind": "cached_mnist_training_prefix",
+          "normalization": "(uint8 / 255 - 0.1307) / 0.3081",
+          "ordering": "first samples in IDX order; no shuffle"
+        },
+        "deterministic_algorithms": true,
+        "device": "cpu",
+        "excluded_phases": [
+          "model initialization",
+          "data preparation",
+          "metric extraction",
+          "checkpoint writing"
+        ],
+        "extracted_definitions_sha256": "f839142a57ce449054e05ffa79d746e5282e2599e101810e6ccf6e7a9dd33ce5",
+        "extracted_symbols": [
+          "Net"
+        ],
+        "initial_state_hash": "877e9abeb783ae5ed703a9666a7276e921e0424b78bb2d50a41461221d90ddb0",
+        "mode": "combined",
+        "model_config": {
+          "architecture": "exact Net class"
+        },
+        "model_tracker_style": "subclass",
+        "models_to_track": [
+          "model"
+        ],
+        "observation_files": [
+          {
+            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/static_analyzer/func_level/nn_func_level.log",
+            "sha256": "0ea56ca02089d5b19a1c0697dea00d107fccd18e17d485ff97bc04a5378dfcba"
+          },
+          {
+            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/static_analyzer/func_level/optim_func_level.log",
+            "sha256": "300c47f9babd033ddf68487dde01a828746ff795b5f0111761b2f8fda08ad900"
+          }
+        ],
+        "plain_baseline": "Imports TrainCheck (including global Module.__setattr__ hook), but no API wrappers or proxied parameters; imports/setup excluded",
+        "precision": "float32",
+        "profiled": false,
+        "python": "3.11.4 (main, Jul  5 2023, 13:45:01) [GCC 11.2.0]",
+        "scan_proxy_in_args": true,
+        "seed": 42,
+        "setup_seconds": 2.778099913150072,
+        "source_commit": "88b6df2401e187ca6bd81bf0a83bc7c5d9a5cd54",
+        "source_tree": "5415a3b0e5eb08d119dffa91631d76866e6e1d11",
+        "steps": 3,
+        "tensor_dump_format": {
+          "dump_tensor_full": false,
+          "dump_tensor_hash": true,
+          "dump_tensor_stats": false
+        },
+        "timing": "Cold three-step CPU training body including start_step and wrapper-disable assignment; excludes setup/loss extraction/state digest/drain",
+        "topology": "Static observers only in VAR-enabled modes, matching normal collect_trace activation; interaction is not assumed zero",
+        "torch_version": "2.16.0.dev20261012+cpu",
+        "tracked_parameter_names": [
+          "conv1.weight",
+          "conv1.bias",
+          "conv2.weight",
+          "conv2.bias",
+          "fc1.weight",
+          "fc1.bias",
+          "fc2.weight",
+          "fc2.bias"
+        ],
+        "training_only_trace": true,
+        "update": "Exact benchmark forward, NLL loss, backward, Adadelta(lr=1.0). Epoch scheduler/evaluation omitted.",
+        "variant": "baseline_subclass_fix",
+        "workload_kind": "bounded_model_micro_workload",
+        "wrapped_functions": 21032
+      }
+    },
+    "transformer": {
+      "coverage": {
+        "logical_hash_input_bytes": 214496,
+        "records": {
+          "API": 1340,
+          "VAR": 64
+        },
+        "tensor_hash_fields": 64,
+        "tracked_variables": [
+          "model.decoder.bias",
+          "model.decoder.weight",
+          "model.encoder.layers.0.linear1.bias",
+          "model.encoder.layers.0.linear1.weight",
+          "model.encoder.layers.0.linear2.bias",
+          "model.encoder.layers.0.linear2.weight",
+          "model.encoder.layers.0.norm1.bias",
+          "model.encoder.layers.0.norm1.weight",
+          "model.encoder.layers.0.norm2.bias",
+          "model.encoder.layers.0.norm2.weight",
+          "model.encoder.layers.0.self_attn.in_proj_bias",
+          "model.encoder.layers.0.self_attn.in_proj_weight",
+          "model.encoder.layers.0.self_attn.out_proj.bias",
+          "model.encoder.layers.0.self_attn.out_proj.weight",
+          "model.encoder.layers.1.linear1.bias",
+          "model.encoder.layers.1.linear1.weight",
+          "model.encoder.layers.1.linear2.bias",
+          "model.encoder.layers.1.linear2.weight",
+          "model.encoder.layers.1.norm1.bias",
+          "model.encoder.layers.1.norm1.weight",
+          "model.encoder.layers.1.norm2.bias",
+          "model.encoder.layers.1.norm2.weight",
+          "model.encoder.layers.1.self_attn.in_proj_bias",
+          "model.encoder.layers.1.self_attn.in_proj_weight",
+          "model.encoder.layers.1.self_attn.out_proj.bias",
+          "model.encoder.layers.1.self_attn.out_proj.weight",
+          "model.encoder.norm.bias",
+          "model.encoder.norm.weight",
+          "model.input_emb.weight"
+        ]
+      },
+      "median_reduction_percent_of_baseline_training": 18.90125826253589,
+      "median_reduction_seconds": 0.18266938999295235,
+      "paired_reduction_percent": [
+        19.113870461709478,
+        17.331180173553964,
+        18.858957322850234,
+        19.979830753413463,
+        23.81235705577393
+      ],
+      "paired_reductions_seconds": [
+        0.1831599548459053,
+        0.16592683270573616,
+        0.18226057663559914,
+        0.19419122487306595,
+        0.24496668577194214
+      ],
+      "profiles": {
+        "baseline": {
+          "interpretation": "Separate cProfile run; cumulative rows overlap and are not an exclusive breakdown of ordinary timing.",
+          "rows": [
+            {
+              "calls": 3622491,
+              "cumulative_seconds": 0.427562979,
+              "file": "~",
+              "function": "<built-in method builtins.isinstance>",
+              "line": 0,
+              "percent_of_profile_total": 15.08458680801047,
+              "self_seconds": 0.24889274400000003
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.216041698,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__enter__",
+              "line": 466,
+              "percent_of_profile_total": 7.622034431636286,
+              "self_seconds": 0.19456483700000002
+            },
+            {
+              "calls": 670,
+              "cumulative_seconds": 1.5786948920000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_args_kwargs",
+              "line": 160,
+              "percent_of_profile_total": 55.69696468443942,
+              "self_seconds": 0.0008960670000000001
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.005761861,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "tensor_hash",
+              "line": 95,
+              "percent_of_profile_total": 0.20328067840080707,
+              "self_seconds": 0.000760977
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.004656917,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "hash_tensor_cpu",
+              "line": 47,
+              "percent_of_profile_total": 0.16429782790946382,
+              "self_seconds": 0.004139646
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 1.579442368,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "safe_getattr",
+              "line": 328,
+              "percent_of_profile_total": 55.72333592601716,
+              "self_seconds": 0.46544991100000005
+            },
+            {
+              "calls": 1773,
+              "cumulative_seconds": 2.748502059,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "convert_var_to_dict",
+              "line": 343,
+              "percent_of_profile_total": 96.96821272493993,
+              "self_seconds": 0.559197797
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.005844259,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_tensor",
+              "line": 302,
+              "percent_of_profile_total": 0.20618771162130123,
+              "self_seconds": 7.9787e-05
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.213352694,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+              "function": "dump_trace",
+              "line": 183,
+              "percent_of_profile_total": 7.527165333380968,
+              "self_seconds": 0.00015941500000000002
+            },
+            {
+              "calls": 8292,
+              "cumulative_seconds": 0.002800037,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/utils.py",
+              "function": "safe_getattr",
+              "line": 21,
+              "percent_of_profile_total": 0.09878638532018745,
+              "self_seconds": 0.0011357350000000001
+            },
+            {
+              "calls": 1340,
+              "cumulative_seconds": 0.01722223,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_API",
+              "line": 241,
+              "percent_of_profile_total": 0.6076069169274877,
+              "self_seconds": 0.00117887
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.000883031,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_VAR",
+              "line": 250,
+              "percent_of_profile_total": 0.03115367426061529,
+              "self_seconds": 4.7865e-05
+            },
+            {
+              "calls": 670,
+              "cumulative_seconds": 0.987921398,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_return_value",
+              "line": 184,
+              "percent_of_profile_total": 34.854247957754225,
+              "self_seconds": 0.00032125000000000003
+            },
+            {
+              "calls": 1404,
+              "cumulative_seconds": 0.012092690000000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "serialize",
+              "line": 85,
+              "percent_of_profile_total": 0.42663476728971,
+              "self_seconds": 0.001008543
+            },
+            {
+              "calls": 495303,
+              "cumulative_seconds": 0.21179952300000002,
+              "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
+              "function": "__instancecheck__",
+              "line": 21,
+              "percent_of_profile_total": 7.472368861450725,
+              "self_seconds": 0.150287937
+            },
+            {
+              "calls": 1,
+              "cumulative_seconds": 1.322e-06,
+              "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
+              "function": "__instancecheck__",
+              "line": 240,
+              "percent_of_profile_total": 4.6640669888750686e-05,
+              "self_seconds": 1.002e-06
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.170823455,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__exit__",
+              "line": 487,
+              "percent_of_profile_total": 6.0267173781473975,
+              "self_seconds": 0.15120122700000002
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.406155918,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "_add_filter",
+              "line": 181,
+              "percent_of_profile_total": 14.329337439334713,
+              "self_seconds": 0.22709152400000002
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.082309591,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__init__",
+              "line": 440,
+              "percent_of_profile_total": 2.903914116875253,
+              "self_seconds": 0.082309591
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.579480675,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "simplefilter",
+              "line": 165,
+              "percent_of_profile_total": 20.444301716781712,
+              "self_seconds": 0.153575495
+            }
+          ],
+          "sha256": "f7b2024e12967a7cc232ee63460a2fb4a2860979a48225bc638982993aa31cd9",
+          "total_seconds": 2.834436132999999
+        },
+        "candidate": {
+          "interpretation": "Separate cProfile run; cumulative rows overlap and are not an exclusive breakdown of ordinary timing.",
+          "rows": [
+            {
+              "calls": 1154245,
+              "cumulative_seconds": 0.052964309,
+              "file": "~",
+              "function": "<built-in method builtins.isinstance>",
+              "line": 0,
+              "percent_of_profile_total": 2.4369284236685465,
+              "self_seconds": 0.047591463
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.203956469,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__enter__",
+              "line": 466,
+              "percent_of_profile_total": 9.384193353625603,
+              "self_seconds": 0.18543056800000002
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.005312453,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "tensor_hash",
+              "line": 95,
+              "percent_of_profile_total": 0.24443003145954836,
+              "self_seconds": 0.000703901
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.005392115,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_tensor",
+              "line": 318,
+              "percent_of_profile_total": 0.24809534109450057,
+              "self_seconds": 7.7172e-05
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.004293179,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "hash_tensor_cpu",
+              "line": 47,
+              "percent_of_profile_total": 0.19753245403422345,
+              "self_seconds": 0.003818175
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 1.4984058370000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "safe_getattr",
+              "line": 344,
+              "percent_of_profile_total": 68.9428002237537,
+              "self_seconds": 0.437565478
+            },
+            {
+              "calls": 670,
+              "cumulative_seconds": 1.207365155,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_args_kwargs",
+              "line": 160,
+              "percent_of_profile_total": 55.5517955302028,
+              "self_seconds": 0.0008465870000000001
+            },
+            {
+              "calls": 1773,
+              "cumulative_seconds": 2.0914098190000003,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "convert_var_to_dict",
+              "line": 362,
+              "percent_of_profile_total": 96.22736763091898,
+              "self_seconds": 0.363128973
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.162592268,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+              "function": "dump_trace",
+              "line": 183,
+              "percent_of_profile_total": 7.480994783825724,
+              "self_seconds": 0.00014322
+            },
+            {
+              "calls": 8292,
+              "cumulative_seconds": 0.002711686,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/utils.py",
+              "function": "safe_getattr",
+              "line": 21,
+              "percent_of_profile_total": 0.1247667498024767,
+              "self_seconds": 0.0011258210000000002
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.000922073,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_VAR",
+              "line": 266,
+              "percent_of_profile_total": 0.04242528496685056,
+              "self_seconds": 4.7424000000000005e-05
+            },
+            {
+              "calls": 1340,
+              "cumulative_seconds": 0.016164994000000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_API",
+              "line": 257,
+              "percent_of_profile_total": 0.7437637550795105,
+              "self_seconds": 0.001122561
+            },
+            {
+              "calls": 670,
+              "cumulative_seconds": 0.752377733,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_return_value",
+              "line": 184,
+              "percent_of_profile_total": 34.61747575868505,
+              "self_seconds": 0.00031704700000000004
+            },
+            {
+              "calls": 1404,
+              "cumulative_seconds": 0.011245191,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "serialize",
+              "line": 101,
+              "percent_of_profile_total": 0.517399850859599,
+              "self_seconds": 0.0009738310000000001
+            },
+            {
+              "calls": 8937,
+              "cumulative_seconds": 0.0062934160000000005,
+              "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
+              "function": "__instancecheck__",
+              "line": 21,
+              "percent_of_profile_total": 0.2895648904316001,
+              "self_seconds": 0.0044612110000000005
+            },
+            {
+              "calls": 1,
+              "cumulative_seconds": 1.5100000000000002e-06,
+              "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
+              "function": "__instancecheck__",
+              "line": 240,
+              "percent_of_profile_total": 6.947625654361893e-05,
+              "self_seconds": 1.2620000000000002e-06
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.161353457,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__exit__",
+              "line": 487,
+              "percent_of_profile_total": 7.423996140881979,
+              "self_seconds": 0.144325115
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.381938691,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "_add_filter",
+              "line": 181,
+              "percent_of_profile_total": 17.573291708509934,
+              "self_seconds": 0.213641867
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.079526229,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "__init__",
+              "line": 440,
+              "percent_of_profile_total": 3.659062707252045,
+              "self_seconds": 0.079526229
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 0.552660111,
+              "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
+              "function": "simplefilter",
+              "line": 165,
+              "percent_of_profile_total": 25.428315002159547,
+              "self_seconds": 0.15112924600000002
+            }
+          ],
+          "sha256": "a3fd25631d2d65a4819675afba8347fc50c95dbf22a56276f2519f32271cc158",
+          "total_seconds": 2.1734043759999997
+        }
+      },
+      "speedup_ratio_of_medians": 1.2330647536274206,
+      "variants": {
+        "baseline": {
+          "peak_RSS_bytes": {
+            "max": 540819456.0,
+            "median": 540479488.0,
+            "min": 540413952.0,
+            "values": [
+              540446720.0,
+              540524544.0,
+              540819456.0,
+              540479488.0,
+              540413952.0
+            ]
+          },
+          "post_metrics_exit_seconds": {
+            "max": 3.333291094750166,
+            "median": 2.0391327142715454,
+            "min": 1.9195968136191368,
+            "values": [
+              2.0391327142715454,
+              1.9493112564086914,
+              1.9195968136191368,
+              2.38959226757288,
+              3.333291094750166
+            ]
+          },
+          "process_seconds": {
+            "max": 8.535529389977455,
+            "median": 7.0182711854577065,
+            "min": 6.815501172095537,
+            "values": [
+              7.0182711854577065,
+              6.815501172095537,
+              6.817034367471933,
+              7.320687089115381,
+              8.535529389977455
+            ]
+          },
+          "setup_seconds": {
+            "max": 2.8161566741764545,
+            "median": 2.602743424475193,
+            "min": 2.5676101446151733,
+            "values": [
+              2.6592667177319527,
+              2.5893340334296227,
+              2.5676101446151733,
+              2.602743424475193,
+              2.8161566741764545
+            ]
+          },
+          "trace_bytes": {
+            "max": 1088456.0,
+            "median": 1088456.0,
+            "min": 1088456.0,
+            "values": [
+              1088456.0,
+              1088456.0,
+              1088456.0,
+              1088456.0,
+              1088456.0
+            ]
+          },
+          "training_seconds": {
+            "max": 1.0287376642227173,
+            "median": 0.9664403684437275,
+            "min": 0.9573891162872314,
+            "values": [
+              0.9582567550241947,
+              0.9573891162872314,
+              0.9664403684437275,
+              0.9719362854957581,
+              1.0287376642227173
+            ]
+          }
+        },
+        "candidate": {
+          "peak_RSS_bytes": {
+            "max": 540966912.0,
+            "median": 540696576.0,
+            "min": 540524544.0,
+            "values": [
+              540622848.0,
+              540524544.0,
+              540966912.0,
+              540696576.0,
+              540721152.0
+            ]
+          },
+          "post_metrics_exit_seconds": {
+            "max": 2.2381970062851906,
+            "median": 2.0395359471440315,
+            "min": 2.011737398803234,
+            "values": [
+              2.0347076691687107,
+              2.011737398803234,
+              2.0395359471440315,
+              2.098541881889105,
+              2.2381970062851906
+            ]
+          },
+          "process_seconds": {
+            "max": 7.020256042480469,
+            "median": 6.816576909273863,
+            "min": 6.71428145095706,
+            "values": [
+              6.91656219959259,
+              6.71591405197978,
+              6.71428145095706,
+              6.816576909273863,
+              7.020256042480469
+            ]
+          },
+          "setup_seconds": {
+            "max": 2.6585870534181595,
+            "median": 2.6094753071665764,
+            "min": 2.570909459143877,
+            "values": [
+              2.6569117195904255,
+              2.5945258922874928,
+              2.570909459143877,
+              2.6094753071665764,
+              2.6585870534181595
+            ]
+          },
+          "trace_bytes": {
+            "max": 1088456.0,
+            "median": 1088456.0,
+            "min": 1088456.0,
+            "values": [
+              1088456.0,
+              1088456.0,
+              1088456.0,
+              1088456.0,
+              1088456.0
+            ]
+          },
+          "training_seconds": {
+            "max": 0.7914622835814953,
+            "median": 0.7837709784507751,
+            "min": 0.7750968001782894,
+            "values": [
+              0.7750968001782894,
+              0.7914622835814953,
+              0.7841797918081284,
+              0.7777450606226921,
+              0.7837709784507751
+            ]
+          }
+        }
+      },
+      "workload_manifest": {
+        "adapter_sha256": "a5b5e597d4921a5b4baceeada541a6a1765f13c97ab3bd1c2ef79dea331f0934",
+        "api_disabled_ablation": "var mode keeps Instrumentor wrappers with funcs_to_instr=[]; uses production no-dump fast path",
+        "batch_size": 2,
+        "benchmark_git_head": null,
+        "benchmark_source": "/home/yuxuan/experiments/codex-trace-impact-20261013/benchmarks/false-positive/RNN/trainset/word_language_model-RNN_TANH-3epo/model.py",
+        "benchmark_source_sha256": "e4451a33e9b16953004bc639d736d14f42a2b21f2939ccabe4cff10d3c40b74c",
+        "cpu_threads": 1,
+        "data": {
+          "adaptation": "Whitespace tokenization plus <eos>; vocabulary and tensors are bounded to the chosen prefix, unlike the full benchmark corpus.",
+          "kind": "wikitext2_training_prefix_with_prefix_only_vocabulary",
+          "path": "/home/yuxuan/experiments/codex-trace-impact-20261013/benchmarks/false-positive/RNN/trainset/word_language_model-RNN_TANH-3epo/data/wikitext-2/train.txt",
+          "prefix_sha256": "9b0b504c73ee103a9128f2072536e99b2696039399bd57669477f030db10eb35",
+          "sha256": "9e9fa1ad55b1c2c95b08e37dd8e653f638fac2c6de904b79e813611eefbc985f",
+          "token_count": 98,
+          "vocabulary_size": 60
+        },
+        "deterministic_algorithms": true,
+        "device": "cpu",
+        "excluded_phases": [
+          "model initialization",
+          "data preparation",
+          "metric extraction",
+          "checkpoint writing"
+        ],
+        "extracted_definitions_sha256": "1f2db95454690be6a91aaa141e3a5a246308f9abca11444c9113e4adfb78b95d",
+        "extracted_symbols": [
+          "PositionalEncoding",
+          "TransformerModel"
+        ],
+        "initial_state_hash": "e197d3c2a3f351146bc265c5b3eb54dcd1d921499ce24d1cc61bdc5e6dce886d",
+        "mode": "combined",
+        "model_config": {
+          "clip": 0.25,
+          "dropout_argument": 0.2,
+          "lr": 1.0,
+          "nhead": 2,
+          "nhid": 64,
+          "ninp": 32,
+          "nlayers": 2,
+          "ntoken": 60,
+          "sequence_length": 16
+        },
+        "model_tracker_style": "subclass",
+        "models_to_track": [
+          "model"
+        ],
+        "observation_files": [
+          {
+            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/static_analyzer/func_level/nn_func_level.log",
+            "sha256": "0ea56ca02089d5b19a1c0697dea00d107fccd18e17d485ff97bc04a5378dfcba"
+          },
+          {
+            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/static_analyzer/func_level/optim_func_level.log",
+            "sha256": "300c47f9babd033ddf68487dde01a828746ff795b5f0111761b2f8fda08ad900"
+          }
+        ],
+        "plain_baseline": "Imports TrainCheck (including global Module.__setattr__ hook), but no API wrappers or proxied parameters; imports/setup excluded",
+        "precision": "float32",
+        "profiled": false,
+        "python": "3.11.4 (main, Jul  5 2023, 13:45:01) [GCC 11.2.0]",
+        "scan_proxy_in_args": true,
+        "seed": 42,
+        "setup_seconds": 2.6592667177319527,
+        "source_commit": "88b6df2401e187ca6bd81bf0a83bc7c5d9a5cd54",
+        "source_tree": "5415a3b0e5eb08d119dffa91631d76866e6e1d11",
+        "steps": 3,
+        "tensor_dump_format": {
+          "dump_tensor_full": false,
+          "dump_tensor_hash": true,
+          "dump_tensor_stats": false
+        },
+        "timing": "Cold three-step CPU training body including start_step and wrapper-disable assignment; excludes setup/loss extraction/state digest/drain",
+        "topology": "Static observers only in VAR-enabled modes, matching normal collect_trace activation; interaction is not assumed zero",
+        "torch_version": "2.16.0.dev20261012+cpu",
+        "tracked_parameter_names": [
+          "encoder.layers.0.self_attn.in_proj_weight",
+          "encoder.layers.0.self_attn.in_proj_bias",
+          "encoder.layers.0.self_attn.out_proj.weight",
+          "encoder.layers.0.self_attn.out_proj.bias",
+          "encoder.layers.0.linear1.weight",
+          "encoder.layers.0.linear1.bias",
+          "encoder.layers.0.linear2.weight",
+          "encoder.layers.0.linear2.bias",
+          "encoder.layers.0.norm1.weight",
+          "encoder.layers.0.norm1.bias",
+          "encoder.layers.0.norm2.weight",
+          "encoder.layers.0.norm2.bias",
+          "encoder.layers.1.self_attn.in_proj_weight",
+          "encoder.layers.1.self_attn.in_proj_bias",
+          "encoder.layers.1.self_attn.out_proj.weight",
+          "encoder.layers.1.self_attn.out_proj.bias",
+          "encoder.layers.1.linear1.weight",
+          "encoder.layers.1.linear1.bias",
+          "encoder.layers.1.linear2.weight",
+          "encoder.layers.1.linear2.bias",
+          "encoder.layers.1.norm1.weight",
+          "encoder.layers.1.norm1.bias",
+          "encoder.layers.1.norm2.weight",
+          "encoder.layers.1.norm2.bias",
+          "encoder.norm.weight",
+          "encoder.norm.bias",
+          "decoder.weight",
+          "decoder.bias",
+          "input_emb.weight"
+        ],
+        "training_only_trace": true,
+        "update": "Adapted language-model forward/NLL/backward/clipped manual SGD. Model classes copied exactly; the benchmark main.py training path is RNN-specific and is not executed. Transformer dimensions/vocabulary reduced.",
+        "variant": "baseline_subclass_fix",
+        "workload_kind": "bounded_model_micro_workload",
+        "wrapped_functions": 21032
+      }
+    }
+  }
+}
