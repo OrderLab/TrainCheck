@@ -67,6 +67,18 @@ CUDA globally on the basis of the large-matrix result.
 The [compact evidence](data/tensor-hash-backends-20261026.json) retains all
 shape outcomes, timing samples, stream controls, and artifact identities.
 
+## Follow-up on the measured MNIST weight shape
+
+The [API/model-tracer study](tracer-components-20261026.md) identifies `fc1.weight`,
+shape `(128, 9216)`, as 98.31% of logical hashed input bytes. A separate matched
+microbenchmark of that exact shape, with input already on CUDA, measures
+**14.576 ms CPU hashing versus 1.511 ms CUDA hashing (9.64x)** with identical hash
+values. The same two warmups and seven alternating timed calls/backend are used;
+all raw samples and three verified follow-up artifact hashes are in the compact
+evidence. This confirms a relevant optimization opportunity after the scalar and
+stream contracts are fixed. It is not a measured speedup for CPU training, model
+tracing, or the complete training run. The future stream repair is not timed.
+
 ## Environment and evidence
 
 labmach: RTX A2000 12GB, driver 545.23.08, Python 3.10.16, PyTorch 2.2.2+cu121,

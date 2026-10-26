@@ -1150,5 +1150,63 @@
     "No production backend default or algorithm changed.",
     "Scalar/empty errors and stream observations must be handled before enabling CUDA generally.",
     "First-row-only behavior is shared existing hash semantics, separate from backend parity."
-  ]
+  ],
+  "mnist_dominant_shape_followup": {
+    "timings": [
+      {
+        "shape": [
+          128,
+          9216
+        ],
+        "dtype": "torch.float32",
+        "input_bytes": 4718592,
+        "samples_seconds": {
+          "cpu": [
+            0.01494477316737175,
+            0.014594506472349167,
+            0.01264377310872078,
+            0.012647747993469238,
+            0.014576397836208344,
+            0.01462256908416748,
+            0.01264270395040512
+          ],
+          "cuda": [
+            0.0015219561755657196,
+            0.0014661811292171478,
+            0.0015172585844993591,
+            0.0014633052051067352,
+            0.0015113502740859985,
+            0.001466561108827591,
+            0.001525983214378357
+          ]
+        },
+        "median_seconds": {
+          "cpu": 0.014576397836208344,
+          "cuda": 0.0015113502740859985
+        },
+        "hash_backends_equal": true
+      }
+    ],
+    "warmups_per_backend": 2,
+    "repeats_per_backend": 7,
+    "order": "CPU/CUDA alternating then CUDA/CPU alternating",
+    "scope": "Complete tensor_hash plus CUDA synchronization, CUDA float32 input, no tracer or metadata operations",
+    "artifacts": [
+      {
+        "filename": "audit_hash_mnist_fc1.py",
+        "sha256": "093827aa0bccfda1bf30778c70ce65fdf799b071af72d591792e8e491ba1ebe0"
+      },
+      {
+        "filename": "mnist-fc1-results.json",
+        "sha256": "6db80ff91e7a4eca77f4da72894e2de8b9b0df7c87e366c6def516ccfe3c6470"
+      },
+      {
+        "filename": "mnist-fc1.log",
+        "sha256": "d9bc00296b30e66e50ab01bd8f8817db7c50b2762661d8f1a62ef3937cb65056"
+      }
+    ],
+    "runtime_same_as_original_hash_audit": true,
+    "stream": "default",
+    "limits": "Exact shape of dominant logical hash volume in the CPU model-tracer study, moved to CUDA for this isolated backend comparison; not a combined-training speedup and no stream-safety repair included."
+  }
 }
