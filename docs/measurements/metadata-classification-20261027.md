@@ -1,241 +1,232 @@
-# Transformer tracker correctness and metadata fast-path measurements
+# Final matched metadata-classification measurements
 
-The fixed subclass tracker completes the previously failing Transformer workload.
-In five alternating pairs with **both API and model tracing active**, the metadata
-classification candidate reduced median three-step CPU training time by **8.67%
-for MNIST** and **18.90% for the small Transformer**. These are reductions from the
-baseline's training-body time with both tracers enabled under ordinary collection
-and its normal API exclusions (`use_full_instr=False`). They are not whole-process
-speedups or comparisons against the earlier PR #153 measurements.
+With the reviewed correctness changes on both sides, the metadata fast path
+reduces median three-step CPU training time by **9.96% on MNIST** and **18.43%
+on the small Transformer**. Both API and subclass model tracing are enabled
+under ordinary collection (`use_full_instr=False`, retaining normal exclusions).
+Every one of the ten matched pairs improves. Hashing is unchanged.
 
-## Exact comparison and scope
+These final numbers supersede the initial study for the current implementation.
+The initial evidence remains in the parent output directory and in repository
+checkpoint `bcf9bb82c3c11812336d1199dc699aa4ee6473e2`. Do not compare timings
+across the studies to attribute additional improvements.
+
+## Exact sources and experiment
 
 | Variant | Commit | Tree |
 |---|---|---|
-| Baseline: subclass assignment fix | `88b6df2401e187ca6bd81bf0a83bc7c5d9a5cd54` | `5415a3b0e5eb08d119dffa91631d76866e6e1d11` |
-| Candidate: same fix plus callable metadata fast path | `3232887a8bdb6dbf6abcab233ead43a9697f0c18` | `cb74fdd3a8185deb0b3d31c0d20d2a7eac0b8097` |
+| Baseline: all current correctness/default changes, metadata fast path removed | `7a40649d2ce55c1a92380e26cd0f74b61c05824b` | `c84687d977b748a5080f034ace78c78b45cec172` |
+| Candidate: all current changes including metadata fast path | `035f7f1976c5d84bd01f5d96bb095fb07c9cc059` | `89fdd92ebc6a57e5878d27cfb1b18dc69ee28a0b` |
 
-All 77 executed production Python files per variant match the respective exact
-Git archive byte for byte. The only differing production file is
-`traincheck/instrumentor/dumper.py`. Hash algorithms, hash backend, tensor dump
-format, sampling, observer depth, and tracing coverage remain unchanged.
+All **78 production Python files per variant** match the respective exact Git
+archive byte for byte. The only production difference is
+`traincheck/instrumentor/dumper.py`. Both sides include the parameter identity,
+alias/ownership lifecycle, default-tracker and constructor-snapshot fixes.
 
-The performance change recognizes exact built-in callable types before testing
-them against framework tensor/module classes. It retains attribute discovery and
-warning handling, and retains the generic path for arbitrary callable objects and
-subclasses. This study does not change or optimize hashing.
+The optimization recognizes exact built-in callable types before repeatedly
+checking them against framework tensor/module classes. Attribute enumeration,
+getter evaluation, warning scope/restoration, supported metadata fields and the
+generic fallback remain present. No hash algorithm, backend, dump format,
+sampling or observation-depth change is part of the comparison.
 
-## Workload and timing contract
+Conditions: labmach Intel Core i9-13900K; Python 3.11.4; PyTorch
+`2.16.0.dev20261012+cpu`; one PyTorch/native thread; CPU only; float32; batch 2;
+three **cold** steps. Initialization seeds are 42, training seeds 43 for Python,
+NumPy and PyTorch. No affinity or exclusive host reservation was used.
 
-- labmach, Intel Core i9-13900K, Python 3.11.4, PyTorch
-  `2.16.0.dev20261012+cpu`; one PyTorch/native thread, CPU only, deterministic
-  algorithms, batch 2, float32, three cold training steps.
-- MNIST: exact benchmark `Net`, 1,199,882 parameters, first six cached MNIST
-  training images, NLL loss and Adadelta with learning rate 1.
-- Transformer: exact benchmark model definitions with bounded dimensions
-  (embedding 32, two layers, two heads, feedforward 64, sequence length 16,
-  vocabulary 60 from the WikiText-2 prefix). Original gradient clipping and
-  **manual SGD parameter updates remain present**.
-- Initialization seeds 42; training seeds 43 for Python, NumPy and PyTorch.
-- Explicit subclass parameter tracking before optimizer construction; normal
-  depth-3 static observers; parameter hash format enabled, CPU backend;
-  `scan_proxy_in_args=True`; API descriptors disabled; sampling interval 1,
-  warmup 0; `use_full_instr=False`, retaining normal API exclusions. This does
-  not exercise `--use-full-instr`, default Proxy, or VarSampler mode.
-- Ordinary timing includes `start_step`, the training body, and disabling
-  instrumentation on exit. It excludes imports/setup, loss extraction, RNG/state
-  verification and final background-writer drain. **RNG snapshots are outside
-  the timer and after `DISABLE_WRAPPER=True`**, so they add no API trace records.
-  Separate cProfile runs cover the training body, not setup or diagnostics.
-- Every case uses a fresh process. Five pairs per workload alternate
-  baseline/candidate, candidate/baseline, baseline/candidate, candidate/baseline,
-  baseline/candidate. The shared host was not reserved or pinned to a CPU.
-- Limits: 90 seconds, 4 GiB sampled main-process RSS, 256 MiB trace per case.
-  No case hit a limit. Native threads were restricted to one; other users' work
-  and shared environments were not changed.
+- MNIST uses the exact benchmark `Net` (1,199,882 parameters), the first six
+  cached MNIST training images, NLL loss and Adadelta with learning rate 1.
+- Transformer uses exact benchmark model definitions with bounded dimensions:
+  embedding 32, two layers, two heads, feedforward 64, sequence length 16 and
+  vocabulary 60 from the WikiText-2 prefix. Gradient clipping and the original
+  manual SGD updates remain present.
+- Model registration occurs before optimizer construction. Both-tracer runs use
+  explicit subclass tracking, depth-3 static observers, argument scanning,
+  hash-format tensor dumps on CPU, sampling interval 1, warmup 0, and disabled
+  API descriptors. This does not measure `--use-full-instr`, Proxy/VarSampler
+  modes, CUDA, MPS or distributed training.
 
-## Correctness smoke
+The timer includes `start_step`, the training body and disabling instrumentation
+on exit. It excludes imports/setup, loss extraction, model/RNG verification and
+final writer shutdown. RNG capture runs **after the timer with wrappers disabled**
+and adds no API trace records. Every case uses a fresh process and has a 90-second,
+4-GiB sampled main-process RSS, 256-MiB trace limit; no case hit a limit.
 
-The fixed baseline passed plain, API-only, VAR-only and combined Transformer
-three-step runs. Initial/final model state, every loss value, and Python/NumPy/
-PyTorch CPU RNG state before training and after each step matched exactly.
+## Ordinary measurements
 
-| Mode | Single smoke time (ms) | API records | VAR records | Tracked parameters |
+Five pairs per workload alternate baseline/candidate then candidate/baseline,
+ending baseline/candidate. Profiles are separate from these measurements.
+Percent reduction uses the baseline median **training-body time** as denominator,
+not added overhead or whole-process time.
+
+| Workload | Baseline median (range), ms | Candidate median (range), ms | Reduction | Ratio of medians |
 |---|---:|---:|---:|---:|
-| Plain | 15.418 | 0 | 0 | 0 |
-| API | 877.959 | 1,338 | 0 | 0 |
-| VAR | 88.366 | 0 | 64 | 29 |
-| Combined | 940.872 | 1,340 | 64 | 29 |
+| MNIST | 667.776 (653.230–675.525) | 601.247 (577.793–626.689) | **66.529 ms / 9.96%** | 1.111× |
+| Transformer | 959.440 (945.047–1,022.942) | 782.596 (765.700–810.611) | **176.844 ms / 18.43%** | 1.226× |
 
-These smoke times establish execution, not a repeated ablation estimate.
-VAR-only keeps Instrumentor's no-dump wrappers. All modes import TrainCheck's
-global module-assignment hook; plain installs no API wrappers or parameter
-proxies. Modes with VAR tracking also install observers and argument scanning,
-so four-mode differences are not a physically exclusive cost partition.
-
-## Ordinary paired measurements
-
-| Workload | Baseline median (range), ms | Candidate median (range), ms | Reduction from baseline median | Ratio of medians |
-|---|---:|---:|---:|---:|
-| MNIST | 868.830 (831.441–943.226) | 793.489 (722.298–849.878) | 75.341 ms / **8.67%** | 1.095× |
-| Transformer | 966.440 (957.389–1,028.738) | 783.771 (775.097–791.462) | 182.669 ms / **18.90%** | 1.233× |
-
-All individual ordinary runs, in repetition order:
-
-| Workload | Baseline times (ms) | Candidate times (ms) | Paired reductions (ms) |
+| Workload | Baseline runs, ms | Candidate runs, ms | Paired reductions, ms |
 |---|---|---|---|
-| MNIST | 943.226, 868.830, 831.441, 903.219, 833.264 | 814.235, 722.298, 793.489, 792.977, 849.878 | 128.991, 146.531, 37.952, 110.242, **−16.615** |
-| Transformer | 958.257, 957.389, 966.440, 971.936, 1,028.738 | 775.097, 791.462, 784.180, 777.745, 783.771 | 183.160, 165.927, 182.261, 194.191, 244.967 |
+| MNIST | 674.327, 667.776, 653.230, 666.759, 675.525 | 626.689, 577.793, 587.515, 601.247, 626.016 | 47.637, 89.983, 65.715, 65.512, 49.509 |
+| Transformer | 945.047, 967.448, 951.148, 959.440, 1,022.942 | 797.606, 768.657, 782.596, 810.611, 765.700 | 147.440, 198.792, 168.552, 148.829, 257.243 |
 
-MNIST improves in four of five pairs; its paired reductions range from −1.99%
-to 16.87%. Transformer improves in all five pairs (17.33%–23.81%). These are
-bounded cold-step diagnostics on a shared host, not confidence intervals or
-steady-state/GPU/distributed scaling claims. No run was discarded as an outlier.
+Paired reductions range from 7.06%–13.48% for MNIST and 15.51%–25.15% for
+Transformer. No outliers were discarded. Five short pairs on a shared machine
+do not establish a confidence interval, steady-state scaling or GPU performance.
 
-## Profiles: what changed and what remains
+## Profiles and remaining work
 
-Each variant has one separate cProfile run per workload. Total profiled time is
-1.599957 → 1.322230 seconds for MNIST and 2.834436 → 2.173404 seconds for
-Transformer. Percentages below use **that variant's profiled total**. Cumulative
-rows overlap; do not add them or apply them to the ordinary timing denominator.
+One separate profile per variant/workload has total time **1.372028 → 1.122652 s**
+for MNIST and **2.719891 → 2.135597 s** for Transformer. Every percentage below
+uses that variant's **profiled total**, not its ordinary median. Cumulative rows
+overlap; they cannot be added into an exclusive cost partition.
 
-| Profile component | MNIST baseline → candidate, ms (% of respective total) | Transformer baseline → candidate, ms (% of respective total) |
+| Cumulative component | MNIST baseline → candidate, ms (% of profile total) | Transformer baseline → candidate, ms (% of profile total) |
 |---|---|---|
-| All `convert_var_to_dict`, cumulative | 1,537.323 (96.09%) → 1,257.303 (95.09%) | 2,748.502 (96.97%) → 2,091.410 (96.23%) |
-| Built-in `isinstance`, cumulative | 171.536 (10.72%) → 20.463 (1.55%) | 427.563 (15.08%) → 52.964 (2.44%) |
-| Dumper `safe_getattr`, cumulative | 626.707 (39.17%) → 605.309 (45.78%) | 1,579.442 (55.72%) → 1,498.406 (68.94%) |
-| Warning `simplefilter`, cumulative, nested in `safe_getattr` | 227.450 (14.22%) → 219.941 (16.63%) | 579.481 (20.44%) → 552.660 (25.43%) |
-| API argument conversion, cumulative | 600.868 (37.55%) → 466.125 (35.25%) | 1,578.695 (55.70%) → 1,207.365 (55.55%) |
-| API return conversion, cumulative | 291.809 (18.24%) → 225.436 (17.05%) | 987.921 (34.85%) → 752.378 (34.62%) |
-| `ProxyParameter.dump_trace`, cumulative | 653.538 (40.85%) → 574.950 (43.48%) | 213.353 (7.53%) → 162.592 (7.48%) |
-| `tensor_hash`, cumulative, nested in snapshots | 437.785 (27.36%) → 414.738 (31.37%) | 5.762 (0.20%) → 5.312 (0.24%) |
-| Final `serialize`, cumulative | 4.350 (0.27%) → 4.386 (0.33%) | 12.093 (0.43%) → 11.245 (0.52%) |
+| Metadata conversion, `convert_var_to_dict` | 1,307.722 (95.31%) → 1,061.525 (94.56%) | 2,641.869 (97.13%) → 2,056.602 (96.30%) |
+| Built-in `isinstance` | 169.932 (12.39%) → 20.078 (1.79%) | 415.405 (15.27%) → 53.038 (2.48%) |
+| Attribute lookup, dumper `safe_getattr` | 624.366 (45.51%) → 598.322 (53.30%) | 1,513.444 (55.64%) → 1,472.196 (68.94%) |
+| Warning `simplefilter`, nested in attribute lookup | 228.109 (16.63%) → 219.396 (19.54%) | 553.408 (20.35%) → 540.450 (25.31%) |
+| API argument conversion | 599.447 (43.69%) → 461.566 (41.11%) | 1,513.930 (55.66%) → 1,184.774 (55.48%) |
+| API return conversion | 293.872 (21.42%) → 223.348 (19.90%) | 950.236 (34.94%) → 742.331 (34.76%) |
+| `ProxyParameter.dump_trace` | 423.777 (30.89%) → 387.950 (34.56%) | 208.495 (7.67%) → 161.196 (7.55%) |
+| `tensor_hash`, nested in snapshots | 221.088 (16.11%) → 230.689 (20.55%) | 5.592 (0.21%) → 5.207 (0.24%) |
+| Final JSON `serialize` | 4.231 (0.31%) → 5.508 (0.49%) | 10.609 (0.39%) → 10.576 (0.50%) |
 
-The classifier evidence is concrete: `isinstance` calls fall from 1,503,363 to
-464,357 for MNIST and 3,622,491 to 1,154,245 for Transformer. Parameter
-`__instancecheck__` calls fall from 203,335 to 2,817 and 495,303 to 8,937,
-respectively (Transformer also has one other instance-check entry in both
-variants). The number of attribute lookups/warning scopes is unchanged:
-211,616 for MNIST and 516,009 for Transformer. Thus repeated per-attribute
-lookup/warning setup remains an actionable instrumentation bottleneck; this
-candidate does not remove it. Final JSON encoding is a small part of these
-profiles. Hash call counts remain 112 and 64; hash timing variation is not
-attributed to a hash optimization.
+`isinstance` calls fall from **1,503,819 to 464,813** for MNIST and from
+**3,622,987 to 1,154,741** for Transformer. Parameter `__instancecheck__` calls
+fall from 203,335 to 2,817 and 495,303 to 8,937 respectively; Transformer also
+has one separate instance-check entry in each profile.
 
-## Activation, data integrity and resource accounting
+Attribute lookups and warning scopes stay at **211,616 for MNIST** and **516,009
+for Transformer**. Their repeated setup remains a concrete next instrumentation
+bottleneck, subject to preserving getter side effects and warning restoration.
+Final JSON encoding is small in these profiles. Hashing was not optimized:
+both variants use the existing CPU implementation, with unchanged call counts.
+The small profile hash-time differences are not a hash-speedup claim.
+Metadata conversion and JSON encoding still run synchronously in the producer;
+the background threads handle buffered file writing. The small JSON row does
+not imply that all preparation of a trace record is cheap or asynchronous.
 
-All **28 original cases** (four smoke, twenty ordinary, four profile) completed
-successfully. The paired driver initially compared each workload against its
-first baseline combined run. A supplementary check explicitly anchors all 24
-ordinary/profile cases to plain training: the existing Transformer plain smoke
-and a new isolated MNIST plain run using the exact baseline source. Every initial
-and final state digest/shape, loss, step ID, and per-step Python/NumPy/PyTorch RNG
-snapshot matches. Timing fields alone are excluded from this behavioral comparison.
-The supplemental run supplies a correctness reference, not another speedup estimate.
-All saved raw trace SHA-256s, sizes, counts and API pre/post pair multiplicities
-were independently reread and validated locally.
-Every tracked parameter has at least two distinct data hashes across the three
-steps. The five ordinary runs and separate profiles have matching coverage
-signatures across variants:
+## Correctness, coverage and resources
 
-| Workload | API records / complete pairs | VAR records / parameters | Data+gradient hash fields | Raw API+VAR bytes |
+All **30 cases** passed: six candidate correctness cases (Transformer plain,
+API, VAR and combined; MNIST plain and combined), twenty ordinary paired cases
+and four profiles. The six correctness cases complete before measurement starts.
+Every paired/profiled run is checked directly against the corresponding plain
+candidate run: exact initial/final model-state digests and shapes, every loss
+and step ID, and Python/NumPy/PyTorch RNG state before training and after each
+step. Only elapsed seconds are excluded from loss-row comparison.
+
+All retained raw trace checksums, sizes, counts and API pre/post multiplicities
+were reread locally. Every tracked parameter has changing data hashes across
+the three steps. Counts and coverage signatures agree across ordinary/profiled
+baseline and candidate runs:
+
+| Workload | API records / complete pairs | VAR records / parameters | Tensor data+gradient hash fields | Raw API+VAR bytes |
 |---|---:|---:|---:|---:|
 | MNIST | 520 / 260 | 64 / 8 | 112 | 419,429 |
 | Transformer | 1,340 / 670 | 64 / 29 | 64 | 1,088,456 |
 
-Transformer snapshots have `grad=None` and capture changed parameter values at
-the current observers' assignment/zero-grad observation points. They do **not**
-establish pre/post snapshots for each manual SGD update, or gradient snapshot
-coverage. The final state check independently verifies that all three training
-steps and their updates matched. We did not replace manual SGD or add synthetic
-observers to improve coverage. MNIST's Adadelta path has data and gradient hashes.
+Profile calls to both `tensor_hash` and `hash_tensor_cpu` exactly match 112 and
+64 recorded hash fields. MNIST has 48 gradient hashes in addition to its 64 data
+hashes. Transformer snapshots have `grad=None` at the existing observation points:
+they capture changing parameter values, but **do not establish gradient snapshots
+or pre/post observations for every manual SGD update**. We did not replace manual
+SGD or add synthetic observations to improve those counts. Final model/loss/RNG
+checks separately establish behavior parity for the completed training steps.
 
-Logical hashed input volume, counting repeated snapshots, is 67,193,392 bytes
-for MNIST and 214,496 bytes for Transformer. This is not physical memory traffic
-or a time partition. No cross-process raw trace equality is claimed: identities
-and timestamps remain intact in the retained raw records.
+Logical hashed input volume, counting repeated snapshots, is 67,193,392 bytes for
+MNIST and 214,496 bytes for Transformer; this is not physical memory traffic or
+a time share. Raw identities and timestamps remain intact. There is no claim of
+normalized raw trace equality across independent processes.
 
 | Ordinary median | MNIST baseline → candidate | Transformer baseline → candidate |
 |---|---:|---:|
-| Setup | 2.702 → 2.709 s | 2.603 → 2.609 s |
-| Whole process | 7.018 → 7.019 s | 7.018 → 6.817 s |
-| Post-metrics process exit | 2.078 → 2.131 s | 2.039 → 2.040 s |
-| Sampled main-process peak RSS | 561.492 → 561.285 MiB | 515.441 → 515.648 MiB |
+| Setup | 2.576 → 2.636 s | 2.551 → 2.528 s |
+| Whole process | 6.816 → 6.915 s | 6.719 → 6.816 s |
+| Post-metrics exit | 2.272 → 2.234 s | 1.900 → 2.156 s |
+| Sampled main-process peak RSS | 556.816 → 561.523 MiB | 515.715 → 515.727 MiB |
 
-Post-metrics exit includes writer drain, Python shutdown and up to one polling
-interval; it is **not a pure I/O drain timer**. The small training-body savings
-do not materially reduce whole-process MNIST time in this short workload. Full
-per-run distributions for setup/process/exit/RSS/bytes are in [`data/metadata-classification-20261027.json`](data/metadata-classification-20261027.json).
+Post-metrics exit includes background-writer drain, Python shutdown and polling
+delay. It is not a pure I/O timer. These short jobs do **not** show a whole-process
+speedup; startup/shutdown and host variation outweigh the training-body savings.
+Full per-run distributions are retained in [`data/metadata-classification-20261027.json`](data/metadata-classification-20261027.json).
 
-## Reproduction and artifacts
+## Artifacts and reproduction
 
-Remote root:
-`/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed`.
-Local root:
-`/Users/matt/gitrepos/traincheck/outputs/instrumenter-performance-20261027`.
-Use a fresh copy of the experiment directory for reruns because run directories
-are deliberately created exclusively. `baseline/source.tar` and
-`candidate/source.tar` retain the exact source archives; the only experimental
-adapter change in `source/tools/fresh_validation/benchmark_workload.py` is the
-typed registration callback before optimizer construction, identical in both
-variants. Retained harnesses are `component_runner.py` and `run_experiment.py`;
-`analyze_experiment.py` rereads and validates the evidence.
+Local directory:
+`/Users/matt/gitrepos/traincheck/outputs/instrumenter-performance-20261027/final-matched`.
+Remote directory:
+`/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched`.
+
+The source archives are exact Git exports. Their isolated workload adapters add
+the same typed model-registration callback before optimizer construction; no
+production source is patched in place. Data and original benchmark definitions
+come from the existing read-only caches recorded in each manifest.
+
+With a fresh copy of the retained experiment structure (run directories must not
+already exist):
 
 ```bash
-/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python run_experiment.py --root "$EXPERIMENT_ROOT" --phase smoke
+/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python correctness_driver.py --root "$EXPERIMENT_ROOT/candidate"
 /home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python run_experiment.py --root "$EXPERIMENT_ROOT" --phase paired
 python analyze_experiment.py --root "$LOCAL_EVIDENCE_ROOT"
 ```
 
-The runner sets `PYTHONPATH` to each isolated source tree, restricts native
-threads, disables bytecode writes and CUDA visibility, and records exact child
-commands. It aborts on execution, coverage, loss, model-state or RNG divergence.
-No installation or shared source/environment edit was needed.
+The runner records every child command and sets the isolated source path, native
+thread limits, CPU visibility and deterministic seed configuration. It aborts on
+execution, coverage, model/loss/RNG or resource-limit failure. The analyzer verifies
+source archives, executed harness hashes, raw records, plain references, unchanged
+production-file scope and profile hash activation. No installations or shared
+source/environment edits were used.
+
+The benchmark copy has no available Git-head identity. Exact source/definition
+and data hashes are therefore retained in each manifest and [`data/metadata-classification-20261027.json`](data/metadata-classification-20261027.json):
+
+| Input/environment artifact | SHA-256 |
+|---|---|
+| MNIST benchmark source | `4478c5de92610a1e03d61c356801d51ffca749f99dac00f234d6b6ea2bcb2aa7` |
+| Transformer benchmark source | `e4451a33e9b16953004bc639d736d14f42a2b21f2939ccabe4cff10d3c40b74c` |
+| MNIST image IDX file (first six samples used) | `ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db` |
+| MNIST label IDX file | `65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5` |
+| WikiText-2 training file | `9e9fa1ad55b1c2c95b08e37dd8e653f638fac2c6de904b79e813611eefbc985f` |
+| Used 98-token prefix | `9b0b504c73ee103a9128f2072536e99b2696039399bd57669477f030db10eb35` |
+| Runtime package inventory | `f9b751a6b4b74230992a297eec30164e8d78fcd6a2d177726075f381bfae3c37` |
+| CPU inventory | `ab09fc242f18a43f3e25a1bb6d8aaf6b2940f71efa4c2800c82f825f13bdaaeb` |
 
 | Artifact | SHA-256 |
 |---|---|
-| Baseline source archive | `ac1a830f490bef1af6b1b15ba49d116ff28a8de2e57f51dd80afc714f4e8d909` |
-| Candidate source archive | `b945a9d4c2b43def8481660bc3fc6ae45dbfbd34e3a5e8a0c848e5ca379276e6` |
-| Raw evidence archive, 24,826,924 bytes | `1de069eb0dd5d8dd4ce60e758a4d3dae5716fa69bda1f3e30570b983f4e69773` |
-| Executed runner | `d17315872c4e412d3a2be075fa733eebb9c7d4f8189dff82d53dc6bae92c0818` |
-| Executed driver | `3a89d821238902362b110abbc9d66bb2b87c1b1cef09144bf7407a5400cd72f4` |
+| Baseline source archive | `efc665f1b6914964f3ac93ac76a3e00791b5cf07c310818c65e7711496260537` |
+| Candidate source archive | `793087ee08bbfb10ed60712d7d22da2153809236c26eb113d78592695754fe4e` |
+| Raw evidence archive, 25,722,591 bytes | `875be9098fab644afed9798cd6005f66af6567719e6be1765d84e9bd74725584` |
+| Executed runner | `21984b309b688e95de62d37b59e6e5f7c9a1685ef5293e54dfaacd60e9305875` |
+| Executed paired driver | `5a0d4c4a02ea397bce646a482c2657bb80a1cd28bb5fa6e7cd0127071c6fda67` |
+| Executed correctness driver | `752968c1c2bd4b646f2c30dc83788597ff5567d41b3759bebc2b9c658795d6fe` |
 
-The raw archive retains every log, metrics/manifest file, trace, profile and
-environment inventory. Large/raw data remains in outputs and the isolated
-remote directory, not in commits.
+Configured Ruff/Black/isort checks pass for the four harness/analysis modules.
+Scoped mypy passes with `--check-untyped-defs --disallow-untyped-defs
+--disallow-any-generics --follow-imports=skip --ignore-missing-imports`; dependency
+typing is not fully checked by that invocation. The exact composed candidate also passes pinned production hooks, configured
+mypy on all 78 production files, and strict installed-Torch checking of eight
+new contract/test modules. The complete suite passes 246/247 tests; the sole
+`test_inject_eval_loop` failure also occurs on unchanged main. Separate real CLI
+runs complete ordinary, selective and full-flag collection, with exact training
+parity and two active passing invariant decisions each. Detailed correctness
+evidence is retained in `outputs/instrumenter-final-validation-20261027` and
+`outputs/instrumenter-final-cli-20261027`, and described in PRs #154, #155 and #157.
+Raw traces, profiles and checked harnesses remain in the experiment directories;
+only the reviewed report and compact measurement evidence are committed here.
 
-Scoped mypy passes for all three new harness/analysis modules with
-`--check-untyped-defs --disallow-untyped-defs --disallow-any-generics` and
-`--follow-imports=skip --ignore-missing-imports`. The latter two options mean
-dependency typing is not fully checked. Production test/check results belong
-to the focused implementation PRs; this report records the actual workload
-validation only.
 
-## Asynchronous work: what this measurement supports
+## Asynchronous snapshot work
 
-The subclass API/VAR file writers already run in background threads. Producers
-still inspect live values and build immutable serialized records before enqueueing
-so later application mutations cannot change earlier observations. Final JSON
-encoding contributes 0.27–0.52% of the measured profiles; moving just that encoding
-to a worker has little headroom here. The larger synchronous work is metadata
-inspection and conversion, including per-attribute warning scopes.
-
-Moving arbitrary object inspection to a worker after a shallow copy would change
-which values, getters and exceptions are observed. A future asynchronous tensor
-snapshot path needs owned copies, producer-stream ordering for CUDA, bounded byte
-and item queues, per-destination ordering, and explicit flush/error behavior.
-It would need separate contract tests and an explicit decision about delayed
-serialization errors. This PR implements the measured synchronous classification
-fast path only; it does not add asynchronous snapshot conversion.
-
-The separate CLI default validation also reproduced a pre-existing startup
-recursion under `--use-full-instr` in `torch._ops.__getattr__` on unchanged main
-and the subclass candidate. Those broader-flag runs were stopped at 45 seconds;
-they are not included in the successful ordinary-collection measurements above.
-
-Plain-reference validation is included in the measurement JSON under
-`plain_reference_validation`. Its raw supplementary archive is retained as
-`plain-parity.tar.gz` (12,709 bytes), SHA-256
-`6093c207f75f30331248220838613369a50d6fa3a4f6f534e0075ce7f8f4d4c1`,
-with its checker alongside the other local evidence. The original 28-case
-archive is unchanged.
+File writes already use background threads on the subclass path. Moving only
+final JSON encoding off the producer offers little headroom in this study.
+The larger synchronous work inspects live objects and prepares their metadata.
+Moving those getters to a later worker after a shallow copy can observe changed
+values and change when errors occur. A future asynchronous tensor snapshot path
+needs owned snapshots, producer-stream ordering, bounded bytes/items, ordering
+per destination, and explicit worker-error and drain behavior. This change adds
+no asynchronous snapshot conversion. Per-attribute warning setup is the next
+measured implementation target, provided getter and warning semantics remain
+intact. Selective-checking overhead needs its own timing study.

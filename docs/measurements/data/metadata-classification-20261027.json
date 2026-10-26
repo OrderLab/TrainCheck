@@ -1,10 +1,10 @@
 {
   "artifacts": {
-    "driver_sha256": "3a89d821238902362b110abbc9d66bb2b87c1b1cef09144bf7407a5400cd72f4",
-    "evidence_archive_bytes": 24826924,
-    "evidence_archive_sha256": "1de069eb0dd5d8dd4ce60e758a4d3dae5716fa69bda1f3e30570b983f4e69773",
-    "remote": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed",
-    "runner_sha256": "d17315872c4e412d3a2be075fa733eebb9c7d4f8189dff82d53dc6bae92c0818"
+    "driver_sha256": "5a0d4c4a02ea397bce646a482c2657bb80a1cd28bb5fa6e7cd0127071c6fda67",
+    "evidence_archive_bytes": 25722591,
+    "evidence_archive_sha256": "875be9098fab644afed9798cd6005f66af6567719e6be1765d84e9bd74725584",
+    "remote": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched",
+    "runner_sha256": "21984b309b688e95de62d37b59e6e5f7c9a1685ef5293e54dfaacd60e9305875"
   },
   "limitations": [
     "CPU only, one native thread, three cold steps and five pairs on a shared host",
@@ -13,748 +13,6 @@
     "Post-metrics exit includes Python shutdown and polling delay; it is not a pure writer timer",
     "Full raw traces retained; no normalized cross-process trace equivalence claim"
   ],
-  "plain_reference_validation": {
-    "compared_fields": [
-      "initial_state_hash",
-      "final_state_hash",
-      "initial_shapes",
-      "final_shapes",
-      "rng_states",
-      "every step ID and loss field (only seconds excluded)"
-    ],
-    "mnist_reference_metrics": {
-      "error": null,
-      "final_shapes": {
-        "model.conv1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.conv1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            1,
-            3,
-            3
-          ]
-        },
-        "model.conv2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            64
-          ]
-        },
-        "model.conv2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            64,
-            32,
-            3,
-            3
-          ]
-        },
-        "model.fc1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            128
-          ]
-        },
-        "model.fc1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            128,
-            9216
-          ]
-        },
-        "model.fc2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            10
-          ]
-        },
-        "model.fc2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            10,
-            128
-          ]
-        }
-      },
-      "final_state_hash": "f20e5ffbd73ae70379e3a9360e4fe2cf78c4cae0168b259f8070a8d77fc2f097",
-      "initial_shapes": {
-        "model.conv1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.conv1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            1,
-            3,
-            3
-          ]
-        },
-        "model.conv2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            64
-          ]
-        },
-        "model.conv2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            64,
-            32,
-            3,
-            3
-          ]
-        },
-        "model.fc1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            128
-          ]
-        },
-        "model.fc1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            128,
-            9216
-          ]
-        },
-        "model.fc2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            10
-          ]
-        },
-        "model.fc2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            10,
-            128
-          ]
-        }
-      },
-      "initial_state_hash": "877e9abeb783ae5ed703a9666a7276e921e0424b78bb2d50a41461221d90ddb0",
-      "ready_exit_monotonic": 24076201.16190604,
-      "rng_states": [
-        {
-          "numpy": "9b2dca039a39b1c5eb2bf7ea735d053e4c30f5de50f7ed22807eae95fbe0fdec",
-          "python": "a4514b792ce994268ee4bc77c0c5a3fc24b14400e9ab8d182b1a78f069da0024",
-          "torch_cpu": "5d898ff0719d3cff95ebfa4424bcc53134ef38bca55e960f0e4a730f5120a3bf"
-        },
-        {
-          "numpy": "9b2dca039a39b1c5eb2bf7ea735d053e4c30f5de50f7ed22807eae95fbe0fdec",
-          "python": "a4514b792ce994268ee4bc77c0c5a3fc24b14400e9ab8d182b1a78f069da0024",
-          "torch_cpu": "a32e42c3152f9ec4a0f34befd06fec03a9e9a7de13a6ef9e7fabce37f904f03b"
-        },
-        {
-          "numpy": "9b2dca039a39b1c5eb2bf7ea735d053e4c30f5de50f7ed22807eae95fbe0fdec",
-          "python": "a4514b792ce994268ee4bc77c0c5a3fc24b14400e9ab8d182b1a78f069da0024",
-          "torch_cpu": "2612dc551398f429437ad911407a676f3284fd23225a01f495cc4349ba731085"
-        },
-        {
-          "numpy": "9b2dca039a39b1c5eb2bf7ea735d053e4c30f5de50f7ed22807eae95fbe0fdec",
-          "python": "a4514b792ce994268ee4bc77c0c5a3fc24b14400e9ab8d182b1a78f069da0024",
-          "torch_cpu": "6c23a2d8afae7c8a12280b615104d87dae13d27388d21e7161a47f5ac88d2743"
-        }
-      ],
-      "setup_seconds": 0.08462173491716385,
-      "steps": [
-        {
-          "loss": 2.2311902046203613,
-          "seconds": 0.055096585303545,
-          "step": 1
-        },
-        {
-          "loss": 3.296325445175171,
-          "seconds": 0.030034486204385757,
-          "step": 2
-        },
-        {
-          "loss": 2.6148438453674316,
-          "seconds": 0.01990584284067154,
-          "step": 3
-        }
-      ],
-      "success": true,
-      "training_seconds": 0.1050369143486023
-    },
-    "performance_claim": "None; supplemental run establishes a plain correctness reference only",
-    "production_file_hashes_match_measured_baseline": true,
-    "reference_for_mnist": "New supplemental plain 88b6df2 run, same data/seeds/configuration",
-    "reference_for_transformer": "Existing plain 88b6df2 Transformer smoke run",
-    "remote_supplement": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-plain-parity",
-    "source_commit": "88b6df2401e187ca6bd81bf0a83bc7c5d9a5cd54",
-    "source_tree": "5415a3b0e5eb08d119dffa91631d76866e6e1d11",
-    "success": true,
-    "supplement_archive_bytes": 12709,
-    "supplement_archive_sha256": "6093c207f75f30331248220838613369a50d6fa3a4f6f534e0075ce7f8f4d4c1",
-    "transformer_reference_metrics": {
-      "error": null,
-      "final_shapes": {
-        "model.decoder.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            60
-          ]
-        },
-        "model.decoder.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            60,
-            32
-          ]
-        },
-        "model.encoder.layers.0.linear1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            64
-          ]
-        },
-        "model.encoder.layers.0.linear1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            64,
-            32
-          ]
-        },
-        "model.encoder.layers.0.linear2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.linear2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            64
-          ]
-        },
-        "model.encoder.layers.0.norm1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.norm1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.norm2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.norm2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.self_attn.in_proj_bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            96
-          ]
-        },
-        "model.encoder.layers.0.self_attn.in_proj_weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            96,
-            32
-          ]
-        },
-        "model.encoder.layers.0.self_attn.out_proj.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.self_attn.out_proj.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            32
-          ]
-        },
-        "model.encoder.layers.1.linear1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            64
-          ]
-        },
-        "model.encoder.layers.1.linear1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            64,
-            32
-          ]
-        },
-        "model.encoder.layers.1.linear2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.linear2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            64
-          ]
-        },
-        "model.encoder.layers.1.norm1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.norm1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.norm2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.norm2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.self_attn.in_proj_bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            96
-          ]
-        },
-        "model.encoder.layers.1.self_attn.in_proj_weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            96,
-            32
-          ]
-        },
-        "model.encoder.layers.1.self_attn.out_proj.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.self_attn.out_proj.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            32
-          ]
-        },
-        "model.encoder.norm.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.norm.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.input_emb.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            60,
-            32
-          ]
-        },
-        "model.pos_encoder.pe": {
-          "dtype": "torch.float32",
-          "shape": [
-            5000,
-            1,
-            32
-          ]
-        }
-      },
-      "final_state_hash": "8f17d60efae8fc6f1fcdc3995f560af9a16a85a39c48074810f243f7946cdbc1",
-      "initial_shapes": {
-        "model.decoder.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            60
-          ]
-        },
-        "model.decoder.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            60,
-            32
-          ]
-        },
-        "model.encoder.layers.0.linear1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            64
-          ]
-        },
-        "model.encoder.layers.0.linear1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            64,
-            32
-          ]
-        },
-        "model.encoder.layers.0.linear2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.linear2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            64
-          ]
-        },
-        "model.encoder.layers.0.norm1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.norm1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.norm2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.norm2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.self_attn.in_proj_bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            96
-          ]
-        },
-        "model.encoder.layers.0.self_attn.in_proj_weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            96,
-            32
-          ]
-        },
-        "model.encoder.layers.0.self_attn.out_proj.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.0.self_attn.out_proj.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            32
-          ]
-        },
-        "model.encoder.layers.1.linear1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            64
-          ]
-        },
-        "model.encoder.layers.1.linear1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            64,
-            32
-          ]
-        },
-        "model.encoder.layers.1.linear2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.linear2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            64
-          ]
-        },
-        "model.encoder.layers.1.norm1.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.norm1.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.norm2.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.norm2.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.self_attn.in_proj_bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            96
-          ]
-        },
-        "model.encoder.layers.1.self_attn.in_proj_weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            96,
-            32
-          ]
-        },
-        "model.encoder.layers.1.self_attn.out_proj.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.layers.1.self_attn.out_proj.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32,
-            32
-          ]
-        },
-        "model.encoder.norm.bias": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.encoder.norm.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            32
-          ]
-        },
-        "model.input_emb.weight": {
-          "dtype": "torch.float32",
-          "shape": [
-            60,
-            32
-          ]
-        },
-        "model.pos_encoder.pe": {
-          "dtype": "torch.float32",
-          "shape": [
-            5000,
-            1,
-            32
-          ]
-        }
-      },
-      "initial_state_hash": "e197d3c2a3f351146bc265c5b3eb54dcd1d921499ce24d1cc61bdc5e6dce886d",
-      "ready_exit_monotonic": 24075261.033744246,
-      "rng_states": [
-        {
-          "numpy": "9b2dca039a39b1c5eb2bf7ea735d053e4c30f5de50f7ed22807eae95fbe0fdec",
-          "python": "a4514b792ce994268ee4bc77c0c5a3fc24b14400e9ab8d182b1a78f069da0024",
-          "torch_cpu": "5d898ff0719d3cff95ebfa4424bcc53134ef38bca55e960f0e4a730f5120a3bf"
-        },
-        {
-          "numpy": "9b2dca039a39b1c5eb2bf7ea735d053e4c30f5de50f7ed22807eae95fbe0fdec",
-          "python": "a4514b792ce994268ee4bc77c0c5a3fc24b14400e9ab8d182b1a78f069da0024",
-          "torch_cpu": "08de71b1d3a21783308f7dad34328ed9413914a6e169c136ee0f9c1362f1a20a"
-        },
-        {
-          "numpy": "9b2dca039a39b1c5eb2bf7ea735d053e4c30f5de50f7ed22807eae95fbe0fdec",
-          "python": "a4514b792ce994268ee4bc77c0c5a3fc24b14400e9ab8d182b1a78f069da0024",
-          "torch_cpu": "bc44ff0d3d6a8177eeaa8e61a2274ef645260c845c149a86c775fe86e21f027a"
-        },
-        {
-          "numpy": "9b2dca039a39b1c5eb2bf7ea735d053e4c30f5de50f7ed22807eae95fbe0fdec",
-          "python": "a4514b792ce994268ee4bc77c0c5a3fc24b14400e9ab8d182b1a78f069da0024",
-          "torch_cpu": "1f563177295a4734ad2f8c17890af790ae8bf9168ec014d213446ca87db77688"
-        }
-      ],
-      "setup_seconds": 0.030553825199604034,
-      "steps": [
-        {
-          "loss": 4.222344875335693,
-          "seconds": 0.012831639498472214,
-          "step": 1
-        },
-        {
-          "loss": 4.122839450836182,
-          "seconds": 0.001412227749824524,
-          "step": 2
-        },
-        {
-          "loss": 4.136002063751221,
-          "seconds": 0.001173999160528183,
-          "step": 3
-        }
-      ],
-      "success": true,
-      "training_seconds": 0.01541786640882492
-    },
-    "validated_paired_and_profiled_cases": [
-      {
-        "label": "mnist-combined-r1",
-        "variant": "baseline",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r1",
-        "variant": "candidate",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r2",
-        "variant": "candidate",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r2",
-        "variant": "baseline",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r3",
-        "variant": "baseline",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r3",
-        "variant": "candidate",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r4",
-        "variant": "candidate",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r4",
-        "variant": "baseline",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r5",
-        "variant": "baseline",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r5",
-        "variant": "candidate",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r1-profile",
-        "variant": "baseline",
-        "workload": "mnist"
-      },
-      {
-        "label": "mnist-combined-r1-profile",
-        "variant": "candidate",
-        "workload": "mnist"
-      },
-      {
-        "label": "transformer-combined-r1",
-        "variant": "baseline",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r1",
-        "variant": "candidate",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r2",
-        "variant": "candidate",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r2",
-        "variant": "baseline",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r3",
-        "variant": "baseline",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r3",
-        "variant": "candidate",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r4",
-        "variant": "candidate",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r4",
-        "variant": "baseline",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r5",
-        "variant": "baseline",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r5",
-        "variant": "candidate",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r1-profile",
-        "variant": "baseline",
-        "workload": "transformer"
-      },
-      {
-        "label": "transformer-combined-r1-profile",
-        "variant": "candidate",
-        "workload": "transformer"
-      }
-    ]
-  },
   "production_changed_files": [
     "traincheck/instrumentor/dumper.py"
   ],
@@ -772,7 +30,8 @@
         "VAR": 0
       },
       "tracked_variables": [],
-      "training_seconds": 0.01541786640882492
+      "training_seconds": 0.007946331053972244,
+      "workload": "transformer"
     },
     {
       "logical_hash_input_bytes": 0,
@@ -787,7 +46,8 @@
         "VAR": 0
       },
       "tracked_variables": [],
-      "training_seconds": 0.8779591619968414
+      "training_seconds": 0.7302097044885159,
+      "workload": "transformer"
     },
     {
       "logical_hash_input_bytes": 214496,
@@ -832,7 +92,8 @@
         "model.encoder.norm.weight",
         "model.input_emb.weight"
       ],
-      "training_seconds": 0.08836576342582703
+      "training_seconds": 0.07497242465615273,
+      "workload": "transformer"
     },
     {
       "logical_hash_input_bytes": 214496,
@@ -877,18 +138,60 @@
         "model.encoder.norm.weight",
         "model.input_emb.weight"
       ],
-      "training_seconds": 0.9408722668886185
+      "training_seconds": 0.7909529991447926,
+      "workload": "transformer"
+    },
+    {
+      "logical_hash_input_bytes": 0,
+      "mode": "plain",
+      "records": {
+        "API": 0,
+        "VAR": 0
+      },
+      "tensor_hash_fields": 0,
+      "trace_bytes": {
+        "API": 0,
+        "VAR": 0
+      },
+      "tracked_variables": [],
+      "training_seconds": 0.03079724684357643,
+      "workload": "mnist"
+    },
+    {
+      "logical_hash_input_bytes": 67193392,
+      "mode": "combined",
+      "records": {
+        "API": 520,
+        "VAR": 64
+      },
+      "tensor_hash_fields": 112,
+      "trace_bytes": {
+        "API": 363634,
+        "VAR": 55795
+      },
+      "tracked_variables": [
+        "model.conv1.bias",
+        "model.conv1.weight",
+        "model.conv2.bias",
+        "model.conv2.weight",
+        "model.fc1.bias",
+        "model.fc1.weight",
+        "model.fc2.bias",
+        "model.fc2.weight"
+      ],
+      "training_seconds": 0.6652194261550903,
+      "workload": "mnist"
     }
   ],
   "sources": {
     "baseline": {
       "adapter_sha256": "a5b5e597d4921a5b4baceeada541a6a1765f13c97ab3bd1c2ef79dea331f0934",
-      "production_files_verified": 77,
+      "production_files_verified": 78,
       "production_hashes": {
         "traincheck/__init__.py": "47fdcb090c4c8c5822769d642dc23a520e8d8ff3e4724583450723e05408164b",
         "traincheck/checker.py": "44dc20fc66ca82bb6b71fa02033aae3b7d489ae7afbc1611c44e857f399716b2",
         "traincheck/checker_online.py": "2824c9ccd2f684c86884c68f2214a1a4be1d69c6098ce30b817d03f1fe1077d6",
-        "traincheck/collect_trace.py": "c1db96c798af9689f8ee7f7b0b929d90694d49a234cb217beaf435d4b8d5cfb0",
+        "traincheck/collect_trace.py": "2e0a0b9a4e05fef450d09788e1747db2d3f1c4aa86f2828b63229cbbb7445d00",
         "traincheck/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "traincheck/config/config.py": "4c940a4d92f5de5fe8d3885e570078e479d9842d9626651fd60483e78f0160a9",
         "traincheck/developer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -897,6 +200,7 @@
         "traincheck/inference_sampling.py": "d261b3416aba3ead6fa1e9b15091511eb3525137d531e4f0147146e76308976f",
         "traincheck/instrumentor/__init__.py": "228b4f6a11cde8118cde9aba2f98b60a839f4331e7fa2b06c37cee99e79fcd50",
         "traincheck/instrumentor/caches.py": "320eb1ffa1ce5f5b97fe4675a16d47e9591265779fdc29b94b72cdf5df93f168",
+        "traincheck/instrumentor/constructor_snapshot.py": "efdbdf75433ce2c3fcb0985107f59fa8e0a8ced6808b824a990030cfbf0845db",
         "traincheck/instrumentor/control.py": "3612a39b61e85fb77b40008b7fcd2f7569b246e8985ca64a109ea53733cd29ef",
         "traincheck/instrumentor/dumper.py": "cd4a56d4eb95049dcab85bacc1c64d7e55bfe45087fe5096ed247e4d0d7e8373",
         "traincheck/instrumentor/proxy_wrapper/__init__.py": "7c71aaf70b978ee04e236497af6f803e4436049bc0acdf18c3edb48bfcece63d",
@@ -908,14 +212,14 @@
         "traincheck/instrumentor/proxy_wrapper/proxy_handler.py": "4bab74647d35c64c5e9c702295dc4cb010302bf620401da0fad8539692b95ac7",
         "traincheck/instrumentor/proxy_wrapper/proxy_methods.py": "6ae18928aa12e89b33102368c497aff048e3d6bed330eca2118fac051b8e3a97",
         "traincheck/instrumentor/proxy_wrapper/proxy_observer.py": "10e83570fbe1f72089e4a594a308f83e045f7d74bb9e49193012645ac906d97b",
-        "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "9dfecae65aee4185152d152a5c2fb0e1e1b63339efceab3087df59a5882410a8",
-        "traincheck/instrumentor/proxy_wrapper/subclass.py": "6152488b768edb35617451424c4e494b8924bf72ab0c21f198bca9dab15588bb",
+        "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "1f7b69ddfad7e8140b05a75fc5e4b4d8acf6e818e1cf030fde714f8e79f5d07b",
+        "traincheck/instrumentor/proxy_wrapper/subclass.py": "f370473a0e9676701d03771babc25c2c01619cac3bb3517ad6a22560283bccfb",
         "traincheck/instrumentor/proxy_wrapper/torch_proxy.py": "d6abd7f2eac207757fd90cbf55e179ae506b25996bed906c5a094564ff6faf2f",
         "traincheck/instrumentor/proxy_wrapper/utils.py": "5f058609e89a96a3545561ed82d83f7dd6a153bb0376608654c199691984dc14",
         "traincheck/instrumentor/replace_functions.py": "ca4f10b52083a4a5c251db194b7608406cbe36c85372dfdb9df17644f3d20b62",
         "traincheck/instrumentor/source_file.py": "dad92c793efb41161d86250e89aa6a9636749564e567df8b9af92a477eb4858d",
         "traincheck/instrumentor/torchscript_compat.py": "1b42072c80b29c2432f3ef83d6849365ecc0ae8c015dd2051a5b192ba209f88a",
-        "traincheck/instrumentor/tracer.py": "be6511d748415b17dc8056e2d120a2901003fcc242cfd2e0a16772432021bd9d",
+        "traincheck/instrumentor/tracer.py": "e5a74e766eea7b26141a0b14ee26d2c6f852a2819869bb9151becfe921f262c1",
         "traincheck/instrumentor/types.py": "258679aa8d0b40247d900ba2e26ab03b25cb4626b046ab6d724973226c7b5469",
         "traincheck/instrumentor/variable.py": "b01219cdd74f011055e0bc2a645ed283dbc47e66a834d5555b814fa815a9eab8",
         "traincheck/invariant/DistinctArgumentRelation.py": "6e01540583668e30718ba90c341fd540cd9df53f20525a6cf502fcceee8ed7bc",
@@ -963,18 +267,18 @@
         "traincheck/trace/utils.py": "6356156e4c5bbb6c111140302660f36ad1c126e5bc977bd55c81f097022102a3",
         "traincheck/utils.py": "71034730f74a15978d37dc9fc9b748133389a69e0ea7f9c9109dd1bc573fd272"
       },
-      "source_archive_sha256": "ac1a830f490bef1af6b1b15ba49d116ff28a8de2e57f51dd80afc714f4e8d909",
-      "source_commit": "88b6df2401e187ca6bd81bf0a83bc7c5d9a5cd54",
-      "source_tree": "5415a3b0e5eb08d119dffa91631d76866e6e1d11"
+      "source_archive_sha256": "efc665f1b6914964f3ac93ac76a3e00791b5cf07c310818c65e7711496260537",
+      "source_commit": "7a40649d2ce55c1a92380e26cd0f74b61c05824b",
+      "source_tree": "c84687d977b748a5080f034ace78c78b45cec172"
     },
     "candidate": {
       "adapter_sha256": "a5b5e597d4921a5b4baceeada541a6a1765f13c97ab3bd1c2ef79dea331f0934",
-      "production_files_verified": 77,
+      "production_files_verified": 78,
       "production_hashes": {
         "traincheck/__init__.py": "47fdcb090c4c8c5822769d642dc23a520e8d8ff3e4724583450723e05408164b",
         "traincheck/checker.py": "44dc20fc66ca82bb6b71fa02033aae3b7d489ae7afbc1611c44e857f399716b2",
         "traincheck/checker_online.py": "2824c9ccd2f684c86884c68f2214a1a4be1d69c6098ce30b817d03f1fe1077d6",
-        "traincheck/collect_trace.py": "c1db96c798af9689f8ee7f7b0b929d90694d49a234cb217beaf435d4b8d5cfb0",
+        "traincheck/collect_trace.py": "2e0a0b9a4e05fef450d09788e1747db2d3f1c4aa86f2828b63229cbbb7445d00",
         "traincheck/config/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "traincheck/config/config.py": "4c940a4d92f5de5fe8d3885e570078e479d9842d9626651fd60483e78f0160a9",
         "traincheck/developer/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -983,6 +287,7 @@
         "traincheck/inference_sampling.py": "d261b3416aba3ead6fa1e9b15091511eb3525137d531e4f0147146e76308976f",
         "traincheck/instrumentor/__init__.py": "228b4f6a11cde8118cde9aba2f98b60a839f4331e7fa2b06c37cee99e79fcd50",
         "traincheck/instrumentor/caches.py": "320eb1ffa1ce5f5b97fe4675a16d47e9591265779fdc29b94b72cdf5df93f168",
+        "traincheck/instrumentor/constructor_snapshot.py": "efdbdf75433ce2c3fcb0985107f59fa8e0a8ced6808b824a990030cfbf0845db",
         "traincheck/instrumentor/control.py": "3612a39b61e85fb77b40008b7fcd2f7569b246e8985ca64a109ea53733cd29ef",
         "traincheck/instrumentor/dumper.py": "faf87dcfb0aa08dd97bb544aa80120925ec1eed05d03947a1de743fdf5da53e2",
         "traincheck/instrumentor/proxy_wrapper/__init__.py": "7c71aaf70b978ee04e236497af6f803e4436049bc0acdf18c3edb48bfcece63d",
@@ -994,14 +299,14 @@
         "traincheck/instrumentor/proxy_wrapper/proxy_handler.py": "4bab74647d35c64c5e9c702295dc4cb010302bf620401da0fad8539692b95ac7",
         "traincheck/instrumentor/proxy_wrapper/proxy_methods.py": "6ae18928aa12e89b33102368c497aff048e3d6bed330eca2118fac051b8e3a97",
         "traincheck/instrumentor/proxy_wrapper/proxy_observer.py": "10e83570fbe1f72089e4a594a308f83e045f7d74bb9e49193012645ac906d97b",
-        "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "9dfecae65aee4185152d152a5c2fb0e1e1b63339efceab3087df59a5882410a8",
-        "traincheck/instrumentor/proxy_wrapper/subclass.py": "6152488b768edb35617451424c4e494b8924bf72ab0c21f198bca9dab15588bb",
+        "traincheck/instrumentor/proxy_wrapper/proxy_registry.py": "1f7b69ddfad7e8140b05a75fc5e4b4d8acf6e818e1cf030fde714f8e79f5d07b",
+        "traincheck/instrumentor/proxy_wrapper/subclass.py": "f370473a0e9676701d03771babc25c2c01619cac3bb3517ad6a22560283bccfb",
         "traincheck/instrumentor/proxy_wrapper/torch_proxy.py": "d6abd7f2eac207757fd90cbf55e179ae506b25996bed906c5a094564ff6faf2f",
         "traincheck/instrumentor/proxy_wrapper/utils.py": "5f058609e89a96a3545561ed82d83f7dd6a153bb0376608654c199691984dc14",
         "traincheck/instrumentor/replace_functions.py": "ca4f10b52083a4a5c251db194b7608406cbe36c85372dfdb9df17644f3d20b62",
         "traincheck/instrumentor/source_file.py": "dad92c793efb41161d86250e89aa6a9636749564e567df8b9af92a477eb4858d",
         "traincheck/instrumentor/torchscript_compat.py": "1b42072c80b29c2432f3ef83d6849365ecc0ae8c015dd2051a5b192ba209f88a",
-        "traincheck/instrumentor/tracer.py": "be6511d748415b17dc8056e2d120a2901003fcc242cfd2e0a16772432021bd9d",
+        "traincheck/instrumentor/tracer.py": "e5a74e766eea7b26141a0b14ee26d2c6f852a2819869bb9151becfe921f262c1",
         "traincheck/instrumentor/types.py": "258679aa8d0b40247d900ba2e26ab03b25cb4626b046ab6d724973226c7b5469",
         "traincheck/instrumentor/variable.py": "b01219cdd74f011055e0bc2a645ed283dbc47e66a834d5555b814fa815a9eab8",
         "traincheck/invariant/DistinctArgumentRelation.py": "6e01540583668e30718ba90c341fd540cd9df53f20525a6cf502fcceee8ed7bc",
@@ -1049,9 +354,9 @@
         "traincheck/trace/utils.py": "6356156e4c5bbb6c111140302660f36ad1c126e5bc977bd55c81f097022102a3",
         "traincheck/utils.py": "71034730f74a15978d37dc9fc9b748133389a69e0ea7f9c9109dd1bc573fd272"
       },
-      "source_archive_sha256": "b945a9d4c2b43def8481660bc3fc6ae45dbfbd34e3a5e8a0c848e5ca379276e6",
-      "source_commit": "3232887a8bdb6dbf6abcab233ead43a9697f0c18",
-      "source_tree": "cb74fdd3a8185deb0b3d31c0d20d2a7eac0b8097"
+      "source_archive_sha256": "793087ee08bbfb10ed60712d7d22da2153809236c26eb113d78592695754fe4e",
+      "source_commit": "035f7f1976c5d84bd01f5d96bb095fb07c9cc059",
+      "source_tree": "89fdd92ebc6a57e5878d27cfb1b18dc69ee28a0b"
     }
   },
   "validation": {
@@ -1910,6 +1215,7 @@
       }
     ],
     "exact_model_loss_rng_parity": true,
+    "reference": "Each workload's candidate plain correctness case; every paired and profiled run checked against it",
     "source_and_raw_trace_hashes_verified": true
   },
   "workloads": {
@@ -1932,429 +1238,429 @@
           "model.fc2.weight"
         ]
       },
-      "median_reduction_percent_of_baseline_training": 8.67150236741045,
-      "median_reduction_seconds": 0.07534057646989822,
+      "median_reduction_percent_of_baseline_training": 9.96277605477705,
+      "median_reduction_seconds": 0.0665290355682373,
       "paired_reduction_percent": [
-        13.675527655335843,
-        16.865382859319496,
-        4.564578664356592,
-        12.20544322789504,
-        -1.9939121206708794
+        7.064396033143514,
+        13.47503614924583,
+        10.059949814656402,
+        9.825393357719033,
+        7.328966441316239
       ],
       "paired_reductions_seconds": [
-        0.12899113073945045,
-        0.14653143286705017,
-        0.037951767444610596,
-        0.11024190858006477,
-        -0.016614548861980438
+        0.04763709753751755,
+        0.08998306840658188,
+        0.06571457535028458,
+        0.06551166623830795,
+        0.04950897395610809
       ],
       "profiles": {
         "baseline": {
           "interpretation": "Separate cProfile run; cumulative rows overlap and are not an exclusive breakdown of ordinary timing.",
           "rows": [
             {
-              "calls": 1503363,
-              "cumulative_seconds": 0.171535822,
+              "calls": 1503819,
+              "cumulative_seconds": 0.16993218200000001,
               "file": "~",
               "function": "<built-in method builtins.isinstance>",
               "line": 0,
-              "percent_of_profile_total": 10.72127954899098,
-              "self_seconds": 0.099762033
+              "percent_of_profile_total": 12.385472890531892,
+              "self_seconds": 0.09892717200000001
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.087001201,
+              "cumulative_seconds": 0.089078695,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__enter__",
               "line": 466,
-              "percent_of_profile_total": 5.43772248935242,
-              "self_seconds": 0.078316964
-            },
-            {
-              "calls": 260,
-              "cumulative_seconds": 0.60086757,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/tracer.py",
-              "function": "to_dict_args_kwargs",
-              "line": 160,
-              "percent_of_profile_total": 37.555241318008235,
-              "self_seconds": 0.000341501
+              "percent_of_profile_total": 6.492482760248784,
+              "self_seconds": 0.08047354400000001
             },
             {
               "calls": 112,
-              "cumulative_seconds": 0.44745846,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 0.221655714,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
               "function": "dump_tensor",
               "line": 302,
-              "percent_of_profile_total": 27.96691198542191,
-              "self_seconds": 0.009669434000000001
-            },
-            {
-              "calls": 211616,
-              "cumulative_seconds": 0.626706756,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
-              "function": "safe_getattr",
-              "line": 328,
-              "percent_of_profile_total": 39.17023422849416,
-              "self_seconds": 0.18447759700000002
+              "percent_of_profile_total": 16.155332112304016,
+              "self_seconds": 0.0005632370000000001
             },
             {
               "calls": 112,
-              "cumulative_seconds": 0.38490406600000004,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
-              "function": "hash_tensor_cpu",
-              "line": 47,
-              "percent_of_profile_total": 24.0571563596161,
-              "self_seconds": 0.175302747
-            },
-            {
-              "calls": 112,
-              "cumulative_seconds": 0.437784751,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "cumulative_seconds": 0.22108786000000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
               "function": "tensor_hash",
               "line": 95,
-              "percent_of_profile_total": 27.362288780453152,
-              "self_seconds": 0.015663134000000002
+              "percent_of_profile_total": 16.11394418778022,
+              "self_seconds": 0.010103038
             },
             {
               "calls": 468,
-              "cumulative_seconds": 1.537323336,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 1.3077217060000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
               "function": "convert_var_to_dict",
               "line": 343,
-              "percent_of_profile_total": 96.08531355301047,
-              "self_seconds": 0.22469802900000002
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.6535382190000001,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
-              "function": "dump_trace",
-              "line": 183,
-              "percent_of_profile_total": 40.84724613293129,
-              "self_seconds": 0.00018410100000000002
-            },
-            {
-              "calls": 1780,
-              "cumulative_seconds": 0.00043699300000000005,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/utils.py",
-              "function": "safe_getattr",
-              "line": 21,
-              "percent_of_profile_total": 0.027312803001300897,
-              "self_seconds": 0.00023170500000000002
-            },
-            {
-              "calls": 584,
-              "cumulative_seconds": 0.004350003,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
-              "function": "serialize",
-              "line": 85,
-              "percent_of_profile_total": 0.27188255874594763,
-              "self_seconds": 0.00040800200000000003
-            },
-            {
-              "calls": 520,
-              "cumulative_seconds": 0.006313733,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_trace_API",
-              "line": 241,
-              "percent_of_profile_total": 0.394619011361309,
-              "self_seconds": 0.00042752400000000004
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.000849358,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_trace_VAR",
-              "line": 250,
-              "percent_of_profile_total": 0.05308631426951673,
-              "self_seconds": 6.1226e-05
+              "percent_of_profile_total": 95.31303339601158,
+              "self_seconds": 0.223835801
             },
             {
               "calls": 260,
-              "cumulative_seconds": 0.291809378,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/tracer.py",
+              "cumulative_seconds": 0.599447363,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_args_kwargs",
+              "line": 166,
+              "percent_of_profile_total": 43.69060042868943,
+              "self_seconds": 0.000508692
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.6243659410000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "safe_getattr",
+              "line": 328,
+              "percent_of_profile_total": 45.50678597198814,
+              "self_seconds": 0.18085563400000002
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.184003886,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "hash_tensor_cpu",
+              "line": 47,
+              "percent_of_profile_total": 13.411086204998654,
+              "self_seconds": 0.158479586
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.42377681500000003,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+              "function": "dump_trace",
+              "line": 218,
+              "percent_of_profile_total": 30.88688788694803,
+              "self_seconds": 0.000185841
+            },
+            {
+              "calls": 1780,
+              "cumulative_seconds": 0.00044063900000000005,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/utils.py",
+              "function": "safe_getattr",
+              "line": 21,
+              "percent_of_profile_total": 0.03211588484758633,
+              "self_seconds": 0.000238251
+            },
+            {
+              "calls": 260,
+              "cumulative_seconds": 0.293872481,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/tracer.py",
               "function": "to_dict_return_value",
-              "line": 184,
-              "percent_of_profile_total": 18.238580607117616,
-              "self_seconds": 0.0001231
+              "line": 210,
+              "percent_of_profile_total": 21.418836643307788,
+              "self_seconds": 0.000125961
+            },
+            {
+              "calls": 520,
+              "cumulative_seconds": 0.006746617000000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_API",
+              "line": 241,
+              "percent_of_profile_total": 0.4917258224595833,
+              "self_seconds": 0.00042564800000000004
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.0010291760000000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_VAR",
+              "line": 250,
+              "percent_of_profile_total": 0.07501128566445436,
+              "self_seconds": 5.3818000000000005e-05
+            },
+            {
+              "calls": 584,
+              "cumulative_seconds": 0.004231365,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "serialize",
+              "line": 85,
+              "percent_of_profile_total": 0.3084021865702017,
+              "self_seconds": 0.00040759300000000004
             },
             {
               "calls": 203335,
-              "cumulative_seconds": 0.085047091,
+              "cumulative_seconds": 0.084410277,
               "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
               "function": "__instancecheck__",
               "line": 21,
-              "percent_of_profile_total": 5.315587303038517,
-              "self_seconds": 0.060003436
+              "percent_of_profile_total": 6.152226053719406,
+              "self_seconds": 0.059368754
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.066681273,
+              "cumulative_seconds": 0.067194185,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__exit__",
               "line": 487,
-              "percent_of_profile_total": 4.167692556459633,
-              "self_seconds": 0.058937562000000006
+              "percent_of_profile_total": 4.897434652600911,
+              "self_seconds": 0.059458518
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.158621435,
+              "cumulative_seconds": 0.158761849,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "_add_filter",
               "line": 181,
-              "percent_of_profile_total": 9.914108477569789,
-              "self_seconds": 0.08925611400000001
+              "percent_of_profile_total": 11.571325417572863,
+              "self_seconds": 0.089265255
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.032625206000000004,
+              "cumulative_seconds": 0.033080641,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__init__",
               "line": 440,
-              "percent_of_profile_total": 2.039130659655555,
-              "self_seconds": 0.032625206000000004
+              "percent_of_profile_total": 2.4110758626457103,
+              "self_seconds": 0.033080641
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.227450228,
+              "cumulative_seconds": 0.22810855700000002,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "simplefilter",
               "line": 165,
-              "percent_of_profile_total": 14.216024673083945,
-              "self_seconds": 0.061110547
+              "percent_of_profile_total": 16.62564627588816,
+              "self_seconds": 0.06152440000000001
             }
           ],
-          "sha256": "4b33291b26a436e50fa02aa5d32713c8ff6552284184829c3c94dfab103d2a94",
-          "total_seconds": 1.5999566209999987
+          "sha256": "5e59942c772a2e5dc341de52946b26bfe79a96e2df96cada624a7f902b7496c1",
+          "total_seconds": 1.3720282100000003
         },
         "candidate": {
           "interpretation": "Separate cProfile run; cumulative rows overlap and are not an exclusive breakdown of ordinary timing.",
           "rows": [
             {
-              "calls": 464357,
-              "cumulative_seconds": 0.020462695000000003,
+              "calls": 464813,
+              "cumulative_seconds": 0.020077905,
               "file": "~",
               "function": "<built-in method builtins.isinstance>",
               "line": 0,
-              "percent_of_profile_total": 1.5475891033585303,
-              "self_seconds": 0.018717590000000003
+              "percent_of_profile_total": 1.7884348567809505,
+              "self_seconds": 0.018422498000000002
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.08338677300000001,
+              "cumulative_seconds": 0.082044563,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__enter__",
               "line": 466,
-              "percent_of_profile_total": 6.306523224777151,
-              "self_seconds": 0.07591249800000001
+              "percent_of_profile_total": 7.3081009337657825,
+              "self_seconds": 0.074606007
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.195671804,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "hash_tensor_cpu",
+              "line": 47,
+              "percent_of_profile_total": 17.429421782940512,
+              "self_seconds": 0.172274382
+            },
+            {
+              "calls": 112,
+              "cumulative_seconds": 0.231207348,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_tensor",
+              "line": 318,
+              "percent_of_profile_total": 20.594742345233897,
+              "self_seconds": 0.0005136580000000001
             },
             {
               "calls": 260,
-              "cumulative_seconds": 0.466124882,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/tracer.py",
+              "cumulative_seconds": 0.46156553600000005,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/tracer.py",
               "function": "to_dict_args_kwargs",
-              "line": 160,
-              "percent_of_profile_total": 35.25292187502578,
-              "self_seconds": 0.00034057300000000005
+              "line": 166,
+              "percent_of_profile_total": 41.11384595510252,
+              "self_seconds": 0.000501468
             },
             {
               "calls": 112,
-              "cumulative_seconds": 0.419081605,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_tensor",
-              "line": 318,
-              "percent_of_profile_total": 31.695049225725334,
-              "self_seconds": 0.004339631
-            },
-            {
-              "calls": 211616,
-              "cumulative_seconds": 0.60530919,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
-              "function": "safe_getattr",
-              "line": 344,
-              "percent_of_profile_total": 45.77940034813489,
-              "self_seconds": 0.177432474
-            },
-            {
-              "calls": 112,
-              "cumulative_seconds": 0.365371013,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
-              "function": "hash_tensor_cpu",
-              "line": 47,
-              "percent_of_profile_total": 27.63292901555088,
-              "self_seconds": 0.168094142
-            },
-            {
-              "calls": 112,
-              "cumulative_seconds": 0.414737693,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "cumulative_seconds": 0.23068943700000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
               "function": "tensor_hash",
               "line": 95,
-              "percent_of_profile_total": 31.366520120583107,
-              "self_seconds": 0.013457708
+              "percent_of_profile_total": 20.548609539788796,
+              "self_seconds": 0.009633974
             },
             {
               "calls": 468,
-              "cumulative_seconds": 1.257303035,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 1.06152485,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
               "function": "convert_var_to_dict",
               "line": 362,
-              "percent_of_profile_total": 95.08955084291725,
-              "self_seconds": 0.14695986900000002
+              "percent_of_profile_total": 94.55508645345071,
+              "self_seconds": 0.146122746
+            },
+            {
+              "calls": 211616,
+              "cumulative_seconds": 0.5983217670000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "safe_getattr",
+              "line": 344,
+              "percent_of_profile_total": 53.29537636887765,
+              "self_seconds": 0.17498206900000002
             },
             {
               "calls": 64,
-              "cumulative_seconds": 0.574950325,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+              "cumulative_seconds": 0.38794965600000003,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
               "function": "dump_trace",
-              "line": 183,
-              "percent_of_profile_total": 43.483366093393144,
-              "self_seconds": 0.000187755
+              "line": 218,
+              "percent_of_profile_total": 34.55652805741332,
+              "self_seconds": 0.000167806
             },
             {
               "calls": 1780,
-              "cumulative_seconds": 0.00045410000000000003,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/utils.py",
+              "cumulative_seconds": 0.00044975900000000004,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/utils.py",
               "function": "safe_getattr",
               "line": 21,
-              "percent_of_profile_total": 0.03434348270524037,
-              "self_seconds": 0.000239024
+              "percent_of_profile_total": 0.04006218142535009,
+              "self_seconds": 0.00022905
             },
             {
               "calls": 584,
-              "cumulative_seconds": 0.004386208,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 0.00550764,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
               "function": "serialize",
               "line": 101,
-              "percent_of_profile_total": 0.33172794228052616,
-              "self_seconds": 0.00041095600000000003
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.000981751,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_trace_VAR",
-              "line": 266,
-              "percent_of_profile_total": 0.0742496112956451,
-              "self_seconds": 6.239800000000001e-05
-            },
-            {
-              "calls": 520,
-              "cumulative_seconds": 0.006941215000000001,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_trace_API",
-              "line": 257,
-              "percent_of_profile_total": 0.5249625573791126,
-              "self_seconds": 0.00043592500000000004
+              "percent_of_profile_total": 0.49059179005982123,
+              "self_seconds": 0.0016963430000000001
             },
             {
               "calls": 260,
-              "cumulative_seconds": 0.22543626700000002,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/tracer.py",
+              "cumulative_seconds": 0.22334777700000003,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/tracer.py",
               "function": "to_dict_return_value",
-              "line": 184,
-              "percent_of_profile_total": 17.04969508224719,
-              "self_seconds": 0.000130289
+              "line": 210,
+              "percent_of_profile_total": 19.894652832122613,
+              "self_seconds": 0.00012765900000000002
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.0022816850000000003,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_VAR",
+              "line": 266,
+              "percent_of_profile_total": 0.20324057645427865,
+              "self_seconds": 5.284e-05
+            },
+            {
+              "calls": 520,
+              "cumulative_seconds": 0.006337504000000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_API",
+              "line": 257,
+              "percent_of_profile_total": 0.5645117385797324,
+              "self_seconds": 0.000423195
             },
             {
               "calls": 2817,
-              "cumulative_seconds": 0.0020264320000000003,
+              "cumulative_seconds": 0.0019264170000000001,
               "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
               "function": "__instancecheck__",
               "line": 21,
-              "percent_of_profile_total": 0.15325860459226084,
-              "self_seconds": 0.001462605
+              "percent_of_profile_total": 0.1715951595296117,
+              "self_seconds": 0.001401609
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.064519857,
+              "cumulative_seconds": 0.063982831,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__exit__",
               "line": 487,
-              "percent_of_profile_total": 4.879622534737021,
-              "self_seconds": 0.057657651000000004
+              "percent_of_profile_total": 5.699256231958701,
+              "self_seconds": 0.057104195
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.15187645200000002,
+              "cumulative_seconds": 0.15220593500000001,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "_add_filter",
               "line": 181,
-              "percent_of_profile_total": 11.486382520579761,
-              "self_seconds": 0.08526881400000001
+              "percent_of_profile_total": 13.557709310953294,
+              "self_seconds": 0.085092887
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.031807165000000005,
+              "cumulative_seconds": 0.031969863,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__init__",
               "line": 440,
-              "percent_of_profile_total": 2.4055688638630848,
-              "self_seconds": 0.031807165000000005
+              "percent_of_profile_total": 2.847708331905725,
+              "self_seconds": 0.031969863
             },
             {
               "calls": 211616,
-              "cumulative_seconds": 0.21994069500000002,
+              "cumulative_seconds": 0.219395593,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "simplefilter",
               "line": 165,
-              "percent_of_profile_total": 16.634066185666256,
-              "self_seconds": 0.059943076000000005
+              "percent_of_profile_total": 19.54261293423426,
+              "self_seconds": 0.05925521500000001
             }
           ],
-          "sha256": "7862ce8c96dc80a4a95a25f1214a5e32b733419ba3b32082b301ce91b1b4731e",
-          "total_seconds": 1.3222304910000007
+          "sha256": "43ec809c22a641250f2ee269119905729cf082c8c5aa51f7489291d6e8f71c1c",
+          "total_seconds": 1.122652297
         }
       },
-      "speedup_ratio_of_medians": 1.0949484836846382,
+      "speedup_ratio_of_medians": 1.1106517462248529,
       "variants": {
         "baseline": {
           "peak_RSS_bytes": {
-            "max": 592883712.0,
-            "median": 588767232.0,
-            "min": 584212480.0,
+            "max": 588607488.0,
+            "median": 583864320.0,
+            "min": 582459392.0,
             "values": [
-              584212480.0,
-              588173312.0,
-              592883712.0,
-              588767232.0,
-              590761984.0
+              582459392.0,
+              583032832.0,
+              588607488.0,
+              583864320.0,
+              588369920.0
             ]
           },
           "post_metrics_exit_seconds": {
-            "max": 2.17674096301198,
-            "median": 2.077751439064741,
-            "min": 2.0082851946353912,
+            "max": 2.2820894457399845,
+            "median": 2.2715826109051704,
+            "min": 2.241224192082882,
             "values": [
-              2.1645433455705643,
-              2.076347693800926,
-              2.17674096301198,
-              2.0082851946353912,
-              2.077751439064741
+              2.241224192082882,
+              2.2820894457399845,
+              2.275044210255146,
+              2.243912100791931,
+              2.2715826109051704
             ]
           },
           "process_seconds": {
-            "max": 7.2223930433392525,
-            "median": 7.0179259441792965,
-            "min": 6.817594639956951,
+            "max": 6.9157307259738445,
+            "median": 6.815988626331091,
+            "min": 6.813528638333082,
             "values": [
-              7.2223930433392525,
-              7.0179259441792965,
-              7.1210783533751965,
-              6.817594639956951,
-              6.91872750595212
+              6.813528638333082,
+              6.813662972301245,
+              6.819815680384636,
+              6.815988626331091,
+              6.9157307259738445
             ]
           },
           "setup_seconds": {
-            "max": 2.778099913150072,
-            "median": 2.702235735952854,
-            "min": 2.592470161616802,
+            "max": 2.5969117917120457,
+            "median": 2.5764283053576946,
+            "min": 2.5584622099995613,
             "values": [
-              2.778099913150072,
-              2.702235735952854,
-              2.7643737457692623,
-              2.592470161616802,
-              2.694968421012163
+              2.568533480167389,
+              2.5584622099995613,
+              2.5764283053576946,
+              2.5915246196091175,
+              2.5969117917120457
             ]
           },
           "trace_bytes": {
@@ -2370,65 +1676,65 @@
             ]
           },
           "training_seconds": {
-            "max": 0.9432259872555733,
-            "median": 0.8688295669853687,
-            "min": 0.8314407579600811,
+            "max": 0.6755246371030807,
+            "median": 0.6677760817110538,
+            "min": 0.6532296538352966,
             "values": [
-              0.9432259872555733,
-              0.8688295669853687,
-              0.8314407579600811,
-              0.9032192155718803,
-              0.833263847976923
+              0.6743265427649021,
+              0.6677760817110538,
+              0.6532296538352966,
+              0.6667587123811245,
+              0.6755246371030807
             ]
           }
         },
         "candidate": {
           "peak_RSS_bytes": {
-            "max": 588763136.0,
-            "median": 588550144.0,
-            "min": 582574080.0,
+            "max": 594067456.0,
+            "median": 588800000.0,
+            "min": 584409088.0,
             "values": [
-              588550144.0,
-              588550144.0,
-              588763136.0,
-              582574080.0,
-              588165120.0
+              587386880.0,
+              594067456.0,
+              588951552.0,
+              588800000.0,
+              584409088.0
             ]
           },
           "post_metrics_exit_seconds": {
-            "max": 2.1754636578261852,
-            "median": 2.1305285543203354,
-            "min": 2.0753588266670704,
+            "max": 2.4097439981997013,
+            "median": 2.23392204195261,
+            "min": 2.1729552559554577,
             "values": [
-              2.1305285543203354,
-              2.1754636578261852,
-              2.0753588266670704,
-              2.13845232501626,
-              2.092308398336172
+              2.4097439981997013,
+              2.23392204195261,
+              2.2292166277766228,
+              2.1729552559554577,
+              2.3070859499275684
             ]
           },
           "process_seconds": {
-            "max": 7.326598588377237,
-            "median": 7.019078567624092,
-            "min": 6.816429901868105,
+            "max": 6.918491534888744,
+            "median": 6.9149907901883125,
+            "min": 6.7165322713553905,
             "values": [
-              7.124290060251951,
-              7.019078567624092,
-              7.326598588377237,
-              6.818062514066696,
-              6.816429901868105
+              6.9149907901883125,
+              6.916295755654573,
+              6.7165322713553905,
+              6.7182507291436195,
+              6.918491534888744
             ]
           },
           "setup_seconds": {
-            "max": 2.9761409126222134,
-            "median": 2.70905052497983,
-            "min": 2.5668062567710876,
+            "max": 2.7161961905658245,
+            "median": 2.6359554640948772,
+            "min": 2.568043265491724,
             "values": [
-              2.70905052497983,
-              2.7149592004716396,
-              2.9761409126222134,
-              2.5683862902224064,
-              2.5668062567710876
+              2.568043265491724,
+              2.7161961905658245,
+              2.5984866246581078,
+              2.6359554640948772,
+              2.673058681190014
             ]
           },
           "trace_bytes": {
@@ -2444,15 +1750,15 @@
             ]
           },
           "training_seconds": {
-            "max": 0.8498783968389034,
-            "median": 0.7934889905154705,
-            "min": 0.7222981341183186,
+            "max": 0.6266894452273846,
+            "median": 0.6012470461428165,
+            "min": 0.577793013304472,
             "values": [
-              0.8142348565161228,
-              0.7222981341183186,
-              0.7934889905154705,
-              0.7929773069918156,
-              0.8498783968389034
+              0.6266894452273846,
+              0.577793013304472,
+              0.587515078485012,
+              0.6012470461428165,
+              0.6260156631469727
             ]
           }
         }
@@ -2465,6 +1771,7 @@
         "benchmark_source": "/home/yuxuan/experiments/codex-trace-impact-20261013/benchmarks/instr-overhead/overhead-e2e/mnist/main.py",
         "benchmark_source_sha256": "4478c5de92610a1e03d61c356801d51ffca749f99dac00f234d6b6ea2bcb2aa7",
         "cpu_threads": 1,
+        "cuda_available": false,
         "data": {
           "count": 6,
           "files": [
@@ -2504,11 +1811,11 @@
         ],
         "observation_files": [
           {
-            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/static_analyzer/func_level/nn_func_level.log",
+            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/static_analyzer/func_level/nn_func_level.log",
             "sha256": "0ea56ca02089d5b19a1c0697dea00d107fccd18e17d485ff97bc04a5378dfcba"
           },
           {
-            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/static_analyzer/func_level/optim_func_level.log",
+            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/static_analyzer/func_level/optim_func_level.log",
             "sha256": "300c47f9babd033ddf68487dde01a828746ff795b5f0111761b2f8fda08ad900"
           }
         ],
@@ -2518,9 +1825,9 @@
         "python": "3.11.4 (main, Jul  5 2023, 13:45:01) [GCC 11.2.0]",
         "scan_proxy_in_args": true,
         "seed": 42,
-        "setup_seconds": 2.778099913150072,
-        "source_commit": "88b6df2401e187ca6bd81bf0a83bc7c5d9a5cd54",
-        "source_tree": "5415a3b0e5eb08d119dffa91631d76866e6e1d11",
+        "setup_seconds": 2.568533480167389,
+        "source_commit": "7a40649d2ce55c1a92380e26cd0f74b61c05824b",
+        "source_tree": "c84687d977b748a5080f034ace78c78b45cec172",
         "steps": 3,
         "tensor_dump_format": {
           "dump_tensor_full": false,
@@ -2542,7 +1849,8 @@
         ],
         "training_only_trace": true,
         "update": "Exact benchmark forward, NLL loss, backward, Adadelta(lr=1.0). Epoch scheduler/evaluation omitted.",
-        "variant": "baseline_subclass_fix",
+        "use_full_instr": false,
+        "variant": "final_correctness_without_metadata_fastpath",
         "workload_kind": "bounded_model_micro_workload",
         "wrapped_functions": 21032
       }
@@ -2587,447 +1895,447 @@
           "model.input_emb.weight"
         ]
       },
-      "median_reduction_percent_of_baseline_training": 18.90125826253589,
-      "median_reduction_seconds": 0.18266938999295235,
+      "median_reduction_percent_of_baseline_training": 18.43201701823739,
+      "median_reduction_seconds": 0.17684413865208626,
       "paired_reduction_percent": [
-        19.113870461709478,
-        17.331180173553964,
-        18.858957322850234,
-        19.979830753413463,
-        23.81235705577393
+        15.601390824394477,
+        20.54804037418375,
+        17.7208926939699,
+        15.512118752865149,
+        25.14732482059326
       ],
       "paired_reductions_seconds": [
-        0.1831599548459053,
-        0.16592683270573616,
-        0.18226057663559914,
-        0.19419122487306595,
-        0.24496668577194214
+        0.14744044840335846,
+        0.19879167526960373,
+        0.16855186223983765,
+        0.14882946759462357,
+        0.257242564111948
       ],
       "profiles": {
         "baseline": {
           "interpretation": "Separate cProfile run; cumulative rows overlap and are not an exclusive breakdown of ordinary timing.",
           "rows": [
             {
-              "calls": 3622491,
-              "cumulative_seconds": 0.427562979,
+              "calls": 3622987,
+              "cumulative_seconds": 0.41540509400000003,
               "file": "~",
               "function": "<built-in method builtins.isinstance>",
               "line": 0,
-              "percent_of_profile_total": 15.08458680801047,
-              "self_seconds": 0.24889274400000003
+              "percent_of_profile_total": 15.272859297011918,
+              "self_seconds": 0.24020582000000001
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.216041698,
+              "cumulative_seconds": 0.211889453,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__enter__",
               "line": 466,
-              "percent_of_profile_total": 7.622034431636286,
-              "self_seconds": 0.19456483700000002
-            },
-            {
-              "calls": 670,
-              "cumulative_seconds": 1.5786948920000001,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/tracer.py",
-              "function": "to_dict_args_kwargs",
-              "line": 160,
-              "percent_of_profile_total": 55.69696468443942,
-              "self_seconds": 0.0008960670000000001
+              "percent_of_profile_total": 7.790366196592234,
+              "self_seconds": 0.190857086
             },
             {
               "calls": 64,
-              "cumulative_seconds": 0.005761861,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "cumulative_seconds": 0.005668298,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_tensor",
+              "line": 302,
+              "percent_of_profile_total": 0.20840167599758433,
+              "self_seconds": 7.4091e-05
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.005591704,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
               "function": "tensor_hash",
               "line": 95,
-              "percent_of_profile_total": 0.20328067840080707,
-              "self_seconds": 0.000760977
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.004656917,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
-              "function": "hash_tensor_cpu",
-              "line": 47,
-              "percent_of_profile_total": 0.16429782790946382,
-              "self_seconds": 0.004139646
-            },
-            {
-              "calls": 516009,
-              "cumulative_seconds": 1.579442368,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
-              "function": "safe_getattr",
-              "line": 328,
-              "percent_of_profile_total": 55.72333592601716,
-              "self_seconds": 0.46544991100000005
+              "percent_of_profile_total": 0.20558560705213386,
+              "self_seconds": 0.00060932
             },
             {
               "calls": 1773,
-              "cumulative_seconds": 2.748502059,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 2.641869315,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
               "function": "convert_var_to_dict",
               "line": 343,
-              "percent_of_profile_total": 96.96821272493993,
-              "self_seconds": 0.559197797
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.005844259,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_tensor",
-              "line": 302,
-              "percent_of_profile_total": 0.20618771162130123,
-              "self_seconds": 7.9787e-05
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.213352694,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
-              "function": "dump_trace",
-              "line": 183,
-              "percent_of_profile_total": 7.527165333380968,
-              "self_seconds": 0.00015941500000000002
-            },
-            {
-              "calls": 8292,
-              "cumulative_seconds": 0.002800037,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/utils.py",
-              "function": "safe_getattr",
-              "line": 21,
-              "percent_of_profile_total": 0.09878638532018745,
-              "self_seconds": 0.0011357350000000001
-            },
-            {
-              "calls": 1340,
-              "cumulative_seconds": 0.01722223,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_trace_API",
-              "line": 241,
-              "percent_of_profile_total": 0.6076069169274877,
-              "self_seconds": 0.00117887
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.000883031,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_trace_VAR",
-              "line": 250,
-              "percent_of_profile_total": 0.03115367426061529,
-              "self_seconds": 4.7865e-05
+              "percent_of_profile_total": 97.1314481018094,
+              "self_seconds": 0.538952239
             },
             {
               "calls": 670,
-              "cumulative_seconds": 0.987921398,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/tracer.py",
-              "function": "to_dict_return_value",
-              "line": 184,
-              "percent_of_profile_total": 34.854247957754225,
-              "self_seconds": 0.00032125000000000003
+              "cumulative_seconds": 1.513930065,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_args_kwargs",
+              "line": 166,
+              "percent_of_profile_total": 55.6614283315965,
+              "self_seconds": 0.0012697680000000001
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 1.5134438030000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "safe_getattr",
+              "line": 328,
+              "percent_of_profile_total": 55.64355033439629,
+              "self_seconds": 0.44812079600000004
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.0046741460000000006,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "hash_tensor_cpu",
+              "line": 47,
+              "percent_of_profile_total": 0.17185050261249582,
+              "self_seconds": 0.004206617
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.20849510200000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+              "function": "dump_trace",
+              "line": 218,
+              "percent_of_profile_total": 7.66556886989486,
+              "self_seconds": 0.000155234
+            },
+            {
+              "calls": 8292,
+              "cumulative_seconds": 0.002601659,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/utils.py",
+              "function": "safe_getattr",
+              "line": 21,
+              "percent_of_profile_total": 0.09565306834153729,
+              "self_seconds": 0.001095569
             },
             {
               "calls": 1404,
-              "cumulative_seconds": 0.012092690000000001,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 0.01060878,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
               "function": "serialize",
               "line": 85,
-              "percent_of_profile_total": 0.42663476728971,
-              "self_seconds": 0.001008543
+              "percent_of_profile_total": 0.39004433646390013,
+              "self_seconds": 0.000932733
+            },
+            {
+              "calls": 670,
+              "cumulative_seconds": 0.950235758,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_return_value",
+              "line": 210,
+              "percent_of_profile_total": 34.936540838190744,
+              "self_seconds": 0.000306486
+            },
+            {
+              "calls": 1340,
+              "cumulative_seconds": 0.015419796000000001,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_API",
+              "line": 241,
+              "percent_of_profile_total": 0.566927026409135,
+              "self_seconds": 0.001075404
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.001013873,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_trace_VAR",
+              "line": 250,
+              "percent_of_profile_total": 0.03727623926065616,
+              "self_seconds": 4.5441e-05
             },
             {
               "calls": 495303,
-              "cumulative_seconds": 0.21179952300000002,
+              "cumulative_seconds": 0.207537147,
               "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
               "function": "__instancecheck__",
               "line": 21,
-              "percent_of_profile_total": 7.472368861450725,
-              "self_seconds": 0.150287937
+              "percent_of_profile_total": 7.630348522000259,
+              "self_seconds": 0.146889277
             },
             {
               "calls": 1,
-              "cumulative_seconds": 1.322e-06,
+              "cumulative_seconds": 1.39e-06,
               "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
               "function": "__instancecheck__",
               "line": 240,
-              "percent_of_profile_total": 4.6640669888750686e-05,
-              "self_seconds": 1.002e-06
+              "percent_of_profile_total": 5.110499300436254e-05,
+              "self_seconds": 1.044e-06
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.170823455,
+              "cumulative_seconds": 0.162974535,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__exit__",
               "line": 487,
-              "percent_of_profile_total": 6.0267173781473975,
-              "self_seconds": 0.15120122700000002
+              "percent_of_profile_total": 5.991951418031825,
+              "self_seconds": 0.144182988
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.406155918,
+              "cumulative_seconds": 0.38795989000000003,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "_add_filter",
               "line": 181,
-              "percent_of_profile_total": 14.329337439334713,
-              "self_seconds": 0.22709152400000002
+              "percent_of_profile_total": 14.263803931239758,
+              "self_seconds": 0.216126051
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.082309591,
+              "cumulative_seconds": 0.07956756400000001,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__init__",
               "line": 440,
-              "percent_of_profile_total": 2.903914116875253,
-              "self_seconds": 0.082309591
+              "percent_of_profile_total": 2.9253955407152294,
+              "self_seconds": 0.07956756400000001
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.579480675,
+              "cumulative_seconds": 0.553407844,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "simplefilter",
               "line": 165,
-              "percent_of_profile_total": 20.444301716781712,
-              "self_seconds": 0.153575495
+              "percent_of_profile_total": 20.346693522431192,
+              "self_seconds": 0.146483431
             }
           ],
-          "sha256": "f7b2024e12967a7cc232ee63460a2fb4a2860979a48225bc638982993aa31cd9",
-          "total_seconds": 2.834436132999999
+          "sha256": "2428566e23bf2a60b055d3755c2ada906bb809a40ae26a05455788e5727459df",
+          "total_seconds": 2.7198907939999986
         },
         "candidate": {
           "interpretation": "Separate cProfile run; cumulative rows overlap and are not an exclusive breakdown of ordinary timing.",
           "rows": [
             {
-              "calls": 1154245,
-              "cumulative_seconds": 0.052964309,
+              "calls": 1154741,
+              "cumulative_seconds": 0.053038279,
               "file": "~",
               "function": "<built-in method builtins.isinstance>",
               "line": 0,
-              "percent_of_profile_total": 2.4369284236685465,
-              "self_seconds": 0.047591463
+              "percent_of_profile_total": 2.483533581874309,
+              "self_seconds": 0.04782687
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.203956469,
+              "cumulative_seconds": 0.20110108200000001,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__enter__",
               "line": 466,
-              "percent_of_profile_total": 9.384193353625603,
-              "self_seconds": 0.18543056800000002
+              "percent_of_profile_total": 9.416619466447228,
+              "self_seconds": 0.182952516
             },
             {
               "calls": 64,
-              "cumulative_seconds": 0.005312453,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
-              "function": "tensor_hash",
-              "line": 95,
-              "percent_of_profile_total": 0.24443003145954836,
-              "self_seconds": 0.000703901
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.005392115,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
-              "function": "dump_tensor",
-              "line": 318,
-              "percent_of_profile_total": 0.24809534109450057,
-              "self_seconds": 7.7172e-05
-            },
-            {
-              "calls": 64,
-              "cumulative_seconds": 0.004293179,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "cumulative_seconds": 0.00432889,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
               "function": "hash_tensor_cpu",
               "line": 47,
-              "percent_of_profile_total": 0.19753245403422345,
-              "self_seconds": 0.003818175
+              "percent_of_profile_total": 0.20270159382886233,
+              "self_seconds": 0.0039002060000000002
             },
             {
-              "calls": 516009,
-              "cumulative_seconds": 1.4984058370000002,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
-              "function": "safe_getattr",
-              "line": 344,
-              "percent_of_profile_total": 68.9428002237537,
-              "self_seconds": 0.437565478
+              "calls": 64,
+              "cumulative_seconds": 0.005282504,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "dump_tensor",
+              "line": 318,
+              "percent_of_profile_total": 0.2473548600697501,
+              "self_seconds": 7.26e-05
             },
             {
               "calls": 670,
-              "cumulative_seconds": 1.207365155,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/tracer.py",
+              "cumulative_seconds": 1.184774024,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/tracer.py",
               "function": "to_dict_args_kwargs",
-              "line": 160,
-              "percent_of_profile_total": 55.5517955302028,
-              "self_seconds": 0.0008465870000000001
+              "line": 166,
+              "percent_of_profile_total": 55.47740482937538,
+              "self_seconds": 0.0012466880000000001
+            },
+            {
+              "calls": 64,
+              "cumulative_seconds": 0.005207354,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+              "function": "tensor_hash",
+              "line": 95,
+              "percent_of_profile_total": 0.24383593841171788,
+              "self_seconds": 0.000586207
             },
             {
               "calls": 1773,
-              "cumulative_seconds": 2.0914098190000003,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 2.056601617,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
               "function": "convert_var_to_dict",
               "line": 362,
-              "percent_of_profile_total": 96.22736763091898,
-              "self_seconds": 0.363128973
+              "percent_of_profile_total": 96.30099763147493,
+              "self_seconds": 0.35871008800000004
+            },
+            {
+              "calls": 516009,
+              "cumulative_seconds": 1.4721962940000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
+              "function": "safe_getattr",
+              "line": 344,
+              "percent_of_profile_total": 68.93604023727663,
+              "self_seconds": 0.433983473
             },
             {
               "calls": 64,
-              "cumulative_seconds": 0.162592268,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+              "cumulative_seconds": 0.161195886,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
               "function": "dump_trace",
-              "line": 183,
-              "percent_of_profile_total": 7.480994783825724,
-              "self_seconds": 0.00014322
+              "line": 218,
+              "percent_of_profile_total": 7.548046499415692,
+              "self_seconds": 0.000153255
             },
             {
               "calls": 8292,
-              "cumulative_seconds": 0.002711686,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/utils.py",
+              "cumulative_seconds": 0.002652792,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/utils.py",
               "function": "safe_getattr",
               "line": 21,
-              "percent_of_profile_total": 0.1247667498024767,
-              "self_seconds": 0.0011258210000000002
+              "percent_of_profile_total": 0.12421779405262211,
+              "self_seconds": 0.001105293
             },
             {
               "calls": 64,
-              "cumulative_seconds": 0.000922073,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 0.000806478,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
               "function": "dump_trace_VAR",
               "line": 266,
-              "percent_of_profile_total": 0.04242528496685056,
-              "self_seconds": 4.7424000000000005e-05
+              "percent_of_profile_total": 0.037763578189307936,
+              "self_seconds": 4.4666e-05
             },
             {
               "calls": 1340,
-              "cumulative_seconds": 0.016164994000000002,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 0.015288563000000002,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
               "function": "dump_trace_API",
               "line": 257,
-              "percent_of_profile_total": 0.7437637550795105,
-              "self_seconds": 0.001122561
-            },
-            {
-              "calls": 670,
-              "cumulative_seconds": 0.752377733,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/tracer.py",
-              "function": "to_dict_return_value",
-              "line": 184,
-              "percent_of_profile_total": 34.61747575868505,
-              "self_seconds": 0.00031704700000000004
+              "percent_of_profile_total": 0.7158916228993976,
+              "self_seconds": 0.001078509
             },
             {
               "calls": 1404,
-              "cumulative_seconds": 0.011245191,
-              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/candidate/source/traincheck/instrumentor/dumper.py",
+              "cumulative_seconds": 0.010575724,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/dumper.py",
               "function": "serialize",
               "line": 101,
-              "percent_of_profile_total": 0.517399850859599,
-              "self_seconds": 0.0009738310000000001
+              "percent_of_profile_total": 0.4952115001060667,
+              "self_seconds": 0.000939728
+            },
+            {
+              "calls": 670,
+              "cumulative_seconds": 0.742331382,
+              "file": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/candidate/source/traincheck/instrumentor/tracer.py",
+              "function": "to_dict_return_value",
+              "line": 210,
+              "percent_of_profile_total": 34.759893247595116,
+              "self_seconds": 0.00031331
             },
             {
               "calls": 8937,
-              "cumulative_seconds": 0.0062934160000000005,
+              "cumulative_seconds": 0.006075963,
               "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
               "function": "__instancecheck__",
               "line": 21,
-              "percent_of_profile_total": 0.2895648904316001,
-              "self_seconds": 0.0044612110000000005
+              "percent_of_profile_total": 0.28450881961546626,
+              "self_seconds": 0.004308247
             },
             {
               "calls": 1,
-              "cumulative_seconds": 1.5100000000000002e-06,
+              "cumulative_seconds": 1.334e-06,
               "file": "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/lib/python3.11/site-packages/torch/nn/parameter.py",
               "function": "__instancecheck__",
               "line": 240,
-              "percent_of_profile_total": 6.947625654361893e-05,
-              "self_seconds": 1.2620000000000002e-06
+              "percent_of_profile_total": 6.246495664424423e-05,
+              "self_seconds": 1.068e-06
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.161353457,
+              "cumulative_seconds": 0.15780037300000002,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__exit__",
               "line": 487,
-              "percent_of_profile_total": 7.423996140881979,
-              "self_seconds": 0.144325115
+              "percent_of_profile_total": 7.389050568133857,
+              "self_seconds": 0.141191683
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.381938691,
+              "cumulative_seconds": 0.37356121800000003,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "_add_filter",
               "line": 181,
-              "percent_of_profile_total": 17.573291708509934,
-              "self_seconds": 0.213641867
+              "percent_of_profile_total": 17.492117905802896,
+              "self_seconds": 0.20996710500000001
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.079526229,
+              "cumulative_seconds": 0.07808938900000001,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "__init__",
               "line": 440,
-              "percent_of_profile_total": 3.659062707252045,
-              "self_seconds": 0.079526229
+              "percent_of_profile_total": 3.6565594439734044,
+              "self_seconds": 0.07808938900000001
             },
             {
               "calls": 516009,
-              "cumulative_seconds": 0.552660111,
+              "cumulative_seconds": 0.540450281,
               "file": "/home/yuxuan/miniconda3/lib/python3.11/warnings.py",
               "function": "simplefilter",
               "line": 165,
-              "percent_of_profile_total": 25.428315002159547,
-              "self_seconds": 0.15112924600000002
+              "percent_of_profile_total": 25.306749153699105,
+              "self_seconds": 0.146992578
             }
           ],
-          "sha256": "a3fd25631d2d65a4819675afba8347fc50c95dbf22a56276f2519f32271cc158",
-          "total_seconds": 2.1734043759999997
+          "sha256": "99d75dabca1f2ee57a623d97c35581f222b6fd148a2c13b4f4f8575a2df1280f",
+          "total_seconds": 2.1355974160000004
         }
       },
-      "speedup_ratio_of_medians": 1.2330647536274206,
+      "speedup_ratio_of_medians": 1.225971224792435,
       "variants": {
         "baseline": {
           "peak_RSS_bytes": {
-            "max": 540819456.0,
-            "median": 540479488.0,
-            "min": 540413952.0,
+            "max": 540844032.0,
+            "median": 540766208.0,
+            "min": 539996160.0,
             "values": [
-              540446720.0,
-              540524544.0,
-              540819456.0,
-              540479488.0,
-              540413952.0
+              540766208.0,
+              540528640.0,
+              540844032.0,
+              540782592.0,
+              539996160.0
             ]
           },
           "post_metrics_exit_seconds": {
-            "max": 3.333291094750166,
-            "median": 2.0391327142715454,
-            "min": 1.9195968136191368,
+            "max": 2.292447991669178,
+            "median": 1.9001667201519012,
+            "min": 1.8594940602779388,
             "values": [
-              2.0391327142715454,
-              1.9493112564086914,
-              1.9195968136191368,
-              2.38959226757288,
-              3.333291094750166
+              1.9001667201519012,
+              1.9286032617092133,
+              1.8995989076793194,
+              1.8594940602779388,
+              2.292447991669178
             ]
           },
           "process_seconds": {
-            "max": 8.535529389977455,
-            "median": 7.0182711854577065,
-            "min": 6.815501172095537,
+            "max": 7.21809833869338,
+            "median": 6.719264965504408,
+            "min": 6.713514465838671,
             "values": [
-              7.0182711854577065,
-              6.815501172095537,
-              6.817034367471933,
-              7.320687089115381,
-              8.535529389977455
+              6.716304361820221,
+              6.719264965504408,
+              6.713514465838671,
+              7.1309390515089035,
+              7.21809833869338
             ]
           },
           "setup_seconds": {
-            "max": 2.8161566741764545,
-            "median": 2.602743424475193,
-            "min": 2.5676101446151733,
+            "max": 2.5845856182277203,
+            "median": 2.550613649189472,
+            "min": 2.526260081678629,
             "values": [
-              2.6592667177319527,
-              2.5893340334296227,
-              2.5676101446151733,
-              2.602743424475193,
-              2.8161566741764545
+              2.561651110649109,
+              2.526260081678629,
+              2.550613649189472,
+              2.5845856182277203,
+              2.535349767655134
             ]
           },
           "trace_bytes": {
@@ -3043,65 +2351,65 @@
             ]
           },
           "training_seconds": {
-            "max": 1.0287376642227173,
-            "median": 0.9664403684437275,
-            "min": 0.9573891162872314,
+            "max": 1.022942066192627,
+            "median": 0.9594399705529213,
+            "min": 0.9450468234717846,
             "values": [
-              0.9582567550241947,
-              0.9573891162872314,
-              0.9664403684437275,
-              0.9719362854957581,
-              1.0287376642227173
+              0.9450468234717846,
+              0.9674483388662338,
+              0.9511476941406727,
+              0.9594399705529213,
+              1.022942066192627
             ]
           }
         },
         "candidate": {
           "peak_RSS_bytes": {
-            "max": 540966912.0,
-            "median": 540696576.0,
-            "min": 540524544.0,
+            "max": 540979200.0,
+            "median": 540778496.0,
+            "min": 540712960.0,
             "values": [
-              540622848.0,
-              540524544.0,
               540966912.0,
-              540696576.0,
-              540721152.0
+              540979200.0,
+              540778496.0,
+              540745728.0,
+              540712960.0
             ]
           },
           "post_metrics_exit_seconds": {
-            "max": 2.2381970062851906,
-            "median": 2.0395359471440315,
-            "min": 2.011737398803234,
+            "max": 2.2137519530951977,
+            "median": 2.1560278981924057,
+            "min": 2.0495513416826725,
             "values": [
-              2.0347076691687107,
-              2.011737398803234,
-              2.0395359471440315,
-              2.098541881889105,
-              2.2381970062851906
+              2.1560278981924057,
+              2.0495513416826725,
+              2.2079070173203945,
+              2.2137519530951977,
+              2.0717223808169365
             ]
           },
           "process_seconds": {
-            "max": 7.020256042480469,
-            "median": 6.816576909273863,
-            "min": 6.71428145095706,
+            "max": 6.919477663934231,
+            "median": 6.816005241125822,
+            "min": 6.717189069837332,
             "values": [
-              6.91656219959259,
-              6.71591405197978,
-              6.71428145095706,
-              6.816576909273863,
-              7.020256042480469
+              6.816975295543671,
+              6.815951332449913,
+              6.816005241125822,
+              6.919477663934231,
+              6.717189069837332
             ]
           },
           "setup_seconds": {
-            "max": 2.6585870534181595,
-            "median": 2.6094753071665764,
-            "min": 2.570909459143877,
+            "max": 2.55265936255455,
+            "median": 2.5275897532701492,
+            "min": 2.5160773061215878,
             "values": [
-              2.6569117195904255,
-              2.5945258922874928,
-              2.570909459143877,
-              2.6094753071665764,
-              2.6585870534181595
+              2.5471372343599796,
+              2.5160773061215878,
+              2.5275897532701492,
+              2.5250496082007885,
+              2.55265936255455
             ]
           },
           "trace_bytes": {
@@ -3117,15 +2425,15 @@
             ]
           },
           "training_seconds": {
-            "max": 0.7914622835814953,
-            "median": 0.7837709784507751,
-            "min": 0.7750968001782894,
+            "max": 0.8106105029582977,
+            "median": 0.782595831900835,
+            "min": 0.7656995020806789,
             "values": [
-              0.7750968001782894,
-              0.7914622835814953,
-              0.7841797918081284,
-              0.7777450606226921,
-              0.7837709784507751
+              0.7976063750684261,
+              0.7686566635966301,
+              0.782595831900835,
+              0.8106105029582977,
+              0.7656995020806789
             ]
           }
         }
@@ -3138,6 +2446,7 @@
         "benchmark_source": "/home/yuxuan/experiments/codex-trace-impact-20261013/benchmarks/false-positive/RNN/trainset/word_language_model-RNN_TANH-3epo/model.py",
         "benchmark_source_sha256": "e4451a33e9b16953004bc639d736d14f42a2b21f2939ccabe4cff10d3c40b74c",
         "cpu_threads": 1,
+        "cuda_available": false,
         "data": {
           "adaptation": "Whitespace tokenization plus <eos>; vocabulary and tensors are bounded to the chosen prefix, unlike the full benchmark corpus.",
           "kind": "wikitext2_training_prefix_with_prefix_only_vocabulary",
@@ -3179,11 +2488,11 @@
         ],
         "observation_files": [
           {
-            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/static_analyzer/func_level/nn_func_level.log",
+            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/static_analyzer/func_level/nn_func_level.log",
             "sha256": "0ea56ca02089d5b19a1c0697dea00d107fccd18e17d485ff97bc04a5378dfcba"
           },
           {
-            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-fixed/baseline/source/traincheck/static_analyzer/func_level/optim_func_level.log",
+            "path": "/home/yuxuan/experiments/codex-instrumenter-performance-20261027-final-matched/baseline/source/traincheck/static_analyzer/func_level/optim_func_level.log",
             "sha256": "300c47f9babd033ddf68487dde01a828746ff795b5f0111761b2f8fda08ad900"
           }
         ],
@@ -3193,9 +2502,9 @@
         "python": "3.11.4 (main, Jul  5 2023, 13:45:01) [GCC 11.2.0]",
         "scan_proxy_in_args": true,
         "seed": 42,
-        "setup_seconds": 2.6592667177319527,
-        "source_commit": "88b6df2401e187ca6bd81bf0a83bc7c5d9a5cd54",
-        "source_tree": "5415a3b0e5eb08d119dffa91631d76866e6e1d11",
+        "setup_seconds": 2.561651110649109,
+        "source_commit": "7a40649d2ce55c1a92380e26cd0f74b61c05824b",
+        "source_tree": "c84687d977b748a5080f034ace78c78b45cec172",
         "steps": 3,
         "tensor_dump_format": {
           "dump_tensor_full": false,
@@ -3238,7 +2547,8 @@
         ],
         "training_only_trace": true,
         "update": "Adapted language-model forward/NLL/backward/clipped manual SGD. Model classes copied exactly; the benchmark main.py training path is RNN-specific and is not executed. Transformer dimensions/vocabulary reduced.",
-        "variant": "baseline_subclass_fix",
+        "use_full_instr": false,
+        "variant": "final_correctness_without_metadata_fastpath",
         "workload_kind": "bounded_model_micro_workload",
         "wrapped_functions": 21032
       }
