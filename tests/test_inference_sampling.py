@@ -102,17 +102,22 @@ def hypothesis_evidence(hypotheses):
 
 def simple_hypothesis(positive_count=3, negative_count=0):
     def examples(count, prefix):
-        # Direct construction deliberately reaches the >5000 precondition branch;
-        # add_example's separate reservoir would otherwise cap the input first.
-        return ExampleList.from_iterable_of_examples(
-            [
-                Example(
-                    {PARENT_GROUP_NAME: [{"id": f"{prefix}-{i}", "function": PARENT}]}
-                )
-                for i in range(count)
-            ],
-            {PARENT_GROUP_NAME},
-        )
+        # This fixture deliberately reaches the >5000 precondition branch;
+        # disable the independent reservoir cap while constructing its input.
+        with patch("traincheck.config.config.MAX_EXAMPLE_LIST_SIZE", None):
+            return ExampleList.from_iterable_of_examples(
+                [
+                    Example(
+                        {
+                            PARENT_GROUP_NAME: [
+                                {"id": f"{prefix}-{i}", "function": PARENT}
+                            ]
+                        }
+                    )
+                    for i in range(count)
+                ],
+                {PARENT_GROUP_NAME},
+            )
 
     return Hypothesis(
         Invariant(

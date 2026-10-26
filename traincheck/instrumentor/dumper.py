@@ -4,7 +4,7 @@ import os
 import threading
 import time
 from queue import Empty, Queue
-from typing import Hashable
+from typing import Callable, Hashable
 
 import orjson
 import torch
@@ -181,43 +181,53 @@ def get_trace_VAR_dumper_queue():
 class TraceBuffer:
     """Buffer traces and flush them to the trace log file periodically or when the buffer is full.
 
-    Caveat: **This class must be instantiated PER THREAD*, as the buffer is not thread-safe.
+    Caveat: **This class must be instantiated PER THREAD*, to preserve per-thread trace routing.
     Also, the queue must be created at the same time as the buffer (as did in the __init__ method).
     Previously, the queue was dynamic getted from the queue_getter method but it caused a mysterious bug,
     where a trace file contains traces of different thread ids and process ids.
     """
 
     def __init__(
-        self, queue_getter, buffer_size=BUFFER_SIZE, flush_interval=FLUSH_INTERVAL
-    ):
+        self,
+        queue_getter: Callable[[], Queue[str]],
+        buffer_size: int = BUFFER_SIZE,
+        flush_interval: float = FLUSH_INTERVAL,
+    ) -> None:
         self.queue = queue_getter()
         self.buffer_size = buffer_size
         self.flush_interval = flush_interval
-        self.buffer = []
+        self.buffer: list[str] = []
+        self._lock = threading.Lock()
         self.last_flush_time = time.time()
         self.flush_thread = threading.Thread(target=self._flush_periodically)
         self.flush_thread.daemon = True
         self.flush_thread.start()
 
-    def add_trace(self, trace):
-        self.buffer.append(
-            serialize(trace)
-        )  # TODO: serialization step cannot be buffered rn as trace dicts might get modified
-        if (
-            len(self.buffer) >= self.buffer_size
-            or (time.time() - self.last_flush_time) >= self.flush_interval
-        ):
-            self._flush()
+    def add_trace(self, trace: dict[str, object]) -> None:
+        # Snapshot mutable values in the producer, before returning to the caller.
+        serialized = serialize(trace)
+        with self._lock:
+            self.buffer.append(serialized)
+            if (
+                len(self.buffer) >= self.buffer_size
+                or (time.time() - self.last_flush_time) >= self.flush_interval
+            ):
+                self._flush_locked()
 
-    def _flush(self):
+    def _flush(self) -> None:
+        with self._lock:
+            self._flush_locked()
+
+    def _flush_locked(self) -> None:
         if not self.buffer:
             return
-        # serialize all traces in the buffer
+        # Keep enqueue and clear atomic with respect to the producer and timer.
+        # Enqueue under the lock also preserves batch ordering.
         self.queue.put("\n".join(self.buffer))
         self.buffer.clear()
         self.last_flush_time = time.time()
 
-    def _flush_periodically(self):
+    def _flush_periodically(self) -> None:
         while not stop_event.is_set():
             time.sleep(self.flush_interval)
             self._flush()
