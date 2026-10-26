@@ -425,7 +425,7 @@ def find_precondition_from_single_group(
     negative_examples: list[list[dict]],
     traces: list[Trace],
     keys_to_skip: list[str] = [],
-    _pruned_clauses: set[PreconditionClause] = set(),
+    _pruned_clauses: set[PreconditionClause] | None = None,
     _skip_pruning: bool = False,
     _current_depth: int = 0,
 ) -> list[Precondition]:
@@ -445,6 +445,10 @@ def find_precondition_from_single_group(
 
     To implement the invariant split OP. We need to determine how this verification / pruning process should be done, because now all the `Precondition` objects have to be violated in the negative examples.
     """
+    # Recursive children share pruning state; independent solves start fresh.
+    if _pruned_clauses is None:
+        _pruned_clauses = set()
+
     logger.debug(
         f"Calling precondition inference with \n# positive examples: {len(positive_examples)}, \n# negative examples: {len(negative_examples)}, at depth {_current_depth}"
     )
