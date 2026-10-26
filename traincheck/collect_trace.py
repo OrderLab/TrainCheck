@@ -360,7 +360,8 @@ def main():
         "--model-tracker-style",
         type=str,
         choices=["sampler", "proxy", "subclass"],
-        default="proxy",
+        default="subclass",
+        help="Model parameter tracker: subclass (default), proxy, or sampler. Requires --models-to-track. Keep proxy explicit when checking invariants collected with proxy tracking.",
     )
     parser.add_argument(
         "--tensor-dump-format",
