@@ -124,9 +124,16 @@ attributed to a hash optimization.
 
 ## Activation, data integrity and resource accounting
 
-All **28 successful cases** (four smoke, twenty ordinary, four profile) passed
-exact loss/model/RNG checks. All saved raw trace SHA-256s, sizes, counts and API
-pre/post pair multiplicities were independently reread and validated locally.
+All **28 original cases** (four smoke, twenty ordinary, four profile) completed
+successfully. The paired driver initially compared each workload against its
+first baseline combined run. A supplementary check explicitly anchors all 24
+ordinary/profile cases to plain training: the existing Transformer plain smoke
+and a new isolated MNIST plain run using the exact baseline source. Every initial
+and final state digest/shape, loss, step ID, and per-step Python/NumPy/PyTorch RNG
+snapshot matches. Timing fields alone are excluded from this behavioral comparison.
+The supplemental run supplies a correctness reference, not another speedup estimate.
+All saved raw trace SHA-256s, sizes, counts and API pre/post pair multiplicities
+were independently reread and validated locally.
 Every tracked parameter has at least two distinct data hashes across the three
 steps. The five ordinary runs and separate profiles have matching coverage
 signatures across variants:
@@ -225,3 +232,10 @@ The separate CLI default validation also reproduced a pre-existing startup
 recursion under `--use-full-instr` in `torch._ops.__getattr__` on unchanged main
 and the subclass candidate. Those broader-flag runs were stopped at 45 seconds;
 they are not included in the successful ordinary-collection measurements above.
+
+Plain-reference validation is included in the measurement JSON under
+`plain_reference_validation`. Its raw supplementary archive is retained as
+`plain-parity.tar.gz` (12,709 bytes), SHA-256
+`6093c207f75f30331248220838613369a50d6fa3a4f6f534e0075ce7f8f4d4c1`,
+with its checker alongside the other local evidence. The original 28-case
+archive is unchanged.
