@@ -31,7 +31,7 @@ import torch
 import traincheck
 from traincheck.config import config as tc_config
 
-Mode = Literal["plain", "reference", "selective"]
+Mode = Literal["plain", "reference", "reference_api", "selective"]
 TrackerStyle = Literal["subclass", "sampler"] | None
 EXPECTED_PARAMETERS = 6_163_712
 
@@ -48,8 +48,10 @@ class Options:
     invariants: Path | None = None
 
     def __post_init__(self) -> None:
-        if self.mode not in ("plain", "reference", "selective"):
-            raise ValueError("mode must be plain, reference, or selective")
+        if self.mode not in ("plain", "reference", "reference_api", "selective"):
+            raise ValueError(
+                "mode must be plain, reference, reference_api, or selective"
+            )
         for name in ("steps", "seq_len", "batch_size"):
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
@@ -64,10 +66,28 @@ class Options:
             raise ValueError("--invariants is required exactly for selective mode")
 
 
+class PlacementEvidence(TypedDict):
+    kind: Literal["Shard", "Replicate"]
+    dim: int | None
+
+
+class DistributedEvidence(TypedDict):
+    api_namespace: str
+    world_size: int
+    mesh_device_type: str
+    mesh_shape: list[int]
+    mesh_ranks: list[int]
+    mesh_dim_names: list[str] | None
+    placements: list[PlacementEvidence]
+
+
 class TensorEvidence(TypedDict):
     dtype: str
     shape: list[int]
     sha256: str
+    storage_scope: Literal["full_tensor", "dtensor_local_shard"]
+    local_shape: list[int]
+    distributed: DistributedEvidence | None
 
 
 class ModelEvidence(TypedDict):
@@ -138,13 +158,139 @@ def required_callable(owner: object, name: str) -> Callable[..., object]:
     return value
 
 
+@dataclass(frozen=True)
+class DTensorAPI:
+    namespace: str
+    tensor_type: type[torch.Tensor]
+    shard_type: type[object]
+    replicate_type: type[object]
+
+
+def dtensor_api() -> DTensorAPI | None:
+    """Support PyTorch's public DTensor API and its explicit 2.2 legacy namespace.
+
+    An absent optional API leaves ordinary tensors supported. Broken imports or
+    malformed exports from an installed API propagate; they are never absence.
+    """
+    for namespace in ("torch.distributed.tensor", "torch.distributed._tensor"):
+        try:
+            module = importlib.import_module(namespace)
+        except ModuleNotFoundError as error:
+            if error.name != namespace:
+                raise
+            continue
+        # PyTorch 2.2 has a tensor namespace for parallel APIs without a
+        # DTensor export; that explicit capability absence selects _tensor.
+        if "DTensor" not in module.__dict__:
+            continue
+        tensor_type: object = getattr(module, "DTensor")
+        shard_type: object = getattr(module, "Shard")
+        replicate_type: object = getattr(module, "Replicate")
+        if not isinstance(tensor_type, type) or not issubclass(
+            tensor_type, torch.Tensor
+        ):
+            raise TypeError(f"{namespace}.DTensor must be a Tensor subclass")
+        if not isinstance(shard_type, type) or not isinstance(replicate_type, type):
+            raise TypeError(f"{namespace} placement exports must be classes")
+        return DTensorAPI(namespace, tensor_type, shard_type, replicate_type)
+    return None
+
+
+def distributed_evidence(tensor: torch.Tensor, api: DTensorAPI) -> DistributedEvidence:
+    from torch.distributed.device_mesh import DeviceMesh
+
+    if not torch.distributed.is_initialized():
+        raise RuntimeError("DTensor evidence requires an initialized process group")
+    world_size = torch.distributed.get_world_size()
+    if world_size != 1:
+        raise ValueError("This pilot supports DTensor evidence only for world_size=1")
+    mesh: object = getattr(tensor, "device_mesh")
+    if not isinstance(mesh, DeviceMesh):
+        raise TypeError("DTensor device_mesh must be a DeviceMesh")
+    ranks: object = mesh.mesh.flatten().tolist()
+    if not isinstance(ranks, list) or len(ranks) != 1 or ranks[0] != 0:
+        raise ValueError(
+            "This pilot requires a one-rank DTensor mesh containing rank zero"
+        )
+    # The checked mesh is a one-rank integer tensor; do not coerce unknown values.
+    if not isinstance(ranks[0], int) or isinstance(ranks[0], bool):
+        raise TypeError("DeviceMesh ranks must be integers")
+    device_type: object = mesh.device_type
+    if not isinstance(device_type, str):
+        raise TypeError("DeviceMesh device_type must be a string")
+    names: object = mesh.mesh_dim_names
+    if names is not None and (
+        not isinstance(names, tuple) or not all(isinstance(name, str) for name in names)
+    ):
+        raise TypeError("DeviceMesh dimension names must be a tuple of strings or None")
+    checked_names: list[str] | None = None
+    if isinstance(names, tuple):
+        checked_names = []
+        for name in names:
+            if not isinstance(name, str):
+                raise TypeError("DeviceMesh dimension names must be strings")
+            checked_names.append(name)
+    placements: object = getattr(tensor, "placements")
+    if not isinstance(placements, tuple) or len(placements) != mesh.ndim:
+        raise TypeError("DTensor placements must match its mesh dimensions")
+    checked_placements: list[PlacementEvidence] = []
+    for placement in placements:
+        if type(placement) is api.shard_type:
+            dim: object = getattr(placement, "dim")
+            if not isinstance(dim, int) or isinstance(dim, bool):
+                raise TypeError("Shard dimension must be an integer")
+            checked_placements.append({"kind": "Shard", "dim": dim})
+        elif type(placement) is api.replicate_type:
+            checked_placements.append({"kind": "Replicate", "dim": None})
+        else:
+            raise TypeError(
+                f"Unsupported DTensor placement for this pilot: {type(placement)}"
+            )
+    return {
+        "api_namespace": api.namespace,
+        "world_size": world_size,
+        "mesh_device_type": device_type,
+        "mesh_shape": list(mesh.mesh.shape),
+        "mesh_ranks": [ranks[0]],
+        "mesh_dim_names": checked_names,
+        "placements": checked_placements,
+    }
+
+
 def tensor_evidence(tensor: torch.Tensor) -> TensorEvidence:
-    """Exact storage bytes, retaining dtype and shape; never a sampled hash."""
-    raw = tensor.detach().contiguous().cpu().reshape(-1).view(torch.uint8)
+    """Exact local bytes plus complete one-rank DTensor placement evidence.
+
+    A DTensor hash describes its local shard, never an implicit all-gather. The
+    one-rank restriction makes this shard complete for supported placements.
+    """
+    api = dtensor_api()
+    distributed: DistributedEvidence | None = None
+    scope: Literal["full_tensor", "dtensor_local_shard"] = "full_tensor"
+    local = tensor.detach()
+    if api is not None and isinstance(tensor, api.tensor_type):
+        distributed = distributed_evidence(tensor, api)
+        local_value = required_callable(local, "to_local")()
+        if (
+            not isinstance(local_value, torch.Tensor)
+            or type(local_value) is not torch.Tensor
+        ):
+            raise TypeError(
+                "DTensor.to_local() must return an ordinary Tensor for this pilot"
+            )
+        local = local_value
+        if local.shape != tensor.shape or local.dtype != tensor.dtype:
+            raise ValueError(
+                "Single-rank DTensor local shape and dtype must match the global tensor"
+            )
+        scope = "dtensor_local_shard"
+    raw = local.contiguous().cpu().reshape(-1).view(torch.uint8)
     return {
         "dtype": str(tensor.dtype),
         "shape": list(tensor.shape),
         "sha256": hashlib.sha256(raw.numpy().tobytes()).hexdigest(),
+        "storage_scope": scope,
+        "local_shape": list(local.shape),
+        "distributed": distributed,
     }
 
 
@@ -261,7 +407,7 @@ def install_instrumentation(options: Options) -> TrackerStyle:
         return style
     if options.mode == "reference":
         style = "subclass"
-    else:
+    elif options.mode == "selective":
         from traincheck.collect_trace import (
             get_model_tracker_instr_opts,
             get_per_func_instr_opts,
@@ -517,13 +663,14 @@ def main(argv: Sequence[str] | None = None) -> None:
         write_json(
             options.output_dir / "result.json",
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "status": "completed",
                 "mode": options.mode,
                 "model_config": "llama3_debugmodel",
                 "parameter_count": parameter_count,
                 "parameter_types_before_tracking": parameter_types,
                 "selected_model_tracker": style,
+                "model_tracking_enabled": style is not None,
                 "sampler_initial_setup_snapshot": style == "sampler",
                 "ordinary_full_collection": {
                     "use_full_instr": False,
@@ -564,7 +711,9 @@ def main(argv: Sequence[str] | None = None) -> None:
 def parse_options(argv: Sequence[str] | None = None) -> Options:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--mode", choices=("plain", "reference", "selective"), required=True
+        "--mode",
+        choices=("plain", "reference", "reference_api", "selective"),
+        required=True,
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--torchtitan-root", type=Path, required=True)

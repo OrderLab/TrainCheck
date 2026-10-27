@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -280,6 +281,136 @@ class WorkloadTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "nonempty invariants"):
                     workload.install_instrumentation(options)
                 instrumentor.assert_not_called()
+
+    def test_api_reference_has_no_model_tracker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            options = workload.Options("reference_api", root, root)
+            with (
+                patch("traincheck.instrumentor.tracer.Instrumentor") as instrumentor,
+                patch.object(workload, "install_standard_observers") as observers,
+                patch.object(config, "INSTR_OPTS", None),
+                patch.object(config, "INSTR_OPTS_FILE", config.INSTR_OPTS_FILE),
+                patch.object(config, "MODEL_TRACKER_STYLE", "subclass"),
+            ):
+                self.assertIsNone(workload.install_instrumentation(options))
+                self.assertIsNone(config.MODEL_TRACKER_STYLE)
+                self.assertIsNone(config.INSTR_OPTS)
+                self.assertFalse(instrumentor.call_args.kwargs["scan_proxy_in_args"])
+                instrumentor.return_value.instrument.assert_called_once()
+                observers.assert_not_called()
+
+    def test_dtensor_api_absence_preserves_plain_evidence(self) -> None:
+        native = torch.tensor([1.0, 2.0])
+        expected = workload.tensor_evidence(native)
+
+        def absent(namespace: str) -> object:
+            raise ModuleNotFoundError(name=namespace)
+
+        with patch.object(workload.importlib, "import_module", side_effect=absent):
+            self.assertIsNone(workload.dtensor_api())
+            self.assertEqual(expected, workload.tensor_evidence(native))
+
+    def test_dtensor_api_does_not_hide_broken_import_or_exports(self) -> None:
+        failure = ModuleNotFoundError(name="missing_dependency")
+        with patch.object(workload.importlib, "import_module", side_effect=failure):
+            with self.assertRaises(ModuleNotFoundError) as raised:
+                workload.dtensor_api()
+            self.assertIs(raised.exception, failure)
+        malformed = SimpleNamespace(DTensor=object, Shard=object, Replicate=object)
+        with patch.object(workload.importlib, "import_module", return_value=malformed):
+            with self.assertRaisesRegex(TypeError, "Tensor subclass"):
+                workload.dtensor_api()
+
+    def test_real_one_rank_dtensor_evidence_preserves_identity_and_storage(
+        self,
+    ) -> None:
+        api = workload.dtensor_api()
+        if api is None or not torch.distributed.is_gloo_available():
+            self.skipTest(
+                "CPU DTensor evidence requires the optional DTensor and Gloo APIs"
+            )
+        assert api is not None
+        from torch.distributed.device_mesh import DeviceMesh
+
+        with tempfile.TemporaryDirectory() as directory:
+            torch.distributed.init_process_group(
+                "gloo",
+                init_method=f"file://{directory}/rendezvous",
+                rank=0,
+                world_size=1,
+            )
+            try:
+                mesh = DeviceMesh("cpu", [0], mesh_dim_names=("shard",))
+                for placement in (
+                    workload.required_callable(api, "shard_type")(0),
+                    workload.required_callable(api, "replicate_type")(),
+                ):
+                    with self.subTest(placement=type(placement)):
+                        local = torch.arange(6, dtype=torch.float32).reshape(2, 3)
+                        distributed = workload.required_callable(
+                            api.tensor_type, "from_local"
+                        )(
+                            local,
+                            device_mesh=mesh,
+                            placements=[placement],
+                            run_check=False,
+                        )
+                        self.assertIsInstance(distributed, torch.Tensor)
+                        assert isinstance(distributed, torch.Tensor)
+                        identity = id(distributed)
+                        original_local = workload.required_callable(
+                            distributed, "to_local"
+                        )()
+                        assert isinstance(original_local, torch.Tensor)
+                        storage_pointer = original_local.data_ptr()
+                        expected = workload.tensor_evidence(local)
+                        rng = workload.rng_evidence()
+                        evidence = workload.tensor_evidence(distributed)
+                        self.assertEqual(evidence["sha256"], expected["sha256"])
+                        self.assertEqual(evidence["shape"], [2, 3])
+                        self.assertEqual(evidence["local_shape"], [2, 3])
+                        self.assertEqual(
+                            evidence["storage_scope"], "dtensor_local_shard"
+                        )
+                        metadata = evidence["distributed"]
+                        assert metadata is not None
+                        self.assertEqual(metadata["mesh_ranks"], [0])
+                        self.assertEqual(metadata["mesh_dim_names"], ["shard"])
+                        self.assertEqual(metadata["world_size"], 1)
+                        self.assertEqual(id(distributed), identity)
+                        after_local = workload.required_callable(
+                            distributed, "to_local"
+                        )()
+                        assert isinstance(after_local, torch.Tensor)
+                        self.assertEqual(after_local.data_ptr(), storage_pointer)
+                        self.assertEqual(rng, workload.rng_evidence())
+                        parameter = torch.nn.Parameter(distributed)
+                        parameter.grad = torch.ones_like(distributed)
+                        model = torch.nn.Module()
+                        model.register_parameter("weight", parameter)
+                        model_state = workload.model_evidence(model)
+                        self.assertEqual(
+                            model_state["parameters"]["weight"]["sha256"],
+                            expected["sha256"],
+                        )
+                        gradient = model_state["gradients"]["weight"]
+                        assert gradient is not None
+                        self.assertEqual(
+                            gradient["storage_scope"], "dtensor_local_shard"
+                        )
+                        self.assertEqual(
+                            gradient["sha256"],
+                            workload.tensor_evidence(torch.ones_like(local))["sha256"],
+                        )
+                        self.assertIs(model.weight, parameter)
+                        with patch.object(
+                            torch.distributed, "get_world_size", return_value=2
+                        ):
+                            with self.assertRaisesRegex(ValueError, "world_size=1"):
+                                workload.tensor_evidence(distributed)
+            finally:
+                torch.distributed.destroy_process_group()
 
     def test_cli_resolves_explicit_inputs(self) -> None:
         options = workload.parse_options(
