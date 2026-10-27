@@ -12,12 +12,15 @@ _TENSOR_TYPE = torch.Tensor
 _PARAMETER_TYPE = torch.nn.Parameter
 
 
-def _type_descriptors() -> (
-    tuple[types.MemberDescriptorType, types.GetSetDescriptorType]
-):
+def _type_descriptors() -> tuple[
+    types.MemberDescriptorType | types.GetSetDescriptorType,
+    types.GetSetDescriptorType,
+]:
     mro = _TYPE_NAMESPACE["__mro__"]
     namespace = _TYPE_NAMESPACE["__dict__"]
-    assert isinstance(mro, types.MemberDescriptorType)
+    # CPython 3.12 exposes type.__mro__ as a getset descriptor; 3.10/3.11
+    # expose a member descriptor. Both read native storage without user hooks.
+    assert isinstance(mro, (types.MemberDescriptorType, types.GetSetDescriptorType))
     assert isinstance(namespace, types.GetSetDescriptorType)
     return mro, namespace
 

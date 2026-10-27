@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import torch
 
-from traincheck.instrumentor import dumper
+from traincheck.instrumentor import dumper, metadata_methods
 
 
 class NativeMetadataContractTests(unittest.TestCase):
@@ -24,6 +24,27 @@ class NativeMetadataContractTests(unittest.TestCase):
             "skip_type_due_to_recursion",
         ):
             contexts.enter_context(patch.object(dumper, name, {}))
+
+    def test_native_type_metadata_matches_runtime_storage(self) -> None:
+        # Run on each supported Python runtime: __mro__ changes native descriptor
+        # representation in CPython 3.12, but its lookup contract is the same.
+        mro, namespace = metadata_methods._type_descriptors()
+        self.assertIs(mro.__get__(torch.Tensor), torch.Tensor.__mro__)
+        self.assertIs(mro.__get__(torch.nn.Parameter), torch.nn.Parameter.__mro__)
+        tensor_namespace: object = namespace.__get__(torch.Tensor)
+        self.assertIsInstance(tensor_namespace, types.MappingProxyType)
+        assert isinstance(tensor_namespace, types.MappingProxyType)
+        self.assertIs(tensor_namespace["__dict__"], vars(torch.Tensor)["__dict__"])
+
+    def test_application_descriptor_is_rejected_as_native_type_metadata(self) -> None:
+        def application_property(owner: object) -> object:
+            raise AssertionError("Application descriptor must never execute")
+
+        invalid = dict(vars(type))
+        invalid["__mro__"] = property(application_property)
+        with patch.object(metadata_methods, "_TYPE_NAMESPACE", invalid):
+            with self.assertRaises(AssertionError):
+                metadata_methods._type_descriptors()
 
     def test_parameter_metaclass_properties_are_never_evaluated(self) -> None:
         visits: list[str] = []
