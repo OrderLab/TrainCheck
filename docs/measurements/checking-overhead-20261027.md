@@ -65,7 +65,52 @@ Selective reduces records by 5.995% and bytes by 43.824%. Each steady step still
 
 The six largest selective API byte contributors are registry lookup, export-state lookup, dispatch-rule lookup, checkpoint assertions, dispatch-rule search, and checkpoint storage-key lookup. Many lightweight framework calls remain selected by the frozen invariants. Dropping those records would change the evidence required by those rules; record reduction needs semantic/coverage review, not a silent filter.
 
-File writing already runs on a background thread. Metadata conversion and JSON encoding happen on the producer before enqueue. A separate profile launcher has passed CPU smoke and strict typing/lint checks, but its H100 run has not been submitted because the shared SSH connection disappeared. No component time shares are claimed yet. Final queue drain alone cannot establish the cost of overlapping writes.
+File writing already runs on a background thread. Metadata conversion and JSON encoding happen on the producer before enqueue. Final queue drain alone cannot establish the cost of overlapping writes.
+
+## Component profile: main-thread diagnostic
+
+H100 job 55325428 uses the same frozen training source, policy, invariants and mode-specific ordinary controls. A targeted `sys.setprofile` collector measures Python function boundaries on the main thread during steps 3–10. It includes untracked descendants within a boundary, subtracts tracked child elapsed exactly once, and leaves application execution and unclassified wrapper work in an explicit residual. Final serialization includes its stdlib fallback; the earlier JSON compatibility probe has its own bucket. Function totals reconcile to categories, and categories reconcile to the full captured window.
+
+**These are diagnostic shares of a separately profiled window, not shares of the ordinary 994 ms step or predicted optimization savings.** The profiler expands the selective eight-step window from 7.961 s to 42.005 s (5.28x), and the plain window from 0.354 s to 0.712 s (2.01x). Callback overhead is included in surrounding categories or the residual; it is not independently estimated. This strong, unequal perturbation makes the profile useful for locating work but unsuitable for calculating an ordinary-run speedup from its percentages.
+
+| Component, main thread only | Profiled elapsed over 8 steps | Share of profiled window |
+|---|---:|---:|
+| Metadata conversion, excluding separately timed warning/probe/helpers |22.327 s|53.15%|
+| Warning management |7.852 s|18.69%|
+| Known wrapper/bookkeeping helpers |1.537 s|3.66%|
+| Producer buffering/enqueue |1.292 s|3.08%|
+| Final record JSON encoding, including fallback |0.657 s|1.56%|
+| JSON compatibility probes |0.300 s|0.71%|
+| Application plus unclassified wrapper work and measurement residual |8.040 s|19.14%|
+| Total |42.006 s|100%|
+
+Metadata conversion means turning arguments/returns into recorded fields: walking attributes, reading their values, classifying types, and constructing dictionaries. In this window, `convert_var_to_dict` runs 25,312 times and `safe_getattr` runs 1,243,312 times: **155,414 attribute reads per step**. Each read constructs a warning context, enters it, sets an ignore filter and exits it. Each of those four warning operations also runs 1,243,312 times. The warning category measures these boundaries with their internal work; it excludes the separately reported getter/metadata work.
+
+The main thread emits 133,440 records in this window, exactly matching its serializer/buffer call counts. The other trace-producing worker emits another 105,472 records, 44.1% of all 238,912 records. **Worker instrumentation and writer-thread CPU time are not profiled.** Main-thread elapsed time may include waiting for them; this profile cannot assign that waiting to their internal components. Both threads' complete step/API/event counts and byte totals match the ordinary run. State-byte digests, DTensor metadata, losses and RNG evidence also match the plain/selective controls.
+
+### Concrete optimization targets
+
+1. **Reduce repeated metadata attribute work and warning-context setup.** This is the first implementation target suggested by the measured work. Keep requested fields, dynamic attributes/properties, exceptions and application warning behavior intact; do not simply remove warning suppression or cache mutable snapshots. Any fast path needs matched ordinary runs and output/behavior tests before claiming a speedup.
+2. **Avoid predictable JSON fallback exceptions.** `to_dict_args_kwargs` constructs integer positional keys, while the first `orjson.dumps` attempt rejects those keys. In the first diagnostic window, the count of 55,264 nonempty-positional-argument records exactly matches the 55,264 final-serialization stdlib fallback calls; source inspection and a minimal reproduction support the integer-key mechanism. No per-record fallback correlation was recorded. The corrected main-thread window contains 23,792 such records; 31,472 belong to the worker. A safe initial approach can route known integer-key records directly to the existing fallback. Blindly enabling non-string keys or stringifying them to select orjson can change NaN/Infinity output from the existing stdlib representation to null, so those cases, large integers, unsupported keys and defaults require explicit parity/error tests.
+3. **Avoid unnecessary serialize-to-test work for known supported primitives.** Main-thread `var_to_serializable` makes 34,104 `json.dumps` compatibility probes during the eight steps. Exact built-in-type fast paths could avoid the eligible primitive subset of those probes while retaining the existing fallback for dynamic/custom objects; that subset was not counted separately. Final record encoding and these probes together occupy 2.28% of this diagnostic window; moving encoding asynchronously would still leave metadata capture and warning handling on the producer. An async design must snapshot immutable evidence before training can mutate it.
+
+No production optimization was applied in this profiling follow-up, and no improvement percentage is claimed. The ordinary 22.64x slowdown remains the benchmark result.
+
+### Profiler validation and retained failed attempt
+
+The allocated Python 3.12.3 runtime self-test executed 20 background markers and profiled 0. Nested accounting, application-exception preservation, lost-hook rejection, strict typing and pinned formatting/lint checks also pass; local tests cover Python 3.10 and 3.12. Raw trace/state validation for the final job passes with the same 416,364 records, 208,182 complete calls and 143,453,745 bytes as the ordinary 10-step selective run. This is record-integrity and path-volume comparability, not equality after removing changing IDs or timestamps.
+
+The earlier cProfile job 55325378 is retained as rejected attribution evidence. CPython 3.12 captured background-thread callbacks despite its main-thread intent and produced inconsistent caller accounting; a separate marker reproduction captured 20/20 background calls. Its training parity and trace integrity remain valid, but its component percentages are not used. The corrected collector and denominator above replace them.
+
+Reproduce the final evidence checks from the downloaded study directory:
+
+```sh
+python validate_profile_evidence.py --profile-job job-55325428
+python analyze_final_component_profile.py --job-dir job-55325428 \
+  --controls-root profile-controls --output final-component-profile-analysis.json
+```
+
+The saved `component-profile.sbatch`, `run_profile_phases.py`, `profile_components.py` and its adjacent `profile_selective.py` loader/parity helper reproduce the allocated experiment. They preserve the frozen training archive and exact ordinary-control files. The corrected results archive SHA256 is `a5352de5b6bf7954b5e2400241361d18ace83f6022c8d09d9c24ff14c3fbb4ae`. Detailed ledger, function counts, owner-thread audit and provenance are in `final-component-profile-analysis.json`, `job-55325428/profile-validation.json`, and the complete downloaded job directory.
 
 ## Reproduction and provenance
 
