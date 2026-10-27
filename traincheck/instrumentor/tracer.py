@@ -10,7 +10,7 @@ import traceback
 import types
 from contextlib import ContextDecorator
 from importlib.util import find_spec
-from typing import Callable, Literal, Optional
+from typing import Callable, Literal, Mapping, Optional, Sequence, TypedDict
 
 import torch
 
@@ -22,6 +22,7 @@ from traincheck.config.config import (
     WRAP_WITHOUT_DUMP_WHITELIST,
 )
 from traincheck.instrumentor.caches import META_VARS
+from traincheck.instrumentor.constructor_snapshot import constructor_receiver_snapshot
 from traincheck.instrumentor.dumper import (
     convert_var_to_dict,
     dump_trace_API,
@@ -157,24 +158,56 @@ def get_owner_class(func):
     return owner
 
 
+class SerializedArguments(TypedDict):
+    args: dict[int, dict[str, object]]
+    kwargs: dict[str, dict[str, object]]
+
+
 @suppress_tracing()
-def to_dict_args_kwargs(args, kwargs, dump_args_config=None) -> dict:
+def to_dict_args_kwargs(
+    args: Sequence[object],
+    kwargs: Mapping[str, object],
+    dump_args_config: Mapping[str, object] | None = None,
+    *,
+    is_constructor: bool = False,
+    constructor_receiver_name: str | None = None,
+) -> SerializedArguments:
+    def serialize_argument(index: int, argument: object) -> dict[str, object]:
+        argument_config = (
+            dump_args_config[str(index)] if dump_args_config is not None else None
+        )
+        if index == 0 and is_constructor:
+            return constructor_receiver_snapshot(argument, argument_config)
+        if dump_args_config is None:
+            return var_to_serializable(argument)
+        return var_to_serializable(argument, argument_config)
+
+    def serialize_keyword(name: str, argument: object) -> dict[str, object]:
+        argument_config = (
+            dump_args_config[name] if dump_args_config is not None else None
+        )
+        if is_constructor and name == constructor_receiver_name:
+            return constructor_receiver_snapshot(argument, argument_config)
+        if dump_args_config is None:
+            return var_to_serializable(argument)
+        return var_to_serializable(argument, argument_config)
+
     if dump_args_config is None:
-        result = {
-            "args": {i: var_to_serializable(arg) for i, arg in enumerate(args)},
-            "kwargs": {k: var_to_serializable(v) for k, v in kwargs.items()},
+        result: SerializedArguments = {
+            "args": {i: serialize_argument(i, arg) for i, arg in enumerate(args)},
+            "kwargs": {k: serialize_keyword(k, v) for k, v in kwargs.items()},
         }
     else:
         result = {"args": {}, "kwargs": {}}
-        args_dicts = {}
-        kwargs_dicts = {}
+        args_dicts: dict[int, dict[str, object]] = {}
+        kwargs_dicts: dict[str, dict[str, object]] = {}
         for i, arg in enumerate(args):
             if str(i) in dump_args_config:
-                args_dicts[i] = var_to_serializable(arg, dump_args_config[str(i)])
+                args_dicts[i] = serialize_argument(i, arg)
 
         for k, v in kwargs.items():
             if k in dump_args_config:
-                kwargs_dicts[k] = var_to_serializable(v, dump_args_config[k])
+                kwargs_dicts[k] = serialize_keyword(k, v)
 
         result["args"] = args_dicts
         result["kwargs"] = kwargs_dicts
@@ -193,21 +226,23 @@ def to_dict_return_value(result) -> dict | list[dict]:
 
 
 def function_wrapper(
-    original_function: Callable,
+    original_function: Callable[..., object],
     original_function_name: str,
     is_bound_method: bool,
     scan_proxy_in_args: bool,
     dump_stack_trace: bool,
     dump_args: bool,
-    dump_args_config,
+    dump_args_config: Mapping[str, object] | None,
     dump_ret: bool,
-    dump_ret_config,
+    dump_ret_config: Mapping[str, object] | None,
     trigger_var_dump: bool,
     var_dump_config: dict[str, object] | None,
     need_unproxy_args_kwargs: bool,
-    *args,
-    **kwargs,
-):
+    is_constructor: bool,
+    constructor_receiver_name: str | None,
+    *args: object,
+    **kwargs: object,
+) -> object:
     """Instrumentation for Function
 
     When using this wrapper, pass in the control parameters as positional arguments, as any kwargs are passed to the original function.
@@ -242,6 +277,20 @@ def function_wrapper(
         process_id, thread_id = get_process_thread_id()
 
         pre_meta_vars = get_meta_vars()
+        if is_constructor:
+            # Missing receivers are left to the original initializer to reject.
+            receiver_id = (
+                id(args[0])
+                if args
+                else (
+                    id(kwargs[constructor_receiver_name])
+                    if constructor_receiver_name is not None
+                    and constructor_receiver_name in kwargs
+                    else None
+                )
+            )
+        else:
+            receiver_id = None if not is_bound_method else id(args[0])
 
         pre_record = {
             "func_call_id": func_call_id,
@@ -251,7 +300,7 @@ def function_wrapper(
             "type": TraceLineType.FUNC_CALL_PRE,
             "function": original_function_name,
             "is_bound_method": is_bound_method,
-            "obj_id": None if not is_bound_method else id(args[0]),
+            "obj_id": receiver_id,
         }
 
         if dump_stack_trace:
@@ -274,9 +323,12 @@ def function_wrapper(
                         args[i] = iter(arg_list)
                         find_proxy_in_args(arg_list)
 
-            args = list(args)  # type: ignore[assignment]
-            find_proxy_in_args(args)
-            args = tuple(args)
+            # An initializer receiver may not support even proxy-marker lookup.
+            # Preserve it untouched while scanning the ordinary arguments.
+            receiver_prefix = args[:1] if is_constructor else ()
+            scanned_args = list(args[1:] if is_constructor else args)
+            find_proxy_in_args(scanned_args)
+            args = receiver_prefix + tuple(scanned_args)
 
             if proxy_in_args:
                 if "proxy_obj_names" not in pre_record:
@@ -291,7 +343,13 @@ def function_wrapper(
                             [proxy.__dict__["var_name"], type(proxy._obj).__name__]
                         )
         if dump_args:
-            dict_args_kwargs = to_dict_args_kwargs(args, kwargs, dump_args_config)
+            dict_args_kwargs = to_dict_args_kwargs(
+                args,
+                kwargs,
+                dump_args_config,
+                is_constructor=is_constructor,
+                constructor_receiver_name=constructor_receiver_name,
+            )
             pre_record["args"] = dict_args_kwargs["args"]
             pre_record["kwargs"] = dict_args_kwargs["kwargs"]
         dump_trace_API(pre_record)
@@ -303,7 +361,28 @@ def function_wrapper(
             )
 
         if need_unproxy_args_kwargs:
-            args, kwargs = unproxy_args_kwargs(args, kwargs)
+            # Construct the actual receiver, never an object obtained by reading
+            # proxy metadata from its partially initialized state.
+            if is_constructor:
+                ordinary_kwargs = {
+                    key: value
+                    for key, value in kwargs.items()
+                    if key != constructor_receiver_name
+                }
+                ordinary_args, converted_kwargs = unproxy_args_kwargs(
+                    args[1:], ordinary_kwargs
+                )
+                args = args[:1] + tuple(ordinary_args)
+                kwargs = {
+                    key: (
+                        value
+                        if key == constructor_receiver_name
+                        else converted_kwargs[key]
+                    )
+                    for key, value in kwargs.items()
+                }
+            else:
+                args, kwargs = unproxy_args_kwargs(args, kwargs)
 
     try:
         if COLLECT_OVERHEAD_METRICS:
@@ -333,7 +412,7 @@ def function_wrapper(
                     "exception": typename(e, is_runtime=True),
                     "exception_msg": str(e),
                     "is_bound_method": is_bound_method,
-                    "obj_id": None if not is_bound_method else id(args[0]),
+                    "obj_id": receiver_id,
                 },
             )
 
@@ -358,7 +437,7 @@ def function_wrapper(
             "type": TraceLineType.FUNC_CALL_POST,
             "function": original_function_name,
             "is_bound_method": is_bound_method,
-            "obj_id": None if not is_bound_method else id(args[0]),
+            "obj_id": receiver_id,
         }
 
         result_to_dump = result
@@ -460,7 +539,27 @@ def wrapper(
     handle_proxy: bool = True,
     trigger_var_dump: bool = False,
     var_dump_config: dict[str, object] | None = None,
+    is_constructor: bool = False,
 ) -> Callable[..., object]:
+    # Supplied by class traversal, not guessed from a function name or the
+    # spelling of its first parameter. Direct wrapper callers opt in explicitly.
+    is_bound_method = is_bound_method or is_constructor
+    constructor_receiver_name: str | None = None
+    if is_constructor:
+        try:
+            parameters = tuple(inspect.signature(original_function).parameters.values())
+        except ValueError:
+            if isinstance(original_function, types.FunctionType):
+                raise
+            # Native callables may lack a signature; Python's normal construction
+            # still supplies the receiver positionally. No keyword name is guessed.
+            pass
+        else:
+            if (
+                parameters
+                and parameters[0].kind == inspect.Parameter.POSITIONAL_OR_KEYWORD
+            ):
+                constructor_receiver_name = parameters[0].name
     is_builtin = is_c_level_function(original_function)
     need_unproxy_args_kwargs = handle_proxy and (
         is_builtin or is_funcs_to_be_unproxied(original_function)
@@ -485,6 +584,8 @@ def wrapper(
                 trigger_var_dump,
                 var_dump_config,
                 need_unproxy_args_kwargs,
+                is_constructor,
+                constructor_receiver_name,
                 *args,
                 **kwargs,
             )
@@ -939,7 +1040,9 @@ class Instrumentor:
                 return True
         return False
 
-    def get_wrapped_function(self, func_obj: Callable) -> Callable:
+    def get_wrapped_function(
+        self, func_obj: Callable[..., object], *, is_constructor: bool = False
+    ) -> Callable[..., object]:
         """Get the wrapped function for the provided function object,
         based on the instrumentation options provided in instr_opts.json.
         """
@@ -958,6 +1061,7 @@ class Instrumentor:
                 disable_dump=self.should_disable_dump(func_obj),
                 dump_stack_trace=self.API_dump_stack_trace,
                 handle_proxy=used_proxy,
+                is_constructor=is_constructor,
             )
         else:
             # checking stage instrumentation
@@ -970,6 +1074,7 @@ class Instrumentor:
                     dump_stack_trace=False,
                     disable_dump=True,
                     handle_proxy=used_proxy,
+                    is_constructor=is_constructor,
                 )
 
             func_instr_opt = self.instr_opts.funcs_instr_opts[func_name]
@@ -992,6 +1097,7 @@ class Instrumentor:
                     else None
                 ),
                 handle_proxy=used_proxy,
+                is_constructor=is_constructor,
                 trigger_var_dump=self.instr_opts.disable_proxy_dumping
                 and len(func_instr_opt["var_types_to_track"]) > 0,
                 var_dump_config=func_instr_opt["var_types_to_track"],
@@ -999,11 +1105,11 @@ class Instrumentor:
 
     def _instrument_module(
         self,
-        pymodule: types.ModuleType | type,
-        visited_file_paths: set,
+        pymodule: types.ModuleType | type[object],
+        visited_file_paths: set[str],
         recurse_into_sub_module: bool,
-        depth,
-    ):
+        depth: int,
+    ) -> int:
         target_name = pymodule.__name__
 
         if not recurse_into_sub_module and inspect.ismodule(pymodule):
@@ -1085,7 +1191,11 @@ class Instrumentor:
                     )
                     attr = funcs_to_be_replaced[typename(attr)]
 
-                wrapped = self.get_wrapped_function(attr)
+                wrapped = self.get_wrapped_function(
+                    attr,
+                    is_constructor=inspect.isclass(pymodule)
+                    and attr_name == "__init__",
+                )
                 try:
                     setattr(pymodule, attr_name, wrapped)
                 except Exception as e:

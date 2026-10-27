@@ -5,13 +5,16 @@ import json
 import threading
 import unittest
 from queue import Queue
+from typing import Callable
 from unittest.mock import patch
 
 from traincheck.instrumentor import dumper, tracer
 
 
-def wrapped(fn, name="outer", scan_proxy=False):
-    def call(*args, **kwargs):
+def wrapped(
+    fn: Callable[..., object], name: str = "outer", scan_proxy: bool = False
+) -> Callable[..., object]:
+    def call(*args: object, **kwargs: object) -> object:
         return tracer.function_wrapper(
             fn,
             name,
@@ -25,6 +28,8 @@ def wrapped(fn, name="outer", scan_proxy=False):
             False,
             {},
             False,
+            False,
+            None,
             *args,
             **kwargs,
         )
