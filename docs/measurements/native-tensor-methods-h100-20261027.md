@@ -1,5 +1,7 @@
 # Historical H100 measurement: skipping tensor method metadata
 
+The final binding-preserving implementation has [fresh CPU and H100 measurements](native-tensor-bindings-20261027.md).
+
 **Superseded candidate:** this report measures `287b3a2`. Additional lifetime tests
 found that skipping a binding can retain a previous temporary value/type or release
 a receiver/function too early. The revised implementation returns the real native

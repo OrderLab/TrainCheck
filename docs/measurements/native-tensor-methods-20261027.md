@@ -1,5 +1,7 @@
 # Historical CPU measurement: skipping tensor method metadata
 
+The final binding-preserving implementation has [fresh CPU and H100 measurements](native-tensor-bindings-20261027.md).
+
 **Superseded candidate:** these numbers measure `77ea19b`. Later lifetime tests
 found that skipping a bound method changes references observable by subsequent
 properties. The revised implementation retains real native binding and the
