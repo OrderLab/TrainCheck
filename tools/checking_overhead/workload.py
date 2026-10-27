@@ -430,10 +430,14 @@ def install_instrumentation(options: Options) -> TrackerStyle:
         instr_opts = InstrOpt(
             get_per_func_instr_opts(invariants), style, disable_proxy_dumping=True
         )
-        # The legacy config global is inferred as None by its initializer,
-        # although Instrumentor explicitly accepts an InstrOpt in this slot.
-        setattr(tc_config, "INSTR_OPTS", instr_opts)
         Path(tc_config.INSTR_OPTS_FILE).write_text(instr_opts.to_json() + "\n")
+        # Match collect_trace's generated-file boundary: positional selector keys
+        # become strings in JSON, as required by the runtime argument converter.
+        loaded_options: object = tc_config.load_instr_opts()
+        if not isinstance(loaded_options, InstrOpt):
+            raise TypeError("Saved instrumentation policy did not load as InstrOpt")
+        if loaded_options.model_tracker_style != style:
+            raise ValueError("Saved instrumentation policy changed tracker selection")
     tc_config.MODEL_TRACKER_STYLE = style
     from traincheck.instrumentor.tracer import Instrumentor
 

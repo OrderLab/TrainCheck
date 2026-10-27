@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import random
 import tempfile
 import unittest
@@ -15,11 +16,26 @@ import torch
 
 from tools.checking_overhead import workload
 from traincheck.config import config
+from traincheck.config.config import InstrOpt
 from traincheck.instrumentor.caches import META_VARS
 from traincheck.instrumentor.proxy_wrapper import subclass
 from traincheck.instrumentor.proxy_wrapper.proxy_registry import VarRegistry
-from traincheck.invariant.base_cls import Invariant, VarTypeParam
+from traincheck.instrumentor.tracer import to_dict_args_kwargs
+from traincheck.invariant.base_cls import (
+    APIParam,
+    Arguments,
+    GroupedPreconditions,
+    Invariant,
+    Preconditions,
+    UnconditionalPrecondition,
+    VarTypeParam,
+)
 from traincheck.invariant.consistency_relation import ConsistencyRelation
+from traincheck.invariant.contain_relation import APIContainRelation
+
+
+def positional_api(flag: bool, *, label: str) -> bool:
+    return flag
 
 
 @dataclass
@@ -265,6 +281,59 @@ class WorkloadTests(unittest.TestCase):
                     '"model_tracker_style": "sampler"',
                     (root / "traces" / "instr_opts.json").read_text(),
                 )
+
+    def test_selective_loads_saved_positional_selectors_before_instrumentation(
+        self,
+    ) -> None:
+        function = f"{__name__}.positional_api"
+        arguments = Arguments(
+            {"0": {"bool": True}}, {"label": {"str": "example"}}, function
+        )
+        invariant = Invariant(
+            APIContainRelation,
+            [APIParam(function, arguments=arguments), APIParam(function)],
+            GroupedPreconditions(
+                {"parent_func_call_pre": Preconditions([UnconditionalPrecondition()])}
+            ),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "traces").mkdir()
+            options = workload.Options(
+                "selective", root, root, invariants=root / "invariants.json"
+            )
+            with (
+                patch(
+                    "traincheck.invariant.base_cls.read_inv_file",
+                    return_value=[invariant],
+                ),
+                patch("traincheck.instrumentor.tracer.Instrumentor"),
+                patch.object(config, "INSTR_OPTS", None),
+                patch.object(config, "INSTR_OPTS_FILE", config.INSTR_OPTS_FILE),
+                patch.object(config, "MODEL_TRACKER_STYLE", None),
+            ):
+                workload.install_instrumentation(options)
+                loaded: object = config.load_instr_opts()
+                self.assertIsInstance(loaded, InstrOpt)
+                assert isinstance(loaded, InstrOpt)
+                saved: object = json.loads(
+                    (root / "traces" / "instr_opts.json").read_text()
+                )
+                self.assertIsInstance(saved, dict)
+                assert isinstance(saved, dict)
+                self.assertEqual(loaded.funcs_instr_opts, saved["funcs_instr_opts"])
+                self.assertEqual(set(loaded.funcs_instr_opts), {function})
+                selector = loaded.funcs_instr_opts[function]["dump_args_config"]
+                assert isinstance(selector, dict)
+                self.assertEqual(set(selector), {"flag", "0", "label"})
+                self.assertEqual(
+                    to_dict_args_kwargs((True,), {"label": "example"}, selector),
+                    {
+                        "args": {0: {"bool": True}},
+                        "kwargs": {"label": {"str": "example"}},
+                    },
+                )
+                self.assertFalse(loaded.funcs_instr_opts[function]["dump_ret"])
 
     def test_selective_rejects_empty_invariants_before_instrumentation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
