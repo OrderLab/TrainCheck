@@ -1,5 +1,6 @@
 """Bind verified native tensor methods without per-attribute warning contexts."""
 
+import platform
 import types
 from collections.abc import Mapping
 from typing import TypeAlias
@@ -54,6 +55,58 @@ _TENSOR_MRO, _TENSOR_NAMESPACES = _class_layout(_TENSOR_TYPE)
 _PARAMETER_MRO, _PARAMETER_NAMESPACES = _class_layout(_PARAMETER_TYPE)
 
 
+def _immutable_suffix(
+    mro: tuple[object, ...], namespaces: tuple[Mapping[object, object], ...]
+) -> tuple[tuple[Mapping[object, object], ...], Mapping[str, object]]:
+    """Keep mutable namespaces live and cache only a proven immutable tail.
+
+    CPython's Py_TPFLAGS_IMMUTABLETYPE (1 << 8) disallows attribute changes
+    through the Python type API. Read that flag through type's native descriptor,
+    bypassing metaclass hooks. Other runtimes or an absent capability keep every
+    namespace live. Present malformed native metadata remains an internal error.
+
+    The cache owns references already held by immutable type namespaces, and its
+    mapping cannot be modified. An unchanged MRO is required before callers use
+    it; no mutable class lookup decision is cached.
+    """
+    assert len(mro) == len(namespaces)
+    empty: Mapping[str, object] = types.MappingProxyType({})
+    if platform.python_implementation() != "CPython":
+        return namespaces, empty
+    flags_descriptor = _TYPE_NAMESPACE.get("__flags__", _ABSENT)
+    if flags_descriptor is _ABSENT:
+        return namespaces, empty
+    assert isinstance(
+        flags_descriptor, (types.GetSetDescriptorType, types.MemberDescriptorType)
+    )
+    offset = len(mro)
+    for index in range(len(mro) - 1, -1, -1):
+        owner = mro[index]
+        assert isinstance(owner, type)
+        flags: object = flags_descriptor.__get__(owner)
+        flags_type = type(flags)
+        assert flags_type is int
+        assert isinstance(flags, int)
+        if not flags & (1 << 8):
+            break
+        offset = index
+    suffix: dict[str, object] = {}
+    for namespace in namespaces[offset:]:
+        for name, descriptor in namespace.items():
+            name_type = type(name)
+            assert name_type is str
+            assert isinstance(name, str)
+            if name not in suffix:
+                suffix[name] = descriptor
+    return namespaces[:offset], types.MappingProxyType(suffix)
+
+
+_TENSOR_MUTABLE, _TENSOR_SUFFIX = _immutable_suffix(_TENSOR_MRO, _TENSOR_NAMESPACES)
+_PARAMETER_MUTABLE, _PARAMETER_SUFFIX = _immutable_suffix(
+    _PARAMETER_MRO, _PARAMETER_NAMESPACES
+)
+
+
 def _native_tensor_dictionary() -> types.GetSetDescriptorType | None:
     # Absence/replacement before import disables this optional fast path. A
     # genuine native descriptor remains valid for its owner after a user replaces
@@ -90,9 +143,11 @@ def tensor_method_binding(receiver: object, name: str) -> BoundTensorMethod | No
         return None
     receiver_type = type(receiver)
     if receiver_type is _TENSOR_TYPE:
-        mro, namespaces = _TENSOR_MRO, _TENSOR_NAMESPACES
+        mro, namespaces = _TENSOR_MRO, _TENSOR_MUTABLE
+        suffix = _TENSOR_SUFFIX
     elif receiver_type is _PARAMETER_TYPE:
-        mro, namespaces = _PARAMETER_MRO, _PARAMETER_NAMESPACES
+        mro, namespaces = _PARAMETER_MRO, _PARAMETER_MUTABLE
+        suffix = _PARAMETER_SUFFIX
     else:
         return None
     if _TENSOR_DICTIONARY is None or _MRO_DESCRIPTOR.__get__(receiver_type) is not mro:
@@ -107,6 +162,12 @@ def tensor_method_binding(receiver: object, name: str) -> BoundTensorMethod | No
             getattribute = namespace.get("__getattribute__", _ABSENT)
         if descriptor is _ABSENT:
             descriptor = namespace.get(name, _ABSENT)
+    if "__getattr__" in suffix:
+        return None
+    if getattribute is _ABSENT:
+        getattribute = suffix.get("__getattribute__", _ABSENT)
+    if descriptor is _ABSENT:
+        descriptor = suffix.get(name, _ABSENT)
     if getattribute is not _OBJECT_GETATTRIBUTE:
         return None
 
