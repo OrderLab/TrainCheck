@@ -1,8 +1,13 @@
 """One-process, one-GPU TorchTitan checking-overhead pilot.
 
-Run with torchrun --standalone --nproc-per-node=1 --module
-tools.checking_overhead.workload. Each invocation owns a fresh interpreter and
-output directory; installing instrumentation is intentionally process-global.
+Invoke the absolute script path with TrainCheck's source root on PYTHONPATH:
+
+    PYTHONPATH=/path/to/TrainCheck torchrun --standalone --nproc-per-node=1 \
+        /path/to/TrainCheck/tools/checking_overhead/workload.py [options]
+
+TorchTitan also has a tools package, so module lookup can select its package.
+Each invocation owns a fresh interpreter and output directory; installing
+instrumentation is intentionally process-global.
 """
 
 from __future__ import annotations
