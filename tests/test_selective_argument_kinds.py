@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import inspect
 import json
 import tempfile
 import unittest
@@ -27,6 +28,7 @@ from traincheck.invariant.base_cls import (
     Invariant,
     Preconditions,
     UnconditionalPrecondition,
+    load_function_signature,
 )
 from traincheck.invariant.contain_relation import (
     APIContainRelation,
@@ -62,6 +64,21 @@ def parent_call(
     keywords: dict[str, object],
 ) -> None:
     child(*arguments, **keywords)
+
+
+# Discovery with `-s tests` imports this module without the `tests.` prefix.
+# TrainCheck resolves fixture signatures from their package-qualified API names,
+# so use the canonical module's actual callables in both unittest invocations.
+# This leaves the production loader and the functions' metadata unchanged.
+if __name__ != "tests.test_selective_argument_kinds":
+    from tests import test_selective_argument_kinds as _fixtures
+
+    positional_child = _fixtures.positional_child
+    mixed_child = _fixtures.mixed_child
+    variadic_child = _fixtures.variadic_child
+    keyword_child = _fixtures.keyword_child
+    unknown_child = _fixtures.unknown_child
+    parent_call = _fixtures.parent_call
 
 
 def containment_rule(child: Callable[..., object], arguments: Arguments) -> Invariant:
@@ -130,6 +147,23 @@ def collect_and_check(
 
 
 class SelectiveArgumentKindsTests(unittest.TestCase):
+    def test_fixture_signatures_resolve_under_both_unittest_invocations(self) -> None:
+        fixtures: tuple[Callable[..., object], ...] = (
+            positional_child,
+            mixed_child,
+            variadic_child,
+            keyword_child,
+            unknown_child,
+            parent_call,
+        )
+        for function in fixtures:
+            with self.subTest(function=typename(function)):
+                name = typename(function)
+                self.assertTrue(name.startswith("tests.test_selective_argument_kinds."))
+                self.assertEqual(
+                    load_function_signature(name), inspect.signature(function)
+                )
+
     def test_positional_only_trace_passes_and_detects_changed_argument(self) -> None:
         child = typename(positional_child)
         rule = containment_rule(
