@@ -17,6 +17,7 @@ from traincheck.config.config import (
     RECURSION_ERR_THRESHOLD,
     TYPE_ERR_THRESHOLD,
 )
+from traincheck.instrumentor.metadata_methods import is_discardable_tensor_method
 
 # if torch.cuda.is_available():
 from traincheck.instrumentor.proxy_wrapper.hash import tensor_hash
@@ -425,6 +426,10 @@ def convert_var_to_dict(
         ):
             continue
 
+        # Verified ordinary method binding has no metadata to retain. Properties,
+        # shadowed methods, and custom lookup retain per-attribute warning guards.
+        if is_discardable_tensor_method(var, attr_name, primitive_types):
+            continue
         attr = safe_getattr(var, attr_name)
         if attr is NOT_FOUND:
             if not (
