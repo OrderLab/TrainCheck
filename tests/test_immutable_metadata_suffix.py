@@ -1,5 +1,8 @@
 """Immutable namespace caching must preserve live application class lookup."""
 
+from __future__ import annotations
+
+import sys
 import types
 import unittest
 from collections.abc import Mapping
@@ -11,6 +14,60 @@ from traincheck.instrumentor import dumper, metadata_methods
 
 
 class ImmutableMetadataSuffixTests(unittest.TestCase):
+    def test_custom_namespace_key_keeps_hook_lookups_on_original_path(self) -> None:
+        visits: list[object] = []
+
+        class CustomName(str):
+            def __hash__(self) -> int:
+                return str.__hash__(self)
+
+            def __eq__(self, other: object) -> bool:
+                visits.append(other)
+                raise AssertionError("Cache construction must not compare custom keys")
+
+        state: dict[object, object] = {CustomName("__getattr__"): False}
+        namespace: Mapping[object, object] = types.MappingProxyType(state)
+        namespaces = (namespace,)
+        mutable, suffix = metadata_methods._immutable_suffix((object,), namespaces)
+        self.assertIs(mutable, namespaces)
+        self.assertEqual(suffix.namespaces, ())
+        self.assertEqual(visits, [])
+
+    def test_cache_does_not_change_observable_metadata_reference_counts(self) -> None:
+        tensor = torch.ones(1)
+
+        def descriptor_references(value: torch.Tensor) -> int:
+            return sys.getrefcount(torch.Tensor.add)
+
+        def name_references(value: torch.Tensor) -> int:
+            return sys.getrefcount(torch.Tensor.add.__name__)
+
+        selected: dict[str, object] = {
+            "metadata_native_refcount": None,
+            "metadata_native_name_refcount": None,
+        }
+        with patch.object(
+            torch.Tensor,
+            "metadata_native_refcount",
+            property(descriptor_references),
+            create=True,
+        ):
+            with patch.object(
+                torch.Tensor,
+                "metadata_native_name_refcount",
+                property(name_references),
+                create=True,
+            ):
+                before = dumper.convert_var_to_dict(tensor, False, selected)
+                additional_cache = metadata_methods._immutable_suffix(
+                    metadata_methods._TENSOR_MRO,
+                    metadata_methods._TENSOR_NAMESPACES,
+                )
+                after = dumper.convert_var_to_dict(tensor, False, selected)
+        self.assertEqual(after, before)
+        # Keep the additional cache alive through both observations.
+        self.assertIsNotNone(additional_cache)
+
     def test_metaclass_cannot_spoof_immutable_type_flags(self) -> None:
         visits: list[str] = []
 
@@ -27,7 +84,7 @@ class ImmutableMetadataSuffixTests(unittest.TestCase):
         mutable, suffix = metadata_methods._immutable_suffix(mro, namespaces)
         self.assertEqual(visits, [])
         self.assertIs(mutable[0], namespaces[0])
-        self.assertNotIn("marker", suffix)
+        self.assertTrue(all(view is not namespaces[0] for view in suffix.namespaces))
         Mutable.marker = 2
         self.assertEqual(mutable[0]["marker"], 2)
 
@@ -42,8 +99,8 @@ class ImmutableMetadataSuffixTests(unittest.TestCase):
         mutable, suffix = metadata_methods._immutable_suffix(mro, namespaces)
         self.assertIs(mutable[0], namespaces[0])
         self.assertIs(mutable[1], namespaces[1])
-        self.assertNotIn("middle_marker", suffix)
-        self.assertNotIn("head_marker", suffix)
+        self.assertTrue(all(view is not namespaces[0] for view in suffix.namespaces))
+        self.assertTrue(all(view is not namespaces[1] for view in suffix.namespaces))
         Middle.middle_marker = 3
         self.assertEqual(mutable[1]["middle_marker"], 3)
         setattr(Head, "inserted", 4)
@@ -54,10 +111,12 @@ class ImmutableMetadataSuffixTests(unittest.TestCase):
     def assert_uncached_binding(
         self,
         mutable: tuple[Mapping[object, object], ...],
-        suffix: Mapping[str, object],
+        suffix: metadata_methods._ImmutableSuffix,
     ) -> None:
         self.assertIs(mutable, metadata_methods._TENSOR_NAMESPACES)
-        self.assertEqual(suffix, {})
+        self.assertEqual(suffix.namespaces, ())
+        self.assertFalse(suffix.has_getattr)
+        self.assertFalse(suffix.object_getattribute)
         tensor = torch.ones(1)
         with patch.object(metadata_methods, "_TENSOR_MUTABLE", mutable):
             with patch.object(metadata_methods, "_TENSOR_SUFFIX", suffix):

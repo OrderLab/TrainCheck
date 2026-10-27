@@ -3,7 +3,7 @@
 import platform
 import types
 from collections.abc import Mapping
-from typing import TypeAlias
+from typing import NamedTuple, TypeAlias
 
 import torch
 
@@ -55,22 +55,30 @@ _TENSOR_MRO, _TENSOR_NAMESPACES = _class_layout(_TENSOR_TYPE)
 _PARAMETER_MRO, _PARAMETER_NAMESPACES = _class_layout(_PARAMETER_TYPE)
 
 
+class _ImmutableSuffix(NamedTuple):
+    namespaces: tuple[Mapping[object, object], ...]
+    has_getattr: bool
+    object_getattribute: bool
+
+
 def _immutable_suffix(
     mro: tuple[object, ...], namespaces: tuple[Mapping[object, object], ...]
-) -> tuple[tuple[Mapping[object, object], ...], Mapping[str, object]]:
-    """Keep mutable namespaces live and cache only a proven immutable tail.
+) -> tuple[tuple[Mapping[object, object], ...], _ImmutableSuffix]:
+    """Keep namespaces live and cache only immutable lookup-hook facts.
 
     CPython's Py_TPFLAGS_IMMUTABLETYPE (1 << 8) disallows attribute changes
     through the Python type API. Read that flag through type's native descriptor,
     bypassing metaclass hooks. Other runtimes or an absent capability keep every
     namespace live. Present malformed native metadata remains an internal error.
 
-    The cache owns references already held by immutable type namespaces, and its
-    mapping cannot be modified. An unchanged MRO is required before callers use
-    it; no mutable class lookup decision is cached.
+    Retain only existing instrumenter-owned namespace views and booleans. Even
+    immutable descriptors and their names must not acquire extra cache references:
+    application properties can observe their reference counts. Each descriptor
+    is still read from its original namespace. An unchanged MRO is required before
+    callers use the facts; no mutable class lookup decision is cached.
     """
     assert len(mro) == len(namespaces)
-    empty: Mapping[str, object] = types.MappingProxyType({})
+    empty = _ImmutableSuffix((), False, False)
     if platform.python_implementation() != "CPython":
         return namespaces, empty
     flags_descriptor = _TYPE_NAMESPACE.get("__flags__", _ABSENT)
@@ -90,15 +98,24 @@ def _immutable_suffix(
         if not flags & (1 << 8):
             break
         offset = index
-    suffix: dict[str, object] = {}
-    for namespace in namespaces[offset:]:
-        for name, descriptor in namespace.items():
+    immutable = namespaces[offset:]
+    # A custom dictionary key can execute equality during hook lookup. Such a
+    # namespace keeps the original live path rather than moving those calls.
+    for namespace in immutable:
+        for name in namespace:
             name_type = type(name)
-            assert name_type is str
-            assert isinstance(name, str)
-            if name not in suffix:
-                suffix[name] = descriptor
-    return namespaces[:offset], types.MappingProxyType(suffix)
+            if name_type is not str:
+                return namespaces, empty
+    getattribute: object = _ABSENT
+    has_getattr = False
+    for namespace in immutable:
+        if "__getattr__" in namespace:
+            has_getattr = True
+        if getattribute is _ABSENT:
+            getattribute = namespace.get("__getattribute__", _ABSENT)
+    return namespaces[:offset], _ImmutableSuffix(
+        immutable, has_getattr, getattribute is _OBJECT_GETATTRIBUTE
+    )
 
 
 _TENSOR_MUTABLE, _TENSOR_SUFFIX = _immutable_suffix(_TENSOR_MRO, _TENSOR_NAMESPACES)
@@ -162,12 +179,15 @@ def tensor_method_binding(receiver: object, name: str) -> BoundTensorMethod | No
             getattribute = namespace.get("__getattribute__", _ABSENT)
         if descriptor is _ABSENT:
             descriptor = namespace.get(name, _ABSENT)
-    if "__getattr__" in suffix:
+    if suffix.has_getattr:
         return None
-    if getattribute is _ABSENT:
-        getattribute = suffix.get("__getattribute__", _ABSENT)
+    if getattribute is _ABSENT and suffix.object_getattribute:
+        getattribute = _OBJECT_GETATTRIBUTE
     if descriptor is _ABSENT:
-        descriptor = suffix.get(name, _ABSENT)
+        for namespace in suffix.namespaces:
+            descriptor = namespace.get(name, _ABSENT)
+            if descriptor is not _ABSENT:
+                break
     if getattribute is not _OBJECT_GETATTRIBUTE:
         return None
 
