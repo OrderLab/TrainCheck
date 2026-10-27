@@ -1,7 +1,8 @@
-"""Recognize native tensor method bindings discarded by metadata conversion."""
+"""Bind verified native tensor methods without per-attribute warning contexts."""
 
 import types
 from collections.abc import Mapping
+from typing import TypeAlias
 
 import torch
 
@@ -10,6 +11,10 @@ _OBJECT_GETATTRIBUTE = vars(object)["__getattribute__"]
 _ABSENT = object()
 _TENSOR_TYPE = torch.Tensor
 _PARAMETER_TYPE = torch.nn.Parameter
+
+BoundTensorMethod: TypeAlias = (
+    types.MethodType | types.BuiltinFunctionType | types.MethodWrapperType
+)
 
 
 def _type_descriptors() -> tuple[
@@ -66,10 +71,8 @@ def _native_tensor_dictionary() -> types.GetSetDescriptorType | None:
 _TENSOR_DICTIONARY = _native_tensor_dictionary()
 
 
-def is_discardable_tensor_method(
-    receiver: object, name: str, retained_types: set[type[object]]
-) -> bool:
-    """Whether normal lookup can only bind an otherwise discarded method.
+def tensor_method_binding(receiver: object, name: str) -> BoundTensorMethod | None:
+    """Bind a native method, or return None to use the original guarded getter.
 
     This is deliberately restricted to exact Tensor/Parameter instances with
     empty native dictionaries. Subclasses, custom lookup, altered inheritance,
@@ -78,47 +81,43 @@ def is_discardable_tensor_method(
     after an earlier getter mutates the receiver or its class. No application
     property, descriptor or lookup hook is invoked while deciding.
 
-    ``retained_types`` is the converter's live primitive-type configuration: a
-    bound method promoted to primitive data must still be recorded. Names with
-    TrainCheck metadata anywhere in them are likewise never discarded.
+    Return the real binding and leave classification to the caller: even an
+    unrecorded method keeps its receiver/function alive until the next attribute
+    replaces it. Skipping the binding would change observable object lifetimes.
     """
     name_type = type(name)
-    retained_set_type = type(retained_types)
-    if name_type is not str or "_TRAINCHECK" in name or retained_set_type is not set:
-        return False
+    if name_type is not str or "_TRAINCHECK" in name:
+        return None
     receiver_type = type(receiver)
     if receiver_type is _TENSOR_TYPE:
         mro, namespaces = _TENSOR_MRO, _TENSOR_NAMESPACES
     elif receiver_type is _PARAMETER_TYPE:
         mro, namespaces = _PARAMETER_MRO, _PARAMETER_NAMESPACES
     else:
-        return False
+        return None
     if _TENSOR_DICTIONARY is None or _MRO_DESCRIPTOR.__get__(receiver_type) is not mro:
-        return False
+        return None
 
     getattribute: object = _ABSENT
     descriptor: object = _ABSENT
     for namespace in namespaces:
         if "__getattr__" in namespace:
-            return False
+            return None
         if getattribute is _ABSENT:
             getattribute = namespace.get("__getattribute__", _ABSENT)
         if descriptor is _ABSENT:
             descriptor = namespace.get(name, _ABSENT)
     if getattribute is not _OBJECT_GETATTRIBUTE:
-        return False
+        return None
 
     descriptor_type = type(descriptor)
-    if descriptor_type is types.FunctionType:
-        bound_type: type[object] = types.MethodType
-    elif descriptor_type is types.MethodDescriptorType:
-        bound_type = types.BuiltinFunctionType
-    elif descriptor_type is types.WrapperDescriptorType:
-        bound_type = types.MethodWrapperType
-    elif descriptor_type is types.ClassMethodDescriptorType:
-        bound_type = types.BuiltinFunctionType
-    else:
-        return False
+    if (
+        descriptor_type is not types.FunctionType
+        and descriptor_type is not types.MethodDescriptorType
+        and descriptor_type is not types.WrapperDescriptorType
+        and descriptor_type is not types.ClassMethodDescriptorType
+    ):
+        return None
     if descriptor_type is not types.FunctionType:
         assert isinstance(
             descriptor,
@@ -135,19 +134,33 @@ def is_discardable_tensor_method(
         else:
             # A foreign descriptor such as str.upper would fail to bind, and
             # the original getter must retain its failure/backoff behavior.
-            return False
+            return None
 
     state: object = _TENSOR_DICTIONARY.__get__(receiver, receiver_type)
     assert isinstance(state, dict)
     # Even membership checks on a nonempty dictionary can run user key equality.
     # Falling back here preserves lookup multiplicity, shadowing and side effects.
     if dict.__len__(state) != 0:
-        return False
-    # An ordinary membership test could invoke custom metaclass equality, then
-    # invoke it again after falling back. Snapshot the exact set without user
-    # iteration hooks, inspect entries without hashing/comparing them, and leave
-    # custom metaclass configurations to the original classifier unchanged.
-    for retained in tuple(retained_types):
-        if type(retained) is not type or retained is bound_type:
-            return False
-    return True
+        return None
+    # Call the descriptor TYPE's native slot. A Python function may shadow its
+    # own __get__ attribute, which normal descriptor lookup never invokes.
+    binding: object
+    if isinstance(descriptor, types.FunctionType):
+        binding = types.FunctionType.__get__(descriptor, receiver, receiver_type)
+    elif isinstance(descriptor, types.MethodDescriptorType):
+        binding = types.MethodDescriptorType.__get__(
+            descriptor, receiver, receiver_type
+        )
+    elif isinstance(descriptor, types.WrapperDescriptorType):
+        binding = types.WrapperDescriptorType.__get__(
+            descriptor, receiver, receiver_type
+        )
+    else:
+        assert isinstance(descriptor, types.ClassMethodDescriptorType)
+        binding = types.ClassMethodDescriptorType.__get__(
+            descriptor, receiver, receiver_type
+        )
+    assert isinstance(
+        binding, (types.MethodType, types.BuiltinFunctionType, types.MethodWrapperType)
+    )
+    return binding

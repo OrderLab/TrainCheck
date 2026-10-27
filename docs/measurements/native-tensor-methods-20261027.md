@@ -1,4 +1,10 @@
-# Avoiding discarded tensor method metadata
+# Historical CPU measurement: skipping tensor method metadata
+
+**Superseded candidate:** these numbers measure `77ea19b`. Later lifetime tests
+found that skipping a bound method changes references observable by subsequent
+properties. The revised implementation retains real native binding and the
+original classifier, bypassing only the guarded getter. Its fresh measurements
+must be reported separately; the figures below are not claims about that revision.
 
 TrainCheck's metadata converter reads hundreds of tensor methods and then discards
 their bound callable values. Each read also enters and exits a warning-suppression

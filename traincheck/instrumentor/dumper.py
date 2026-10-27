@@ -17,7 +17,7 @@ from traincheck.config.config import (
     RECURSION_ERR_THRESHOLD,
     TYPE_ERR_THRESHOLD,
 )
-from traincheck.instrumentor.metadata_methods import is_discardable_tensor_method
+from traincheck.instrumentor.metadata_methods import tensor_method_binding
 
 # if torch.cuda.is_available():
 from traincheck.instrumentor.proxy_wrapper.hash import tensor_hash
@@ -426,11 +426,22 @@ def convert_var_to_dict(
         ):
             continue
 
-        # Verified ordinary method binding has no metadata to retain. Properties,
-        # shadowed methods, and custom lookup retain per-attribute warning guards.
-        if is_discardable_tensor_method(var, attr_name, primitive_types):
-            continue
-        attr = safe_getattr(var, attr_name)
+        # Native bindings need no warning guard, but still replace attr and run
+        # the original classifier. Retain the real binding's receiver/function
+        # lifetimes, including while a later property executes.
+        attr: object
+        try:
+            method = tensor_method_binding(var, attr_name)
+        except MemoryError:
+            # Native allocation failure has the same backoff as safe_getattr.
+            # Release any previous binding; keep internal contract failures loud.
+            method = None
+            attr = NOT_FOUND
+        else:
+            if method is None:
+                attr = safe_getattr(var, attr_name)
+            else:
+                attr = method
         if attr is NOT_FOUND:
             if not (
                 attr_name == "data"

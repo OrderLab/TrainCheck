@@ -1,4 +1,4 @@
-"""Adversarial lookup and configuration contracts for tensor method skipping."""
+"""Adversarial lookup and configuration contracts for native tensor method binding."""
 
 import json
 import subprocess
@@ -24,6 +24,31 @@ class NativeMetadataContractTests(unittest.TestCase):
             "skip_type_due_to_recursion",
         ):
             contexts.enter_context(patch.object(dumper, name, {}))
+
+    def test_native_binding_allocation_failure_keeps_attribute_backoff(self) -> None:
+        visits: list[str] = []
+
+        def exhausted(receiver: object, name: str) -> None:
+            visits.append(name)
+            raise MemoryError("native binding allocation failed")
+
+        tensor = torch.ones(1)
+        with patch.object(dumper, "tensor_method_binding", exhausted):
+            first = dumper.convert_var_to_dict(tensor, False, {"add": None})
+            second = dumper.convert_var_to_dict(tensor, False, {"add": None})
+        self.assertEqual(first, {})
+        self.assertEqual(second, {})
+        self.assertEqual(visits, ["add"])
+        self.assertIn("add", dumper.skip_attrs_due_to_errs[str(torch.Tensor)])
+
+    def test_native_binding_internal_assertion_is_not_hidden(self) -> None:
+        def broken_contract(receiver: object, name: str) -> None:
+            raise AssertionError("invalid native descriptor")
+
+        with patch.object(dumper, "tensor_method_binding", broken_contract):
+            with self.assertRaisesRegex(AssertionError, "invalid native descriptor"):
+                dumper.convert_var_to_dict(torch.ones(1), False, {"add": None})
+        self.assertEqual(dumper.skip_attrs_due_to_errs, {})
 
     def test_native_type_metadata_matches_runtime_storage(self) -> None:
         # Run on each supported Python runtime: __mro__ changes native descriptor
@@ -95,7 +120,7 @@ class NativeMetadataContractTests(unittest.TestCase):
             try:
                 setattr(torch.nn.Parameter, "__bases__", (ReplacementBase,))
                 with patch.object(
-                    dumper, "is_discardable_tensor_method", return_value=False
+                    dumper, "tensor_method_binding", return_value=None
                 ):
                     baseline = dumper.convert_var_to_dict(value, False, {"add": None})
                 result = dumper.convert_var_to_dict(value, False, {"add": None})
@@ -132,7 +157,7 @@ class NativeMetadataContractTests(unittest.TestCase):
         storage: object = object.__getattribute__(value, "__dict__")
         assert isinstance(storage, dict)
         dict.__setitem__(storage, CollidingKey(), 1)
-        with patch.object(dumper, "is_discardable_tensor_method", return_value=False):
+        with patch.object(dumper, "tensor_method_binding", return_value=None):
             expected = dumper.convert_var_to_dict(value, False, {"add": None})
         expected_visits = list(visits)
         visits.clear()
@@ -192,9 +217,7 @@ class NativeMetadataContractTests(unittest.TestCase):
         retained.add(types.BuiltinFunctionType)
         value = torch.ones(1)
         with patch.object(dumper, "primitive_types", retained):
-            with patch.object(
-                dumper, "is_discardable_tensor_method", return_value=False
-            ):
+            with patch.object(dumper, "tensor_method_binding", return_value=None):
                 expected = dumper.convert_var_to_dict(value, False, {"add": None})
             expected_visits = list(visits)
             visits.clear()
@@ -223,9 +246,7 @@ class NativeMetadataContractTests(unittest.TestCase):
         value.__dict__["unrelated"] = 1
         visits.clear()
         with patch.object(dumper, "primitive_types", retained):
-            with patch.object(
-                dumper, "is_discardable_tensor_method", return_value=False
-            ):
+            with patch.object(dumper, "tensor_method_binding", return_value=None):
                 expected = dumper.convert_var_to_dict(value, False, {"add": None})
             expected_visits = list(visits)
             visits.clear()

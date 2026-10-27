@@ -45,9 +45,7 @@ class NativeMetadataMethodTests(unittest.TestCase):
                 }
                 rng_before = torch.get_rng_state().clone()
                 state_before = value.detach().clone()
-                with patch.object(
-                    dumper, "is_discardable_tensor_method", return_value=False
-                ):
+                with patch.object(dumper, "tensor_method_binding", return_value=None):
                     expected = dumper.convert_var_to_dict(value, False, config)
                 actual = dumper.convert_var_to_dict(value, False, config)
                 self.assertEqual(actual, expected)

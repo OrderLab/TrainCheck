@@ -1,4 +1,10 @@
-# Native tensor method optimization on H100
+# Historical H100 measurement: skipping tensor method metadata
+
+**Superseded candidate:** this report measures `287b3a2`. Additional lifetime tests
+found that skipping a binding can retain a previous temporary value/type or release
+a receiver/function too early. The revised implementation returns the real native
+binding and runs the original classifier. It requires fresh performance and trace
+validation; none of the numbers below are relabeled as results for the revision.
 
 Ordinary job **55325956** measures the metadata optimization on the native
 TorchTitan Llama debug workload. The median paired steady-step reduction is
@@ -80,10 +86,22 @@ byte hashes; it is not an archived full optimizer-state checkpoint. No recorded
 IDs, arrays, hashes or values were normalized to obtain state parity.
 
 All eight selective phases use the same 722 frozen invariants and identical
-compiled policy bytes. Raw trace audits and observed/direct checking of the
-baseline/candidate reference and holdout corpora are running separately on
-labmach. Invariant activation and checker parity are **pending**, not implied by
-the timing/state or diagnostic-volume checks above.
+compiled policy bytes. All 16 raw/parser audit and checking phases completed on
+labmach for the baseline/candidate reference and holdout corpora. Every corpus
+has 719 active rules (718 passes and one violation), three dormant rules, and no
+errors, unknowns or skips. Observed/direct checker results match for all 722 rules
+within each corpus. Cross-variant per-rule outcomes and decision counts match:
+114,373 decisions per reference corpus and 218,713 per holdout corpus.
+
+The shared violation is rule 614, `cuda.stream() always calls
+StreamContext.__init__()`, whose frozen child argument contains a literal CUDA
+stream handle. Dormant rules 216/276 require a reference worker thread ID; rule
+717 has an unequal-thread precondition. Rules were not filtered or reinferred.
+Cross-variant complete checker results match structurally for 721/722 rules;
+rule 614's failure evidence retains different IDs/timestamps. Raw traces are not
+byte-equal. All eight raw/parser audits reconcile records and report zero issues.
+The completed validation archive SHA-256 is
+`535ea73ffa22b9c00214495d8df8a9cb8b005022509dd55f1ac83956c5fcd2ff`.
 
 ## Revision, environment and reproduction
 
