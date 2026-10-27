@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import inspect
 import logging
 import os
 
@@ -120,6 +121,61 @@ def _distinct_argument_api_name(invariant: Invariant) -> str:
     return api.api_full_name
 
 
+def _requires_full_argument_metadata(arguments: Arguments, api_name: str) -> bool:
+    """Retain complete inputs when the current selector cannot express a requirement.
+
+    Missing signatures and unresolved required names are explicit unsupported
+    cases. Malformed metadata is an error, even if another requirement already
+    requires full collection. The caller unions this decision across all rules.
+    """
+    if not isinstance(api_name, str) or not api_name:
+        raise ValueError("API argument requirements need a nonempty API name")
+    if not isinstance(arguments.func_name, str) or arguments.func_name != api_name:
+        raise ValueError("Argument function name must match its API parameter")
+    requirements: object = arguments.arguments
+    if not isinstance(requirements, dict):
+        raise TypeError("Required argument metadata must be a dictionary")
+    required_names: set[str] = set()
+    for name, metadata in requirements.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("Required argument names must be nonempty strings")
+        if not isinstance(metadata, dict):
+            raise TypeError("Each argument requirement must contain typed metadata")
+        if len(metadata) != 1:
+            raise ValueError("Each argument requirement must contain exactly one type")
+        type_name = next(iter(metadata))
+        if not isinstance(type_name, str) or not type_name:
+            raise ValueError("Argument metadata type names must be nonempty strings")
+        required_names.add(name)
+
+    signature: object = arguments.signature
+    if signature is not None and not isinstance(signature, inspect.Signature):
+        raise TypeError("Argument signature must be inspect.Signature or None")
+    if signature is None:
+        return bool(required_names)
+    supported_kinds = (
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.KEYWORD_ONLY,
+    )
+    known_kinds = supported_kinds + (
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.VAR_POSITIONAL,
+        inspect.Parameter.VAR_KEYWORD,
+    )
+    for name, parameter in signature.parameters.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("Signature parameter names must be nonempty strings")
+        if not isinstance(parameter, inspect.Parameter) or parameter.name != name:
+            raise TypeError("Signature entries must be matching inspect.Parameters")
+        if parameter.kind not in known_kinds:
+            raise ValueError("Unknown signature parameter kind")
+    return any(
+        name not in signature.parameters
+        or signature.parameters[name].kind not in supported_kinds
+        for name in required_names
+    )
+
+
 def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
     """
     Get a list of functions from the invariants
@@ -204,16 +260,23 @@ def get_per_func_instr_opts(
 
                 if isinstance(param.arguments, Arguments):
                     func_instr_opts[func_name]["dump_args"] = True
-                    arg_instr_opt = param.arguments.to_instr_opts_dict()
-                    if "dump_args_config" in func_instr_opts[func_name]:
-                        existing_config = func_instr_opts[func_name]["dump_args_config"]
-                        assert isinstance(existing_config, dict)
-                        func_instr_opts[func_name]["dump_args_config"] = merge(
-                            existing_config,
-                            arg_instr_opt,
-                        )
+                    if _requires_full_argument_metadata(param.arguments, func_name):
+                        full_argument_apis.add(func_name)
                     else:
-                        func_instr_opts[func_name]["dump_args_config"] = arg_instr_opt
+                        arg_instr_opt = param.arguments.to_instr_opts_dict()
+                        if "dump_args_config" in func_instr_opts[func_name]:
+                            existing_config = func_instr_opts[func_name][
+                                "dump_args_config"
+                            ]
+                            assert isinstance(existing_config, dict)
+                            func_instr_opts[func_name]["dump_args_config"] = merge(
+                                existing_config,
+                                arg_instr_opt,
+                            )
+                        else:
+                            func_instr_opts[func_name][
+                                "dump_args_config"
+                            ] = arg_instr_opt
 
             if isinstance(param, InputOutputParam):
                 func_name = param.api_name
