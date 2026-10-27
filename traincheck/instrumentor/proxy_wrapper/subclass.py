@@ -2,6 +2,9 @@ import functools
 import logging
 import os
 import threading
+import weakref
+from dataclasses import dataclass, field
+from typing import Callable, cast
 
 import torch
 from torch import nn
@@ -14,9 +17,11 @@ from traincheck.instrumentor.tracer import TraceLineType
 from traincheck.utils import get_timestamp_ns, typename
 
 from .proxy_basics import is_fake_tensor
-from .proxy_registry import get_global_registry
+from .proxy_registry import RegistryEntry, get_global_registry
 
 SUBCLASS_HOOK_KEY = "_tc_setattr_hook"
+MODEL_BINDINGS_KEY = "_tc_model_bindings"
+MODEL_CLEANUP_KEY = "_tc_model_tracking_cleanup"
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +35,27 @@ def in_dynamo() -> bool:
         return False
 
 
+@dataclass
+class _ParameterBindings:
+    paths: dict[object, str] = field(default_factory=dict)
+
+
+@dataclass
+class _ModuleTrackingHooks:
+    callbacks: dict[object, Callable[[nn.Module, str], None]] = field(
+        default_factory=dict
+    )
+
+    def __call__(self, owner: nn.Module, name: str) -> None:
+        for callback in tuple(self.callbacks.values()):
+            callback(owner, name)
+
+
 class ProxyParameter(torch.nn.Parameter):
+    process_id: int
+    thread_id: int | None
+    var_name: str
+
     loglevel = logging.INFO
 
     def __new__(
@@ -173,13 +198,25 @@ class ProxyParameter(torch.nn.Parameter):
         # TODO:
         # Proxy.var_dict[self.__dict__["var_name"]].last_update_timestamp = current_time
 
-    def register_object(self):
+    def _model_tracking_enabled(self) -> bool:
+        # Direct construction has no model ownership metadata and remains active.
+        # Model-owned proxies remain observable while any tracked root owns them.
+        if MODEL_BINDINGS_KEY not in self.__dict__:
+            return True
+        bindings: object = self.__dict__[MODEL_BINDINGS_KEY]
+        if not isinstance(bindings, _ParameterBindings):
+            raise TypeError("ProxyParameter model bindings must be _ParameterBindings")
+        return bool(bindings.paths)
+
+    def register_object(self) -> None:
+        if not self._model_tracking_enabled():
+            return
         get_global_registry().add_var(
             self, self.__dict__["var_name"], self.__dict__["var_type"]
         )
 
-    def dump_trace(self, phase, dump_loc):
-        if config.DISABLE_WRAPPER:
+    def dump_trace(self, phase: str, dump_loc: str | None) -> None:
+        if config.DISABLE_WRAPPER or not self._model_tracking_enabled():
             return
 
         # TODO
@@ -215,76 +252,277 @@ class ProxyParameter(torch.nn.Parameter):
 
 def proxy_parameter(
     module: nn.Module,
-    logdir="proxy_log.log",
-    log_level=logging.INFO,
-    # TODO
-    # recurse=False,
-    parent_name="",
-    should_dump_trace=True,
-    from_call=False,
-    from_iter=False,
-    # TODO
-    # from_copy=False,
-):
+    logdir: str = "proxy_log.log",
+    log_level: int = logging.INFO,
+    parent_name: str = "",
+    should_dump_trace: bool = True,
+    from_call: bool = False,
+    from_iter: bool = False,
+) -> None:
+    """Track a module tree while preserving ordinary Parameter identity.
+
+    Exact nn.Parameter objects are promoted in place: source references, aliases,
+    autograd state, and existing optimizer references remain one object. Custom
+    Parameter subclasses keep the legacy out-of-place conversion. Their aliases
+    within one traversal share a proxy, but retained custom-source references stay
+    separate; assigning a source again converts its current state anew.
+
+    Observation uses the first registered live root's canonical parameter path.
+    Attribute assignments (including None) reconcile paths; ordinary attributes
+    do not rescan the tree. Direct register_parameter/register_module calls and
+    delattr remain outside this setter hook. Collecting one root preserves other
+    roots' ownership. Roots and modules are held weakly; retracking a root replaces
+    its prior session.
+    Distinct roots should use distinct parent_name namespaces. Callers must
+    serialize tracking/assignment; concurrent model mutation is unsupported.
+    """
+    if not isinstance(module, nn.Module):
+        raise TypeError("proxy_parameter expects a torch.nn.Module")
     if in_dynamo():
         return
-    for name, t in list(module.named_parameters(recurse=False)):
-        var_type = typename(t, is_runtime=True)
-        logger.debug(
-            f"[ProxyParameter] Proxying parameter: {parent_name}.{name} of type {var_type}"
-        )
-        module._parameters[name] = ProxyParameter(
-            t,
-            logdir,
-            log_level,
-            parent_name + "." + name,
-            var_type,
-            should_dump_trace,
-            from_call,
-            from_iter,
-        )
-    for name, child in module.named_children():
-        proxy_parameter(
-            child,
-            logdir,
-            log_level,
-            parent_name + "." + name,
-            should_dump_trace,
-            from_call,
-            from_iter,
-        )
+    if MODEL_CLEANUP_KEY in module.__dict__:
+        previous_cleanup: object = module.__dict__[MODEL_CLEANUP_KEY]
+        if not callable(previous_cleanup):
+            raise TypeError("TrainCheck model tracking cleanup must be callable")
+        previous_cleanup()
 
-    # we need to instrument the __setattr__ of the module to capture parameter updates
-    def subclass_setattr_hook(self, name, value):
-        logger.debug(
-            f"[ProxyParameter] Module __setattr__ called: {parent_name}.{name} = {type(value)}"
-        )
-        if isinstance(value, torch.Tensor) or isinstance(value, torch.nn.Module):
-            proxy_parameter(
-                value,
+    ownership = object()
+    cleanup_requested = False
+    tracked: dict[int, weakref.ReferenceType[ProxyParameter]] = {}
+    hooked_modules: dict[int, weakref.ReferenceType[nn.Module]] = {}
+
+    def bindings_for(parameter: ProxyParameter) -> _ParameterBindings:
+        if MODEL_BINDINGS_KEY not in parameter.__dict__:
+            parameter.__dict__[MODEL_BINDINGS_KEY] = _ParameterBindings()
+        bindings: object = parameter.__dict__[MODEL_BINDINGS_KEY]
+        if not isinstance(bindings, _ParameterBindings):
+            raise TypeError("ProxyParameter model bindings must be _ParameterBindings")
+        return bindings
+
+    def reconcile(parameters: dict[int, ProxyParameter]) -> None:
+        registry = get_global_registry()
+        with registry.registry_lock:
+            names: list[tuple[ProxyParameter, str | None]] = []
+            for parameter in parameters.values():
+                old_name: object = parameter.__dict__["var_name"]
+                if not isinstance(old_name, str):
+                    raise TypeError("ProxyParameter observation name must be str")
+                paths = bindings_for(parameter).paths
+                new_name = next(iter(paths.values())) if paths else None
+                if new_name is not None and not isinstance(new_name, str):
+                    raise TypeError("ProxyParameter model binding path must be str")
+                if old_name != new_name:
+                    entry = registry.registry.get(old_name)
+                    if entry is not None and entry.var is parameter:
+                        del registry.registry[old_name]
+                names.append((parameter, new_name))
+            # Remove all departed paths before publishing replacements, including
+            # an old tied parameter moving to its surviving alias's name.
+            for parameter, name in names:
+                if name is None:
+                    continue
+                parameter.__dict__["var_name"] = name
+                entry = registry.registry.get(name)
+                if entry is None or entry.var is not parameter:
+                    registry.registry[name] = RegistryEntry(
+                        parameter, name, "torch.nn.Parameter", stale=False
+                    )
+
+    def remove_hook(owner: nn.Module) -> None:
+        if SUBCLASS_HOOK_KEY not in owner.__dict__:
+            return
+        hook: object = owner.__dict__[SUBCLASS_HOOK_KEY]
+        if not isinstance(hook, _ModuleTrackingHooks):
+            raise TypeError(
+                "TrainCheck model tracking hook must be _ModuleTrackingHooks"
+            )
+        hook.callbacks.pop(ownership, None)
+        if not hook.callbacks:
+            del owner.__dict__[SUBCLASS_HOOK_KEY]
+
+    def retire() -> None:
+        affected: dict[int, ProxyParameter] = {}
+        for identity, reference in tracked.items():
+            parameter = reference()
+            if parameter is not None:
+                bindings_for(parameter).paths.pop(ownership, None)
+                affected[identity] = parameter
+        reconcile(affected)
+        tracked.clear()
+        for reference_to_module in hooked_modules.values():
+            owner = reference_to_module()
+            if owner is None:
+                continue
+            remove_hook(owner)
+        hooked_modules.clear()
+        root = root_reference()
+        if root is not None and root.__dict__.get(MODEL_CLEANUP_KEY) is cleanup:
+            del root.__dict__[MODEL_CLEANUP_KEY]
+
+    def cleanup() -> None:
+        nonlocal cleanup_requested
+        if cleanup_requested:
+            return
+        cleanup_requested = True
+        finalizer.detach()
+        get_global_registry().defer_cleanup(retire)
+
+    # finalize keeps the death observer outside the module/session closure cycle,
+    # so ordinary model cycles (for example a saved bound forward method) retire
+    # correctly. The callback captures only a weak root, never the root itself.
+    root_reference = weakref.ref(module)
+    finalizer = weakref.finalize(module, cleanup)
+    finalizer.atexit = False
+    module.__dict__[MODEL_CLEANUP_KEY] = cleanup
+
+    def convert_parameter(parameter: nn.Parameter, name: str) -> nn.Parameter:
+        if not isinstance(parameter, nn.Parameter):
+            raise TypeError(
+                f"Registered parameter {name!r} is not a torch.nn.Parameter"
+            )
+        if isinstance(parameter, ProxyParameter) or is_fake_tensor(parameter):
+            return parameter
+        if type(parameter) is nn.Parameter:
+            # A fresh Tensor wrapper splits source and proxy autograd metadata.
+            # Promotion preserves the Python object, TensorImpl, and every slot.
+            torch.Tensor.__setattr__(parameter, "__class__", ProxyParameter)
+            assert isinstance(parameter, ProxyParameter)
+            bindings_for(parameter).paths[ownership] = name
+            ProxyParameter.__init__(
+                parameter,
+                parameter,
                 logdir,
                 log_level,
-                parent_name + "." + name,
+                name,
+                "torch.nn.Parameter",
                 should_dump_trace,
                 from_call,
                 from_iter,
             )
+            return parameter
+        # Preserve the established conversion for custom Parameter subclasses;
+        # their class/layout/dispatch semantics cannot safely be promoted in place.
+        proxied = ProxyParameter(
+            parameter,
+            logdir,
+            log_level,
+            name,
+            typename(parameter, is_runtime=True),
+            should_dump_trace,
+            from_call,
+            from_iter,
+        )
+        # Autograd hook dictionaries are slots, not __dict__ entries. Sharing them
+        # preserves removal by handles registered before the legacy conversion.
+        torch.Tensor.__setattr__(proxied, "_backward_hooks", parameter._backward_hooks)
+        if hasattr(parameter, "_post_accumulate_grad_hooks"):
+            torch.Tensor.__setattr__(
+                proxied,
+                "_post_accumulate_grad_hooks",
+                parameter._post_accumulate_grad_hooks,
+            )
+        return proxied
 
-    module.__dict__[SUBCLASS_HOOK_KEY] = subclass_setattr_hook
+    def on_assignment(owner: nn.Module, name: str) -> None:
+        if (
+            cleanup_requested
+            or in_dynamo()
+            or (name not in owner._parameters and name not in owner._modules)
+        ):
+            return
+        root = root_reference()
+        if root is not None:
+            synchronize(root)
+
+    def synchronize(root: nn.Module) -> None:
+        observed: dict[int, tuple[ProxyParameter, str]] = {}
+        # This cache is traversal-local, so custom-source state cannot become
+        # stale between assignments. Strong references prevent identity reuse.
+        converted: dict[int, tuple[nn.Parameter, nn.Parameter]] = {}
+        visited: dict[int, weakref.ReferenceType[nn.Module]] = {}
+
+        def visit(current: nn.Module, path: str) -> None:
+            if not isinstance(current, nn.Module):
+                raise TypeError(f"Registered child {path!r} is not a torch.nn.Module")
+            if id(current) in visited:
+                return
+            visited[id(current)] = weakref.ref(current)
+            for name, parameter in list(current._parameters.items()):
+                if parameter is None:
+                    continue
+                identity = id(parameter)
+                cached = converted.get(identity)
+                if cached is None:
+                    proxied = convert_parameter(parameter, path + "." + name)
+                    converted[identity] = (parameter, proxied)
+                else:
+                    assert cached[0] is parameter
+                    proxied = cached[1]
+                current._parameters[name] = proxied
+                if isinstance(proxied, ProxyParameter) and id(proxied) not in observed:
+                    observed[id(proxied)] = (proxied, path + "." + name)
+            for name, child in current._modules.items():
+                if child is not None:
+                    visit(child, path + "." + name)
+            if SUBCLASS_HOOK_KEY not in current.__dict__:
+                current.__dict__[SUBCLASS_HOOK_KEY] = _ModuleTrackingHooks()
+            hook: object = current.__dict__[SUBCLASS_HOOK_KEY]
+            if not isinstance(hook, _ModuleTrackingHooks):
+                raise TypeError(
+                    "TrainCheck model tracking hook must be _ModuleTrackingHooks"
+                )
+            hook.callbacks[ownership] = on_assignment
+
+        visit(root, parent_name)
+        affected: dict[int, ProxyParameter] = {}
+        for identity, reference in tracked.items():
+            parameter = reference()
+            if parameter is not None:
+                if identity not in observed:
+                    bindings_for(parameter).paths.pop(ownership, None)
+                affected[identity] = parameter
+        for identity, (parameter, path) in observed.items():
+            bindings_for(parameter).paths[ownership] = path
+            affected[identity] = parameter
+        reconcile(affected)
+        for identity, reference_to_module in hooked_modules.items():
+            if identity in visited:
+                continue
+            owner = reference_to_module()
+            if owner is not None:
+                remove_hook(owner)
+        hooked_modules.clear()
+        hooked_modules.update(visited)
+        tracked.clear()
+        tracked.update(
+            (identity, weakref.ref(parameter))
+            for identity, (parameter, _) in observed.items()
+        )
+
+    synchronize(module)
 
 
 # instrument torch.nn.Module's setattr
-orig_setattr = torch.nn.Module.__setattr__
+# PyTorch 2.2 annotates only Tensor | Module, but its native setter also accepts
+# arbitrary Python attributes (for example training=False and cached masks=None).
+# This cast states that existing runtime contract; it does not coerce the value.
+orig_setattr = cast(
+    Callable[[nn.Module, str, object], None], torch.nn.Module.__setattr__
+)
 
 
 @functools.wraps(orig_setattr)
-def wrapped_setattr(self, name, value):
-    #hook = getattr(self, SUBCLASS_HOOK_KEY, None)
-    hook = self.__dict__.get(SUBCLASS_HOOK_KEY)
-    if hook is not None:
-        # If hook returns True, skip the original setattr; otherwise continue.
-        hook(self, name, value)
-    return orig_setattr(self, name, value)
+def wrapped_setattr(self: nn.Module, name: str, value: object) -> None:
+    # Absence identifies an untracked module. A present malformed hook is a
+    # broken tracking contract, not an instruction to silently disable tracking.
+    if SUBCLASS_HOOK_KEY not in self.__dict__:
+        orig_setattr(self, name, value)
+        return
+    hook: object = self.__dict__[SUBCLASS_HOOK_KEY]
+    if not callable(hook):
+        raise TypeError("TrainCheck module tracking hook must be callable")
+    orig_setattr(self, name, value)
+    hook(self, name)
 
 
 torch.nn.Module.__setattr__ = wrapped_setattr
