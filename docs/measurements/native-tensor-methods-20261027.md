@@ -170,8 +170,8 @@ python=/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python
   --candidate-commit 77ea19be77578fb68c654ea861f05a1a7c6267dc
 ```
 
-The H100 selective-Llama package is prepared under `gpu/`, with three ordinary
-AB/BA pairs and a holdout. It has **not been submitted**: the shared Expanse session
-is unavailable. GPU timings, actual eligibility counts, raw trace integrity and
-the 722 frozen invariants' activation/results still need validation. CPU gains
-must not be applied numerically to the earlier H100 profile.
+The subsequent [H100 selective-Llama comparison](native-tensor-methods-h100-20261027.md)
+measures three ordinary AB/BA pairs and a holdout independently of these CPU runs.
+It also records a Python 3.12 import compatibility fix and separate eligibility
+counts. The CPU figures above retain their original measured revision and scope;
+they are not extrapolated to the H100 workload.
