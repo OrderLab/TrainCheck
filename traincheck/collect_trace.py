@@ -14,8 +14,12 @@ from traincheck.invariant.base_cls import (
     _NOT_SET,
     APIParam,
     Arguments,
+    GroupedPreconditions,
     InputOutputParam,
     Invariant,
+    Precondition,
+    PreconditionClause,
+    Preconditions,
     VarNameParam,
     VarTypeParam,
     read_inv_file,
@@ -26,6 +30,59 @@ from traincheck.invariant.contain_relation import VAR_GROUP_NAME, APIContainRela
 from traincheck.invariant.DistinctArgumentRelation import DistinctArgumentRelation
 
 FunctionInstrumentationOptions = dict[str, bool | dict[str | int, object]]
+
+
+def _required_context_manager_names(invariant: Invariant) -> set[str]:
+    """Collect context dependencies without evaluating or rewriting predicates.
+
+    The parser reconstructs context liveness from __init__/__enter__/__exit__,
+    then binds complete constructor inputs. A subset can omit required inputs
+    or violate the parser's signature-binding contract.
+    """
+    conditions = invariant.precondition
+    if conditions is None:
+        if invariant.relation == APIContainRelation:
+            raise ValueError("APIContainRelation requires invariant preconditions")
+        # Other relations already permit compilation of partial hypotheses whose
+        # preconditions are not assigned yet. There are no clauses to inspect;
+        # this does not make the hypothesis valid for invariant checking.
+        return set()
+    if not isinstance(conditions, GroupedPreconditions):
+        raise TypeError("Invariant precondition must be GroupedPreconditions")
+    groups = conditions.grouped_preconditions
+    if not isinstance(groups, dict):
+        raise TypeError("Precondition groups must be a dictionary")
+    names: set[str] = set()
+    stem = "meta_vars.context_managers"
+    prefix = f"{stem}."
+    for group_name, alternatives in groups.items():
+        if not isinstance(group_name, str) or not group_name:
+            raise ValueError("Precondition group names must be nonempty strings")
+        if not isinstance(alternatives, Preconditions):
+            raise TypeError("Each precondition group must contain Preconditions")
+        if not isinstance(alternatives.preconditions, list):
+            raise TypeError("Precondition alternatives must be a list")
+        for condition in alternatives.preconditions:
+            if not isinstance(condition, Precondition):
+                raise TypeError("Each alternative must be a Precondition")
+            if not isinstance(condition.clauses, list):
+                raise TypeError("Precondition clauses must be a list")
+            for clause in condition.clauses:
+                if not isinstance(clause, PreconditionClause):
+                    raise TypeError("Each clause must be a PreconditionClause")
+                property_name = clause.prop_name
+                if not isinstance(property_name, str):
+                    raise TypeError("Precondition property names must be strings")
+                if property_name == stem:
+                    raise ValueError("Context precondition must name a context class")
+                if not property_name.startswith(prefix):
+                    continue
+                class_name = property_name[len(prefix) :]
+                parts = class_name.split(".")
+                if len(parts) < 2 or not all(part.isidentifier() for part in parts):
+                    raise ValueError(f"Invalid context class name: {class_name!r}")
+                names.add(class_name)
+    return names
 
 
 def _consistent_output_api_name(invariant: Invariant) -> str:
@@ -86,7 +143,9 @@ def get_per_func_instr_opts(
     logger = logging.getLogger(__name__)
     func_instr_opts: dict[str, FunctionInstrumentationOptions] = {}
     full_argument_apis: set[str] = set()
+    context_names: set[str] = set()
     for inv in invariants:
+        context_names.update(_required_context_manager_names(inv))
         output_api = (
             _consistent_output_api_name(inv)
             if inv.relation == ConsistentOutputRelation
@@ -169,8 +228,8 @@ def get_per_func_instr_opts(
 
         if output_api is not None:
             # Output-only relations use APIParam + VarTypeParam, not the
-            # InputOutputParam branch above. Missing dump_ret_config means full
-            # return metadata, preserving every attribute required by the checker.
+            # InputOutputParam branch above. Use the existing full return
+            # metadata converter; it has no per-field return selector.
             func_instr_opts[output_api]["dump_ret"] = True
 
         if inv.relation == APIContainRelation:
@@ -198,6 +257,18 @@ def get_per_func_instr_opts(
                         var_track_config[inv.params[1].var_type] = {  # type: ignore
                             "dump_unchanged": False
                         }
+
+    for context_name in sorted(context_names):
+        for method_name in ("__init__", "__enter__", "__exit__"):
+            function_name = f"{context_name}.{method_name}"
+            if function_name not in func_instr_opts:
+                func_instr_opts[function_name] = {
+                    "scan_proxy_in_args": False,
+                    "dump_args": False,
+                    "dump_ret": False,
+                    "var_types_to_track": {},
+                }
+        full_argument_apis.add(f"{context_name}.__init__")
 
     for func_name in full_argument_apis:
         func_instr_opts[func_name]["dump_args"] = True
