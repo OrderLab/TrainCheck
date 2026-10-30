@@ -90,6 +90,35 @@ class TestPilotAnalysis(unittest.TestCase):
         write(
             self.root / "solver-packet-manifest-B.json", {"packet_inventory": inventory}
         )
+        write(
+            self.root / "solver-packet-manifest.json",
+            {"baseline_remote_training": "/remote/baseline"},
+        )
+        self.save_origins()
+
+    def save_origins(self) -> None:
+        artifacts: JSONObject = {}
+        for trial_id in ("baseline", *ORDER):
+            remote = "/remote/baseline"
+            if trial_id != "baseline":
+                submission = read_object(
+                    self.root / "trials" / trial_id / "workspace/submission.json"
+                )
+                candidate = submission["candidate"]
+                assert isinstance(candidate, str)
+                if candidate != "baseline":
+                    remote = f"/remote/trials/{trial_id}/{candidate}/training"
+            artifacts[trial_id] = {
+                "remote_directory": remote,
+                "files": {
+                    name: digest(self.root / "selected" / trial_id / name)
+                    for name in ("config.json", "model.safetensors")
+                },
+            }
+        write(
+            self.root / "selected/origins.json",
+            {"schema_version": 1, "artifacts": artifacts},
+        )
 
     def make_trial(self, trial_id: str) -> None:
         trial = self.root / "trials" / trial_id
@@ -106,6 +135,7 @@ class TestPilotAnalysis(unittest.TestCase):
                 "expected_steps": 10000,
                 "profile": str(self.profile),
                 "profile_sha256": digest(self.profile),
+                "remote_trial": f"/remote/trials/{trial_id}",
             },
         )
         (workspace / "baseline_research.py").write_text(self.baseline)
@@ -211,6 +241,7 @@ class TestPilotAnalysis(unittest.TestCase):
             trial / "usage.json",
             {"candidates_reserved": 1, "diagnostics_reserved": int(diagnose)},
         )
+        self.save_origins()
         return run
 
     def scores(self) -> None:
@@ -315,6 +346,107 @@ class TestPilotAnalysis(unittest.TestCase):
         write(score_path, score)
         with self.assertRaisesRegex(ValueError, "checkpoint_sha256 mismatch"):
             analyze(self.root)
+
+    def test_wrong_downloaded_checkpoint_fails_before_finalization(self) -> None:
+        self.add_run("B1C", successful=True)
+        (self.root / "selected/B1C/model.safetensors").write_bytes(b"wrong model")
+        with self.assertRaisesRegex(ValueError, "remote artifact hash mismatch"):
+            freeze(self.root)
+
+    def test_origin_directory_and_required_fields_are_checked(self) -> None:
+        self.add_run("B1C", successful=True)
+        path = self.root / "selected/origins.json"
+        original = path.read_bytes()
+        for change in ("wrong_directory", "missing_hash", "missing_trial"):
+            with self.subTest(change=change):
+                path.write_bytes(original)
+                origins = read_object(path)
+                artifacts = origins["artifacts"]
+                assert isinstance(artifacts, dict)
+                candidate = artifacts["B1C"]
+                assert isinstance(candidate, dict)
+                if change == "wrong_directory":
+                    candidate["remote_directory"] = (
+                        "/remote/trials/B1C/candidate-02/training"
+                    )
+                elif change == "missing_hash":
+                    hashes = candidate["files"]
+                    assert isinstance(hashes, dict)
+                    del hashes["config.json"]
+                else:
+                    del artifacts["B1T"]
+                write(path, origins)
+                with self.assertRaises(ValueError):
+                    freeze(self.root)
+
+    def test_origin_evidence_is_frozen(self) -> None:
+        self.scores()
+        path = self.root / "selected/origins.json"
+        origins = read_object(path)
+        origins["host"] = "changed host after finalization"
+        write(path, origins)
+        with self.assertRaisesRegex(ValueError, "frozen file hash mismatch"):
+            analyze(self.root)
+
+    def test_completed_diagnostic_requires_frozen_reference(self) -> None:
+        run = self.add_run("B1T", successful=True, diagnose=True)
+        invariant_path = self.root / "trials/B1T/workspace/invariants.json"
+        invariant_path.write_text("[]\n")
+        write(run / "coverage.json", {"schema_version": 3, "per_invariant": []})
+        diagnostic: JSONObject = {
+            "schema_version": 1,
+            "status": "complete",
+            "candidate_config_sha256": digest(run / "config.toml"),
+            "invariants_sha256": digest(invariant_path),
+        }
+        write(run / "diagnostic_manifest.json", diagnostic)
+        report: JSONObject = {
+            "schema_version": 1,
+            "outcome": "no_evidence",
+            "coverage_incomplete": True,
+            "coverage_source": {
+                "path": "/remote/coverage.json",
+                "sha256": digest(run / "coverage.json"),
+            },
+            "counts": {
+                key: 0
+                for key in (
+                    "completed",
+                    "checker_error",
+                    "observer_error",
+                    "unsupported_coverage",
+                    "observed_active",
+                    "observed_active_passes",
+                    "observed_dormant",
+                    "observed_violations",
+                    "unknown_outcomes",
+                    "unobserved_coverage",
+                    "skipped_variable_checks",
+                    "completed_decisions",
+                )
+            },
+        }
+        write(run / "agent_report.json", report)
+        receipt = read_object(run / "run.json")
+        receipt.update(
+            diagnostic_status="complete",
+            diagnostic_exit_code=0,
+            errors=[],
+            traincheck_report=report,
+        )
+        write(run / "run.json", receipt)
+        _, _, frozen_files = collect(self.root)
+        self.assertIn(invariant_path, frozen_files)
+        diagnostic["invariants_sha256"] = "0" * 64
+        write(run / "diagnostic_manifest.json", diagnostic)
+        with self.assertRaisesRegex(
+            ValueError, "diagnostic reference invariants mismatch"
+        ):
+            collect(self.root)
+        del diagnostic["invariants_sha256"]
+        write(run / "diagnostic_manifest.json", diagnostic)
+        with self.assertRaisesRegex(ValueError, "Missing required field"):
+            collect(self.root)
 
     def test_false_or_fabricated_reward_fails(self) -> None:
         self.scores()

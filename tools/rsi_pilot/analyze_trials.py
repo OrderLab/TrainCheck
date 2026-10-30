@@ -368,6 +368,16 @@ def trial_summary(
                     diagnostic_report = read_object(path / "agent_report.json")
                     validate_diagnostics(diagnostic_report)
                     validate_diagnostic_artifacts(diagnostic_report, path)
+                    invariant_path = workspace / "invariants.json"
+                    require_equal(
+                        required(
+                            read_object(path / "diagnostic_manifest.json"),
+                            "invariants_sha256",
+                        ),
+                        digest(invariant_path),
+                        "diagnostic reference invariants",
+                    )
+                    files.add(invariant_path)
                     require_equal(
                         required(receipt, "traincheck_report"),
                         diagnostic_report,
@@ -508,6 +518,56 @@ def trial_summary(
     return report
 
 
+def verify_selected_origins(root: Path, order: list[str], files: set[Path]) -> None:
+    """Bind downloaded selections to hashes read at their original remote paths.
+
+    The operator records these hashes directly on the remote host before copying
+    the artifacts. This checks accidental path/content mismatch, not adversarial
+    tampering by the experiment owner.
+    """
+    origins_path = root / "selected/origins.json"
+    origins = read_object(origins_path)
+    require_equal(required(origins, "schema_version"), 1, "origin schema version")
+    artifacts = mapping(required(origins, "artifacts"), "origin artifacts")
+    require_equal(set(artifacts), {"baseline", *order}, "origin artifact set")
+    packet_path = root / "solver-packet-manifest.json"
+    baseline_remote = string(
+        required(read_object(packet_path), "baseline_remote_training"),
+        "baseline remote directory",
+    )
+    if not baseline_remote.startswith("/"):
+        raise ValueError("Baseline remote directory must be absolute")
+    for trial_id in ("baseline", *order):
+        expected_remote = baseline_remote
+        if trial_id != "baseline":
+            trial = root / "trials" / trial_id
+            selection = string(
+                required(read_object(trial / "workspace/submission.json"), "candidate"),
+                "selected candidate",
+            )
+            if selection != "baseline":
+                remote_trial = string(
+                    required(read_object(trial / "trial.json"), "remote_trial"),
+                    "remote trial directory",
+                )
+                expected_remote = remote_trial + "/" + selection + "/training"
+        origin = mapping(artifacts[trial_id], "artifact origin")
+        require_equal(
+            required(origin, "remote_directory"), expected_remote, "origin directory"
+        )
+        hashes = mapping(required(origin, "files"), "remote artifact hashes")
+        require_equal(
+            set(hashes), {"config.json", "model.safetensors"}, "origin file set"
+        )
+        for name, remote_hash in hashes.items():
+            require_equal(
+                string(remote_hash, "remote artifact hash"),
+                digest(root / "selected" / trial_id / name),
+                "remote artifact hash",
+            )
+    files.update({origins_path, packet_path})
+
+
 def collect(root: Path) -> tuple[list[JSONValue], list[JSONValue], set[Path]]:
     _, order, arms, excluded = protocol(root)
     files = {
@@ -536,6 +596,7 @@ def collect(root: Path) -> tuple[list[JSONValue], list[JSONValue], set[Path]]:
     setup: list[JSONValue] = [
         trial_summary(root, trial, files, None) for trial in excluded
     ]
+    verify_selected_origins(root, order, files)
     files.update(Path(__file__).resolve().parent.glob("*.py"))
     return reports, setup, files
 
