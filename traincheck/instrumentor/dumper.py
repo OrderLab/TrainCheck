@@ -549,12 +549,16 @@ def obj_to_serializable(obj, dump_config=None) -> dict[str, object]:
         return {str(type(obj)): None}
 
 
-def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
+def var_to_serializable(obj: object, dump_config: object = None) -> dict[str, object]:
     """Convert any object to a serializable dictionary.
 
     Note that this function is largely a wrapper of convert_var_to_dict to add some heuristics about how to dump a few types of objects.
       and it does not dump the `data` attribute of a tensor.
     If you want to dump the `data` attribute of a tensor, use `convert_var_to_dict` and set `include_tensor_data=True`.
+
+    Primitive/JSON-compatible values ignore dump_config. Other values delegate
+    its interpretation to obj_to_serializable unchanged; this boundary does not
+    claim that arbitrary caller-supplied configuration has been validated.
     """
 
     if is_fake_tensor(obj):
@@ -562,6 +566,23 @@ def var_to_serializable(obj, dump_config=None) -> dict[str, object]:
 
     if issubclass(type(obj), dict) and type(obj) != dict:  # noqa E721
         return obj_to_serializable(obj, dump_config=dump_config)
+
+    obj_type = type(obj)
+    if (
+        obj_type is type(None)
+        or obj_type is bool
+        or obj_type is float
+        or obj_type is str
+    ):
+        # These exact built-ins always pass the standard JSON compatibility
+        # probe. Keep subclasses and custom objects on the original path.
+        return {typename(obj, is_runtime=True): obj}
+    if obj_type is int:
+        assert isinstance(obj, int)
+        # Larger integers can fail under Python's configurable digit limit.
+        # Preserve that synchronous failure by retaining their original probe.
+        if -(2**63) <= obj < 2**63:
+            return {typename(obj, is_runtime=True): obj}
 
     try:
         json.dumps(
