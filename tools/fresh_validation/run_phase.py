@@ -8,6 +8,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
+from types import FrameType
 from typing import Literal, TypedDict
 
 
@@ -20,7 +21,13 @@ class PhaseOptions(argparse.Namespace):
     command: list[str]
 
 
-StopReason = Literal["process_group_rss_budget", "timeout", "trace_size_budget"]
+StopReason = Literal[
+    "process_group_rss_budget",
+    "timeout",
+    "trace_size_budget",
+    "signal_sigterm",
+    "signal_sigint",
+]
 
 
 class PhaseResult(TypedDict):
@@ -54,7 +61,34 @@ def group_memory(group: int) -> tuple[int, list[int]]:
     return total, processes
 
 
+def terminate_group(process: subprocess.Popen[bytes]) -> None:
+    """Stop the owned session, including descendants whose leader already exited.
+
+    A terminating leader does not prove its process group is empty. Always send
+    KILL to any remaining members after a bounded TERM grace period, then reap
+    the direct child. A child that cannot be reaped is an explicit failure.
+    """
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass  # The owned group has already exited.
+    try:
+        process.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        pass
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    process.wait(timeout=2)
+
+
 def run(args: PhaseOptions) -> int:
+    """Supervise from the main thread, temporarily handling SIGTERM and SIGINT.
+
+    Cleanup covers handled signals, normal completion and Python exceptions.
+    Uncatchable termination such as SIGKILL cannot run user-space cleanup.
+    """
     args.output.mkdir(parents=True, exist_ok=False)
     source_hashes = {
         str(p.relative_to(args.source)): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -76,57 +110,79 @@ def run(args: PhaseOptions) -> int:
     command = args.command[1:] if args.command[0] == "--" else args.command
     started, peak = time.monotonic(), 0
     reason: StopReason | None = None
-    with (args.output / "stdout.log").open("w") as log:
-        proc = subprocess.Popen(
-            ["nice", "-n", "10", *command],
-            cwd=args.output,
-            env=env,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            start_new_session=True,
-        )
-        invocation = {
-            "command": command,
-            "pid": proc.pid,
-            "native_threads": 1,
-            "timeout_seconds": args.timeout,
-            "memory_limit_gib": args.memory_gib,
-            "trace_limit_mib": args.trace_mib,
-            "source_sha256": source_hashes,
-            "harness_sha256": {
-                p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-                for p in Path(__file__).resolve().parent.glob("*.py")
-            },
-        }
-        (args.output / "invocation.json").write_text(
-            json.dumps(invocation, indent=2) + "\n"
-        )
+    signal_reason: StopReason | None = None
+
+    def request_stop(signum: int, frame: FrameType | None) -> None:
+        nonlocal signal_reason
+        assert signum in (signal.SIGTERM, signal.SIGINT)
+        if signal_reason is None:
+            signal_reason = (
+                "signal_sigterm" if signum == signal.SIGTERM else "signal_sigint"
+            )
+
+    # The workload has a separate session. An outer timeout's signal to this
+    # supervisor must therefore trigger explicit child-group cleanup, not the
+    # default immediate supervisor exit. Signals only request a stop so repeated
+    # signals cannot interrupt TERM/KILL/reap midway through cleanup.
+    prior_term = signal.signal(signal.SIGTERM, request_stop)
+    try:
+        prior_int = signal.signal(signal.SIGINT, request_stop)
         try:
-            while proc.poll() is None:
-                memory, _ = group_memory(proc.pid)
-                peak = max(peak, memory)
-                if memory > args.memory_gib * 1024**3:
-                    reason = "process_group_rss_budget"
-                if time.monotonic() - started > args.timeout:
-                    reason = "timeout"
-                if (
-                    sum(p.stat().st_size for p in args.output.rglob("trace_API*.log"))
-                    > args.trace_mib * 1024**2
-                ):
-                    reason = "trace_size_budget"
-                if reason:
-                    os.killpg(proc.pid, signal.SIGTERM)
-                    try:
-                        proc.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        os.killpg(proc.pid, signal.SIGKILL)
-                        proc.wait()
-                    break
-                time.sleep(0.25)
-        except BaseException:
-            os.killpg(proc.pid, signal.SIGTERM)
-            proc.wait(timeout=10)
-            raise
+            with (args.output / "stdout.log").open("w") as log:
+                proc = subprocess.Popen(
+                    ["nice", "-n", "10", *command],
+                    cwd=args.output,
+                    env=env,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+                try:
+                    invocation = {
+                        "command": command,
+                        "pid": proc.pid,
+                        "native_threads": 1,
+                        "timeout_seconds": args.timeout,
+                        "memory_limit_gib": args.memory_gib,
+                        "trace_limit_mib": args.trace_mib,
+                        "source_sha256": source_hashes,
+                        "harness_sha256": {
+                            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                            for p in Path(__file__).resolve().parent.glob("*.py")
+                        },
+                    }
+                    (args.output / "invocation.json").write_text(
+                        json.dumps(invocation, indent=2) + "\n"
+                    )
+                    while proc.poll() is None:
+                        memory, _ = group_memory(proc.pid)
+                        peak = max(peak, memory)
+                        if memory > args.memory_gib * 1024**3:
+                            reason = "process_group_rss_budget"
+                        if time.monotonic() - started > args.timeout:
+                            reason = "timeout"
+                        if (
+                            sum(
+                                p.stat().st_size
+                                for p in args.output.rglob("trace_API*.log")
+                            )
+                            > args.trace_mib * 1024**2
+                        ):
+                            reason = "trace_size_budget"
+                        if signal_reason is not None:
+                            reason = signal_reason
+                        if reason is not None:
+                            break
+                        time.sleep(0.25)
+                finally:
+                    terminate_group(proc)
+                # A signal may arrive while the leader exits or during cleanup.
+                if signal_reason is not None:
+                    reason = signal_reason
+        finally:
+            signal.signal(signal.SIGINT, prior_int)
+    finally:
+        signal.signal(signal.SIGTERM, prior_term)
     unchanged = all(
         hashlib.sha256((args.source / p).read_bytes()).hexdigest() == h
         for p, h in source_hashes.items()
