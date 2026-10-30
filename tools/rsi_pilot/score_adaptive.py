@@ -41,7 +41,11 @@ def score(
 ) -> JSONObject:
     # These public upstream modules are supplied by the pinned workspace on
     # PYTHONPATH. Their accepted output is validated before calculating scores.
-    from latent_reasoning.data import evaluation_set
+    from latent_reasoning.data import (
+        calibrated_panel,
+        evaluation_set,
+        runtime_partition_key,
+    )
     from latent_reasoning.evaluate import evaluate
     from latent_reasoning.model import LoopedTransformer, ModelConfig
     from latent_reasoning.reward import aggregate_reward
@@ -67,7 +71,17 @@ def score(
     model.to(torch.device("cpu"))
     # Test panels are generated only after solver finalization. Validation mode
     # lets the operator check scoring parity before freezing the experiment.
-    examples = evaluation_set(split, [1, 2, 3, 4, 5], per_bin, 7, ("+", "-"), seed)
+    if runtime_partition_key() is not None:
+        raise ValueError("This pilot requires the public content-hash partition")
+    # The two-operation test partition has fewer than 512 distinct expressions.
+    # The public task's calibrated panel censuses both finite small strata and
+    # samples the requested count in each larger stratum without duplicates.
+    # Keep validation generation unchanged for native-trainer parity checks.
+    examples = (
+        calibrated_panel(split, per_bin, seed)
+        if split == "test"
+        else evaluation_set(split, [1, 2, 3, 4, 5], per_bin, 7, ("+", "-"), seed)
+    )
     rows_value: object = evaluate(model, examples, [1, 2, 4], torch.device("cpu"))
     rows = [
         json_object(row, "depth result")
@@ -109,6 +123,11 @@ def score(
         "split": split,
         "seed": seed,
         "requested_examples_per_bin": per_bin,
+        "panel_generator": (
+            "upstream_calibrated_panel"
+            if split == "test"
+            else "upstream_evaluation_set"
+        ),
         "actual_examples": len(examples),
         "fixed_policy_depths": [1, 2, 4, 4],
         "reward": reward,
