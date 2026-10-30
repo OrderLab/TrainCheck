@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import inspect
 import logging
 import os
 
@@ -11,16 +12,168 @@ import traincheck.instrumentor.proxy_wrapper.proxy_config as proxy_config
 import traincheck.runner as runner
 from traincheck.config.config import InstrOpt
 from traincheck.invariant.base_cls import (
+    _NOT_SET,
     APIParam,
     Arguments,
+    GroupedPreconditions,
     InputOutputParam,
     Invariant,
+    Precondition,
+    PreconditionClause,
+    Preconditions,
     VarNameParam,
     VarTypeParam,
     read_inv_file,
 )
 from traincheck.invariant.consistency_relation import ConsistencyRelation
+from traincheck.invariant.consistency_transient_vars import ConsistentOutputRelation
 from traincheck.invariant.contain_relation import VAR_GROUP_NAME, APIContainRelation
+from traincheck.invariant.DistinctArgumentRelation import DistinctArgumentRelation
+
+FunctionInstrumentationOptions = dict[str, bool | dict[str | int, object]]
+
+
+def _required_context_manager_names(invariant: Invariant) -> set[str]:
+    """Collect context dependencies without evaluating or rewriting predicates.
+
+    The parser reconstructs context liveness from __init__/__enter__/__exit__,
+    then binds complete constructor inputs. A subset can omit required inputs
+    or violate the parser's signature-binding contract.
+    """
+    conditions = invariant.precondition
+    if conditions is None:
+        if invariant.relation == APIContainRelation:
+            raise ValueError("APIContainRelation requires invariant preconditions")
+        # Other relations already permit compilation of partial hypotheses whose
+        # preconditions are not assigned yet. There are no clauses to inspect;
+        # this does not make the hypothesis valid for invariant checking.
+        return set()
+    if not isinstance(conditions, GroupedPreconditions):
+        raise TypeError("Invariant precondition must be GroupedPreconditions")
+    groups = conditions.grouped_preconditions
+    if not isinstance(groups, dict):
+        raise TypeError("Precondition groups must be a dictionary")
+    names: set[str] = set()
+    stem = "meta_vars.context_managers"
+    prefix = f"{stem}."
+    for group_name, alternatives in groups.items():
+        if not isinstance(group_name, str) or not group_name:
+            raise ValueError("Precondition group names must be nonempty strings")
+        if not isinstance(alternatives, Preconditions):
+            raise TypeError("Each precondition group must contain Preconditions")
+        if not isinstance(alternatives.preconditions, list):
+            raise TypeError("Precondition alternatives must be a list")
+        for condition in alternatives.preconditions:
+            if not isinstance(condition, Precondition):
+                raise TypeError("Each alternative must be a Precondition")
+            if not isinstance(condition.clauses, list):
+                raise TypeError("Precondition clauses must be a list")
+            for clause in condition.clauses:
+                if not isinstance(clause, PreconditionClause):
+                    raise TypeError("Each clause must be a PreconditionClause")
+                property_name = clause.prop_name
+                if not isinstance(property_name, str):
+                    raise TypeError("Precondition property names must be strings")
+                if property_name == stem:
+                    raise ValueError("Context precondition must name a context class")
+                if not property_name.startswith(prefix):
+                    continue
+                class_name = property_name[len(prefix) :]
+                parts = class_name.split(".")
+                if len(parts) < 2 or not all(part.isidentifier() for part in parts):
+                    raise ValueError(f"Invalid context class name: {class_name!r}")
+                names.add(class_name)
+    return names
+
+
+def _consistent_output_api_name(invariant: Invariant) -> str:
+    """Validate the output relation's required selectors before compiling it."""
+    if len(invariant.params) != 2:
+        raise ValueError("ConsistentOutputRelation requires exactly two parameters")
+    api, output = invariant.params
+    if not isinstance(api, APIParam) or not isinstance(output, VarTypeParam):
+        raise TypeError("ConsistentOutputRelation requires [APIParam, VarTypeParam]")
+    for name, value in (
+        ("api_full_name", api.api_full_name),
+        ("var_type", output.var_type),
+        ("attr_name", output.attr_name),
+    ):
+        if not isinstance(value, str) or not value:
+            raise ValueError(
+                f"ConsistentOutputRelation {name} must be a nonempty string"
+            )
+    if output.const_value is _NOT_SET:
+        raise ValueError("ConsistentOutputRelation requires a const_value")
+    return api.api_full_name
+
+
+def _distinct_argument_api_name(invariant: Invariant) -> str:
+    """Validate the API whose complete inputs the distinctness checker compares."""
+    if len(invariant.params) != 1:
+        raise ValueError("DistinctArgumentRelation requires exactly one parameter")
+    api = invariant.params[0]
+    if not isinstance(api, APIParam):
+        raise TypeError("DistinctArgumentRelation requires an APIParam")
+    if not isinstance(api.api_full_name, str) or not api.api_full_name:
+        raise ValueError(
+            "DistinctArgumentRelation api_full_name must be a nonempty string"
+        )
+    return api.api_full_name
+
+
+def _requires_full_argument_metadata(arguments: Arguments, api_name: str) -> bool:
+    """Retain complete inputs when the current selector cannot express a requirement.
+
+    Missing signatures and unresolved required names are explicit unsupported
+    cases. Malformed metadata is an error, even if another requirement already
+    requires full collection. The caller unions this decision across all rules.
+    """
+    if not isinstance(api_name, str) or not api_name:
+        raise ValueError("API argument requirements need a nonempty API name")
+    if not isinstance(arguments.func_name, str) or arguments.func_name != api_name:
+        raise ValueError("Argument function name must match its API parameter")
+    requirements: object = arguments.arguments
+    if not isinstance(requirements, dict):
+        raise TypeError("Required argument metadata must be a dictionary")
+    required_names: set[str] = set()
+    for name, metadata in requirements.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("Required argument names must be nonempty strings")
+        if not isinstance(metadata, dict):
+            raise TypeError("Each argument requirement must contain typed metadata")
+        if len(metadata) != 1:
+            raise ValueError("Each argument requirement must contain exactly one type")
+        type_name = next(iter(metadata))
+        if not isinstance(type_name, str) or not type_name:
+            raise ValueError("Argument metadata type names must be nonempty strings")
+        required_names.add(name)
+
+    signature: object = arguments.signature
+    if signature is not None and not isinstance(signature, inspect.Signature):
+        raise TypeError("Argument signature must be inspect.Signature or None")
+    if signature is None:
+        return bool(required_names)
+    supported_kinds = (
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.KEYWORD_ONLY,
+    )
+    known_kinds = supported_kinds + (
+        inspect.Parameter.POSITIONAL_ONLY,
+        inspect.Parameter.VAR_POSITIONAL,
+        inspect.Parameter.VAR_KEYWORD,
+    )
+    for name, parameter in signature.parameters.items():
+        if not isinstance(name, str) or not name:
+            raise ValueError("Signature parameter names must be nonempty strings")
+        if not isinstance(parameter, inspect.Parameter) or parameter.name != name:
+            raise TypeError("Signature entries must be matching inspect.Parameters")
+        if parameter.kind not in known_kinds:
+            raise ValueError("Unknown signature parameter kind")
+    return any(
+        name not in signature.parameters
+        or signature.parameters[name].kind not in supported_kinds
+        for name in required_names
+    )
 
 
 def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
@@ -37,15 +190,25 @@ def get_list_of_funcs_from_invariants(invariants: list[Invariant]) -> list[str]:
 
 def get_per_func_instr_opts(
     invariants: list[Invariant],
-) -> dict[str, dict[str, bool | dict]]:
+) -> dict[str, FunctionInstrumentationOptions]:
     """
     Get per function instrumentation options
     """
 
     # TODO: for APIContainRelation that describes a variable, if the precondition is not unconditional on the variable and the API belongs to a class, then all class methods should be instrumented with `scan_proxy_in_args` set to True
     logger = logging.getLogger(__name__)
-    func_instr_opts: dict[str, dict[str, bool | dict]] = {}
+    func_instr_opts: dict[str, FunctionInstrumentationOptions] = {}
+    full_argument_apis: set[str] = set()
+    context_names: set[str] = set()
     for inv in invariants:
+        context_names.update(_required_context_manager_names(inv))
+        output_api = (
+            _consistent_output_api_name(inv)
+            if inv.relation == ConsistentOutputRelation
+            else None
+        )
+        if inv.relation == DistinctArgumentRelation:
+            full_argument_apis.add(_distinct_argument_api_name(inv))
         for param in inv.params:
             if isinstance(param, APIParam) or isinstance(param, InputOutputParam):
                 func_name = (
@@ -58,27 +221,37 @@ def get_per_func_instr_opts(
                     func_instr_opts[func_name] = {
                         "scan_proxy_in_args": False,
                         "dump_args": False,
-                        "dump_ret": False,  # not really used for now'
+                        "dump_ret": False,
                         "var_types_to_track": {},  # NOTE: do selective proxy dumping in APIs might interfere with correctness of the Consistency Relation Checking
                     }
 
             if isinstance(param, APIParam):
                 func_name = param.api_full_name
 
-                def merge(a: dict, b: dict, path=[]):
+                def merge(
+                    a: dict[str | int, object],
+                    b: dict[str | int, object],
+                    path: tuple[str, ...] = (),
+                ) -> dict[str | int, object]:
                     for key in b:
                         if key in a:
-                            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                                merge(a[key], b[key], path + [str(key)])
-                            elif a[key] != b[key]:
-                                if a[key] is None:
-                                    a[key] = b[key]
-                                elif b[key] is None:
+                            existing_value = a[key]
+                            incoming_value = b[key]
+                            if isinstance(existing_value, dict) and isinstance(
+                                incoming_value, dict
+                            ):
+                                merge(
+                                    existing_value, incoming_value, path + (str(key),)
+                                )
+                            elif existing_value != incoming_value:
+                                if existing_value is None:
+                                    a[key] = incoming_value
+                                elif incoming_value is None:
                                     pass
                                 else:
                                     raise Exception(
                                         "Conflict at "
-                                        + ".".join(path + [str(key)])
+                                        + ".".join(path + (str(key),))
                                         + f" {a[key]} != {b[key]}"
                                     )
                         else:
@@ -87,26 +260,40 @@ def get_per_func_instr_opts(
 
                 if isinstance(param.arguments, Arguments):
                     func_instr_opts[func_name]["dump_args"] = True
-                    arg_instr_opt = param.arguments.to_instr_opts_dict()
-                    if "dump_args_config" in func_instr_opts[func_name]:
-                        existing_config = func_instr_opts[func_name]["dump_args_config"]
-                        assert isinstance(existing_config, dict)
-                        func_instr_opts[func_name]["dump_args_config"] = merge(
-                            existing_config,
-                            arg_instr_opt,
-                        )
+                    if _requires_full_argument_metadata(param.arguments, func_name):
+                        full_argument_apis.add(func_name)
                     else:
-                        func_instr_opts[func_name]["dump_args_config"] = arg_instr_opt
+                        arg_instr_opt = param.arguments.to_instr_opts_dict()
+                        if "dump_args_config" in func_instr_opts[func_name]:
+                            existing_config = func_instr_opts[func_name][
+                                "dump_args_config"
+                            ]
+                            assert isinstance(existing_config, dict)
+                            func_instr_opts[func_name]["dump_args_config"] = merge(
+                                existing_config,
+                                arg_instr_opt,
+                            )
+                        else:
+                            func_instr_opts[func_name][
+                                "dump_args_config"
+                            ] = arg_instr_opt
 
             if isinstance(param, InputOutputParam):
                 func_name = param.api_name
                 assert isinstance(func_name, str)
                 func_instr_opts[func_name]["dump_args"] = True
                 func_instr_opts[func_name]["dump_ret"] = True
+                full_argument_apis.add(func_name)
                 # TODO: convert the arguments to instr_opts_dict (currently not possible as the index indicates the index of the argument/ret value among other tensors not all arguments)
                 logger.debug(
                     "Currently not supporting fine-grained dumping of arguments and return values for InputOutputParam"
                 )
+
+        if output_api is not None:
+            # Output-only relations use APIParam + VarTypeParam, not the
+            # InputOutputParam branch above. Use the existing full return
+            # metadata converter; it has no per-field return selector.
+            func_instr_opts[output_api]["dump_ret"] = True
 
         if inv.relation == APIContainRelation:
             assert isinstance(inv.params[0], APIParam)
@@ -133,6 +320,24 @@ def get_per_func_instr_opts(
                         var_track_config[inv.params[1].var_type] = {  # type: ignore
                             "dump_unchanged": False
                         }
+
+    for context_name in sorted(context_names):
+        for method_name in ("__init__", "__enter__", "__exit__"):
+            function_name = f"{context_name}.{method_name}"
+            if function_name not in func_instr_opts:
+                func_instr_opts[function_name] = {
+                    "scan_proxy_in_args": False,
+                    "dump_args": False,
+                    "dump_ret": False,
+                    "var_types_to_track": {},
+                }
+        full_argument_apis.add(f"{context_name}.__init__")
+
+    for func_name in full_argument_apis:
+        func_instr_opts[func_name]["dump_args"] = True
+        # Absence requests full arguments. A narrower requirement from another
+        # invariant must never shrink this coverage, regardless of rule order.
+        func_instr_opts[func_name].pop("dump_args_config", None)
 
     return func_instr_opts
 
