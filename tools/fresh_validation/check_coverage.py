@@ -1,7 +1,8 @@
 """Observe the real offline checker; never replace its predicate or learned rules.
 
 Counters have explicit units. API candidates are calls, DistinctArgument candidates
-are within-step argument pairs, and precondition counters are group-verification
+are within-step argument pairs, and Consistency candidates are overlapping variable
+value pairs collected by the real checker. Precondition counters count verification
 calls. Each checker stops at its first violation. No wall-time claims are made.
 """
 
@@ -23,16 +24,23 @@ from typing import Literal, TypeAlias, TypedDict
 from unittest.mock import patch
 
 from traincheck.invariant import read_inv_file
-from traincheck.invariant.base_cls import APIParam, GroupedPreconditions, Invariant
+from traincheck.invariant.base_cls import (
+    APIParam,
+    GroupedPreconditions,
+    Invariant,
+    VarTypeParam,
+)
 from traincheck.invariant.DistinctArgumentRelation import (
     get_event_data_per_function_per_step,
 )
 from traincheck.trace.trace import Trace
 from traincheck.trace.trace_pandas import TracePandas, read_trace_file_Pandas
 from traincheck.trace.types import (
+    AttrState,
     FuncCallExceptionEvent,
     IncompleteFuncCallEvent,
     MDNONEJSONEncoder,
+    VarInstId,
 )
 
 # Direct CLI execution must resolve this checkout's harness package even when
@@ -48,6 +56,7 @@ from tools.fresh_validation.contracts import (  # noqa: E402
     json_object,
     json_value,
     mapping,
+    number,
     required,
     sequence,
     string,
@@ -62,6 +71,8 @@ class ObserverSites(TypedDict):
     starts: dict[int, str]
     ends: dict[int, int]
     visits: set[int]
+    pair_collection: int | None
+    variable_requirements: int | None
     method_source_sha256: str
 
 
@@ -73,7 +84,29 @@ class PairDecision(TypedDict):
     pair_func_call_ids: list[str]
 
 
-Decision: TypeAlias = CallDecision | PairDecision
+class VariableValueIdentity(TypedDict):
+    process_id: int | float | str
+    thread_id: int | float | str
+    var_name: str
+    var_type: str
+    attribute: str
+    event_time: int | float
+    liveness_start: int | float
+    liveness_end: int | float
+
+
+class VariablePairDecision(TypedDict):
+    variable_value_pair: list[VariableValueIdentity]
+
+
+class VariableRequirement(TypedDict):
+    var_type: str
+    attribute: str
+    matching_instances: int
+    instances_missing_attribute: int
+
+
+Decision: TypeAlias = CallDecision | PairDecision | VariablePairDecision
 
 
 class PendingDecision(TypedDict):
@@ -90,8 +123,8 @@ class GroupCounts(TypedDict):
 
 
 class CandidateCounts(TypedDict):
-    candidate_calls: int
-    opportunities: int
+    candidate_calls: int | None
+    opportunities: int | None
     opportunity_unit: str
     incomplete_or_exception_calls: int | None
 
@@ -101,8 +134,8 @@ class OptionalReportFields(TypedDict, total=False):
     checker_result: JSONObject
     error: dict[str, str]
     checker_error_after_observer: dict[str, str]
-    candidate_calls: int
-    opportunities: int
+    candidate_calls: int | None
+    opportunities: int | None
     opportunity_unit: str
     incomplete_or_exception_calls: int | None
     method_source_sha256: str
@@ -117,7 +150,9 @@ class OptionalReportFields(TypedDict, total=False):
     precondition_groups: dict[str, GroupCounts]
     decision_records: list[Decision]
     unvisited_calls_after_stop: int | None
-    unvisited_pairs_after_stop: int
+    unvisited_pairs_after_stop: int | None
+    visited_variable_pairs: int
+    variable_requirements: list[VariableRequirement]
     variable_precondition_requested: bool
     variable_check_skipped: bool
     fully_validated_active: bool
@@ -149,7 +184,9 @@ class RuntimeMetadata(TypedDict):
 
 
 class CoverageOutput(TypedDict):
-    schema_version: Literal[2]
+    # Version 3 adds variable-pair decisions and nullable call/opportunity
+    # counters for variable-only checking and interrupted pair collection.
+    schema_version: Literal[3]
     pid: int
     check_relation_first: Literal[False]
     observer_enabled: bool
@@ -167,9 +204,77 @@ class CoverageOutput(TypedDict):
 TraceCallback: TypeAlias = Callable[[FrameType, str, object], "TraceCallback | None"]
 
 
+def identity_scalar(value: object, context: str) -> int | float | str:
+    """Preserve legacy dataframe identity scalars without numeric coercion."""
+    if isinstance(value, str):
+        return value
+    result = number(value, context)
+    if not math.isfinite(result):
+        raise ValueError(f"{context} must be finite")
+    return result
+
+
+def variable_value_identity(state: object, param: object) -> VariableValueIdentity:
+    if not isinstance(state, AttrState) or not isinstance(param, VarTypeParam):
+        raise ValueError("Consistency decisions require AttrState and VarTypeParam")
+    if not state.traces:
+        raise ValueError("Consistency value state has no source events")
+    record = mapping(state.traces[-1], "variable event")
+    return {
+        "process_id": identity_scalar(required(record, "process_id"), "process_id"),
+        "thread_id": identity_scalar(required(record, "thread_id"), "thread_id"),
+        "var_name": string(required(record, "var_name"), "var_name"),
+        "var_type": string(required(record, "var_type"), "var_type"),
+        "attribute": string(param.attr_name, "attribute"),
+        "event_time": number(required(record, "time"), "time"),
+        "liveness_start": number(state.liveness.start_time, "liveness.start_time"),
+        "liveness_end": number(state.liveness.end_time, "liveness.end_time"),
+    }
+
+
+def variable_requirements(
+    local_values: Mapping[str, object], inv: Invariant
+) -> list[VariableRequirement]:
+    """Describe missing input from the same index the real checker just read."""
+    instances = required(local_values, "all_var_insts")
+    if not isinstance(instances, Mapping):
+        raise ObserverContractError("all_var_insts must be a mapping")
+    requirements: list[VariableRequirement] = []
+    for param in inv.params:
+        if not isinstance(param, VarTypeParam):
+            raise ObserverContractError("Consistency requires VarTypeParam")
+        matched = missing = 0
+        for identity, raw_attributes in instances.items():
+            if not isinstance(identity, VarInstId):
+                raise ObserverContractError("Variable index requires VarInstId keys")
+            attributes = mapping(raw_attributes, "variable attributes")
+            if identity.var_type == param.var_type:
+                matched += 1
+                missing += param.attr_name not in attributes
+        requirements.append(
+            {
+                "var_type": param.var_type,
+                "attribute": param.attr_name,
+                "matching_instances": matched,
+                "instances_missing_attribute": missing,
+            }
+        )
+    return requirements
+
+
 def decision_record(family: str, local_values: Mapping[str, object]) -> Decision:
     """Read the exact family-specific identity fields, failing closed on drift."""
     try:
+        if family == "ConsistencyRelation":
+            return {
+                "variable_value_pair": [
+                    variable_value_identity(
+                        required(local_values, f"attr{index}_val"),
+                        required(local_values, f"param{index}"),
+                    )
+                    for index in (1, 2)
+                ]
+            }
         if family == "DistinctArgumentRelation":
             ids = []
             for name in ("event1", "event2"):
@@ -239,8 +344,6 @@ def finalize_report(report: ObservationReport) -> ObservationReport:
             boolean(report["active"], "active")
             boolean(report["dormant"], "dormant")
             for key in (
-                "candidate_calls",
-                "opportunities",
                 "decisions_started",
                 "decisions_completed",
                 "decisions_not_completed",
@@ -251,6 +354,40 @@ def finalize_report(report: ObservationReport) -> ObservationReport:
             ):
                 if integer(required(report, key), key) < 0:
                     raise ValueError(f"{key} cannot be negative")
+            opportunities = required(report, "opportunities")
+            if opportunities is None:
+                if (
+                    report["relation"] != "ConsistencyRelation"
+                    or status != "checker_error"
+                ):
+                    raise ValueError(
+                        "Only failed variable pair collection has unknown opportunities"
+                    )
+            elif integer(opportunities, "opportunities") < 0:
+                raise ValueError("opportunities cannot be negative")
+            candidate_calls = required(report, "candidate_calls")
+            if report["relation"] == "ConsistencyRelation":
+                if candidate_calls is not None:
+                    raise ValueError("Variable coverage must not claim API candidates")
+                if (
+                    integer(
+                        required(report, "visited_variable_pairs"),
+                        "visited_variable_pairs",
+                    )
+                    < 0
+                ):
+                    raise ValueError("visited_variable_pairs cannot be negative")
+                for raw_requirement in sequence(
+                    required(report, "variable_requirements"), "variable_requirements"
+                ):
+                    requirement = mapping(raw_requirement, "variable requirement")
+                    for key in ("var_type", "attribute"):
+                        string(required(requirement, key), key)
+                    for key in ("matching_instances", "instances_missing_attribute"):
+                        if integer(required(requirement, key), key) < 0:
+                            raise ValueError(f"{key} cannot be negative")
+            elif integer(candidate_calls, "candidate_calls") < 0:
+                raise ValueError("candidate_calls cannot be negative")
             for key in (
                 "variable_precondition_requested",
                 "variable_check_skipped",
@@ -267,16 +404,23 @@ def finalize_report(report: ObservationReport) -> ObservationReport:
                 for key in ("attempts", "passes", "failures", "errors"):
                     if integer(required(group, key), f"{name}.{key}") < 0:
                         raise ValueError(f"{name}.{key} cannot be negative")
-            if report["relation"] == "DistinctArgumentRelation":
+            if report["relation"] in {
+                "DistinctArgumentRelation",
+                "ConsistencyRelation",
+            }:
                 if (
                     required(report, "visited_calls") is not None
                     or required(report, "unvisited_calls_after_stop") is not None
                 ):
                     raise ValueError("Pair coverage must not claim call visit counts")
-                integer(
-                    required(report, "unvisited_pairs_after_stop"),
-                    "unvisited_pairs_after_stop",
-                )
+                unvisited_pairs = required(report, "unvisited_pairs_after_stop")
+                if opportunities is None:
+                    if unvisited_pairs is not None:
+                        raise ValueError(
+                            "Unknown opportunities require unknown remainder"
+                        )
+                else:
+                    integer(unvisited_pairs, "unvisited_pairs_after_stop")
             else:
                 integer(required(report, "visited_calls"), "visited_calls")
                 integer(
@@ -287,14 +431,30 @@ def finalize_report(report: ObservationReport) -> ObservationReport:
                 required(report, "decision_records"), "decision_records"
             ):
                 decision = mapping(raw, "decision")
-                if report["relation"] == "DistinctArgumentRelation":
+                if report["relation"] == "ConsistencyRelation":
+                    pair = sequence(
+                        required(decision, "variable_value_pair"), "variable_value_pair"
+                    )
+                    if len(pair) != 2:
+                        raise ValueError(
+                            "Variable decisions require exactly two values"
+                        )
+                    for raw_identity in pair:
+                        identity = mapping(raw_identity, "variable value identity")
+                        for key in ("process_id", "thread_id"):
+                            identity_scalar(required(identity, key), key)
+                        for key in ("var_name", "var_type", "attribute"):
+                            string(required(identity, key), key)
+                        for key in ("event_time", "liveness_start", "liveness_end"):
+                            number(required(identity, key), key)
+                elif report["relation"] == "DistinctArgumentRelation":
                     pair = sequence(
                         required(decision, "pair_func_call_ids"), "pair_func_call_ids"
                     )
                     if len(pair) != 2:
                         raise ValueError("Pair decisions require exactly two call IDs")
-                    for identity in pair:
-                        string(identity, "pair call ID")
+                    for call_identity in pair:
+                        string(call_identity, "pair call ID")
                 else:
                     string(required(decision, "func_call_id"), "decision.func_call_id")
         elif (
@@ -356,6 +516,7 @@ SUPPORTED = {
     "ConsistentInputOutputRelation",
     "ThresholdRelation",
     "DistinctArgumentRelation",
+    "ConsistencyRelation",
 }
 
 
@@ -376,6 +537,8 @@ def observer_sites(function: Callable[..., object], family: str) -> ObserverSite
     starts: dict[int, str] = {}
     ends: dict[int, int] = {}
     visits: set[int] = set()
+    pair_collection: int | None = None
+    requirements: int | None = None
     predicates: dict[str, Callable[[str], bool]] = {
         "APIContainRelation": lambda s: "skip_var_unchanged_check" in s
         and "found_expected_child_event" in s,
@@ -387,32 +550,97 @@ def observer_sites(function: Callable[..., object], family: str) -> ObserverSite
         == "is_arguments_list_same(event1['args'], event2['args'])",
     }
     for node in ast.walk(tree):
-        if isinstance(node, ast.If) and predicates[family](ast.unparse(node.test)):
+        if (
+            family != "ConsistencyRelation"
+            and isinstance(node, ast.If)
+            and predicates[family](ast.unparse(node.test))
+        ):
             line = first + node.lineno - 1
             starts[line] = ast.unparse(node.test)
             if node.test.end_lineno is None:
                 raise ObserverContractError("Predicate has no ending source line")
             ends[line] = first + node.test.end_lineno - 1
-        if isinstance(node, ast.Assign) and any(
-            isinstance(t, ast.Name) and t.id in {"func_call_event", "parent_event_type"}
-            for t in node.targets
+        if family == "ConsistencyRelation" and isinstance(node, ast.Assign):
+            value_source = ast.unparse(node.value)
+            line = first + node.lineno - 1
+            if (
+                value_source
+                == "ConsistencyRelation.evaluate([attr1_val.value, attr2_val.value])"
+            ):
+                if node.end_lineno is None:
+                    raise ObserverContractError(
+                        "Consistency comparison has no end line"
+                    )
+                starts[line] = value_source
+                ends[line] = first + node.end_lineno - 1
+            elif value_source == "dict(sorted(value_pairs_to_check.items()))":
+                if pair_collection is not None:
+                    raise ObserverContractError(
+                        "Multiple variable pair collection sites"
+                    )
+                pair_collection = line
+            elif value_source == "[attr1_val.traces[-1], attr2_val.traces[-1]]":
+                visits.add(line)
+        if family == "ConsistencyRelation" and isinstance(node, ast.Try):
+            # The first try immediately follows get_var_insts(); observe its
+            # required type/attribute availability before the checker catches a
+            # missing attribute and returns a legacy vacuous success.
+            if any(
+                isinstance(child, ast.Assign)
+                and any(
+                    isinstance(target, ast.Name) and target.id == "type1_attr1"
+                    for target in child.targets
+                )
+                for child in node.body
+            ):
+                if requirements is not None:
+                    raise ObserverContractError("Multiple variable requirement sites")
+                requirements = first + node.lineno - 1
+        if (
+            family != "ConsistencyRelation"
+            and isinstance(node, ast.Assign)
+            and any(
+                isinstance(t, ast.Name)
+                and t.id in {"func_call_event", "parent_event_type"}
+                for t in node.targets
+            )
         ):
             visits.add(first + node.lineno - 1)
-    expected = 2 if family in {"ThresholdRelation", "DistinctArgumentRelation"} else 1
+    expected = (
+        2
+        if family
+        in {"ThresholdRelation", "DistinctArgumentRelation", "ConsistencyRelation"}
+        else 1
+    )
     if len(starts) != expected:
         raise ObserverContractError(
             f"Unrecognized checker source for {family}: {starts}"
         )
+    if family == "ConsistencyRelation" and (
+        pair_collection is None or requirements is None or len(visits) != 1
+    ):
+        raise ObserverContractError("Unrecognized variable pair collection source")
     return {
         "starts": starts,
         "ends": ends,
         "visits": visits,
+        "pair_collection": pair_collection,
+        "variable_requirements": requirements,
         "method_source_sha256": hashlib.sha256(source.encode()).hexdigest(),
     }
 
 
 def candidate_counts(trace: TracePandas, inv: Invariant) -> CandidateCounts:
     family = inv.relation.__name__
+    if family == "ConsistencyRelation":
+        # Filled from the real checker's completed collection phase. Do not
+        # duplicate its liveness filtering or pre-scan and warm the trace cache.
+        return {
+            "candidate_calls": None,
+            "opportunities": None,
+            "opportunity_unit": "overlapping_variable_value_pair",
+            "incomplete_or_exception_calls": None,
+        }
     api = (
         inv.params[1]
         if family in {"ConsistentInputOutputRelation", "ThresholdRelation"}
@@ -537,6 +765,7 @@ def observe(
         decisions_started=0,
         decisions_completed=0,
         visited_calls=0,
+        visited_variable_pairs=0,
         precondition_group_attempts=0,
         precondition_group_passes=0,
         precondition_group_failures=0,
@@ -544,7 +773,8 @@ def observe(
     )
     groups: dict[str, GroupCounts] = {}
     decision_records: list[Decision] = []
-    variable_precondition_requested = (
+    requirements: list[VariableRequirement] = []
+    variable_precondition_requested = family == "ConsistencyRelation" or (
         family == "APIContainRelation"
         and "var_events" in inv.precondition.get_group_names()
         and len(inv.precondition.get_group("var_events")) > 0
@@ -583,7 +813,7 @@ def observe(
     def trace_event_impl(
         frame: FrameType, event: str, arg: object
     ) -> TraceCallback | None:
-        nonlocal pending, variable_check_skipped
+        nonlocal pending, variable_check_skipped, requirements
         if frame.f_code is not method_code:
             return None
         if event == "exception":
@@ -601,10 +831,38 @@ def observe(
                 decision_records.append(pending["record"])
                 pending = None
         if event == "line":
+            if frame.f_lineno == sites["variable_requirements"]:
+                try:
+                    requirements = variable_requirements(frame.f_locals, inv)
+                except ValueError as exc:
+                    raise ObserverContractError(str(exc)) from exc
+                variable_check_skipped = any(
+                    item["matching_instances"] == 0
+                    or item["instances_missing_attribute"] > 0
+                    for item in requirements
+                )
+            if frame.f_lineno == sites["pair_collection"]:
+                try:
+                    pairs = integer(
+                        required(frame.f_locals, "num_collected_pairs"),
+                        "num_collected_pairs",
+                    )
+                    if pairs < 0:
+                        raise ValueError("num_collected_pairs cannot be negative")
+                except ValueError as exc:
+                    raise ObserverContractError(str(exc)) from exc
+                candidates["opportunities"] = pairs
+                report["opportunities"] = pairs
             if frame.f_lineno in sites["visits"]:
-                counts["visited_calls"] += 1
+                counts[
+                    (
+                        "visited_variable_pairs"
+                        if family == "ConsistencyRelation"
+                        else "visited_calls"
+                    )
+                ] += 1
             if frame.f_lineno in sites["starts"] and pending is None:
-                if variable_precondition_requested:
+                if family == "APIContainRelation" and variable_precondition_requested:
                     try:
                         skipped = boolean(
                             required(frame.f_locals, "skip_var_unchanged_check"),
@@ -678,6 +936,16 @@ def observe(
     finally:
         if enabled:
             sys.settrace(previous_trace)
+    if family == "ConsistencyRelation" and report["status"] == "completed":
+        if candidates["opportunities"] is None:
+            if not variable_check_skipped:
+                raise ObserverContractError(
+                    "Completed variable checker did not collect pairs"
+                )
+            # The checker returned before collection because an attribute is
+            # absent; this is explicitly skipped, never validated as active.
+            candidates["opportunities"] = 0
+            report["opportunities"] = 0
     report["decisions_started"] = counts["decisions_started"]
     report["decisions_completed"] = counts["decisions_completed"]
     report["visited_calls"] = counts["visited_calls"]
@@ -691,15 +959,24 @@ def observe(
         counts["decisions_started"] - counts["decisions_completed"]
     )
     stopped = report["status"] != "completed" or report["check_passed"] is False
-    if family == "DistinctArgumentRelation":
+    if family in {"DistinctArgumentRelation", "ConsistencyRelation"}:
         report["visited_calls"] = None
         report["unvisited_calls_after_stop"] = None
-        report["unvisited_pairs_after_stop"] = (
-            max(0, candidates["opportunities"] - counts["decisions_started"])
-            if stopped
-            else 0
+        visited_pairs = (
+            counts["visited_variable_pairs"]
+            if family == "ConsistencyRelation"
+            else counts["decisions_started"]
         )
+        report["unvisited_pairs_after_stop"] = (
+            None
+            if candidates["opportunities"] is None
+            else max(0, candidates["opportunities"] - visited_pairs) if stopped else 0
+        )
+        if family == "ConsistencyRelation":
+            report["visited_variable_pairs"] = counts["visited_variable_pairs"]
+            report["variable_requirements"] = requirements
     else:
+        assert candidates["candidate_calls"] is not None
         report["unvisited_calls_after_stop"] = (
             max(0, candidates["candidate_calls"] - counts["visited_calls"])
             if stopped
@@ -752,7 +1029,7 @@ def main() -> int:
     import traincheck.trace.trace_pandas as trace_module
 
     output: CoverageOutput = {
-        "schema_version": 2,
+        "schema_version": 3,
         "pid": os.getpid(),
         "check_relation_first": False,
         "observer_enabled": not args.observer_off,
