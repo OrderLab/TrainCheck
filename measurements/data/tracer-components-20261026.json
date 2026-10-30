@@ -1,0 +1,795 @@
+{
+  "source_commit": "9ba90ac84a1b4efd7e9f65b48b36bbbebf958253",
+  "source_tree": "6fbebbeae8f1c4327d39452361325b9c716a4068",
+  "source_files_verified_against_release_archive": 77,
+  "mode": "subclass model tracing, CPU hash format, 3 cold CPU steps, batch2, fp32",
+  "workload": "Exact benchmark MNIST Net, 1,199,882 parameters; first six cached training images; Adadelta; seeds42/43; one native thread",
+  "tracer_topology": "VAR modes install normal depth3 static observers and scan_proxy_in_args=True; API-only omits both; VAR-only uses production no-dump API wrapper fast path",
+  "timing_denominator": "Three training steps including start_step and wrapper-disable; excludes imports/setup/loss extraction/state hashes/background-writer drain",
+  "ordinary_runs": {
+    "plain": {
+      "seconds": [
+        0.02966778352856636,
+        0.029060598462820053,
+        0.03131105750799179
+      ],
+      "median_seconds": 0.02966778352856636,
+      "min_seconds": 0.029060598462820053,
+      "max_seconds": 0.03131105750799179
+    },
+    "api": {
+      "seconds": [
+        0.34370866417884827,
+        0.3386892266571522,
+        0.3355434164404869
+      ],
+      "median_seconds": 0.3386892266571522,
+      "min_seconds": 0.3355434164404869,
+      "max_seconds": 0.34370866417884827
+    },
+    "var": {
+      "seconds": [
+        0.37231897935271263,
+        0.4145994558930397,
+        0.4741646386682987
+      ],
+      "median_seconds": 0.4145994558930397,
+      "min_seconds": 0.37231897935271263,
+      "max_seconds": 0.4741646386682987
+    },
+    "combined": {
+      "seconds": [
+        0.7073203325271606,
+        0.7271270304918289,
+        0.7525023780763149
+      ],
+      "median_seconds": 0.7271270304918289,
+      "min_seconds": 0.7073203325271606,
+      "max_seconds": 0.7525023780763149
+    }
+  },
+  "ablation_decomposition": {
+    "added_combined_seconds": 0.6974592469632626,
+    "api_increment_seconds": 0.3090214431285858,
+    "var_increment_seconds": 0.38493167236447334,
+    "interaction_seconds": 0.0035061314702033997,
+    "api_percent_of_added_combined": 44.306738275256244,
+    "var_percent_of_added_combined": 55.190561174787746,
+    "interaction_percent_of_added_combined": 0.5027005499560147,
+    "marginal_var_on_top_of_api_seconds": 0.38843780383467674,
+    "interpretation": "Differences of ordinary-run medians, not a physically exclusive stage timer. Interaction includes shared work, topology differences, and timing noise; it may be negative."
+  },
+  "combined_profile": {
+    "total_seconds": 1.4951598140000004,
+    "sha256": "59e728e23bd2538eb0ffbdc1c0821c85231e5d7fac931f4a40d36fa5571544e3",
+    "rows": [
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/tracer.py",
+        "line": 160,
+        "function": "to_dict_args_kwargs",
+        "calls": 260,
+        "self_seconds": 0.00033124200000000004,
+        "cumulative_seconds": 0.59092002,
+        "percent_of_profile_total": 39.52219785917814
+      },
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+        "line": 47,
+        "function": "hash_tensor_cpu",
+        "calls": 112,
+        "self_seconds": 0.170946004,
+        "cumulative_seconds": 0.32131208,
+        "percent_of_profile_total": 21.490149547317884
+      },
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/proxy_wrapper/hash.py",
+        "line": 95,
+        "function": "tensor_hash",
+        "calls": 112,
+        "self_seconds": 0.010262915000000001,
+        "cumulative_seconds": 0.36295976,
+        "percent_of_profile_total": 24.275649773449565
+      },
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/dumper.py",
+        "line": 302,
+        "function": "dump_tensor",
+        "calls": 112,
+        "self_seconds": 0.004399142,
+        "cumulative_seconds": 0.36736353800000004,
+        "percent_of_profile_total": 24.57018537818994
+      },
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/proxy_wrapper/subclass.py",
+        "line": 181,
+        "function": "dump_trace",
+        "calls": 64,
+        "self_seconds": 0.000179428,
+        "cumulative_seconds": 0.568882218,
+        "percent_of_profile_total": 38.04825495396841
+      },
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/dumper.py",
+        "line": 241,
+        "function": "dump_trace_API",
+        "calls": 520,
+        "self_seconds": 0.000411052,
+        "cumulative_seconds": 0.005945879,
+        "percent_of_profile_total": 0.39767514778858276
+      },
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/dumper.py",
+        "line": 250,
+        "function": "dump_trace_VAR",
+        "calls": 64,
+        "self_seconds": 5.6548e-05,
+        "cumulative_seconds": 0.0013427760000000002,
+        "percent_of_profile_total": 0.08980819223649893
+      },
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/dumper.py",
+        "line": 85,
+        "function": "serialize",
+        "calls": 584,
+        "self_seconds": 0.000740237,
+        "cumulative_seconds": 0.004557091,
+        "percent_of_profile_total": 0.30478955877020375
+      },
+      {
+        "file": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/source/traincheck/instrumentor/tracer.py",
+        "line": 184,
+        "function": "to_dict_return_value",
+        "calls": 260,
+        "self_seconds": 0.000122889,
+        "cumulative_seconds": 0.28594894600000004,
+        "percent_of_profile_total": 19.1249753586542
+      }
+    ],
+    "limits": "Separate instrumented profile; cumulative rows overlap; hash is nested in variable snapshots. Do not apply these percentages to ordinary-run timings."
+  },
+  "validation": {
+    "full_loss_and_initial_final_state_parity": true,
+    "all_raw_trace_digests_counts_and_pairs_verified": true,
+    "cases": [
+      {
+        "label": "mnist-plain-r1",
+        "records": {
+          "API": 0,
+          "VAR": 0
+        },
+        "tensor_data_and_gradient_hash_fields": 0,
+        "logical_input_bytes_of_hashed_tensors": 0,
+        "logical_hash_input_bytes_by_variable": {}
+      },
+      {
+        "label": "mnist-api-r1",
+        "records": {
+          "API": 520,
+          "VAR": 0
+        },
+        "tensor_data_and_gradient_hash_fields": 0,
+        "logical_input_bytes_of_hashed_tensors": 0,
+        "logical_hash_input_bytes_by_variable": {}
+      },
+      {
+        "label": "mnist-var-r1",
+        "records": {
+          "API": 0,
+          "VAR": 64
+        },
+        "tensor_data_and_gradient_hash_fields": 112,
+        "logical_input_bytes_of_hashed_tensors": 67193392,
+        "logical_hash_input_bytes_by_variable": {
+          "model.conv1.weight": 16128,
+          "model.conv1.bias": 1792,
+          "model.conv2.weight": 1032192,
+          "model.conv2.bias": 3584,
+          "model.fc1.weight": 66060288,
+          "model.fc1.bias": 7168,
+          "model.fc2.weight": 71680,
+          "model.fc2.bias": 560
+        }
+      },
+      {
+        "label": "mnist-combined-r1",
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_data_and_gradient_hash_fields": 112,
+        "logical_input_bytes_of_hashed_tensors": 67193392,
+        "logical_hash_input_bytes_by_variable": {
+          "model.conv1.weight": 16128,
+          "model.conv1.bias": 1792,
+          "model.conv2.weight": 1032192,
+          "model.conv2.bias": 3584,
+          "model.fc1.weight": 66060288,
+          "model.fc1.bias": 7168,
+          "model.fc2.weight": 71680,
+          "model.fc2.bias": 560
+        }
+      },
+      {
+        "label": "mnist-combined-r2",
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_data_and_gradient_hash_fields": 112,
+        "logical_input_bytes_of_hashed_tensors": 67193392,
+        "logical_hash_input_bytes_by_variable": {
+          "model.conv1.weight": 16128,
+          "model.conv1.bias": 1792,
+          "model.conv2.weight": 1032192,
+          "model.conv2.bias": 3584,
+          "model.fc1.weight": 66060288,
+          "model.fc1.bias": 7168,
+          "model.fc2.weight": 71680,
+          "model.fc2.bias": 560
+        }
+      },
+      {
+        "label": "mnist-var-r2",
+        "records": {
+          "API": 0,
+          "VAR": 64
+        },
+        "tensor_data_and_gradient_hash_fields": 112,
+        "logical_input_bytes_of_hashed_tensors": 67193392,
+        "logical_hash_input_bytes_by_variable": {
+          "model.conv1.weight": 16128,
+          "model.conv1.bias": 1792,
+          "model.conv2.weight": 1032192,
+          "model.conv2.bias": 3584,
+          "model.fc1.weight": 66060288,
+          "model.fc1.bias": 7168,
+          "model.fc2.weight": 71680,
+          "model.fc2.bias": 560
+        }
+      },
+      {
+        "label": "mnist-api-r2",
+        "records": {
+          "API": 520,
+          "VAR": 0
+        },
+        "tensor_data_and_gradient_hash_fields": 0,
+        "logical_input_bytes_of_hashed_tensors": 0,
+        "logical_hash_input_bytes_by_variable": {}
+      },
+      {
+        "label": "mnist-plain-r2",
+        "records": {
+          "API": 0,
+          "VAR": 0
+        },
+        "tensor_data_and_gradient_hash_fields": 0,
+        "logical_input_bytes_of_hashed_tensors": 0,
+        "logical_hash_input_bytes_by_variable": {}
+      },
+      {
+        "label": "mnist-var-r3",
+        "records": {
+          "API": 0,
+          "VAR": 64
+        },
+        "tensor_data_and_gradient_hash_fields": 112,
+        "logical_input_bytes_of_hashed_tensors": 67193392,
+        "logical_hash_input_bytes_by_variable": {
+          "model.conv1.weight": 16128,
+          "model.conv1.bias": 1792,
+          "model.conv2.weight": 1032192,
+          "model.conv2.bias": 3584,
+          "model.fc1.weight": 66060288,
+          "model.fc1.bias": 7168,
+          "model.fc2.weight": 71680,
+          "model.fc2.bias": 560
+        }
+      },
+      {
+        "label": "mnist-plain-r3",
+        "records": {
+          "API": 0,
+          "VAR": 0
+        },
+        "tensor_data_and_gradient_hash_fields": 0,
+        "logical_input_bytes_of_hashed_tensors": 0,
+        "logical_hash_input_bytes_by_variable": {}
+      },
+      {
+        "label": "mnist-combined-r3",
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_data_and_gradient_hash_fields": 112,
+        "logical_input_bytes_of_hashed_tensors": 67193392,
+        "logical_hash_input_bytes_by_variable": {
+          "model.conv1.weight": 16128,
+          "model.conv1.bias": 1792,
+          "model.conv2.weight": 1032192,
+          "model.conv2.bias": 3584,
+          "model.fc1.weight": 66060288,
+          "model.fc1.bias": 7168,
+          "model.fc2.weight": 71680,
+          "model.fc2.bias": 560
+        }
+      },
+      {
+        "label": "mnist-api-r3",
+        "records": {
+          "API": 520,
+          "VAR": 0
+        },
+        "tensor_data_and_gradient_hash_fields": 0,
+        "logical_input_bytes_of_hashed_tensors": 0,
+        "logical_hash_input_bytes_by_variable": {}
+      },
+      {
+        "label": "mnist-combined-r1-profile",
+        "records": {
+          "API": 520,
+          "VAR": 64
+        },
+        "tensor_data_and_gradient_hash_fields": 112,
+        "logical_input_bytes_of_hashed_tensors": 67193392,
+        "logical_hash_input_bytes_by_variable": {
+          "model.conv1.weight": 16128,
+          "model.conv1.bias": 1792,
+          "model.conv2.weight": 1032192,
+          "model.conv2.bias": 3584,
+          "model.fc1.weight": 66060288,
+          "model.fc1.bias": 7168,
+          "model.fc2.weight": 71680,
+          "model.fc2.bias": 560
+        }
+      }
+    ]
+  },
+  "transformer": {
+    "status": "failed before completing first training step",
+    "failure": {
+      "command": [
+        "/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python",
+        "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/component_runner.py",
+        "--root",
+        "/home/yuxuan/experiments/codex-tracing-components-20261026-v020",
+        "--child",
+        "--workload",
+        "transformer",
+        "--mode",
+        "var",
+        "--output",
+        "/home/yuxuan/experiments/codex-tracing-components-20261026-v020/runs/transformer-var-r1",
+        "--steps",
+        "3"
+      ],
+      "exit_code": 1,
+      "label": "transformer-var-r1",
+      "metrics": {
+        "error": {
+          "message": "'Tensor' object has no attribute 'named_parameters'",
+          "type": "AttributeError"
+        },
+        "final_shapes": {
+          "model.decoder.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              60
+            ]
+          },
+          "model.decoder.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              60,
+              32
+            ]
+          },
+          "model.encoder.layers.0.linear1.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              64
+            ]
+          },
+          "model.encoder.layers.0.linear1.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              64,
+              32
+            ]
+          },
+          "model.encoder.layers.0.linear2.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.linear2.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32,
+              64
+            ]
+          },
+          "model.encoder.layers.0.norm1.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.norm1.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.norm2.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.norm2.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.self_attn.in_proj_bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              96
+            ]
+          },
+          "model.encoder.layers.0.self_attn.in_proj_weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              96,
+              32
+            ]
+          },
+          "model.encoder.layers.0.self_attn.out_proj.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.self_attn.out_proj.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32,
+              32
+            ]
+          },
+          "model.encoder.layers.1.linear1.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              64
+            ]
+          },
+          "model.encoder.layers.1.linear1.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              64,
+              32
+            ]
+          },
+          "model.encoder.layers.1.linear2.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.linear2.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32,
+              64
+            ]
+          },
+          "model.encoder.layers.1.norm1.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.norm1.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.norm2.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.norm2.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.self_attn.in_proj_bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              96
+            ]
+          },
+          "model.encoder.layers.1.self_attn.in_proj_weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              96,
+              32
+            ]
+          },
+          "model.encoder.layers.1.self_attn.out_proj.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.self_attn.out_proj.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32,
+              32
+            ]
+          },
+          "model.encoder.norm.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.norm.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.input_emb.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              60,
+              32
+            ]
+          },
+          "model.pos_encoder.pe": {
+            "dtype": "torch.float32",
+            "shape": [
+              5000,
+              1,
+              32
+            ]
+          }
+        },
+        "final_state_hash": "e197d3c2a3f351146bc265c5b3eb54dcd1d921499ce24d1cc61bdc5e6dce886d",
+        "initial_shapes": {
+          "model.decoder.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              60
+            ]
+          },
+          "model.decoder.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              60,
+              32
+            ]
+          },
+          "model.encoder.layers.0.linear1.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              64
+            ]
+          },
+          "model.encoder.layers.0.linear1.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              64,
+              32
+            ]
+          },
+          "model.encoder.layers.0.linear2.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.linear2.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32,
+              64
+            ]
+          },
+          "model.encoder.layers.0.norm1.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.norm1.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.norm2.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.norm2.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.self_attn.in_proj_bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              96
+            ]
+          },
+          "model.encoder.layers.0.self_attn.in_proj_weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              96,
+              32
+            ]
+          },
+          "model.encoder.layers.0.self_attn.out_proj.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.0.self_attn.out_proj.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32,
+              32
+            ]
+          },
+          "model.encoder.layers.1.linear1.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              64
+            ]
+          },
+          "model.encoder.layers.1.linear1.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              64,
+              32
+            ]
+          },
+          "model.encoder.layers.1.linear2.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.linear2.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32,
+              64
+            ]
+          },
+          "model.encoder.layers.1.norm1.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.norm1.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.norm2.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.norm2.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.self_attn.in_proj_bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              96
+            ]
+          },
+          "model.encoder.layers.1.self_attn.in_proj_weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              96,
+              32
+            ]
+          },
+          "model.encoder.layers.1.self_attn.out_proj.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.layers.1.self_attn.out_proj.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32,
+              32
+            ]
+          },
+          "model.encoder.norm.bias": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.encoder.norm.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              32
+            ]
+          },
+          "model.input_emb.weight": {
+            "dtype": "torch.float32",
+            "shape": [
+              60,
+              32
+            ]
+          },
+          "model.pos_encoder.pe": {
+            "dtype": "torch.float32",
+            "shape": [
+              5000,
+              1,
+              32
+            ]
+          }
+        },
+        "initial_state_hash": "e197d3c2a3f351146bc265c5b3eb54dcd1d921499ce24d1cc61bdc5e6dce886d",
+        "setup_seconds": 2.199223518371582,
+        "steps": [],
+        "success": false,
+        "training_seconds": 0
+      },
+      "mode": "var",
+      "peak_RSS_bytes": 519995392,
+      "process_seconds": 4.208818104118109,
+      "profiled": false,
+      "repetition": 1,
+      "stop_reason": null,
+      "trace_status": "Not parsed: process failed or was stopped; partial files retained",
+      "workload": "transformer"
+    },
+    "cause": "Existing subclass_setattr_hook sends a plain Tensor (src_mask) into proxy_parameter, which assumes nn.Module.named_parameters; AttributeError",
+    "overhead_status": "Not measured for VAR/combined; stopped matrix at failure without changing production behavior"
+  },
+  "artifact": {
+    "archive": "evidence.tar.gz",
+    "bytes": 12483879,
+    "sha256": "d9dad870e9b26d2b076d09d6f56f6037cdb4948d4af0e58f26e7aa2105f594ff",
+    "remote": "/home/yuxuan/experiments/codex-tracing-components-20261026-v020"
+  },
+  "limitations": [
+    "Only three repeats and three cold steps, shared host without affinity or exclusive reservation",
+    "VAR-only timing variation is material; tiny interaction estimate is not statistically resolved",
+    "Subclass mode only, not general Proxy or VarSampler mode",
+    "Plain mode imports TrainCheck's global Module setattr hook but has no API wrappers or model proxies",
+    "Background writer/drain and setup are outside the training time denominator",
+    "Transformer model tracing failed; successful MNIST numbers do not establish Transformer compatibility"
+  ]
+}

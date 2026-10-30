@@ -1,0 +1,1346 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://orderlab.github.io/traincheck/measurements/tracing-hotspot-audit-20261026/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Bounded tracing hotspot audit - TrainCheck</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#bounded-tracing-hotspot-audit" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="TrainCheck" class="md-header__button md-logo" aria-label="TrainCheck" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TrainCheck
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Bounded tracing hotspot audit
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OrderLab/traincheck" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OrderLab/traincheck
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://www.usenix.org/conference/osdi25/presentation/jiang" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Paper
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../installation-guide/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Documentation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="TrainCheck" class="md-nav__button md-logo" aria-label="TrainCheck" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    TrainCheck
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OrderLab/traincheck" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OrderLab/traincheck
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://www.usenix.org/conference/osdi25/presentation/jiang" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Documentation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use TrainCheck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../5-min-tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5-Minute Tutorial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../instr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Collect Traces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../infer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Infer Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Check Traces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../successful-stories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Success Stories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../technical-doc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technical Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="bounded-tracing-hotspot-audit">Bounded tracing hotspot audit</h1>
+<p>The first optimization target is object-metadata conversion. Repeated process/thread
+lookups and context retrieval are already cheap in these runs. This investigation
+changed no production code and does not claim a tracing speedup.</p>
+<h2 id="unprofiled-observation">Unprofiled observation</h2>
+<p>Two alternating fresh-process pairs per workload ran three CPU training steps:
+plain then traced, followed by traced then plain. Both modes use the same model,
+data, training math, and RNG resets. A fifth, separately profiled traced run was
+used only for attribution. All ten cases completed successfully.</p>
+<table>
+<thead>
+<tr>
+<th>Workload</th>
+<th style="text-align: right;">Parameters</th>
+<th style="text-align: right;">Plain three-step wall time, two runs</th>
+<th style="text-align: right;">Traced three-step wall time, two runs</th>
+<th style="text-align: right;">API records per traced run</th>
+<th style="text-align: right;">Raw API bytes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MNIST</td>
+<td style="text-align: right;">1,199,882</td>
+<td style="text-align: right;">0.043102 / 0.029823 s</td>
+<td style="text-align: right;">0.331755 / 0.332118 s</td>
+<td style="text-align: right;">520</td>
+<td style="text-align: right;">351,073</td>
+</tr>
+<tr>
+<td>Tiny Transformer</td>
+<td style="text-align: right;">21,052</td>
+<td style="text-align: right;">0.008537 / 0.004783 s</td>
+<td style="text-align: right;">0.878434 / 0.822045 s</td>
+<td style="text-align: right;">1,338</td>
+<td style="text-align: right;">1,014,134</td>
+</tr>
+</tbody>
+</table>
+<p>The ratios of the two medians are 9.10x and 127.66x. These very small denominators,
+first-step effects, and two repeats make them bounded diagnostic observations,
+not stable overhead estimates for longer training. The timer covers training
+bodies, <code>start_step</code>, and the wrapper-disable assignment. It excludes imports,
+instrumentation setup, data preparation, loss extraction, model hashing, and
+process shutdown. No GPU or distributed workload ran.</p>
+<p>Tracing used normal torch API coverage (<code>use_full_instr=False</code>), unfiltered
+argument/return metadata, interval 1, zero warmup, and descriptors disabled.
+There were 20,998 installed wrappers, but only 260 and 669 recorded calls in the
+two workloads. There was no proxy/model tracking or tensor-value collection.
+These are trace-collection measurements, not selective invariant-checking overhead.</p>
+<h2 id="separate-profile">Separate profile</h2>
+<p>Each cProfile run covered the main training thread during the three step bodies.
+Its total recorded time was <strong>0.912044 s for MNIST</strong> and <strong>2.474558 s for the
+Transformer</strong>, substantially above ordinary traced wall time. cProfile magnifies
+Python-heavy paths; these shares must not be applied directly to unprofiled time.
+Background file writing, setup, <code>start_step</code>, and process shutdown are outside
+the profile. Cumulative rows overlap and must not be added.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th style="text-align: right;">MNIST calls</th>
+<th style="text-align: right;">MNIST share of profiled time</th>
+<th style="text-align: right;">Transformer calls</th>
+<th style="text-align: right;">Transformer share</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>convert_var_to_dict</code>, cumulative</td>
+<td style="text-align: right;">404</td>
+<td style="text-align: right;">94.15%</td>
+<td style="text-align: right;">1,709</td>
+<td style="text-align: right;">97.54%</td>
+</tr>
+<tr>
+<td>Dumper <code>safe_getattr</code>, cumulative and inside conversion</td>
+<td style="text-align: right;">172,768</td>
+<td style="text-align: right;">54.53%</td>
+<td style="text-align: right;">477,225</td>
+<td style="text-align: right;">56.29%</td>
+</tr>
+<tr>
+<td>All <code>warnings.py</code> functions, summed exclusive time</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">28.06%</td>
+<td style="text-align: right;">—</td>
+<td style="text-align: right;">28.89%</td>
+</tr>
+<tr>
+<td><code>get_process_thread_id</code>, cumulative</td>
+<td style="text-align: right;">260</td>
+<td style="text-align: right;">0.020%</td>
+<td style="text-align: right;">669</td>
+<td style="text-align: right;">0.018%</td>
+</tr>
+<tr>
+<td><code>get_meta_vars</code>, cumulative</td>
+<td style="text-align: right;">260</td>
+<td style="text-align: right;">0.0025%</td>
+<td style="text-align: right;">669</td>
+<td style="text-align: right;">0.0022%</td>
+</tr>
+<tr>
+<td>Final trace <code>serialize</code>, cumulative</td>
+<td style="text-align: right;">520</td>
+<td style="text-align: right;">0.403%</td>
+<td style="text-align: right;">1,338</td>
+<td style="text-align: right;">0.397%</td>
+</tr>
+</tbody>
+</table>
+<p><code>get_process_thread_id</code> caches identities in thread-local state. <code>get_meta_vars</code>
+returns the existing metadata dictionary; it does not reconstruct context per
+call. Conversely, metadata conversion repeatedly enumerates object attributes
+and invokes <code>safe_getattr</code>, which enters/exits a warning context and installs an
+ignore filter for every attribute. The warning-module shares above count its
+exclusive function time once, avoiding nested cumulative double counting.</p>
+<p>Serialization and snapshot construction execute on the producer; file writes
+already use a background queue consumer. The small JSON share here does not
+measure file-writer cost, full tensor dumps, GPU synchronization, or larger traces.
+It is evidence against prioritizing PID/TID caching or a JSON-library replacement
+for this particular metadata-only CPU workload.</p>
+<h2 id="invocation-counts-explain-the-workload-difference">Invocation counts explain the workload difference</h2>
+<p>The unprofiled medians below cover three CPU training steps and only two runs per
+mode. Added time is median traced time minus median plain time; dividing it by
+recorded calls is an aggregate normalization, not a measured latency for each API.
+Invocation/attribute counts come from the separate profile and its trace; timing
+rows use ordinary-run medians.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th style="text-align: right;">MNIST</th>
+<th style="text-align: right;">Transformer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Plain training</td>
+<td style="text-align: right;">36.463 ms</td>
+<td style="text-align: right;">6.660 ms</td>
+</tr>
+<tr>
+<td>Traced training</td>
+<td style="text-align: right;">331.936 ms</td>
+<td style="text-align: right;">850.239 ms</td>
+</tr>
+<tr>
+<td>Added tracing time</td>
+<td style="text-align: right;">295.474 ms</td>
+<td style="text-align: right;">843.579 ms</td>
+</tr>
+<tr>
+<td>Added time per step</td>
+<td style="text-align: right;">98.491 ms</td>
+<td style="text-align: right;">281.193 ms</td>
+</tr>
+<tr>
+<td>Recorded Python calls</td>
+<td style="text-align: right;">260</td>
+<td style="text-align: right;">669</td>
+</tr>
+<tr>
+<td>Calls during the forward region</td>
+<td style="text-align: right;">66</td>
+<td style="text-align: right;">285</td>
+</tr>
+<tr>
+<td>Attribute reads via <code>safe_getattr</code> (separate profile)</td>
+<td style="text-align: right;">172,768</td>
+<td style="text-align: right;">477,225</td>
+</tr>
+<tr>
+<td>Added time divided by recorded calls</td>
+<td style="text-align: right;">1.136 ms</td>
+<td style="text-align: right;">1.261 ms</td>
+</tr>
+</tbody>
+</table>
+<p>Transformer has 2.57x the recorded calls, 2.76x the attribute reads, and 2.85x the
+absolute added time. Its plain computation is also 5.47x faster in this particular
+small configuration. Both numerator and denominator explain the much larger
+slowdown ratio; this is not evidence of an order-of-magnitude increase in cost per
+intercepted call. Slower computation can dilute percentage overhead without
+reducing absolute tracing time. This relationship is conditional: changing device
+or execution path can also change tracing costs and the set of calls.</p>
+<p>The raw trace contains nested Python API calls, including framework bookkeeping.
+<code>Module.named_modules</code> accounts for 252/669 Transformer calls (37.7%), reflecting
+repeated parameter/module traversal. The forward region has more intercepted
+calls, but not all additional events are mathematical operations. Region counts
+use exact pre/post call IDs and step metadata; forward is after zero-grad and
+before NLL. They are not additive timings or counts of device kernels.</p>
+<p>Repeated serialized tensor/Parameter observations number 286 versus 752; module
+observations number 24 versus 366. Transformer additionally serializes 282
+generator observations and 243 sets. The sets produce empty metadata dictionaries,
+yet still traverse the generic inspection path. These are repeated snapshots,
+not unique objects. Avoiding redundant work on known types is a candidate;
+dropping these records or fields would be a separate coverage change.</p>
+<h2 id="disjoint-profile-breakdown-and-meaning-of-serialization">Disjoint profile breakdown and meaning of serialization</h2>
+<p>The following partition assigns every function's exclusive time exactly once.
+Its denominator is the separate profiled main-thread training time, not ordinary
+training wall time or measured added overhead. Each column sums to 100% before
+rounding. See the <a href="../data/tracing-hotspot-breakdown-20261026.json">detailed evidence</a>
+for source profile/trace hashes, counts, methods, and exact values.</p>
+<table>
+<thead>
+<tr>
+<th>Exclusive-time category</th>
+<th style="text-align: right;">MNIST</th>
+<th style="text-align: right;">Transformer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Conversion loop and attribute helper's own Python code</td>
+<td style="text-align: right;">36.94%</td>
+<td style="text-align: right;">38.23%</td>
+</tr>
+<tr>
+<td>Warning filters and their direct helper calls</td>
+<td style="text-align: right;">36.47%</td>
+<td style="text-align: right;">37.50%</td>
+</tr>
+<tr>
+<td>Type checks across callers, excluding warning-owned time</td>
+<td style="text-align: right;">13.86%</td>
+<td style="text-align: right;">14.37%</td>
+</tr>
+<tr>
+<td>Attribute lookup/name filtering across callers, excluding warning-owned time</td>
+<td style="text-align: right;">6.56%</td>
+<td style="text-align: right;">6.96%</td>
+</tr>
+<tr>
+<td>JSON encoding and JSON-compatibility probes</td>
+<td style="text-align: right;">0.61%</td>
+<td style="text-align: right;">0.67%</td>
+</tr>
+<tr>
+<td>Everything else in the profiled thread</td>
+<td style="text-align: right;">5.57%</td>
+<td style="text-align: right;">2.27%</td>
+</tr>
+</tbody>
+</table>
+<p>The broader warning category includes <code>warnings.py</code> exclusive time plus direct
+helper time assigned by pstats caller edges, such as list/filter operations. The
+earlier 28.06%/28.89% figures include only functions defined in <code>warnings.py</code>.
+Warning-to-warning edges are not added again. Other categories subtract the
+warning-owned helper portion before assigning remaining exclusive time. Generic
+type/attribute operations can have non-conversion callers, so these are an
+explicit code-cost partition rather than exact semantic stage measurements.</p>
+<p>Here, metadata conversion means constructing a snapshot dictionary from a live
+object. A tensor snapshot records dtype, shape, gradient/device flags and object
+identities, with no tensor elements. The implementation enumerates public
+attributes with <code>dir</code>, reads them with <code>getattr</code>, and classifies the returned
+values; many inspected methods are subsequently discarded. This is part of
+serialization in the broader sense. The earlier ~0.4% row covers only encoding an
+already constructed record with <code>serialize</code>, not this snapshot construction.
+There is also an earlier <code>json.dumps</code> compatibility probe for each value; the
+partition above includes its JSON-function time.</p>
+<p>Warning management does not mean printing warnings. Every <code>safe_getattr</code> enters
+<code>warnings.catch_warnings</code>, installs <code>simplefilter("ignore")</code>, reads one attribute,
+and restores warning state. This is repeated even when no warning is raised.
+Hoisting or bypassing this work needs the getter/warning/concurrency contract
+checks described below.</p>
+<h2 id="hashing-is-an-unmeasured-path-in-this-audit">Hashing is an unmeasured path in this audit</h2>
+<p>A subsequent <a href="../tracer-components-20261026/">four-mode API/model tracing study</a>
+activates subclass model tracking and tensor hashing. It measures the added
+model-tracing cost on MNIST and preserves a Transformer compatibility failure.
+Those results are distinct from this initial API-only audit.</p>
+<p>A subsequent <a href="../tensor-hash-backends-20261026/">CPU/CUDA hash-backend study</a>
+measures the hash function directly and finds shape/stream correctness blockers
+to blanket CUDA enablement. It does not assign hashing a share of this earlier
+metadata-only training profile.</p>
+<p>Both profiles contain no calls to <code>dump_tensor</code>, <code>tensor_hash</code>, or <code>tensor_stats</code>.
+API metadata conversion passes <code>include_tensor_data=False</code>, and model/proxy
+tracking is disabled. The harness's initial/final model SHA-256 checks run outside
+timed training for correctness. Hashing is also not universally one hash per API:
+value/proxy tracking hashes eligible tensor-valued attributes according to its
+tracking configuration. Therefore this audit does not estimate the cost
+of tensor hashing, full tensor dumps, or statistics during training.</p>
+<p>The frozen production code also has an important routing detail:
+<code>dumper.dump_tensor</code> passes <code>with_cuda=False</code> to <code>tensor_hash</code> for both CPU and CUDA
+tensors. The selected hash path converts floating values to int64, uses
+<code>.cpu().numpy().astype(np.int64)</code>, and performs a column loop in Python/NumPy.
+CUDA training alone consequently does not select the CUDA hash implementation;
+on CUDA tensors this path also includes a device-to-host transfer. This is a
+source finding, not a measured time allocation. MPS hashing has an explicit
+unsupported-fast-path TODO in the dumper.</p>
+<p>A hash-enabled follow-up must measure the actual tensor-tracking path separately:
+number and bytes of hashed snapshots, input conversion, transfer/synchronization,
+hash arithmetic, metadata construction, JSON encoding, and writer drain. CPU versus
+CUDA hash choices must preserve hash results and mutation/snapshot behavior; no
+backend or algorithm change was made here. The original metadata-only profile
+cannot establish that hashing or full serialization is cheap.</p>
+<h2 id="correctness-and-evidence">Correctness and evidence</h2>
+<p>Every run's complete loss trajectory, canonical initial/final model-state hash,
+and full state-shape map exactly match the plain reference. Canonical state hashes
+cover sorted parameter/buffer names, dtypes, shapes, and tensor bytes. The two
+profiled runs also pass these comparisons.</p>
+<p>All six downloaded API trace files were independently rehashed and parsed:
+<strong>5,574 records total</strong>, with exactly one pre and one post for every recorded
+call ID. Counts and byte sizes match the run manifests; there are no duplicate,
+incomplete, or exception record groups. This does not prove universal API coverage.
+Fresh-process raw traces contain different timestamps and identities; they were
+not normalized, and byte equality between runs is not claimed. All 77 production
+Python files and both harness files match their pre-run hashes after download;
+each traced run's imported module digest matches the frozen source.</p>
+<p>Source: <code>205a687eef30e498bd2d9a9951652b7cc05bec68</code>, tree
+<code>2177e2fa826bb4623c3c9cdbb3bdcb61fafbedab</code>. Runtime: labmach, Intel Core i9-13900K,
+32 logical CPUs, Python 3.11.4, PyTorch <code>2.16.0.dev20261012+cpu</code>, float32, one
+intra-op/inter-op/native thread, <code>PYTHONHASHSEED=0</code>, initialization seed 42,
+training seed 43, batch size 2. The shared host had no affinity or exclusive
+reservation. The other owned inference experiment started only after this audit
+finished. Sampled main-process RSS was approximately 329 MiB plain / 536–546 MiB
+traced for MNIST and 321 MiB / 517 MiB for Transformer; this includes imports and
+setup and does not isolate trace-buffer memory. Per-case limits were 90 seconds,
+4 GiB sampled main-process RSS, and 256 MiB API trace; none was reached.</p>
+<p>The existing adapter extracts exact benchmark model definitions without executing
+their top-level scripts. MNIST uses the first six cached training images and
+labels, NLL, and Adadelta. Transformer uses two 32-dimensional encoder layers,
+64-dimensional feedforward, length-16 sequences, NLL, clipped manual SGD, and a
+98-token WikiText prefix with a 60-token vocabulary. This is smaller than the
+separate fresh-validation study's Transformer. Dataset, source, adapter, state,
+and raw trace digests are in the <a href="../data/tracing-hotspot-audit-20261026.json">compact evidence</a>.</p>
+<p>The complete 80,977,920-byte evidence archive has SHA-256
+<code>31ad9746dc9b5318b3f49d9119c86606dce48194ac92701695960bb537a84036</code>.
+It retains exact source, adapters/controller, commands, per-step timings/losses,
+raw traces, profiles, and logs. On labmach it is represented by the directory
+<code>/home/yuxuan/experiments/codex-tracing-overhead-20261026-205a687</code>; the downloaded
+archive and verifier are under the local project's
+<code>outputs/release-20261026/tracing-audit/</code>. Raw traces are not committed.</p>
+<p>To repeat on that host, create a new experiment directory, copy the retained
+<code>audit_runner.py</code> and <code>workload.py</code> there, extract <code>source.tar</code> into its <code>source/</code>
+subdirectory, and run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="s2">"</span><span class="nv">$NEW_AUDIT</span><span class="s2">/audit_runner.py"</span><span class="w"> </span>--root<span class="w"> </span><span class="s2">"</span><span class="nv">$NEW_AUDIT</span><span class="s2">"</span>
+</code></pre></div>
+<p>The controller records exact child commands and refuses to overwrite individual
+run directories. It reads the existing benchmark/data paths shown in the evidence.</p>
+<h2 id="proposed-follow-up-not-an-implemented-fix">Proposed follow-up, not an implemented fix</h2>
+<p>First investigate batching warning-context setup and avoiding redundant metadata
+classification. The measured hot loop is specific enough to justify a focused
+prototype; there is no measured candidate speedup yet.</p>
+<p>Hoisting warning suppression is not automatically semantics-preserving: custom
+attribute getters may change warning filters, warn or raise, and concurrent
+conversions can interact with process-global warning state. Preserve the current
+per-getter behavior for unsupported/dynamic objects unless equivalence is proven.
+Likewise, caching attribute names must account for instance-specific <code>__dir__</code>,
+properties, newly added attributes, tensor mutation, and tensor subclasses.
+Do not cache mutable values or move snapshots after the application call.</p>
+<p>Any candidate needs exact conversion/trace contract comparisons, warning-state and
+exception tests, concurrency checks, model/RNG parity, and new unprofiled paired
+runs. No reduction in recorded APIs, fields, or snapshot timing is proposed.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.instant", "navigation.tracking", "navigation.expand", "navigation.indexes", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.tabs.link", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>

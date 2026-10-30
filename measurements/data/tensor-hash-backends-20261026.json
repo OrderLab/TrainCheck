@@ -1,0 +1,1212 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-26",
+  "source_commit": "9ba90ac84a1b4efd7e9f65b48b36bbbebf958253",
+  "source_sha256": "e917bec817df1981c682d8b8645307432c6badb220b9f7c424b4089d9bf97bd7",
+  "production_changes": false,
+  "historical_disable_commit": {
+    "sha": "fec69179f6fbfd906789ffa6278c61a627229179",
+    "author": "danielryckman",
+    "date": "2026-06-08",
+    "message": "temp fixes",
+    "change": "CUDA inputs switch from with_cuda=True to with_cuda=False; the same commit adds DTensor.to_local handling",
+    "rationale_documented": false
+  },
+  "environment": {
+    "host": "labmach",
+    "python": "3.10.16",
+    "torch": "2.2.2+cu121",
+    "numba": "0.61.2",
+    "numpy": "1.26.4",
+    "gpu": "NVIDIA RTX A2000 12GB",
+    "driver": "545.23.08",
+    "platform": "Linux-6.1.0-1027-oem-x86_64-with-glibc2.35",
+    "native_threads": 1,
+    "host_exclusive": false,
+    "gpu_idle_at_recorded_pre_audit_and_extra_timing_checks": true
+  },
+  "method": {
+    "warmups_per_backend": 2,
+    "timed_calls_per_backend_per_shape": 7,
+    "order": "CPU/CUDA then CUDA/CPU alternating by repetition",
+    "input_device": "cuda:0",
+    "dtype_for_timings": "torch.float32",
+    "timing_stream": "default",
+    "timing_scope": "Complete tensor_hash call plus CUDA synchronization; includes input integer conversion and CPU copy/hash or CUDA launch/result copy. Excludes tracing metadata, training, import/initialization.",
+    "nondefault_stream_delay_cycles": 10000000,
+    "stream_control_scope": "Producer delay/fill and hash invocation are inside same current Torch stream; CUDA-after-sync waits for producer before call; all methods synchronize after returned value.",
+    "shared_hash_semantics": "Both return only first-row accumulator; this audit preserves rather than repairs that algorithm."
+  },
+  "correctness_summary": {
+    "cases": 17,
+    "both_success_equal": 15,
+    "all_inputs_unchanged": true,
+    "scalar_cpu_success_cuda_failure": true,
+    "empty_rows_both_fail_differently": true
+  },
+  "correctness_cases": [
+    {
+      "case": "scalar-f32",
+      "shape": [],
+      "dtype": "torch.float32",
+      "stride": [],
+      "cpu_backend": {
+        "success": true,
+        "value": 250000001,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": false,
+        "value": null,
+        "error_type": "ValueError",
+        "error_message": "not enough values to unpack (expected 2, got 0)"
+      },
+      "both_succeeded": false,
+      "equal_values": false,
+      "input_unchanged": true
+    },
+    {
+      "case": "empty-vector",
+      "shape": [
+        0
+      ],
+      "dtype": "torch.float32",
+      "stride": [
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": 0,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": 0,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "empty-rows",
+      "shape": [
+        0,
+        3
+      ],
+      "dtype": "torch.float32",
+      "stride": [
+        3,
+        1
+      ],
+      "cpu_backend": {
+        "success": false,
+        "value": null,
+        "error_type": "IndexError",
+        "error_message": "index 0 is out of bounds for axis 0 with size 0"
+      },
+      "cuda_backend": {
+        "success": false,
+        "value": null,
+        "error_type": "CudaAPIError",
+        "error_message": "[1] Call to cuLaunchKernel results in CUDA_ERROR_INVALID_VALUE"
+      },
+      "both_succeeded": false,
+      "equal_values": false,
+      "input_unchanged": true
+    },
+    {
+      "case": "empty-columns",
+      "shape": [
+        3,
+        0
+      ],
+      "dtype": "torch.float32",
+      "stride": [
+        1,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": 0,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": 0,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "vector",
+      "shape": [
+        17
+      ],
+      "dtype": "torch.float32",
+      "stride": [
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": -8252389398833339663,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": -8252389398833339663,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "matrix",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.float32",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "rank3",
+      "shape": [
+        2,
+        3,
+        4
+      ],
+      "dtype": "torch.float32",
+      "stride": [
+        12,
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "transpose",
+      "shape": [
+        4,
+        3
+      ],
+      "dtype": "torch.float32",
+      "stride": [
+        1,
+        4
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": 2775809770071943447,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": 2775809770071943447,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "strided",
+      "shape": [
+        16
+      ],
+      "dtype": "torch.float32",
+      "stride": [
+        2
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": 1876072234410241200,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": 1876072234410241200,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "torch.float16",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.float16",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": -8429496642941146891,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": -8429496642941146891,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "torch.bfloat16",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.bfloat16",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": -5804717181047253492,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": -5804717181047253492,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "torch.float64",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.float64",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "torch.int8",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.int8",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "torch.uint8",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.uint8",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "torch.int16",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.int16",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "torch.int32",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.int32",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    },
+    {
+      "case": "torch.int64",
+      "shape": [
+        3,
+        4
+      ],
+      "dtype": "torch.int64",
+      "stride": [
+        4,
+        1
+      ],
+      "cpu_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda_backend": {
+        "success": true,
+        "value": -1965408633344425390,
+        "error_type": null,
+        "error_message": null
+      },
+      "both_succeeded": true,
+      "equal_values": true,
+      "input_unchanged": true
+    }
+  ],
+  "stream_controls": [
+    {
+      "dtype": "torch.int64",
+      "iteration": 0,
+      "variant": "cuda-current-stream",
+      "expected": -5810646643502623232,
+      "actual": -5338016848865215808,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": -5810646643502623232,
+      "matches_expected": false
+    },
+    {
+      "dtype": "torch.int64",
+      "iteration": 0,
+      "variant": "cuda-after-sync",
+      "expected": -5810646643502623232,
+      "actual": -5810646643502623232,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": -5810646643502623232,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.int64",
+      "iteration": 0,
+      "variant": "cpu-current-stream",
+      "expected": -5810646643502623232,
+      "actual": -5810646643502623232,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": -5810646643502623232,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.int64",
+      "iteration": 1,
+      "variant": "cuda-current-stream",
+      "expected": 7298080581341712576,
+      "actual": -5338016848865215808,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 7298080581341712576,
+      "matches_expected": false
+    },
+    {
+      "dtype": "torch.int64",
+      "iteration": 1,
+      "variant": "cuda-after-sync",
+      "expected": 7298080581341712576,
+      "actual": 7298080581341712576,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 7298080581341712576,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.int64",
+      "iteration": 1,
+      "variant": "cpu-current-stream",
+      "expected": 7298080581341712576,
+      "actual": 7298080581341712576,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 7298080581341712576,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.int64",
+      "iteration": 2,
+      "variant": "cuda-current-stream",
+      "expected": 1960063732476496768,
+      "actual": -5338016848865215808,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 1960063732476496768,
+      "matches_expected": false
+    },
+    {
+      "dtype": "torch.int64",
+      "iteration": 2,
+      "variant": "cuda-after-sync",
+      "expected": 1960063732476496768,
+      "actual": 1960063732476496768,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 1960063732476496768,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.int64",
+      "iteration": 2,
+      "variant": "cpu-current-stream",
+      "expected": 1960063732476496768,
+      "actual": 1960063732476496768,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 1960063732476496768,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 0,
+      "variant": "cuda-current-stream",
+      "expected": 8485304009635789504,
+      "actual": -5338016848865215808,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 8485304009635789504,
+      "matches_expected": false
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 0,
+      "variant": "cuda-after-sync",
+      "expected": 8485304009635789504,
+      "actual": 8485304009635789504,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 8485304009635789504,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 0,
+      "variant": "cpu-current-stream",
+      "expected": 8485304009635789504,
+      "actual": 8485304009635789504,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 8485304009635789504,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 1,
+      "variant": "cuda-current-stream",
+      "expected": 2554316672117553856,
+      "actual": -5338016848865215808,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 2554316672117553856,
+      "matches_expected": false
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 1,
+      "variant": "cuda-after-sync",
+      "expected": 2554316672117553856,
+      "actual": 2554316672117553856,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 2554316672117553856,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 1,
+      "variant": "cpu-current-stream",
+      "expected": 2554316672117553856,
+      "actual": 2554316672117553856,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": 2554316672117553856,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 2,
+      "variant": "cuda-current-stream",
+      "expected": -3376670665400681792,
+      "actual": -5338016848865215808,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": -3376670665400681792,
+      "matches_expected": false
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 2,
+      "variant": "cuda-after-sync",
+      "expected": -3376670665400681792,
+      "actual": -3376670665400681792,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": -3376670665400681792,
+      "matches_expected": true
+    },
+    {
+      "dtype": "torch.float32",
+      "iteration": 2,
+      "variant": "cpu-current-stream",
+      "expected": -3376670665400681792,
+      "actual": -3376670665400681792,
+      "actual_success": true,
+      "actual_error_type": null,
+      "actual_error_message": null,
+      "cpu_after_sync": -3376670665400681792,
+      "matches_expected": true
+    }
+  ],
+  "stream_control_summary": {
+    "cases": 18,
+    "cuda_current_stream_correct": 0,
+    "cuda_after_sync_correct": 6,
+    "cpu_current_stream_correct": 6,
+    "cases_per_variant": 6
+  },
+  "mutation_observation": {
+    "original": {
+      "cpu": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      }
+    },
+    "nonfirst_row_changed": {
+      "cpu": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda": {
+        "success": true,
+        "value": 4672964312098266124,
+        "error_type": null,
+        "error_message": null
+      }
+    },
+    "first_row_changed": {
+      "cpu": {
+        "success": true,
+        "value": 7141502261496787212,
+        "error_type": null,
+        "error_message": null
+      },
+      "cuda": {
+        "success": true,
+        "value": 7141502261496787212,
+        "error_type": null,
+        "error_message": null
+      }
+    }
+  },
+  "timings": [
+    {
+      "shape": [
+        16
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 64,
+      "cpu_median_seconds": 4.952773451805115e-05,
+      "cuda_median_seconds": 0.00012518838047981262,
+      "cpu_divided_by_cuda": 0.3956256509447999,
+      "samples_seconds": {
+        "cpu": [
+          6.622076034545898e-05,
+          5.0224363803863525e-05,
+          4.2010098695755005e-05,
+          5.261227488517761e-05,
+          4.2729079723358154e-05,
+          4.952773451805115e-05,
+          4.1406601667404175e-05
+        ],
+        "cuda": [
+          0.00013249367475509644,
+          0.00012518838047981262,
+          0.00012725964188575745,
+          0.0001330748200416565,
+          0.00011906027793884277,
+          0.00011687353253364563,
+          0.0001161135733127594
+        ]
+      }
+    },
+    {
+      "shape": [
+        64,
+        64
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 16384,
+      "cpu_median_seconds": 0.00010630860924720764,
+      "cuda_median_seconds": 0.00011986866593360901,
+      "cpu_divided_by_cuda": 0.8868757186810454,
+      "samples_seconds": {
+        "cpu": [
+          0.00011799484491348267,
+          0.00011884793639183044,
+          9.90740954875946e-05,
+          0.00011590495705604553,
+          0.00010630860924720764,
+          0.00010573118925094604,
+          9.775161743164062e-05
+        ],
+        "cuda": [
+          0.00013583898544311523,
+          0.00012421980500221252,
+          0.000123538076877594,
+          0.00011800974607467651,
+          0.00011986866593360901,
+          0.00011301413178443909,
+          0.00011808797717094421
+        ]
+      }
+    },
+    {
+      "shape": [
+        1024,
+        1024
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 4194304,
+      "cpu_median_seconds": 0.011968977749347687,
+      "cuda_median_seconds": 0.00030375272035598755,
+      "cpu_divided_by_cuda": 39.403689077485346,
+      "samples_seconds": {
+        "cpu": [
+          0.01245785504579544,
+          0.01018982008099556,
+          0.01201363280415535,
+          0.010214142501354218,
+          0.011646285653114319,
+          0.011968977749347687,
+          0.01430797204375267
+        ],
+        "cuda": [
+          0.00039573386311531067,
+          0.00029542669653892517,
+          0.0003079622983932495,
+          0.0002805367112159729,
+          0.0003190450370311737,
+          0.0002852119505405426,
+          0.00030375272035598755
+        ]
+      }
+    },
+    {
+      "shape": [
+        1024
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 4096,
+      "cpu_median_seconds": 0.0010499395430088043,
+      "cuda_median_seconds": 0.00020195543766021729,
+      "cpu_divided_by_cuda": 5.1988674094296465,
+      "samples_seconds": {
+        "cpu": [
+          0.0010948777198791504,
+          0.001168135553598404,
+          0.0010659284889698029,
+          0.0010499395430088043,
+          0.001040138304233551,
+          0.001040775328874588,
+          0.0010373108088970184
+        ],
+        "cuda": [
+          0.00020319223403930664,
+          0.00019872933626174927,
+          0.0002453327178955078,
+          0.00020195543766021729,
+          0.00020509213209152222,
+          0.00019384920597076416,
+          0.00018447265028953552
+        ]
+      }
+    },
+    {
+      "shape": [
+        4096
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 16384,
+      "cpu_median_seconds": 0.0040616244077682495,
+      "cuda_median_seconds": 0.00041097402572631836,
+      "cpu_divided_by_cuda": 9.882922407541697,
+      "samples_seconds": {
+        "cpu": [
+          0.004065990447998047,
+          0.00405396893620491,
+          0.004031617194414139,
+          0.004064466804265976,
+          0.0040616244077682495,
+          0.004073053598403931,
+          0.004030473530292511
+        ],
+        "cuda": [
+          0.0004185512661933899,
+          0.000406607985496521,
+          0.0004246942698955536,
+          0.00041097402572631836,
+          0.00041143596172332764,
+          0.0004088655114173889,
+          0.0004093572497367859
+        ]
+      }
+    },
+    {
+      "shape": [
+        256,
+        256
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 262144,
+      "cpu_median_seconds": 0.00046943873167037964,
+      "cuda_median_seconds": 0.00015348196029663086,
+      "cpu_divided_by_cuda": 3.058592233009709,
+      "samples_seconds": {
+        "cpu": [
+          0.0004907324910163879,
+          0.0004807673394680023,
+          0.00046698376536369324,
+          0.0004808157682418823,
+          0.0004634670913219452,
+          0.00046943873167037964,
+          0.00046386197209358215
+        ],
+        "cuda": [
+          0.00015043094754219055,
+          0.00013437122106552124,
+          0.00026668235659599304,
+          0.00016199424862861633,
+          0.00016066059470176697,
+          0.00014073774218559265,
+          0.00015348196029663086
+        ]
+      }
+    },
+    {
+      "shape": [
+        4096,
+        16
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 262144,
+      "cpu_median_seconds": 0.00021225959062576294,
+      "cuda_median_seconds": 0.00013484060764312744,
+      "cpu_divided_by_cuda": 1.5741518399823184,
+      "samples_seconds": {
+        "cpu": [
+          0.00022611767053604126,
+          0.00021656975150108337,
+          0.0002048984169960022,
+          0.00021633505821228027,
+          0.00020454823970794678,
+          0.00021195784211158752,
+          0.00021225959062576294
+        ],
+        "cuda": [
+          0.0002016797661781311,
+          0.00013020634651184082,
+          0.0001468472182750702,
+          0.0001270100474357605,
+          0.00014220550656318665,
+          0.00012057647109031677,
+          0.00013484060764312744
+        ]
+      }
+    },
+    {
+      "shape": [
+        1,
+        1024
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 4096,
+      "cpu_median_seconds": 0.00103827565908432,
+      "cuda_median_seconds": 0.0001866072416305542,
+      "cpu_divided_by_cuda": 5.563962309350795,
+      "samples_seconds": {
+        "cpu": [
+          0.001045726239681244,
+          0.0011187456548213959,
+          0.00103827565908432,
+          0.0010272487998008728,
+          0.00103059783577919,
+          0.001041904091835022,
+          0.0010345764458179474
+        ],
+        "cuda": [
+          0.0002496987581253052,
+          0.0002479180693626404,
+          0.00019634515047073364,
+          0.00018278881907463074,
+          0.00018258020281791687,
+          0.0001782625913619995,
+          0.0001866072416305542
+        ]
+      }
+    },
+    {
+      "shape": [
+        1024,
+        1
+      ],
+      "dtype": "torch.float32",
+      "input_bytes": 4096,
+      "cpu_median_seconds": 3.3993273973464966e-05,
+      "cuda_median_seconds": 0.00012517720460891724,
+      "cpu_divided_by_cuda": 0.27156121659425037,
+      "samples_seconds": {
+        "cpu": [
+          3.674626350402832e-05,
+          4.293397068977356e-05,
+          2.830103039741516e-05,
+          3.913417458534241e-05,
+          2.831965684890747e-05,
+          3.3993273973464966e-05,
+          2.8524547815322876e-05
+        ],
+        "cuda": [
+          0.0001200549304485321,
+          0.00018195435404777527,
+          0.00019641220569610596,
+          0.00012517720460891724,
+          0.0001265890896320343,
+          0.00011945515871047974,
+          0.00011345371603965759
+        ]
+      }
+    }
+  ],
+  "artifacts": {
+    "remote_directory": "/home/yuxuan/experiments/codex-hash-backend-audit-20261026-v020",
+    "local_directory": "/Users/matt/gitrepos/traincheck/outputs/tracing-components-20261026/hash",
+    "verified_files": [
+      {
+        "filename": "audit_hash.py",
+        "sha256": "a80a6ab65f0f3af203a6b358f330c88965d4d9e37ac3b552188fe5f3be54a713",
+        "bytes": 9276
+      },
+      {
+        "filename": "audit_hash_more_shapes.py",
+        "sha256": "d9d8c79bf72e915b098c7b9ba223cb81a0f535526245ca2cad2cb8c60d4b8565",
+        "bytes": 3075
+      },
+      {
+        "filename": "audit_hash_stream_controls.py",
+        "sha256": "6ac71fc295a9e5e6346136686c606900d2f8151d17de3db9b58cc4e28cf5f414",
+        "bytes": 2645
+      },
+      {
+        "filename": "audit_hash_streams.py",
+        "sha256": "dc6c3746579e6f453045c7b3fbf7bb51a7954894cfe9c8a6c644a24e31dbb83c",
+        "bytes": 2022
+      },
+      {
+        "filename": "hash_source.py",
+        "sha256": "e917bec817df1981c682d8b8645307432c6badb220b9f7c424b4089d9bf97bd7",
+        "bytes": 4602
+      },
+      {
+        "filename": "hash-results.json",
+        "sha256": "5112894bf5c7e9e22dbcd3d277745f33f01a4ddd857abd8c2728fa8169f94898",
+        "bytes": 15016
+      },
+      {
+        "filename": "more-shapes-results.json",
+        "sha256": "e8775f4bbeeb7b8b7f4f33f93d9c6e5c6d0c4bd3e6e202308c6a83ab9a40291f",
+        "bytes": 5180
+      },
+      {
+        "filename": "stream-controls-results.json",
+        "sha256": "9747a1d6b289c56eca07adb2af6a2eede4d87006c121d55ab00cf7d75ea3844e",
+        "bytes": 10684
+      },
+      {
+        "filename": "stream-results.json",
+        "sha256": "b4668c0dd605ad1f3719f1e281d1578f314b3217ffa5928d2788e903427d703a",
+        "bytes": 3484
+      },
+      {
+        "filename": "audit.log",
+        "sha256": "67bac1c7d27ed0558a6aedfa1984add1a1e80a5f936f2e8d49ce1327acd6d559",
+        "bytes": 1046
+      },
+      {
+        "filename": "more-shapes.log",
+        "sha256": "5f83f7704f33453241515e5974b99e585cc78cad382c8663636c7584fd62b082",
+        "bytes": 800
+      },
+      {
+        "filename": "stream-controls.log",
+        "sha256": "68adee85d1818c7edff9419aa9ef5352206a9cfed3e762b2be8bbb28eb95265a",
+        "bytes": 278
+      },
+      {
+        "filename": "stream.log",
+        "sha256": "119688bb48d6e261896b5cf8be552538647b9ae4b1b77daa1bb5ddfa8a04c4b8",
+        "bytes": 280
+      }
+    ],
+    "reproduce_commands": [
+      "cd /home/yuxuan/experiments/codex-hash-backend-audit-20261026-v020 && OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONDONTWRITEBYTECODE=1  timeout 90 /home/yuxuan/miniconda3/envs/traincheck/bin/python audit_hash.py --source hash_source.py --output hash-results.json",
+      "cd /home/yuxuan/experiments/codex-hash-backend-audit-20261026-v020 && OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONDONTWRITEBYTECODE=1  timeout 30 /home/yuxuan/miniconda3/envs/traincheck/bin/python audit_hash_streams.py",
+      "cd /home/yuxuan/experiments/codex-hash-backend-audit-20261026-v020 && OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONDONTWRITEBYTECODE=1  timeout 30 /home/yuxuan/miniconda3/envs/traincheck/bin/python audit_hash_stream_controls.py",
+      "cd /home/yuxuan/experiments/codex-hash-backend-audit-20261026-v020 && OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONDONTWRITEBYTECODE=1  timeout 60 /home/yuxuan/miniconda3/envs/traincheck/bin/python audit_hash_more_shapes.py"
+    ]
+  },
+  "validation": {
+    "strict_mypy": {
+      "passed": true,
+      "files": 4,
+      "options": [
+        "--check-untyped-defs",
+        "--disallow-untyped-defs",
+        "--disallow-any-generics",
+        "--follow-imports=skip"
+      ]
+    },
+    "black": {
+      "passed": true,
+      "files": 4,
+      "target_version": "py310"
+    },
+    "isort": {
+      "passed": true,
+      "files": 4,
+      "profile": "black"
+    },
+    "downloaded_hashes_verified": 13,
+    "unchanged_released_source_verified": true
+  },
+  "limits": [
+    "Hash-only microbenchmark; no percentage of total tracing or training inferred.",
+    "Default-stream timings do not include a proposed stream-safety repair.",
+    "One warmed process per timing batch, seven alternating measurements per backend, no exclusive host or confidence interval.",
+    "No production backend default or algorithm changed.",
+    "Scalar/empty errors and stream observations must be handled before enabling CUDA generally.",
+    "First-row-only behavior is shared existing hash semantics, separate from backend parity."
+  ],
+  "mnist_dominant_shape_followup": {
+    "timings": [
+      {
+        "shape": [
+          128,
+          9216
+        ],
+        "dtype": "torch.float32",
+        "input_bytes": 4718592,
+        "samples_seconds": {
+          "cpu": [
+            0.01494477316737175,
+            0.014594506472349167,
+            0.01264377310872078,
+            0.012647747993469238,
+            0.014576397836208344,
+            0.01462256908416748,
+            0.01264270395040512
+          ],
+          "cuda": [
+            0.0015219561755657196,
+            0.0014661811292171478,
+            0.0015172585844993591,
+            0.0014633052051067352,
+            0.0015113502740859985,
+            0.001466561108827591,
+            0.001525983214378357
+          ]
+        },
+        "median_seconds": {
+          "cpu": 0.014576397836208344,
+          "cuda": 0.0015113502740859985
+        },
+        "hash_backends_equal": true
+      }
+    ],
+    "warmups_per_backend": 2,
+    "repeats_per_backend": 7,
+    "order": "CPU/CUDA alternating then CUDA/CPU alternating",
+    "scope": "Complete tensor_hash plus CUDA synchronization, CUDA float32 input, no tracer or metadata operations",
+    "artifacts": [
+      {
+        "filename": "audit_hash_mnist_fc1.py",
+        "sha256": "093827aa0bccfda1bf30778c70ce65fdf799b071af72d591792e8e491ba1ebe0"
+      },
+      {
+        "filename": "mnist-fc1-results.json",
+        "sha256": "6db80ff91e7a4eca77f4da72894e2de8b9b0df7c87e366c6def516ccfe3c6470"
+      },
+      {
+        "filename": "mnist-fc1.log",
+        "sha256": "d9bc00296b30e66e50ab01bd8f8817db7c50b2762661d8f1a62ef3937cb65056"
+      }
+    ],
+    "runtime_same_as_original_hash_audit": true,
+    "stream": "default",
+    "limits": "Exact shape of dominant logical hash volume in the CPU model-tracer study, moved to CUDA for this isolated backend comparison; not a combined-training speedup and no stream-safety repair included."
+  }
+}

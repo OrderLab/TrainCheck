@@ -1,0 +1,35 @@
+[
+  {
+    "fixture": "renamed_local_checker",
+    "before_status": "completed",
+    "before_records": [
+      {
+        "func_call_id": null
+      }
+    ],
+    "after_status": "observer_error",
+    "after_records": []
+  },
+  {
+    "fixture": "malformed_local_checker",
+    "before_status": "completed",
+    "before_records": [
+      {
+        "func_call_id": null
+      }
+    ],
+    "after_status": "observer_error",
+    "after_records": []
+  },
+  {
+    "fixture": "catching_local_checker",
+    "before_status": "completed",
+    "before_records": [
+      {
+        "func_call_id": null
+      }
+    ],
+    "after_status": "observer_error",
+    "after_records": []
+  }
+]

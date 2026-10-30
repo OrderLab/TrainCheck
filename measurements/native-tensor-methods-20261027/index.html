@@ -1,0 +1,1227 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://orderlab.github.io/traincheck/measurements/native-tensor-methods-20261027/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Historical CPU measurement: skipping tensor method metadata - TrainCheck</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#historical-cpu-measurement-skipping-tensor-method-metadata" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="TrainCheck" class="md-header__button md-logo" aria-label="TrainCheck" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            TrainCheck
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Historical CPU measurement: skipping tensor method metadata
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/OrderLab/traincheck" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OrderLab/traincheck
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="https://www.usenix.org/conference/osdi25/presentation/jiang" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Paper
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../blog/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Blog
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../installation-guide/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Documentation
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="TrainCheck" class="md-nav__button md-logo" aria-label="TrainCheck" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    TrainCheck
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/OrderLab/traincheck" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    OrderLab/traincheck
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="https://www.usenix.org/conference/osdi25/presentation/jiang" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Paper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../blog/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Blog
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Documentation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../installation-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use TrainCheck
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../5-min-tutorial/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    5-Minute Tutorial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    CLI Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../instr/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Collect Traces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../infer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Infer Invariants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Check Traces
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../successful-stories/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Success Stories
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../technical-doc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Technical Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../benchmarks/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance Benchmarks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="historical-cpu-measurement-skipping-tensor-method-metadata">Historical CPU measurement: skipping tensor method metadata</h1>
+<p>The final binding-preserving implementation has <a href="../native-tensor-bindings-20261027/">fresh CPU and H100 measurements</a>.</p>
+<p><strong>Superseded candidate:</strong> these numbers measure <code>77ea19b</code>. Later lifetime tests
+found that skipping a bound method changes references observable by subsequent
+properties. The revised implementation retains real native binding and the
+original classifier, bypassing only the guarded getter. Its fresh measurements
+must be reported separately; the figures below are not claims about that revision.</p>
+<p>TrainCheck's metadata converter reads hundreds of tensor methods and then discards
+their bound callable values. Each read also enters and exits a warning-suppression
+context. The candidate recognizes a narrowly verified ordinary method binding and
+skips both operations. Recorded metadata fields, JSON encoding, tensor hashing,
+and warning handling for properties remain unchanged.</p>
+<h2 id="measured-results">Measured results</h2>
+<p>These are ordinary, unprofiled CPU runs on labmach. They are not H100 results or
+inference timings. Each primary workload ran three training steps in eight fresh
+processes, ordered baseline/candidate/candidate/baseline twice. Four measurements
+per revision contribute to each median.</p>
+<table>
+<thead>
+<tr>
+<th>Workload and timing scope</th>
+<th style="text-align: right;">Baseline median</th>
+<th style="text-align: right;">Candidate median</th>
+<th style="text-align: right;">Time reduction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MNIST, API-traced training body</td>
+<td style="text-align: right;">276.949 ms</td>
+<td style="text-align: right;">217.152 ms</td>
+<td style="text-align: right;">21.59%</td>
+</tr>
+<tr>
+<td>Small Transformer, API-traced training body</td>
+<td style="text-align: right;">676.312 ms</td>
+<td style="text-align: right;">516.164 ms</td>
+<td style="text-align: right;">23.68%</td>
+</tr>
+<tr>
+<td>2,000 complete tensor metadata conversions</td>
+<td style="text-align: right;">1.626168 s</td>
+<td style="text-align: right;">1.158417 s</td>
+<td style="text-align: right;">28.76%</td>
+</tr>
+</tbody>
+</table>
+<p>Reduction is <code>(baseline - candidate) / baseline</code>; training-body speedups are
+1.275x and 1.310x. Training timings include <code>start_step</code> and the training body,
+excluding imports, setup, metrics/state evidence, queue drainage and shutdown.
+Component timings measure <code>convert_var_to_dict(..., include_tensor_data=False)</code>;
+they exclude tensor hashing and are not a fraction of training time.</p>
+<p>Raw three-step training-body times in milliseconds, listed by pair number:</p>
+<table>
+<thead>
+<tr>
+<th>Pair</th>
+<th style="text-align: right;">MNIST baseline</th>
+<th style="text-align: right;">MNIST candidate</th>
+<th style="text-align: right;">Transformer baseline</th>
+<th style="text-align: right;">Transformer candidate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td style="text-align: right;">277.677</td>
+<td style="text-align: right;">217.590</td>
+<td style="text-align: right;">679.095</td>
+<td style="text-align: right;">515.303</td>
+</tr>
+<tr>
+<td>2</td>
+<td style="text-align: right;">276.435</td>
+<td style="text-align: right;">214.336</td>
+<td style="text-align: right;">675.916</td>
+<td style="text-align: right;">519.917</td>
+</tr>
+<tr>
+<td>3</td>
+<td style="text-align: right;">276.054</td>
+<td style="text-align: right;">216.714</td>
+<td style="text-align: right;">675.490</td>
+<td style="text-align: right;">517.025</td>
+</tr>
+<tr>
+<td>4</td>
+<td style="text-align: right;">277.462</td>
+<td style="text-align: right;">217.629</td>
+<td style="text-align: right;">676.709</td>
+<td style="text-align: right;">509.738</td>
+</tr>
+</tbody>
+</table>
+<p>An untimed component diagnostic counted <strong>1,192 to 60 guarded attribute reads</strong>
+for two full conversions, a <strong>94.97% reduction</strong>. Both versions retained the same
+28 field names per object. All eight timed component runs emitted 56,000 fields.
+The separate diagnostic found no emitted warnings and preserved warning-filter
+contents/identity, the warning handler, Python/NumPy/Torch RNG and tensor values.
+This count does not establish what fraction of the H100 workload is eligible.</p>
+<p>Single-pair secondary runs with <strong>both API and subclass model tracking</strong> enabled
+measured MNIST 659.491 to 642.414 ms (2.59% reduction), and Transformer 758.467 to
+620.978 ms (18.13%). Each retained 64 VAR records; API counts were 520 and 1,340.
+These are preliminary single-pair results, not repeated performance estimates.</p>
+<p>Fallbacks have a cost. A separate eight-repeat helper benchmark measured 84,900
+eligible method reads at 78.556 to 48.702 ms, but 450 property reads at 0.400 to
+0.690 ms. Property-heavy or subclass-heavy workloads may benefit less or regress.
+The primary training results above include this fallback cost. There is no claim
+that warning management has been eliminated, or that full instrumentation now
+has low overhead. Against single plain controls, API-traced medians still cost
+9.16x to 7.18x for MNIST and 152.14x to 116.11x for the tiny Transformer; these
+ratios use one plain run per workload and are not repeated plain comparisons.</p>
+<h2 id="sources-workload-and-environment">Sources, workload and environment</h2>
+<ul>
+<li>Baseline: <code>6dccb47d0a8bc192fbe7cbbea700b66106bc2381</code> (main).</li>
+<li>Measured candidate: signed <code>77ea19be77578fb68c654ea861f05a1a7c6267dc</code>.</li>
+<li>No production dependencies on the open CUDA-hashing, selective-policy,
+  checking-workload or coverage PRs. The optional H100 experiment composes those
+  existing study changes separately.</li>
+<li>Lab host: <code>yuxuan-Precision-3660</code>, Linux 6.1.0-1027-oem x86-64, Python 3.11.4,
+  Torch <code>2.16.0.dev20261012+cpu</code>, NumPy 2.1.0. One Torch, interop, OpenMP, MKL and
+  OpenBLAS thread. CUDA hidden; deterministic algorithms enabled; float32.</li>
+<li>Primary mode: API tracing, no model tracker, <code>use_full_instr=False</code>, every
+  training step, no warmup, production tensor-hash configuration. No profiler
+  or diagnostic wrappers during ordinary timings.</li>
+<li>MNIST: exact benchmark <code>Net</code> class, 1,199,882 parameters, first six cached
+  training examples, batch two, original normalization, NLL/Adadelta(lr=1).</li>
+<li>Transformer: exact benchmark <code>PositionalEncoding</code>/<code>TransformerModel</code> classes,
+  21,052 parameters, two layers, width 32, feed-forward width 64, two heads,
+  sequence 16, batch two, 98-token WikiText prefix and 60-token vocabulary;
+  NLL/backward/clipped manual SGD. This is a bounded adaptation, not the full
+  RNN benchmark script or the 6.2M-parameter TorchTitan Llama experiment.</li>
+<li>Construction/data seed 42; training RNG reset to 43 after setup. Both variants
+  use the unchanged <code>tools/fresh_validation/benchmark_workload.py</code> adapter.
+  Every run records exact model-definition and dataset SHA-256 values.</li>
+<li>Plain controls import TrainCheck and its global Module setter hook but install
+  neither API wrappers nor tracked parameters. They are state/loss controls,
+  not an independently installed framework-only benchmark.</li>
+</ul>
+<p>The benchmark-directory Git HEAD was unavailable, so manifests identify the
+actual source files and extracted class definitions by content hashes. Source
+snapshots were hashed before and after every process and remained unchanged.
+The runs have 90-second, 4 GiB observed-RSS and 256 MiB trace caps. Overall memory
+overhead was not isolated; no memory improvement is claimed.</p>
+<h2 id="behavior-and-compatibility">Behavior and compatibility</h2>
+<p>All 16 primary runs exactly match the recorded plain-control initial/final model
+state, gradients, optimizer state (where present), stored module values including
+the Transformer's cached mask, Python/NumPy/Torch RNG states, and loss trajectory.
+Tensor evidence includes names, dtypes, shapes and SHA-256 of bytes; raw checkpoint
+tensors were not archived. Both secondary combined pairs also match their controls.</p>
+<p>Every primary pair has the same API sequence/count map and complete PRE/POST
+groups: 520 MNIST and 1,338 Transformer records. Recursive raw comparisons retain
+every field and report differences only in timestamps, process/thread/call/object
+IDs and <code>_TRAINCHECK_*_ID</code> values. Cross-process raw traces are <strong>not byte-equal</strong>;
+IDs were not deleted or remapped to claim equality. These results do not prove
+cross-run object-identity equivalence or frozen-invariant checker parity.
+Same-object regression tests separately exercise recorded identities and order.
+Raw API trace sizes also match in all eight runs per workload: 351,073 bytes for
+MNIST and 1,014,134 bytes for the Transformer.</p>
+<p>The fast path accepts exact Tensor/Parameter instances only, with empty native
+dictionaries and ordinary lookup. It checks live class namespaces, descriptor
+ownership, inheritance identity, and retained-type configuration at each decision.
+Only original MRO identities and live namespace proxies are cached; object values
+and mutable lookup results are not. Changed inheritance disables the shortcut,
+including after bases are restored. Properties, subclasses, shadowed attributes,
+custom lookup/configuration and <code>_TRAINCHECK</code> fields use the existing path. A
+getter may mutate later attributes or warning filters without bypassing restoration.</p>
+<p>Validation:</p>
+<ul>
+<li>17 new contract tests; 106 focused tests pass on Python 3.10.16 / Torch 2.2.2.</li>
+<li>24 metadata tests pass on the matching lab Python/Torch runtime.</li>
+<li>Full local suite: 326 passed, two failures independently reproduced on unchanged
+  main: <code>test_traincheck_internal_attr_hidden</code> and <code>test_inject_eval_loop</code>.</li>
+<li>Changed-file pinned pre-commit passes. All four new Python files pass stricter
+  scoped mypy with untyped-body, untyped-definition and generic checks.</li>
+<li>All-files Ruff/mypy/isort pass. All-files Black finds existing trailing
+  whitespace in <code>config/config.py</code> and <code>instrumentor/proxy_wrapper/hash.py</code> on
+  both revisions; hook-created unrelated edits were restored and excluded.</li>
+</ul>
+<h2 id="evidence-and-reproduction">Evidence and reproduction</h2>
+<p>Durable local evidence: <code>outputs/metadata-fastpath-20261027/</code> in the canonical
+checkout. Lab evidence: <code>/home/yuxuan/experiments/metadata-fastpath-20261027/</code>.
+Large traces and machine-specific experiment scripts are intentionally outside
+Git. <code>PROTOCOL.md</code>, <code>training_benchmark.py</code>, <code>run_comparison.py</code>, and
+<code>compare_training.py</code> record the exact bounded training recipe. The downloaded
+<code>training-evidence/</code> contains every run's manifests, state evidence, timings,
+raw traces and strict comparison reports; <code>component/</code> contains all component
+timings and separate diagnostics.</p>
+<table>
+<thead>
+<tr>
+<th>Artifact</th>
+<th>SHA-256</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Baseline source archive</td>
+<td><code>7aae9422ca4b026c6f4c5056e53c198cb4e2b1acc323fbbdd1a651efdd27e09e</code></td>
+</tr>
+<tr>
+<td>Candidate source archive</td>
+<td><code>c2e394d2043da3a5a305312f0147c236b2311a99e071bcf20343db63ba8ab4d9</code></td>
+</tr>
+<tr>
+<td>Final training worker</td>
+<td><code>8a8b351a8baf0a98215461855cc72bfded7dbc94a667f27af789170a2deedda6</code></td>
+</tr>
+<tr>
+<td>Downloaded training evidence archive</td>
+<td><code>d406868f9c24d598f5d91350f0eb3360ed2cb3cf9713fb20b0e7f0e6a7898381</code></td>
+</tr>
+</tbody>
+</table>
+<p>The committed component benchmark can run against either frozen source tree:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">"</span><span class="nv">$baseline_source</span><span class="s2">"</span><span class="w"> </span><span class="nv">PYTHONDONTWRITEBYTECODE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="s2">"</span><span class="nv">$python</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="s2">"</span><span class="nv">$candidate_source</span><span class="s2">/tools/benchmarks/tensor_metadata.py"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--iterations<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--output<span class="w"> </span>baseline.json
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">"</span><span class="nv">$candidate_source</span><span class="s2">"</span><span class="w"> </span><span class="nv">PYTHONDONTWRITEBYTECODE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="s2">"</span><span class="nv">$python</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="s2">"</span><span class="nv">$candidate_source</span><span class="s2">/tools/benchmarks/tensor_metadata.py"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span>--iterations<span class="w"> </span><span class="m">1000</span><span class="w"> </span>--output<span class="w"> </span>candidate.json
+</code></pre></div>
+<p>Check the emitted <code>dumper_path</code> and SHA-256. Repeat in ABBA order with fresh output
+paths. The initial local pilot without explicit <code>PYTHONPATH</code> loaded an editable
+installation from another checkout; it is retained as <code>local-component-wrong-import.json</code>
+and excluded from every reported comparison.</p>
+<p>For the full CPU recipe on labmach, use the saved harness in a fresh study copy
+with frozen sources and the same prepared plain controls:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">python</span><span class="o">=</span>/home/yuxuan/experiments/codex-inference-runtime-20261025/venv/bin/python
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="s2">"</span><span class="nv">$python</span><span class="s2">"</span><span class="w"> </span><span class="s2">"</span><span class="nv">$study</span><span class="s2">/run_comparison.py"</span><span class="w"> </span>--root<span class="w"> </span><span class="s2">"</span><span class="nv">$study</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span>--candidate-commit<span class="w"> </span>77ea19be77578fb68c654ea861f05a1a7c6267dc
+</code></pre></div>
+<p>The subsequent <a href="../native-tensor-methods-h100-20261027/">H100 selective-Llama comparison</a>
+measures three ordinary AB/BA pairs and a holdout independently of these CPU runs.
+It also records a Python 3.12 import compatibility fix and separate eligibility
+counts. The CPU figures above retain their original measured revision and scope;
+they are not extrapolated to the H100 workload.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.instant", "navigation.tracking", "navigation.expand", "navigation.indexes", "navigation.top", "toc.integrate", "search.suggest", "search.highlight", "content.tabs.link", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+    
+  </body>
+</html>
