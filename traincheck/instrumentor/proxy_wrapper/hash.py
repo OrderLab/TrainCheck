@@ -22,9 +22,17 @@ if torch.cuda.is_available():
             hash_values[idx] = hash_value
 
 
-def hash_tensor_cuda(x):
+def hash_tensor_cuda(x: Tensor) -> int:
+    """Apply the existing first-row hash to an integer CUDA tensor.
+
+    Scalars represent a one-element row, matching the CPU implementation.
+    Empty vectors retain their existing zero hash; zero-row matrices remain
+    outside this function's supported input shape contract.
+    """
     # if x is more than 2D, flatten it to 2D
-    if x.ndim > 2:
+    if x.ndim == 0:
+        x = x.reshape(1, 1)
+    elif x.ndim > 2:
         x = x.flatten(start_dim=0, end_dim=-2)
     elif x.ndim == 1:
         # if x is 1D, add a dimension to make it 2D (n x 1)
@@ -40,8 +48,8 @@ def hash_tensor_cuda(x):
         x, hash_values, MULTIPLIER, INCREMENT
     )
 
-    x = hash_values.copy_to_host()
-    return int(x[0])
+    host_hash_values = hash_values.copy_to_host()
+    return int(host_hash_values[0])
 
 
 def hash_tensor_cpu(x: torch.Tensor) -> int:
@@ -95,7 +103,7 @@ def _reduce_last_axis(x: Tensor) -> Tensor:
 def tensor_hash(x: Tensor, with_parallel: bool = True, with_cuda: bool = True) -> int:
     if hasattr(x, "_traincheck_tensor_hash"):
         return x._traincheck_tensor_hash
-    if hasattr(x, "to_local"):  
+    if hasattr(x, "to_local"):
         x = x.to_local()
     if with_parallel:
         if x.dtype in [

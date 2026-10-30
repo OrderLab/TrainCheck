@@ -315,17 +315,20 @@ def tensor_stats(tensor: torch.Tensor):
     return result
 
 
-def dump_tensor(value):
+def dump_tensor(value: object) -> object:
+    """Encode a tensor using the selected dump mode; non-tensors return None.
+
+    The legacy statistics path can return application-cached metadata, which
+    has not been runtime-validated here, so the result contract remains object.
+    CUDA hashing preserves the same recurrence as the CPU path while avoiding
+    its full tensor transfer. CPU and MPS tensors retain CPU hashing.
+    """
     param_list = None
     if isinstance(value, torch.Tensor):
         if tensor_dump_format["dump_tensor_stats"]:
             param_list = tensor_stats(value)
         elif tensor_dump_format["dump_tensor_hash"]:
-            if value.is_cuda:
-                param_list = tensor_hash(value, with_parallel=True, with_cuda=False)
-            else:
-                # TODO: support quick hashing methods for MPS tensors
-                param_list = tensor_hash(value, with_parallel=True, with_cuda=False)
+            param_list = tensor_hash(value, with_parallel=True, with_cuda=value.is_cuda)
 
         elif tensor_dump_format["dump_tensor_full"]:
             param_list = value.detach().flatten().tolist()
