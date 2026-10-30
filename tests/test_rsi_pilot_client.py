@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 from tools.fresh_validation.contracts import JSONObject, JSONValue, read_object
 from tools.rsi_pilot.run_candidate import (
+    check_program,
     configure,
     execute,
     main,
@@ -22,6 +23,7 @@ from tools.rsi_pilot.run_candidate import (
     train_arguments,
     validate_diagnostic_artifacts,
     validate_diagnostics,
+    validate_preflight,
     validate_results,
 )
 
@@ -67,6 +69,144 @@ def training_result() -> JSONObject:
 
 
 class PilotClientTests(unittest.TestCase):
+    def test_preflight_valid_and_invalid_programs_do_not_charge_budgets(self) -> None:
+        cases: list[tuple[int, JSONObject, str]] = [
+            (0, {"schema_version": 1, "valid": True, "error": None}, "program_valid"),
+            (
+                2,
+                {
+                    "schema_version": 1,
+                    "valid": False,
+                    "error": {
+                        "type": "ValueError",
+                        "message": "unsupported research constant",
+                    },
+                },
+                "program_invalid",
+            ),
+        ]
+        for arm in ("control", "traincheck"):
+            for code, payload, status in cases:
+                with (
+                    self.subTest(arm=arm, status=status),
+                    tempfile.TemporaryDirectory() as temporary,
+                ):
+                    trial, program = trial_fixture(Path(temporary), arm)
+
+                    def provide_result(
+                        manifest: JSONObject, source: str, target: Path, log: Path
+                    ) -> None:
+                        target.write_text(json.dumps(payload))
+
+                    with (
+                        patch("tools.rsi_pilot.run_candidate.checked_execute"),
+                        patch("tools.rsi_pilot.run_candidate.upload"),
+                        patch(
+                            "tools.rsi_pilot.run_candidate.download",
+                            side_effect=provide_result,
+                        ),
+                        patch(
+                            "tools.rsi_pilot.run_candidate.execute", return_value=code
+                        ) as executor,
+                    ):
+                        result = check_program(trial, program)
+                        self.assertFalse((trial / "usage.json").exists())
+                        ledger = (
+                            b'{"candidates_reserved": 3, "diagnostics_reserved": 1}\n'
+                        )
+                        (trial / "usage.json").write_bytes(ledger)
+                        repeated = check_program(trial, program)
+                    self.assertEqual((trial / "usage.json").read_bytes(), ledger)
+                    self.assertFalse((trial / "runs").exists())
+                    self.assertEqual(result["status"], status)
+                    self.assertEqual(repeated["preflight"], "preflight-02")
+                    saved = read_object(
+                        trial / "preflights/preflight-01/preflight.json"
+                    )
+                    self.assertEqual(saved, result)
+                    self.assertEqual(saved["result"], payload)
+                    self.assertNotIn("latent_reasoning.train", str(executor.call_args))
+
+    def test_preflight_backend_failure_is_not_program_rejection(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            trial, program = trial_fixture(Path(temporary))
+            with (
+                patch("tools.rsi_pilot.run_candidate.checked_execute"),
+                patch("tools.rsi_pilot.run_candidate.upload"),
+                patch("tools.rsi_pilot.run_candidate.execute", return_value=1),
+                patch("tools.rsi_pilot.run_candidate.download") as downloader,
+            ):
+                result = check_program(trial, program)
+            downloader.assert_not_called()
+            self.assertEqual(result["status"], "execution_failed")
+            self.assertNotIn("valid", result)
+            self.assertFalse((trial / "usage.json").exists())
+
+    def test_preflight_transfer_failure_is_saved_without_budget_charge(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            trial, program = trial_fixture(Path(temporary))
+            with (
+                patch("tools.rsi_pilot.run_candidate.checked_execute"),
+                patch(
+                    "tools.rsi_pilot.run_candidate.upload",
+                    side_effect=OSError("connection lost"),
+                ),
+            ):
+                with self.assertRaises(OSError):
+                    check_program(trial, program)
+            receipt = read_object(trial / "preflights/preflight-01/preflight.json")
+            self.assertEqual(receipt["status"], "client_error")
+            self.assertIn("connection lost", json.dumps(receipt["errors"]))
+            self.assertFalse((trial / "usage.json").exists())
+
+    def test_preflight_rejects_malformed_or_contradictory_receipts(self) -> None:
+        cases: list[tuple[JSONObject, int]] = [
+            ({}, 0),
+            ({"schema_version": 1, "valid": 1, "error": None}, 0),
+            ({"schema_version": 1, "valid": True}, 0),
+            ({"schema_version": 1, "valid": True, "error": None}, 2),
+            ({"schema_version": 1, "valid": False, "error": None}, 2),
+            (
+                {
+                    "schema_version": 1,
+                    "valid": False,
+                    "error": {"type": "ImportError", "message": "torch missing"},
+                },
+                2,
+            ),
+        ]
+        for payload, code in cases:
+            with self.subTest(payload=payload), self.assertRaises(ValueError):
+                validate_preflight(payload, code)
+
+    def test_check_program_cli_is_exclusive_and_preserves_rejection_status(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            arguments = [
+                "run_candidate",
+                "--trial",
+                str(root),
+                "--program",
+                str(root / "program.py"),
+                "--check-program",
+            ]
+            with (
+                patch("sys.argv", arguments),
+                patch(
+                    "tools.rsi_pilot.run_candidate.check_program",
+                    return_value={"status": "program_invalid", "errors": []},
+                ),
+                patch("tools.rsi_pilot.run_candidate.run") as trainer,
+            ):
+                self.assertEqual(main(), 2)
+                trainer.assert_not_called()
+            with patch("sys.argv", [*arguments, "--diagnose"]):
+                with self.assertRaises(SystemExit) as failure:
+                    main()
+                self.assertEqual(failure.exception.code, 2)
+
     def test_program_is_data_not_shell_code(self) -> None:
         source = 'def loss(logits, tokens, labels, step, total_steps):\n    return "`touch sentinel` $HOME"\n'
         config = configure("[training]\n# PILOT_RESEARCH_SOURCE\n", source)

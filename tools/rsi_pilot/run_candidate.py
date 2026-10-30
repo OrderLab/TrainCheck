@@ -34,6 +34,34 @@ from tools.fresh_validation.contracts import (  # noqa: E402
     string,
 )
 
+# Only this fixed operator-owned program executes. The research source is loaded
+# as TOML data and handed to the unchanged upstream AST interpreter.
+PREFLIGHT_PROGRAM = """import json
+import sys
+import tomllib
+from pathlib import Path
+from latent_reasoning.research import TensorProgram
+
+with Path(sys.argv[1]).open("rb") as handle:
+    config = tomllib.load(handle)
+training = config["training"]
+if not isinstance(training, dict):
+    raise TypeError("training must be a table")
+source = training["research_source"]
+if not isinstance(source, str):
+    raise TypeError("research_source must be text")
+result: dict[str, object]
+try:
+    TensorProgram(source)
+except ValueError as exc:
+    result = {"schema_version": 1, "valid": False,
+              "error": {"type": type(exc).__name__, "message": str(exc)}}
+else:
+    result = {"schema_version": 1, "valid": True, "error": None}
+Path(sys.argv[2]).write_text(json.dumps(result, allow_nan=False) + "\\n")
+raise SystemExit(0 if result["valid"] else 2)
+"""
+
 
 def checked_text(record: JSONObject, key: str) -> str:
     value = string(required(record, key), key)
@@ -178,6 +206,168 @@ def train_arguments(manifest: JSONObject, remote: str) -> list[str]:
         "cpu",
         "--require-complete",
     ]
+
+
+def preflight_arguments(manifest: JSONObject, remote: str) -> list[str]:
+    """Run syntax validation under the same runtime, without invoking training."""
+    return [
+        "flock",
+        "-w",
+        "360",
+        checked_text(manifest, "remote_compute_lock"),
+        "timeout",
+        "--signal=TERM",
+        "--kill-after=10s",
+        "30s",
+        "taskset",
+        "-c",
+        checked_text(manifest, "affinity"),
+        "env",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "PYTHONHASHSEED=0",
+        "CUDA_VISIBLE_DEVICES=",
+        "OMP_NUM_THREADS=4",
+        "MKL_NUM_THREADS=4",
+        "OPENBLAS_NUM_THREADS=1",
+        "PYTHONPATH="
+        + checked_text(manifest, "remote_overlay")
+        + ":"
+        + checked_text(manifest, "remote_workspace"),
+        checked_text(manifest, "remote_python"),
+        "-c",
+        PREFLIGHT_PROGRAM,
+        remote + "/config.toml",
+        remote + "/result.json",
+    ]
+
+
+def validate_preflight(result: JSONObject, code: int) -> bool:
+    """Reject malformed or contradictory backend receipts, including exit status."""
+    if integer(required(result, "schema_version"), "schema_version") != 1:
+        raise ValueError("Expected preflight schema_version 1")
+    valid = boolean(required(result, "valid"), "valid")
+    error = required(result, "error")
+    if valid:
+        if code != 0 or error is not None:
+            raise ValueError("Valid preflight must have exit code 0 and no error")
+    else:
+        detail = mapping(error, "error")
+        if code != 2 or string(required(detail, "type"), "error.type") != "ValueError":
+            raise ValueError("Invalid program must have exit code 2 and ValueError")
+        if not string(required(detail, "message"), "error.message"):
+            raise ValueError("Program rejection must include an error message")
+    return valid
+
+
+def check_program(trial: Path, source_path: Path) -> JSONObject:
+    """Provide the upstream free syntax check without reserving any train budget.
+
+    Preflights use the same exclusive trial lock as training. Their immutable
+    receipts live separately; neither successful nor failed syntax checks create
+    or modify usage.json, candidate directories, or diagnostic reservations.
+    """
+    manifest_path = trial / "trial.json"
+    manifest = read_object(manifest_path)
+    source = program_text(source_path, Path(checked_text(manifest, "workspace")))
+    arm = checked_text(manifest, "arm")
+    if arm not in ("control", "traincheck"):
+        raise ValueError("Unknown trial arm")
+    template_bytes = Path(checked_text(manifest, "profile")).read_bytes()
+    profile_digest = hashlib.sha256(template_bytes).hexdigest()
+    if profile_digest != checked_text(manifest, "profile_sha256"):
+        raise ValueError("Frozen training profile changed")
+    with (trial / "run.lock").open("a") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        preflights = trial / "preflights"
+        preflights.mkdir(exist_ok=True)
+        attempt = 1
+        while (preflights / f"preflight-{attempt:02d}").exists():
+            attempt += 1
+        name = f"preflight-{attempt:02d}"
+        output = preflights / name
+        output.mkdir()
+        remote = checked_text(manifest, "remote_trial") + "/preflights/" + name
+        errors: list[JSONValue] = []
+        record: JSONObject = {
+            "schema_version": 1,
+            "preflight": name,
+            "arm": arm,
+            "status": "started",
+            "program_sha256": hashlib.sha256(source.encode()).hexdigest(),
+            "profile_sha256": profile_digest,
+            "trial_manifest_sha256": hashlib.sha256(
+                manifest_path.read_bytes()
+            ).hexdigest(),
+            "remote_directory": remote,
+            "errors": errors,
+        }
+        write_record(output / "preflight.json", record)
+        started = time.monotonic()
+        phase = "prepare_local"
+        try:
+            (output / "program.py").write_text(source)
+            (output / "config.toml").write_text(
+                configure(template_bytes.decode(), source)
+            )
+            phase = "prepare_remote"
+            checked_execute(
+                remote_command(manifest, ["mkdir", "-p", remote]), output / "setup.log"
+            )
+            phase = "upload_config"
+            upload(
+                manifest,
+                output / "config.toml",
+                remote + "/config.toml",
+                output / "upload.log",
+            )
+            phase = "check_program"
+            code = execute(
+                remote_command(manifest, preflight_arguments(manifest, remote)),
+                output / "check.log",
+                430,
+            )
+            record["check_exit_code"] = code
+            if code not in (0, 2):
+                record["status"] = "execution_failed"
+                errors.append(
+                    {
+                        "phase": phase,
+                        "type": "ProcessExit",
+                        "message": f"Syntax check exited {code}; see check.log",
+                    }
+                )
+            else:
+                phase = "download_result"
+                download(
+                    manifest,
+                    remote + "/result.json",
+                    output / "result.json",
+                    output / "download.log",
+                )
+                phase = "validate_result"
+                result = read_object(output / "result.json")
+                valid = validate_preflight(result, code)
+                record["valid"] = valid
+                record["result"] = result
+                record["status"] = "program_valid" if valid else "program_invalid"
+                if not valid:
+                    errors.append({"phase": phase, "error": result["error"]})
+            return record
+        except BaseException as exc:
+            record["status"] = "client_error"
+            errors.append(
+                {
+                    "phase": phase,
+                    "type": type(exc).__name__,
+                    "message": str(exc) or repr(exc),
+                }
+            )
+            raise
+        finally:
+            record["operational_seconds_including_transfer"] = (
+                time.monotonic() - started
+            )
+            write_record(output / "preflight.json", record)
 
 
 def write_record(path: Path, record: JSONObject) -> None:
@@ -506,10 +696,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trial", type=Path, required=True)
     parser.add_argument("--program", type=Path, required=True)
-    parser.add_argument("--diagnose", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--diagnose", action="store_true")
+    mode.add_argument("--check-program", action="store_true")
     args = parser.parse_args()
-    result = run(args.trial.resolve(strict=True), args.program, args.diagnose)
+    trial = args.trial.resolve(strict=True)
+    result = (
+        check_program(trial, args.program)
+        if args.check_program
+        else run(trial, args.program, args.diagnose)
+    )
     print(json.dumps(result, indent=2, allow_nan=False))
+    if args.check_program and result["status"] == "program_invalid":
+        return 2
     return int(bool(sequence(required(result, "errors"), "errors")))
 
 
