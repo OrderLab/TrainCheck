@@ -312,6 +312,41 @@ def validate_diagnostics(report: JSONObject) -> None:
     string(required(provenance, "sha256"), "coverage_source.sha256")
 
 
+def validate_diagnostic_artifacts(report: JSONObject, output: Path) -> JSONObject:
+    """Link the compact report to locally readable, unchanged complete evidence."""
+    coverage_path = output / "coverage.json"
+    manifest_path = output / "diagnostic_manifest.json"
+    coverage_bytes = coverage_path.read_bytes()
+    coverage_digest = hashlib.sha256(coverage_bytes).hexdigest()
+    provenance = mapping(required(report, "coverage_source"), "coverage_source")
+    if coverage_digest != string(
+        required(provenance, "sha256"), "coverage_source.sha256"
+    ):
+        raise ValueError("Downloaded coverage does not match the agent report hash")
+    # The original report/source paths stay unchanged; local locations are separate.
+    read_object(coverage_path)
+    diagnostic = read_object(manifest_path)
+    if (
+        integer(required(diagnostic, "schema_version"), "diagnostic schema_version")
+        != 1
+    ):
+        raise ValueError("Expected diagnostic manifest schema_version 1")
+    if checked_text(diagnostic, "status") != "complete":
+        raise ValueError("Diagnostic manifest does not report completion")
+    config_digest = hashlib.sha256((output / "config.toml").read_bytes()).hexdigest()
+    if checked_text(diagnostic, "candidate_config_sha256") != config_digest:
+        raise ValueError(
+            "Diagnostic manifest belongs to a different candidate configuration"
+        )
+    return {
+        "coverage": {"path": str(coverage_path.resolve()), "sha256": coverage_digest},
+        "diagnostic_manifest": {
+            "path": str(manifest_path.resolve()),
+            "sha256": hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
+        },
+    }
+
+
 def run(trial: Path, source_path: Path, diagnose: bool) -> JSONObject:
     manifest_path = trial / "trial.json"
     manifest = read_object(manifest_path)
@@ -426,6 +461,18 @@ def run(trial: Path, source_path: Path, diagnose: bool) -> JSONObject:
                     phase = "read_diagnostics"
                     report = read_object(output / "agent_report.json")
                     validate_diagnostics(report)
+                    for name in ("coverage.json", "diagnostic_manifest.json"):
+                        phase = "download_" + name
+                        download(
+                            manifest,
+                            remote + "/diagnostics/" + name,
+                            output / name,
+                            output / ("download-" + name + ".log"),
+                        )
+                    phase = "validate_diagnostic_artifacts"
+                    record["traincheck_evidence"] = validate_diagnostic_artifacts(
+                        report, output
+                    )
                     record["traincheck_report"] = report
                     record["diagnostic_status"] = "complete"
                 else:

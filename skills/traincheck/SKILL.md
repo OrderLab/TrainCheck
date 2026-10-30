@@ -90,6 +90,10 @@ complete result equivalence. Complete evidence stays in the hashed source files.
 - Keep literal-ID alarms visible and explain their portability limitation. Do
   not delete rules, rewrite IDs, or replace missing values to manufacture parity.
   Check whether the same alarm appears on a fresh healthy control.
+  `has_identity_precondition` describes only the observer's identity precondition
+  clauses. A false value does not establish portability: literal IDs can also
+  occur in `checker_result.invariant.params`, including stored argument fields
+  such as `_TRAINCHECK_positional_ID`. Inspect those arguments for the alarm.
 - If the task intentionally changes an optimizer, dtype, model shape, or other
   learned behavior, re-evaluate whether the reference is applicable. Record that
   mismatch explicitly. Do not infer new rules from an unverified candidate and

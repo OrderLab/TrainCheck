@@ -49,7 +49,7 @@ class RuleView:
     dormant: bool | None
     skipped: bool | None
     decisions: int | None
-    identity_bearing: bool
+    has_identity_precondition: bool
 
 
 def read_rule(value: object, position: int) -> RuleView:
@@ -181,7 +181,7 @@ def summarize(coverage_value: object) -> JSONObject:
                         "active": rule.active,
                         "dormant": rule.dormant,
                         "variable_check_skipped": rule.skipped,
-                        "identity_bearing": rule.identity_bearing,
+                        "has_identity_precondition": rule.has_identity_precondition,
                         "evidence_pointer": f"per_invariant[{rule.index}]",
                     }
                 )

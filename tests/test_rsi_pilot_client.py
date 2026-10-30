@@ -20,6 +20,7 @@ from tools.rsi_pilot.run_candidate import (
     remote_command,
     run,
     train_arguments,
+    validate_diagnostic_artifacts,
     validate_diagnostics,
     validate_results,
 )
@@ -267,6 +268,43 @@ class PilotClientTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 run(trial, program, False)
             self.assertFalse((trial / "runs/candidate-01").exists())
+
+    def test_diagnostic_drilldown_requires_matching_bytes_and_candidate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary)
+            coverage_path = output / "coverage.json"
+            coverage_path.write_text('{"schema_version": 3, "per_invariant": []}\n')
+            config = output / "config.toml"
+            config.write_text("[training]\nsteps = 5\n")
+            diagnostic: JSONObject = {
+                "schema_version": 1,
+                "status": "complete",
+                "candidate_config_sha256": hashlib.sha256(
+                    config.read_bytes()
+                ).hexdigest(),
+            }
+            (output / "diagnostic_manifest.json").write_text(json.dumps(diagnostic))
+            source_path = "/remote/candidate/diagnostics/coverage.json"
+            report: JSONObject = {
+                "coverage_source": {
+                    "path": source_path,
+                    "sha256": hashlib.sha256(coverage_path.read_bytes()).hexdigest(),
+                }
+            }
+            evidence = validate_diagnostic_artifacts(report, output)
+            self.assertIn(str(coverage_path), json.dumps(evidence))
+            self.assertIn(source_path, json.dumps(report))
+            config.write_text("[training]\nsteps = 6\n")
+            with self.assertRaisesRegex(ValueError, "different candidate"):
+                validate_diagnostic_artifacts(report, output)
+            coverage_path.write_text("{}\n")
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                validate_diagnostic_artifacts(report, output)
+
+    def test_missing_diagnostic_drilldown_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            with self.assertRaises(FileNotFoundError):
+                validate_diagnostic_artifacts({}, Path(temporary))
 
     def test_cpu_thread_settings_match_calibration(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

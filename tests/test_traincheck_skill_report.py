@@ -164,7 +164,49 @@ class SkillReportTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), encoded)
             self.assertEqual(provenance["sha256"], hashlib.sha256(encoded).hexdigest())
             self.assertEqual(result["outcome"], "violations")
-            self.assertIn('"identity_bearing": true', json.dumps(result))
+            self.assertIn('"has_identity_precondition": true', json.dumps(result))
+
+    def test_precondition_flag_does_not_claim_absence_of_relation_argument_ids(
+        self,
+    ) -> None:
+        for field, value in (
+            ("_TRAINCHECK_positional_ID", "literal-007"),
+            ("sequence_length", "16"),
+        ):
+            rule = observation(valid=False)
+            rule["identity_clauses"] = []
+            checker = rule["checker_result"]
+            invariant = json_object(checker["invariant"])
+            invariant["params"] = [
+                {
+                    "param_type": "APIParam",
+                    "api_full_name": "torch.fake",
+                    "arguments": {"args": {"self": {"model": {field: value}}}},
+                }
+            ]
+            checker["invariant"] = invariant
+            source = coverage(rule)
+            before = copy.deepcopy(source)
+            report = summarize(source)
+            problem = mapping(
+                sequence(report["problem_rules"], "problem_rules")[0], "problem"
+            )
+            with self.subTest(field=field):
+                self.assertIs(problem["has_identity_precondition"], False)
+                self.assertNotIn("identity_bearing", problem)
+                self.assertEqual(problem["evidence_pointer"], "per_invariant[0]")
+                self.assertEqual(source, before)
+                self.assertEqual(report["outcome"], "violations")
+
+    def test_missing_identity_preconditions_are_unknown_not_false(self) -> None:
+        source = coverage(observation(valid=False))
+        rule = json_object(sequence(source["per_invariant"], "per_invariant")[0])
+        del rule["identity_clauses"]
+        source["per_invariant"] = [rule]
+        with self.assertRaisesRegex(
+            ValueError, "Missing required field: identity_clauses"
+        ):
+            summarize(source)
 
     def test_compact_display_does_not_hide_total_problems_or_change_source(
         self,
