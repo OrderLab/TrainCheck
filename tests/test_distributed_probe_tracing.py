@@ -102,6 +102,7 @@ def test_actual_events_and_bookkeeping_suppression(tmp_path: Path, mode: str) ->
     assert result.returncode == 0, result.stdout + result.stderr
     report = json_object(report_path)
     assert report["mode"] == mode
+    assert report["scan_proxy_in_args"] is (mode == "subclass")
     assert report["completed_trace_steps"] == [4]
     assert report["optimizer_state_registered"] is False
     assert report["cross_rank_checks_executed"] is False
@@ -115,6 +116,7 @@ def test_actual_events_and_bookkeeping_suppression(tmp_path: Path, mode: str) ->
     )
     variables = trace_records(output, "VAR")
     if mode == "subclass":
+        assert any("proxy_obj_names" in record for record in records)
         assert report["registered_parameter_names"] == ["model.weight", "model.bias"]
         assert {record["var_name"] for record in variables} == {
             "model.weight",
