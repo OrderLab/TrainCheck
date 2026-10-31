@@ -23,6 +23,8 @@ from types import FrameType
 from typing import Literal, TypeAlias, TypedDict
 from unittest.mock import patch
 
+import numpy as np
+
 from traincheck.invariant import read_inv_file
 from traincheck.invariant.base_cls import (
     APIParam,
@@ -214,6 +216,36 @@ def identity_scalar(value: object, context: str) -> int | float | str:
     return result
 
 
+def dataframe_timestamp(value: object, context: str) -> int | float:
+    """Convert observed dataframe time scalars to exact, finite JSON numbers.
+
+    Pandas reductions can leave NumPy scalars in AttrState liveness bounds even
+    when source-event dictionaries contain builtin numbers. Keep integer
+    nanoseconds as integers, including beyond float64's exact-integer range.
+    Extended NumPy floating values are accepted only if conversion to Python's
+    float preserves their value. This boundary does not relax JSON validators.
+    """
+    if isinstance(value, (bool, np.bool_)):
+        raise ValueError(f"{context} must be a timestamp number, not a boolean")
+    if isinstance(value, np.integer):
+        # NumPy also classifies timedelta64 as an integer. A duration's unit
+        # cannot be inferred as this trace's numeric nanosecond timestamp.
+        if isinstance(value, np.timedelta64):
+            raise ValueError(f"{context} must be a timestamp number, not a duration")
+        return int(value)
+    if isinstance(value, np.floating):
+        converted = float(value)
+        if not math.isfinite(converted) or value != converted:
+            raise ValueError(
+                f"{context} must be finite and exactly representable as a Python float"
+            )
+        return converted
+    result = number(value, context)
+    if isinstance(result, float) and not math.isfinite(result):
+        raise ValueError(f"{context} must be finite")
+    return result
+
+
 def variable_value_identity(state: object, param: object) -> VariableValueIdentity:
     if not isinstance(state, AttrState) or not isinstance(param, VarTypeParam):
         raise ValueError("Consistency decisions require AttrState and VarTypeParam")
@@ -226,9 +258,13 @@ def variable_value_identity(state: object, param: object) -> VariableValueIdenti
         "var_name": string(required(record, "var_name"), "var_name"),
         "var_type": string(required(record, "var_type"), "var_type"),
         "attribute": string(param.attr_name, "attribute"),
-        "event_time": number(required(record, "time"), "time"),
-        "liveness_start": number(state.liveness.start_time, "liveness.start_time"),
-        "liveness_end": number(state.liveness.end_time, "liveness.end_time"),
+        "event_time": dataframe_timestamp(required(record, "time"), "time"),
+        "liveness_start": dataframe_timestamp(
+            state.liveness.start_time, "liveness.start_time"
+        ),
+        "liveness_end": dataframe_timestamp(
+            state.liveness.end_time, "liveness.end_time"
+        ),
     }
 
 
