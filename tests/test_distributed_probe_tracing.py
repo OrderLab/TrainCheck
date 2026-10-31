@@ -126,6 +126,48 @@ def test_actual_events_and_bookkeeping_suppression(tmp_path: Path, mode: str) ->
             record["dump_loc"] == "distributed_probe.update.after"
             for record in variables
         )
+        # The parameter values are observed around an in-place optimizer update.
+        # Their times must describe those observations, not an earlier Python
+        # attribute assignment. There is exactly one successful update here.
+        optimizer_pre = [
+            record
+            for record in records
+            if record["function"] == "torch.optim.sgd.SGD.step"
+            and record["type"] == "function_call (pre)"
+        ]
+        optimizer_post = [
+            record
+            for record in records
+            if record["function"] == "torch.optim.sgd.SGD.step"
+            and record["type"] == "function_call (post)"
+        ]
+        assert len(optimizer_pre) == len(optimizer_post) == 1
+        pre_time = optimizer_pre[0]["time"]
+        post_time = optimizer_post[0]["time"]
+        assert isinstance(pre_time, int) and not isinstance(pre_time, bool)
+        assert isinstance(post_time, int) and not isinstance(post_time, bool)
+        for name in ("model.weight", "model.bias"):
+            before: list[dict[str, object]] = []
+            after: list[dict[str, object]] = []
+            for record in variables:
+                meta = record["meta_vars"]
+                assert isinstance(meta, dict)
+                if record["var_name"] != name or meta["step"] != 4:
+                    continue
+                if record["dump_loc"] == "distributed_probe.update.before":
+                    before.append(record)
+                elif record["dump_loc"] == "distributed_probe.update.after":
+                    after.append(record)
+            assert len(before) == len(after) == 1
+            before_time = before[0]["time"]
+            after_time = after[0]["time"]
+            assert isinstance(before_time, int) and not isinstance(before_time, bool)
+            assert isinstance(after_time, int) and not isinstance(after_time, bool)
+            assert before_time < pre_time < post_time < after_time
+            before_attrs = before[0]["attributes"]
+            after_attrs = after[0]["attributes"]
+            assert isinstance(before_attrs, dict) and isinstance(after_attrs, dict)
+            assert before_attrs["data"] != after_attrs["data"]
     else:
         assert report["registered_parameter_names"] == []
         assert variables == []

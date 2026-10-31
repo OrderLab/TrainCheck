@@ -159,7 +159,12 @@ class Proxy:
                 new_copy.__dict__[attr_name] = copy.deepcopy(attr_value, memo)
         return new_copy
 
-    def dump_trace(self, phase, dump_loc):
+    def dump_trace(self, phase: str, dump_loc: str | None) -> None:
+        """Timestamp samples when observed without changing mutation bookkeeping.
+
+        Update/call/iteration records retain their existing update-event time.
+        Metadata capture is not atomic under concurrent application mutation.
+        """
         if config.DISABLE_WRAPPER:
             return
 
@@ -174,13 +179,16 @@ class Proxy:
                 if obj._version == Proxy.var_dict[self.__dict__["var_name"]].version:
                     return
 
-        last_update_timestamp = self.__dict__["last_update_timestamp"]
-
         if not isinstance(obj, torch.nn.Module):
+            observation_time = (
+                get_timestamp_ns()
+                if phase in ("sample", "selective-sample")
+                else self.__dict__["last_update_timestamp"]
+            )
             self.jsondumper.dump_json(
                 process_id=self.process_id,
                 thread_id=self.thread_id,
-                time=last_update_timestamp,
+                time=observation_time,
                 meta_vars=get_meta_vars(self),
                 var_name=var_name,
                 var_type=typename(obj, is_runtime=True),

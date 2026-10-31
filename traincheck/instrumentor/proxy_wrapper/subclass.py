@@ -216,6 +216,12 @@ class ProxyParameter(torch.nn.Parameter):
         )
 
     def dump_trace(self, phase: str, dump_loc: str | None) -> None:
+        """Record samples at observation start, retaining update-event times.
+
+        In-place tensor updates need not invoke __setattr__. Sampling must not
+        backdate current values to that hook or mark an observation as a mutation.
+        Concurrent model mutation during metadata capture remains unsupported.
+        """
         if config.DISABLE_WRAPPER or not self._model_tracking_enabled():
             return
 
@@ -230,7 +236,11 @@ class ProxyParameter(torch.nn.Parameter):
         #         if obj._version == Proxy.var_dict[self.__dict__["var_name"]].version:
         #             return
 
-        last_update_timestamp = self.__dict__["last_update_timestamp"]
+        observation_time = (
+            get_timestamp_ns()
+            if phase in ("sample", "selective-sample")
+            else self.__dict__["last_update_timestamp"]
+        )
 
         # TODO
         # if not isinstance(obj, torch.nn.Module):
@@ -238,7 +248,7 @@ class ProxyParameter(torch.nn.Parameter):
             {
                 "process_id": self.process_id,
                 "thread_id": self.thread_id,
-                "time": last_update_timestamp,
+                "time": observation_time,
                 "meta_vars": get_meta_vars(self),
                 "var_name": var_name,
                 "var_type": "torch.nn.Parameter",
