@@ -1,9 +1,9 @@
 We changed checkpoint storage from complete model/optimizer snapshots on each
 rank to shared non-layer state plus full layer shards written by the training ranks.
 The aim is to reduce duplicated checkpoint state while keeping the existing
-two-GPU training behavior. The supplied curves
-compare continuation after restarting the previous and current pipelines. The
-current continuation is below expectations.
+two-GPU training behavior. We expected this storage change to preserve
+continuation behavior. The supplied curves compare what we observed after
+restarting the previous and current pipelines.
 
 Continue this engineering task. Decide what to investigate or try next, implement
 the most justified revision, and explain the evidence supporting your decision.
