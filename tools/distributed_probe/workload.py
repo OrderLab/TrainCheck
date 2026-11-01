@@ -62,6 +62,7 @@ class Options:
     instrumentation: Instrumentation
     device: Literal["cpu", "cuda"]
     accumulation: int
+    observe_normalization: bool = False
 
 
 @dataclass(frozen=True)
@@ -370,10 +371,13 @@ def parse_options(argv: list[str] | None = None) -> Options:
         "--instrumentation", choices=("plain", "api", "subclass"), default="plain"
     )
     parser.add_argument("--device", choices=("cpu", "cuda"), default="cuda")
+    parser.add_argument("--observe-normalization", action="store_true")
     args = parser.parse_args(argv)
     stop_after = args.steps if args.stop_after is None else args.stop_after
     if not 1 <= stop_after <= args.steps or not 1 <= args.accumulation <= 4:
         parser.error("Require 1 <= stop-after <= steps and 1 <= accumulation <= 4")
+    if args.observe_normalization and args.instrumentation == "plain":
+        parser.error("--observe-normalization requires API or subclass tracing")
     return Options(
         args.output,
         args.resume,
@@ -384,12 +388,16 @@ def parse_options(argv: list[str] | None = None) -> Options:
         args.instrumentation,
         args.device,
         args.accumulation,
+        args.observe_normalization,
     )
 
 
 def run(options: Options) -> None:
+    from tools.agent_invariants.observation import wrapped_loss_scale
     from tools.distributed_probe.tracing import start_tracing
 
+    if options.observe_normalization and options.instrumentation == "plain":
+        raise ValueError("Normalization observations require API or subclass tracing")
     rank = int(os.environ.get("RANK", "0"))
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
@@ -420,6 +428,9 @@ def run(options: Options) -> None:
     )
     session = start_tracing(options.instrumentation, rank_output / "trace", model)
     try:
+        scale_operation = (
+            wrapped_loss_scale() if options.observe_normalization else None
+        )
         with session.suppress():
             wrapped: nn.Module = model
             if world_size > 1:
@@ -488,7 +499,24 @@ def run(options: Options) -> None:
                             logits: object = wrapped(batch.tokens)
                             if not isinstance(logits, torch.Tensor):
                                 raise TypeError("Training output must be a Tensor")
-                            loss = token_loss(logits, batch) * scale
+                            summed_loss = token_loss(logits, batch)
+                            if scale_operation is None:
+                                loss = summed_loss * scale
+                            else:
+                                observed_loss = scale_operation(
+                                    summed_loss,
+                                    rank=rank,
+                                    world_size=world_size,
+                                    step=step,
+                                    microbatch=microbatch,
+                                    accumulation=options.accumulation,
+                                    local_tokens=local_tokens,
+                                    global_tokens=global_tokens,
+                                    applied_scale=scale,
+                                )
+                                if not isinstance(observed_loss, torch.Tensor):
+                                    raise TypeError("Observed loss must be a Tensor")
+                                loss = observed_loss
                         loss.backward()
                         losses.append(loss.detach())
                 if step == 1:
@@ -549,6 +577,7 @@ def run(options: Options) -> None:
                 "precision": options.precision,
                 "fault": options.fault,
                 "instrumentation": options.instrumentation,
+                "normalization_observations": options.observe_normalization,
                 "start_step": start_step,
                 "completed_steps": options.stop_after,
                 "total_steps": options.steps,
