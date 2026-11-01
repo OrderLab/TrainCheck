@@ -1,6 +1,6 @@
 # Native FSDP initialization: optional TrainCheck pilot
 
-**Status: qualification in progress; no agent comparison launched.** The earlier
+**Status: qualification complete; one fresh matched agent pair is running.** The earlier
 [tensor-parallel clipping](real-rank-runtime-pilot-20261102.md) and
 [DDP token-normalization](ddp-runtime-state-pilot-20261102.md) comparisons both
 produced source-first diagnoses and no observed TrainCheck activation. They are
@@ -51,7 +51,7 @@ blobs. The shared repositories, environment and driver are unchanged.
 
 ## Workload and qualification
 
-The workload uses the official 14M-class GPTNeoX model, explicit native FP32
+The workload uses the official 14,067,712-parameter GPTNeoX model, explicit native FP32
 loading, eager attention, no TF32, deterministic algorithms, AdamW with learning
 rate `1e-4` and weight decay zero, sequence length 64 and two global examples per
 update. The qualification uses two optimizer updates. Identical pretokenized
@@ -110,20 +110,27 @@ were exact. First-gradient relative L2 differences are approximately 0.5275% and
 0.04506%, respectively. A key-bias-only explanation was not supported: most
 first-step elementwise model violations occur elsewhere, including weights.
 Measured gradient differences and Adam's update rule explain update sensitivity,
-but the underlying cross-world gradient discrepancy remains unresolved. It is
-not reported as ordinary rounding proved harmless.
+but do not identify its kernel-level numerical cause. It is not reported as
+ordinary rounding proved harmless.
 
 The failed criterion remains failed; no threshold was silently relaxed. The
 operator explicitly selected a separate pre-agent scope: exact initial source
 coherence and full same-topology healthy trajectories, without a claim of narrow
 single-versus-two-GPU numerical parity. Its gate must bind both the successful
 state checks and the retained failed original criterion. Two additional bounded
-single-GPU microbatch-accumulation controls are planned to characterize batch
-shape effects; they do not change the submitted workload or original results.
+single-GPU controls used one sample per microbatch and two accumulation steps,
+matching each distributed worker's forward batch shape. Both models then matched
+the two-GPU parameters bitwise at steps 0, 1 and 2. All buffers and recorded RNG
+values matched. The replacement model's gradients and optimizer state matched
+exactly; the earlier model retained one subnormal gradient/moment discrepancy,
+at most about `1.5e-43`, without a parameter difference. These controls consumed
+24.690 allocated GPU-seconds. They localize the discrepancy to batch shape and
+accumulation order, without proving which numerical kernel causes it. Neither
+the submitted workload nor the original failed criterion changed.
 
-## Planned comparison and acceptance
+## Matched comparison and acceptance
 
-The proposed neutral task extends a pretrained fine-tuning pipeline to two-GPU
+The neutral task extends a pretrained fine-tuning pipeline to two-GPU
 FSDP, supplies ordinary short-run outputs, and requests a readiness decision and
 justified revision. It does not assert a bug, prescribe a diagnosis or require
 TrainCheck. This is pretrained fine-tuning, not checkpoint restoration with
@@ -132,8 +139,37 @@ optimizer and step state.
 Both arms receive identical editable runtime source, data, ordinary diagnostics
 and execution budgets. Treatment adds the same generic optional TrainCheck
 manual and implementation used in the earlier pair. Both current and reference
-backends execute the submitted source. A private actual-entry observer and
-independent evaluation must pass their own positive controls before launch.
+backends execute the submitted source. Both ordinary eight-update service runs
+passed, using 46.958 allocated GPU-seconds in total. Their genuine logs and all
+16 curve rows are provided. These are cyclic-sample short-run training losses,
+not held-out model-quality measurements.
+
+The private actual-entry observer and six-scenario evaluation passed before
+launch: six baseline runs produced the expected four healthy and two incoherent
+outcomes, and six positive controls passed after changing only
+`sync_module_states=True`. Mixed and swapped positives selected different
+authentic sources, so the evaluator does not require the latest version. These
+12 qualification jobs consumed 328.727 allocated GPU-seconds, including the
+previously qualified actual-entry mixed run once.
+
+The observer captures complete named parameters and buffers, optimizer and
+recorded RNG values, local gradients, actual forward inputs and native shard
+metadata. Step 0 is explicitly after the first backward and before the first
+optimizer step. It supports multiple preliminary loads and unused optimizers,
+binding the trained model through actual FSDP or stepped-optimizer identity.
+Multiple root FSDP constructions or multiple actually stepped optimizers are
+unsupported and must produce an unknown grade. The observer does not establish
+live alias/storage identity beyond its recorded native layout.
+
+The optional-tool preflight compared two-update runs with and without selective
+TrainCheck observation of scalar `dropout` arguments. Each rank executed 38
+native calls and emitted exactly 38 entry and 38 return records. All 42 saved
+state comparisons matched, covering 2,050 tensor and 5,742 scalar checks, with
+no unmatched, duplicate or variable-tracker records. An independent counter-only
+run also matched the saved no-counter reference. The two new jobs used 69.336
+allocated GPU-seconds. This establishes compatibility for that interface; it is
+not a repeated overhead benchmark or validation of arbitrary APIs, tensor
+metadata, model tracking or the inference engine.
 
 Uniform-source controls must retain their respective complete initial models.
 Mixed/swapped inputs may be repaired to either authentic coherent source; there
@@ -150,13 +186,23 @@ does not make that diagnosis runtime-first. If agents again solve the problem
 from source, report it; do not force execution or tool use to make the case look
 harder.
 
-The planned pair retains six requests of 1–16 global updates, 240 seconds per
+The pair retains six requests of 1–16 global updates, 240 seconds per
 worker request, 900 seconds aggregate CLI execution and eight decision turns.
 Measure source diagnosis, runtime-supported diagnosis, first independently valid
 submitted repair, visible verification and final completion separately. Within-
 turn tokens remain intervals; GPU cost is supervised allocated-device lifetime,
 including startup and cleanup. Qualification and private grading costs are
 separate from solver costs. No tool efficiency benefit is established.
+
+An independent review of the exported packets found 3,790 shared files: all
+except the optional-offer prompt are byte-identical. The treatment adds 32 pinned
+tool/manual files. Both arms can edit the same 3,346 Python source files and have
+the same fixed entry point, data and contracts. Original source, native names,
+warnings and genuine tokenizer-revision provenance remain visible; they could
+enable a source-first diagnosis. The review establishes no deliberately added
+cause or issue hint, not that the case requires runtime observation. Both fresh
+CLI agents use `gpt-6-astra`, high reasoning and priority service. GPU requests
+are serialized, with queue time reported separately.
 
 ## Saved evidence and current validation
 
@@ -176,12 +222,33 @@ records complete observer/replica overlap and numerical differences.
 `evaluation/original-crossworld-gate-v1.json`, SHA-256
 `8d7b0be8c6a16504b474eac002c649b2b0e22b416752f4e8700c173a86c92dc1`,
 preserves the original failed cross-world criterion with unchanged thresholds.
-`prelaunch-evaluation-design.md` records the diagnosis and repair policy;
-`packet-draft-preparation.json` binds local task drafts. No formal solver packet
-has been exported at this checkpoint.
+`evaluation/accumulation-diagnostic-v2.json`, SHA-256
+`7a170941297b2a8a7bc2a394d21cb6dace3d0a1b616a8a5e7565d515a721c126`,
+records the additional batch-shape controls.
+
+The frozen launch plan has SHA-256
+`c02a5cb735b52a00b918c5dd456415eadf7d97b4ee05f61f509da4dfc20fc4b2`.
+It binds the packets, environment, operator code, native qualification, service,
+actual-entry positive controls, optional-tool preflight and independent grading
+contract. The independent neutrality review is
+`prelaunch-neutrality-review.json`, SHA-256
+`ffe22a0d859f9e571fbd5e5ff1e53a605db4a87e6e643dbdf8204564788a3b36`.
+The six-scenario grading contract has SHA-256
+`6abfeddd99d16aa109424f4cdec899708c3dfa78aa847efad785487fa517a43c`.
+
+After both agents finish, every submitted source occurrence will be frozen and
+graded. Only identical complete source maps can share a result. Evaluation
+compares ordered keys, shapes, dtypes and full tensor values against independent
+same-topology oracles; it does not infer correctness from the patch syntax.
+Missing evidence, malformed snapshots and unsupported observer coverage remain
+unknown. The bounded validation covers two updates, one seed and one small
+corpus, not generalization to other workloads.
 
 The new request service and pilot adapter passed 35 focused local tests, strict
 mypy for their changed helpers, and pinned formatting/lint checks. Packet
-preparation passed nine additional tests and strict checks. These are local
-contract checks, not a substitute for the pending native service, optional-tool
-parity and independent actual-entry gates. The TrainCheck package is unchanged.
+preparation passed nine additional tests and strict checks. The observer passed
+six regression tests, the optional-tool preflight helpers passed 20, and the
+reused accounting helpers passed 50, each with scoped strict typing and pinned
+format/lint checks. These counts describe separate validation scopes and should
+not be summed as unique tests. The native gates also passed under the explicit
+same-topology scope above. The TrainCheck package is unchanged.
