@@ -15,6 +15,8 @@ from tools.checkpoint_pilot.task import current, reference, state
 from tools.checkpoint_pilot.task.engine import Options, parse_options, run, run_update
 from tools.checkpoint_pilot.task.model import (
     LAYERS,
+    SEQUENCE_LENGTH,
+    VOCABULARY,
     Transformer,
     evaluate,
     make_batch,
@@ -304,6 +306,40 @@ def test_complete_batch_is_independent_of_microbatch_partition_and_rng() -> None
         parts = microbatches(batch, accumulation)
         assert torch.equal(torch.cat([part.tokens for part in parts]), batch.tokens)
         assert torch.equal(torch.cat([part.labels for part in parts]), batch.labels)
+
+
+def test_targets_require_previous_position_and_wrap_at_the_sequence_boundary() -> None:
+    batch = make_batch(7, 3, 1, CPU)
+    assert batch.tokens.shape == batch.labels.shape == (8, SEQUENCE_LENGTH)
+    assert batch.tokens.dtype == batch.labels.dtype == torch.int64
+    assert torch.equal(batch.labels[:, 1:], batch.tokens[:, :-1])
+    assert torch.equal(batch.labels[:, 0], batch.tokens[:, -1])
+    assert not torch.equal(batch.labels, batch.tokens)
+
+
+def test_model_can_distinguish_positions_for_identical_input_tokens() -> None:
+    # Without positional information, a permutation-equivariant encoder cannot
+    # generally express the fixed previous-position target. This checks that
+    # symmetry obstruction is removed; learning remains a qualification result.
+    with torch.random.fork_rng(devices=[]), torch.no_grad():
+        torch.manual_seed(73)
+        model = Transformer().eval()
+        tokens = torch.zeros((2, SEQUENCE_LENGTH), dtype=torch.int64)
+        output = model(tokens)
+        assert output.shape == (2, SEQUENCE_LENGTH, VOCABULARY)
+        assert bool(torch.isfinite(output).all())
+        assert torch.equal(output[0], output[1])
+        assert not torch.allclose(output[:, 0], output[:, 1], atol=1e-6, rtol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "shape", [(SEQUENCE_LENGTH,), (1, SEQUENCE_LENGTH - 1), (1, SEQUENCE_LENGTH + 1)]
+)
+def test_model_rejects_inputs_outside_the_fixed_sequence_contract(
+    shape: tuple[int, ...]
+) -> None:
+    with pytest.raises(ValueError, match="fixed-length"):
+        Transformer()(torch.zeros(shape, dtype=torch.int64))
 
 
 @pytest.mark.parametrize(

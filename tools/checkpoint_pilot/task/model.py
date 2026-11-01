@@ -30,6 +30,7 @@ class Transformer(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.embedding = nn.Embedding(VOCABULARY, 16)
+        self.position_embedding = nn.Embedding(SEQUENCE_LENGTH, 16)
         self.encoder = nn.TransformerEncoder(make_layer(), num_layers=LAYERS)
         # TransformerEncoder clones its prototype. Construct the remaining
         # blocks independently while retaining each module's default initializer.
@@ -38,13 +39,24 @@ class Transformer(nn.Module):
         self.readout = nn.Linear(16, VOCABULARY)
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:
-        value: object = self.readout(self.encoder(self.embedding(tokens)))
+        if tokens.ndim != 2 or tokens.shape[1] != SEQUENCE_LENGTH:
+            raise ValueError(
+                "The task requires a batch of fixed-length token sequences"
+            )
+        positions = torch.arange(SEQUENCE_LENGTH, device=tokens.device)
+        embedded = self.embedding(tokens) + self.position_embedding(positions)
+        value: object = self.readout(self.encoder(embedded))
         if not isinstance(value, torch.Tensor):
             raise TypeError("Transformer output must be a tensor")
         return value
 
 
 def make_batch(seed: int, cursor: int, rank: int, device: torch.device) -> Batch:
+    """Predict each position's previous token, wrapping position zero to the end.
+
+    The labels require cross-position information. This is bidirectional sequence
+    tagging with a known circular boundary, not causal next-token generation.
+    """
     if seed < 0 or cursor < 0 or rank < 0:
         raise ValueError("Seed, cursor, and rank must be nonnegative")
     generator = torch.Generator(device="cpu")
@@ -54,7 +66,7 @@ def make_batch(seed: int, cursor: int, rank: int, device: torch.device) -> Batch
         (EXAMPLES_PER_RANK, SEQUENCE_LENGTH),
         generator=generator,
     )
-    return Batch(tokens.to(device), ((tokens + 1) % VOCABULARY).to(device))
+    return Batch(tokens.to(device), tokens.roll(1, dims=1).to(device))
 
 
 def microbatches(batch: Batch, accumulation: int) -> list[Batch]:

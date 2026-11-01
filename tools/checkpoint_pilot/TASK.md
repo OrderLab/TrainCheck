@@ -39,12 +39,19 @@ Each decision turn ends with the supplied JSON response schema. Record your
 observations and their evidence paths, current hypotheses, and next action.
 Choose `action="run"` with one request or `action="finish"` with `request=null`.
 The operator snapshots your source at each submission, executes the request,
-and supplies its complete outputs in the next turn. Your final implementation
+and supplies the outputs described below in the next turn. Your final implementation
 is the packet's `task/current.py` and its imported helpers when you finish.
 
 A `resume` request selects `backend="reference"` or `"current"`, the number of
 resumed `steps` (1–16), and a purpose. Set `script=null`. It starts fresh workers
 on the matching supplied checkpoint using the fixed public run profile.
+Standard responses contain complete logs and errors, execution receipts,
+metrics and curves, and an end-of-run state export (`terminal_state.pt`).
+Automatic intermediate state exports belong to independent evaluation and
+are not included in standard responses. Either arm may capture intermediate
+state explicitly in a diagnostic request, using ordinary Python (including
+the supplied state helpers), logging, assertions, or the available observation
+tools. These diagnostics use the same request and time allowance.
 
 A `diagnostic` request names a relative `.py` script in this packet, a backend,
 and a maximum resumed update count. Two fresh workers execute that script under
