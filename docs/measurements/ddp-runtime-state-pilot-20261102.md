@@ -1,7 +1,8 @@
 # Data-dependent DDP training: optional TrainCheck pilot
 
-**Status: initial native qualification complete, 2026-11-02.** Held-out grading
-qualification, optional-tool preflight and solver preparation are in progress.
+**Status: one matched agent pair running, 2026-11-02.** Native qualification,
+held-out positive controls, optional-tool preflight and packet review passed
+before launch. The pair started after the 2026-11-01 21:30:49 UTC protocol freeze.
 This is private operator documentation, excluded from agent task packets. No
 agent-efficiency benefit is established. Results from the earlier
 [tensor-parallel clipping pilot](real-rank-runtime-pilot-20261102.md) are retained:
@@ -91,9 +92,52 @@ zero-difference results. No parameter, optimizer array or RNG contents are dropp
 to make comparisons pass. Observer parity covers the recorded state, not
 unobserved application state or live object aliasing.
 
+## Additional prelaunch checks
+
+The scalar-argument TrainCheck preflight observes native
+`torch.nn.functional.dropout` calls: 12 entry/return pairs per rank, with no
+unmatched records. Recorded model, optimizer and RNG state is bitwise identical
+to the ordinary matched run (718 tensor and 10,448 scalar checks), as are all
+162 gradient comparisons. This verifies the tested direct wrapper interface;
+it does not qualify arbitrary tensor metadata, model tracking or the inference
+engine. Its measured cost is 34.444 allocated GPU-seconds. A preceding import-only
+attempt failed because the CUDA library path was missing; its GPU cost was not
+measured and is retained as unknown, not zero.
+
+The independent grader attaches observers to the actual submitted Trainer,
+model and optimizer. It does not replace the submitted training pipeline with
+the qualification worker. An actual-entry replay matches every recorded state,
+RNG and gradient value from the archived native parent execution bitwise.
+
+Fresh seed 5678 uses a separate fixture whose global valid-target counts vary
+across three updates: 124, 140 and 152. Corrected actual-entry DDP runs with
+accumulation 1 and 2 pass all 58 declared comparisons against the equivalent
+single-GPU reference. Maximum held-out differences are 1.121e-6 for gradients,
+1.0548e-5 for model parameters and 1.576e-7 for optimizer state. These pass the
+unchanged **combined** absolute-plus-relative tolerance; a maximum difference
+can exceed the absolute term alone. The actual-entry replay plus three held-out
+controls cost 87.914 GPU-seconds, separately from solver requests.
+
+The frozen independent grading contract has seven scenarios: equal, unequal and
+held-out data, each with DDP accumulation 1/2, plus single-GPU compatibility on
+the original unequal-length data. It requires actual sample coverage, full
+model/gradient/optimizer comparisons and exact recorded RNG against a matched
+same-world corrected execution. It does not compare single-GPU RNG with two-GPU
+RNG. A valid repartition may change rank-local sample assignments while preserving
+each global four-example window; no particular normalization implementation is
+required.
+
+Native ordinary eight-update service runs verify both backends. A first pair of
+service runs revealed that native serialized training arguments contained an
+operator path whose experiment name could reveal the case. The service now
+passes a relative output path to the same destination. Two fresh ordinary runs
+confirm neutral serialized paths and byte-identical final model files relative
+to the earlier runs. Both sets of receipts are retained. This service qualification
+costs 74.882 GPU-seconds in total; no binary checkpoint is edited or normalized.
+
 ## Frozen agent comparison
 
-Prepare one matched pair with the same native source, local fixture, ordinary
+The matched pair receives the same native source, local fixture, ordinary
 backend logs, model and resource limits. The task asks whether the extension from
 single-process to DDP training is ready for a longer run and what to do next.
 It neither asserts a bug nor asks for any particular diagnostic. Logged backend
@@ -105,7 +149,7 @@ The control has the same ability to author arbitrary local diagnostics and use
 the remote execution service. Neither arm receives issue IDs, this report,
 private observations, a targeted invariant or grading feedback.
 
-Use the same native CLI model/settings and accounting protocol as the previous
+It uses the same native CLI model/settings and accounting protocol as the previous
 pilot: gpt-6-astra/high, priority service, CLI 0.160.0, six requests, 1–16 global
 updates per request, 240 seconds per worker phase, 900 aggregate CLI seconds and
 eight decision turns. Both the two-GPU `current` and one-GPU `reference` execute
@@ -119,6 +163,14 @@ verification and final completion separately. Preserve native token counters,
 cache subsets, measured service waiting, every submitted source and raw events.
 Within-turn token costs may only be intervals. Availability or manual reading
 does not count as actual TrainCheck use.
+
+An independent packet comparison confirms that all 1,850 exported native runtime
+source/README/license files match the upstream parent archive, and all 12 actual
+training examples retain their qualified arrays. The control has 1,862 files;
+the treatment has 1,894. Only the initial prompt differs among shared files, by
+one sentence offering optional access. The 32 treatment-only files are the
+generic manual and 31 frozen TrainCheck source files. The source and data remain
+visible, so this review does not establish that runtime observation is necessary.
 
 ## Evidence and reproduction
 
@@ -135,8 +187,20 @@ Remote evidence root:
 - `operator/`: versioned qualification workers, analysis, regression tests and
   commands; snapshots and native outputs remain in the remote experiment tree.
 - `TASK.md`, `pilot.py`, `protocol-reuse.json`: neutral task and isolated service
-  configuration. Packet hashes and a positive reviewed qualification gate must
-  be frozen before starting agents.
+  configuration. Final packets are under
+  `/private/tmp/traincheck-ddp-solvers-20261102-v2`.
+- `launch-plan.json`, SHA-256
+  `1046652737f8fe2a446f81d5c864a499a64ac9cdf9506ee6a157640f9cace98e`:
+  exact model/settings/budgets, execution order, code, packet and five gate hashes.
+- `actual-entry-positive-gate.json`, SHA-256
+  `d66be5d0c9b0acb7f61885df30e24a19d6786ead61f5d6a708a459e4f637991d`:
+  actual-entry parity and fresh-seed positive controls.
+- `independent-grading-contract.json`, SHA-256
+  `4ea06f939a254117cfb8fbb10c7b21e9f000b16f15d6e28ce520fe53da5977d5`:
+  the seven scenarios and unchanged numerical/coverage criteria.
+- `prelaunch-neutrality-review.json`, SHA-256
+  `a79346c2664a1e63796b1557bbec76906d1c08784b69fcd6274515bbc692888f`:
+  independent packet comparison and evidence review.
 
 The operator request service and qualification code do not modify the TrainCheck
 package. Large native sources, data, checkpoints and traces remain outside Git.
