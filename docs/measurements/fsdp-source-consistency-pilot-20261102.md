@@ -1,6 +1,6 @@
 # Native FSDP initialization: optional TrainCheck pilot
 
-**Status: qualification complete; one fresh matched agent pair is running.** The earlier
+**Status: both fresh agents finished; independent repair grading is in progress.** The earlier
 [tensor-parallel clipping](real-rank-runtime-pilot-20261102.md) and
 [DDP token-normalization](ddp-runtime-state-pilot-20261102.md) comparisons both
 produced source-first diagnoses and no observed TrainCheck activation. They are
@@ -203,6 +203,42 @@ enable a source-first diagnosis. The review establishes no deliberately added
 cause or issue hint, not that the case requires runtime observation. Both fresh
 CLI agents use `gpt-6-astra`, high reasoning and priority service. GPU requests
 are serialized, with queue time reported separately.
+
+## Completed solver runs; independent grades pending
+
+Both trials finished without CLI or transport failures. Control submitted five
+decision turns and used four GPU requests; optional TrainCheck submitted four
+turns and used three requests. Every submitted source is retained. These totals
+are observed execution costs, not yet a statement that either repair passed the
+independent acceptance criteria.
+
+| Full trial | Control | Optional TrainCheck |
+| --- | ---: | ---: |
+| Raw elapsed seconds | 432.754 | 414.381 |
+| Measured GPU-service queue seconds | 23.944 | 81.287 |
+| Input tokens, including cached input | 1,358,537 | 1,127,302 |
+| Cached input subset | 1,298,944 | 1,066,496 |
+| Output tokens | 11,210 | 9,983 |
+| Reasoning output subset | 1,910 | 2,931 |
+| Input plus output tokens | 1,369,747 | 1,137,285 |
+| Allocated solver GPU-seconds | 118.764 | 82.527 |
+
+Cached input is already included in input tokens, and reasoning is already
+included in output tokens. Neither subset is added again. The seven solver
+requests consumed 201.291 GPU-seconds. The five operator qualification groups
+above total 905.087 GPU-seconds, counting reused actual-entry/no-counter evidence
+only once. Private post-trial grading remains a separate cost.
+
+Both agents proposed an unsafe-initialization mechanism before the first run:
+unsynchronized FSDP could assemble inconsistent rank-local tensors. However,
+their specific proposed origin was RAM-efficient loading skipping nonzero-rank
+weights. Actual runtime diagnostics found the loading flags absent and rejected
+that explanation, while confirming cross-rank initial-state differences and
+38 changed tensors after sharding. Both submissions enabled state synchronization
+in turn 2. Neither final answer identified the different cached model sources.
+The result must therefore distinguish a source-supported mechanism hypothesis,
+runtime-confirmed state inconsistency, and an unresolved upstream cause. It is
+not evidence of full root-cause localization from source or from runtime.
 
 ## Saved evidence and current validation
 
