@@ -1,10 +1,47 @@
 # Real cross-rank runtime case: agent-efficiency protocol
 
-**Status: in progress, 2026-11-02.** Case provenance and the experiment design
-are being established. Ring18 qualification and agent trials are pending. This
-document reports no new training result, repair-success rate, or TrainCheck
-efficiency improvement. It is operator documentation and must not be included
-in solver packets.
+**Status: in progress, 2026-11-02.** The native TP2 case reproduces on Ring18;
+qualification controls and the agent service are being validated. Agent trials
+have not started, so no debugging-efficiency improvement is claimed. This is
+operator documentation and must not be included in solver packets.
+
+The first two-update run had finite losses of 10.39899 and 10.62776. Among 27
+replicated trainable parameters, cross-rank mismatches increased from zero before
+the first update to 6 after update 1 and 18 after update 2. The corrected control
+passed 630 model, 774 optimizer, 42 RNG and 162 replicated-parameter checks against
+itself. Comparing the vulnerable run against that control failed 140 checks,
+with maximum absolute model difference 0.00067138671875. These are qualification
+results, not measurements of agent performance.
+
+Removing inherited research annotations and isolating ordinary imports preserved
+all archived state exactly: each vulnerable/corrected comparison covered six
+rank/step snapshots, 384 tensors, 144,752,448 tensor bytes, 378 scalar values and
+606 ordered dictionary keys, with no differences. Recorded CPU/CUDA/Megatron RNG
+and optimizer values are included; unrecorded state and live object aliasing are
+outside that comparison. Evidence: `private-state-parity.json` in the local
+experiment directory below.
+
+Both ordinary eight-update runs complete with finite losses and zero skipped or
+NaN iterations. Final FP16/BF16 losses are 10.25196/10.25426. This short difference
+does not establish a quality regression. The neutral task will present measured
+curves without asserting one. An issue-named installation-path prefix in exported
+text is replaced with `/runtime/python-env`, identically for both arms; raw logs,
+exact mappings and original/public hashes remain operator evidence. Error/warning
+wording, source filenames, line numbers and numeric values are preserved.
+
+The private clipping observer records actual FP32 gradient selection and values
+around native clipping, using the pipeline grid's slice-parallel rank. It is never
+automatically provided to solvers. Its 26 CPU regressions cover call/exception
+preservation, RNG and model state, flattened gradient views, real grid rank APIs,
+missing/malformed metadata and duplicate evidence. Together with evaluator and
+control-import tests, **91 tests pass**. Pinned hooks and explicit strict mypy
+pass for the observer and tests; the repository mypy hook alone skips tools.
+
+Setup failures are retained, including one incorrect private grid API and native
+shutdown crashes after successful updates. The worker now explicitly releases
+distributed process groups after application exit. A successful rerun alone does
+not prove elimination of an intermittent shutdown failure; later receipts and
+failure counts remain part of the results.
 
 The development base is `codex/checkpoint-continuation-costs`,
 [PR #170](https://github.com/OrderLab/TrainCheck/pull/170), at
