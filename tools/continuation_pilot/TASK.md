@@ -17,7 +17,7 @@ fixed previous implementation and shared runner. The learning rate is a run
 option. All new functions should have explicit types; do not suppress errors or
 replace missing required data with a successful result.
 
-You have four training requests, each of at most 64 optimizer updates, on two
+You have four training requests, each of at most 24 optimizer updates, on two
 GPUs. Requests for either pipeline and diagnostic training runs use the same
 allowance; failed requests also count. Tiny CPU checks on individual operations
 are allowed without training a model. The supplied curves cost neither arm a
