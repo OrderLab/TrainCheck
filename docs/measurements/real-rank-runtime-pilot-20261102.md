@@ -1,10 +1,13 @@
 # Real cross-rank runtime case: agent-efficiency protocol
 
-**Status: in progress, 2026-11-02.** The native TP2 case reproduces on Ring18;
-qualification passed and the first matched pair started. A transient SSH outage
-interrupted result delivery; original records are retained and same-thread
-recovery is being prepared. No debugging-efficiency improvement is claimed. This is
-operator documentation and must not be included in solver packets.
+**Status: completed four-trial pilot, 2026-11-02.** All four agents identified the
+clipping cause from source before their first GPU request. Each first submitted
+a valid repair in turn 2, later passing all four private scenarios. No TrainCheck
+instrumentation activation was observed in either treatment. This is a source-localizable
+case and does not establish a TrainCheck efficiency benefit. Transport failures
+and same-thread recoveries remain in the raw evidence; timing below reports both
+raw and adjusted values. This is operator documentation, excluded from solver
+packets.
 
 The first two-update run had finite losses of 10.39899 and 10.62776. Among 27
 replicated trainable parameters, cross-rank mismatches increased from zero before
@@ -24,7 +27,7 @@ experiment directory below.
 
 Both ordinary eight-update runs complete with finite losses and zero skipped or
 NaN iterations. Final FP16/BF16 losses are 10.25196/10.25426. This short difference
-does not establish a quality regression. The neutral task will present measured
+does not establish a quality regression. The neutral task presented measured
 curves without asserting one. An issue-named installation-path prefix in exported
 text is replaced with `/runtime/python-env`, identically for both arms; raw logs,
 exact mappings and original/public hashes remain operator evidence. Error/warning
@@ -47,14 +50,14 @@ failure counts remain part of the results.
 The development base is `codex/checkpoint-continuation-costs`,
 [PR #170](https://github.com/OrderLab/TrainCheck/pull/170), at
 `c79218c960a823f954bf49dad354975da39e6f24`. Subsequent source revisions, workload
-configuration, packet manifests, commands and raw evidence must be frozen before
-the first solver sees the task.
+configuration, packet manifests and commands were frozen before solver exposure.
+The final evidence references are recorded below.
 
 ## Question and case selection
 
 The question is whether optional access to TrainCheck helps an agent investigate
 and repair a real distributed training problem more efficiently under a neutral
-engineering task. The comparison will measure causal localization, independently
+engineering task. The comparison measures causal localization, independently
 valid code, agent-visible runtime verification and final completion separately.
 
 The selected candidate is the historical DeepSpeed BF16 optimizer failure commonly
@@ -106,19 +109,20 @@ The saved live diff is
 `/Users/matt/gitrepos/traincheck/outputs/ring18-runtime-20261102/original-bf16-working.diff`,
 SHA-256 `c04efe0f7f59bbcd973a6289a57b40fa4f832a7855b1b4ada9ebb73e3fcde8ad`.
 Its two changed lines move the identical condition and `continue` out by one
-indentation level. This artifact has been read and hashed locally; the complete
-source snapshot and provenance manifest remain to be frozen.
+indentation level. This artifact was read and hashed locally; the complete
+source snapshots were subsequently frozen in the qualification and packet
+manifests.
 
-The planned candidate is an isolated snapshot of the inspected working-tree
-source. The positive control uses the corresponding correct HEAD version of
+The candidate is an isolated snapshot of the inspected working-tree source.
+The positive control uses the corresponding correct HEAD version of
 `bf16_optimizer.py` while preserving the same remaining compatibility changes.
-The final evidence bundle must retain the exact source diff and per-file hashes,
-including a check that the control differs only in the intended logic. This is a
+The evidence bundle retains the exact source diff and per-file hashes,
+including the check that the control differs only in the intended logic. This is a
 historical semantic reproduction on a compatible environment, not execution of
 an untouched historical checkout. Shared repositories and installed environments
 are inputs and must remain unchanged.
 
-## Planned workload and qualification
+## Workload and qualification
 
 The frozen native Megatron–DeepSpeed GPT workload uses CodeParrot, four layers,
 hidden width 64, eight attention heads, sequence length 128, TP2, PP1, DP1,
@@ -147,7 +151,7 @@ Source-integrity checks cover all 271 framework/application Python files, all
 139 cached native sources and four binaries. All remain unchanged. Private
 snapshots stay on Ring18; compact reports, hashes and ordinary outputs are local.
 
-Qualification must establish all of the following before solver launch:
+The prespecified qualification gates were:
 
 1. The candidate initializes successfully and executes finite training updates.
    The measured gradient norm actually activates clipping; configured clipping
@@ -196,9 +200,10 @@ and behavior; do not obscure code to make static reasoning artificially harder.
 The exact allowed revision scope and preserved training contracts must be stated
 and frozen before launch.
 
-Plan two fresh matched pairs, with launch order reversed in the second pair.
-Use the same model, reasoning setting, tool interface, runtime, request allowance,
-update allowance and time limits. Freeze their exact values before exposure.
+Two fresh matched pairs ran, with launch order reversed in the second pair.
+Both used gpt-6-astra/high, the same tool interface and runtime, six remote
+requests, 1–16 updates per request, 240 seconds per worker phase, 900 aggregate
+CLI seconds and eight decision turns. These limits were frozen before exposure.
 Controls may use ordinary logging, assertions and custom Python diagnostics.
 Treatments additionally receive the generic TrainCheck observation documentation
 and implementation; no rule targets this case and no task step requires its use.
@@ -206,8 +211,8 @@ and implementation; no rule targets this case and no task step requires its use.
 Standard responses return native logs, training metrics and ordinary artifacts.
 Do not automatically supply private grader state exports as a diagnostic shortcut.
 Either arm may request and capture equivalent runtime state explicitly under the
-same resource budget. Private grading begins only after all final submissions
-freeze; grader feedback is not supplied during the task.
+same resource budget. Private grading began only after all final submissions
+froze; grader feedback was not supplied during the task.
 
 ## Milestones, costs and evidence
 
@@ -267,15 +272,12 @@ case from source, choose ordinary diagnostics, fail to use TrainCheck, or obtain
 no efficiency benefit, retain and report those outcomes without changing the
 task or success criteria after seeing them.
 
-
 ## Interrupted transport and recovery protocol
 
-The first matched pair used gpt-6-astra/high with identical limits: six remote
-requests, 1–16 updates per request, 240 seconds per worker phase, 900 aggregate
-CLI seconds and eight decision turns. Both agents first proposed the correct
-clipping hypothesis from source and requested runtime diagnostics before editing
-the implementation. This case therefore must not be described as requiring
-runtime observation for every successful localization.
+Both matched pairs used the frozen limits above. All four agents first proposed
+the correct clipping hypothesis from source and requested runtime diagnostics
+before editing the implementation. This case therefore must not be described
+as requiring runtime observation for successful localization.
 
 An SSH connection closed after control request 3 finished training but before
 artifact download. Treatment request 2 failed while creating its remote directory,
@@ -284,11 +286,200 @@ control phase has exit code 0, unchanged source/native binaries, empty worker/GP
 process lists, and 17.31105645187199 seconds of two-GPU worker lifetime; it must
 be recovered rather than rerun. The treatment request directory was absent.
 
-Recovery preserves all original trial and error receipts. Pending results are
-retrieved, the unlaunched request is executed once, and the same CLI thread IDs
-resume with their original remaining request/turn/time budgets. New receipts are
-append-only under `recovery-1/`; a composed record explicitly references both
-parts. Report raw wall time including interruption and measured interruption
+Recovery preserved all original trial and error receipts. Pending results were
+retrieved, the unlaunched request executed once, and the same CLI thread IDs
+resumed with their original remaining request/turn/time budgets. New receipts
+are append-only under `recovery-1/`. The second treatment's request 1 also
+completed GPU work before an artifact-download failure; `recovery-2/` retrieved
+that existing result and continued its original thread. Composed records
+explicitly reference every original and continuation artifact. Report raw wall time including interruption and measured interruption
 intervals separately. Select one effective receipt per logical request so recovery
 does not double-count GPU cost. No private scoring or operator diagnosis is sent
-to solvers. Independent grading remains gated on all four frozen trials.
+to solvers. Independent grading began only after all four trials froze and is
+now complete.
+
+## Completed solver and independent-validation results
+
+All four agents first localized the same clipping-selection cause from source,
+then wrote ordinary cross-rank diagnostics to test that hypothesis. No TrainCheck
+instrumentation activation was observed in either treatment. Both controls and both treatments
+submitted their first independently valid implementation in **turn 2**, after
+one diagnostic GPU request. All later submitted implementations also passed.
+
+Independent grading covered every frozen submission, deduplicated by all Python
+source bytes: eight distinct candidate sources and one known-correct reference,
+each executed in four scenarios, for **36 GPU phases**. Each scenario compared
+recorded model parameters, the complete exported optimizer state and recorded
+Torch/Megatron RNG at steps 0, 1 and 2 against its fresh reference. Step 0 is
+after the first backward pass. Model tolerances were `atol=0`, `rtol=0`;
+optimizer container types/order, scalars and tensor contents remained significant.
+Replicated parameters were also checked within their tensor-parallel group.
+
+| Private scenario | Seed | TP / allocated GPUs | Clipping threshold | Turn-1 sources | Turn-2 and later sources |
+| --- | ---: | ---: | ---: | --- | --- |
+| Base | 1234 | 2 / 2 | 1.0 | All four fail | All four pass |
+| Held-out seed | 5678 | 2 / 2 | 1.0 | All four fail | All four pass |
+| TP1 control | 1234 | 1 / 1 | 1.0 | All four pass | All four pass |
+| Clipping disabled | 1234 | 2 / 2 | 0.0 | All four pass | All four pass |
+
+Thus the earliest valid-submission milestone is justified by all four gates,
+not by the agent's own assertions or a successful training exit. These short
+checks do not establish long-horizon convergence, checkpoint-resume correctness,
+or coverage of other distributed configurations. No TP2×DP2 validation is claimed.
+
+### Milestones and resource costs
+
+All times are seconds from the trial's original start. In a `raw / adjusted`
+cell, adjusted time subtracts the measured union of resource-lock waits and
+operator suspension intervals. It is an accounting view, not a reconstruction
+of uninterrupted execution. Source diagnosis has no prior queue/interruption.
+“First valid” is the captured submission boundary, retrospectively graded;
+“finish” is the final visible decision, not when private grading completed.
+
+| Trial | Source diagnosis | Runtime diagnosis, raw / adjusted | First valid submission, raw / adjusted | Agent-visible repair verification, raw / adjusted | Finish, raw / adjusted |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Control 1 | 36.118 | 134.876 / 134.875 | 162.692 / 162.691 | 232.732 / 232.729 | 1,033.415 / 310.957 |
+| TrainCheck 1 | 18.708 | 201.057 / 163.998 | 286.436 / 249.376 | 1,018.755 / 316.404 | 1,121.005 / 418.653 |
+| TrainCheck 2 | 35.336 | 776.050 / 125.544 | 807.169 / 156.663 | 890.986 / 240.479 | 920.339 / 269.831 |
+| Control 2 | 16.462 | 127.342 / 127.341 | 387.317 / 387.316 | 451.859 / 451.857 | 539.296 / 539.293 |
+
+Agent-visible verification is the first completed inspection/check command that
+exposes both ranks' corrected-run coverage, separate from a later prose claim.
+Every corrected run actually contains all **16 updates on both ranks**, 52
+clipped gradients per rank, and zero errors for the scaling/replica fields that
+its agent chose to observe. Initial diagnostics used 3, 8, 4 and 4 updates in the
+table's order. Focused tests executed on both workers: respectively 5, 7, 4 and
+3 tests per worker. The public diagnostics have different coverage and are not
+the independent uniform oracle. Control 1, TrainCheck 1 and Control 2 also ran
+eight FP16 updates; TrainCheck 2 did not, and acknowledged that limitation.
+
+The full-trial boundary occurs slightly after the visible finish statement.
+Allocated GPU-seconds count devices × supervised worker lifetime, including
+startup; they do not measure device utilization.
+
+| Trial | Requests | Full raw wall s | Queue s | Operator suspension s | Full adjusted wall s | CLI s | GPU-s before first valid | Full solver GPU-s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Control 1 | 3 | 1,037.150 | 0.003 | 722.455 | 314.692 | 173.658 | 34.731 | 104.607 |
+| TrainCheck 1 | 3 | 1,124.788 | 37.062 | 665.290 | 422.436 | 271.649 | 35.239 | 94.831 |
+| TrainCheck 2 | 2 | 924.628 | 42.890 | 607.618 | 274.121 | 159.723 | 34.730 | 69.355 |
+| Control 2 | 3 | 543.570 | 0.002 | 0.000 | 543.568 | 397.481 | 34.720 | 94.298 |
+
+The four solver trials used **363.091 GPU-s total**. The separate 36-phase private
+grading used **1,069.616 GPU-s**; none is charged to solver milestones.
+Qualification, instrumentation preflight and earlier setup work remain separate
+operator costs in their own receipts; the two totals here are not a total
+campaign-cost claim. Recollecting grades from existing snapshots added no GPU
+training phases. Recovered completed requests are counted once through their
+effective receipt; their original failures and unknown original measurements
+remain preserved.
+
+### Native token accounting
+
+The following counts are native cumulative input-plus-output tokens, including
+cached input. Intervals are inclusive previous/current completed-turn bounds;
+no within-turn interpolation is used. First-valid and final completed-turn
+counts are exact as reported. All source diagnoses occur in turn 1 before a GPU
+request. Full per-category bounds are retained in the final JSON.
+
+| Trial | Source-diagnosis interval | Runtime-diagnosis interval | First-valid tokens | Final completed-turn tokens |
+| --- | ---: | ---: | ---: | ---: |
+| Control 1 | 0–393,071 | 393,071–693,107 | 693,107 | 1,236,382 |
+| TrainCheck 1 | 0–423,568 | 423,568–979,286 | 979,286 | 1,455,127 |
+| TrainCheck 2 | 0–334,917 | 334,917–590,405 | 590,405 | 805,536 |
+| Control 2 | 0–480,682 | 480,682–835,766 | 835,766 | 1,336,513 |
+
+| Trial | Final input | Of input, cached | Final output | Of output, reasoning |
+| --- | ---: | ---: | ---: | ---: |
+| Control 1 | 1,226,306 | 1,137,280 | 10,076 | 1,975 |
+| TrainCheck 1 | 1,440,861 | 1,350,784 | 14,266 | 4,260 |
+| TrainCheck 2 | 796,875 | 727,936 | 8,661 | 2,396 |
+| Control 2 | 1,327,625 | 1,243,776 | 8,888 | 1,431 |
+
+Cached input and reasoning output are subsets, not extra tokens. These counts
+are not a dollar-cost estimate. The final visible statement occurs within the
+last turn; its own within-turn token interval is preserved separately from the
+exact final completed-turn count.
+
+### TrainCheck usage and the negative finding
+
+TrainCheck 2 visibly read the generic manual. TrainCheck 1 only visibly listed
+its filename; a listing is not counted as reading. Neither treatment emitted
+observed TrainCheck trace files or added an explicit TrainCheck import in its
+changed submitted Python. Both used ordinary custom state diagnostics. The
+launcher option permitting TrainCheck access is not activation. No exhaustive
+runtime module/dynamic-import audit was collected, so the precise conclusion
+is **no instrumentation activation observed**, not proof that no incidental
+import could ever have occurred.
+
+This real distributed case still did not meet the intended difficulty criterion:
+all four agents identified the cause from source in 16–36 seconds, before runtime
+observations. Runtime evidence confirmed the consequence and supported the
+repair, but was not necessary for their observed localization. These results
+therefore do not establish a TrainCheck debugging-efficiency benefit or an
+overhead for active use. They describe optional availability that went unused.
+
+Two runs per arm on one selected case, unequal diagnostic lengths, one omitted
+FP16 rerun, normal agent variation and asymmetric transport interruptions prevent
+a causal speedup interpretation. Raw and adjusted values are both retained; no
+benefit ratio is claimed. This finding also does not show that agents can solve
+all TrainCheck paper cases in one shot. A subsequent case should first qualify a
+failure whose cause remains ambiguous after source inspection and whose rank
+state supplies the discriminating evidence, without hiding code or forcing use.
+The next candidate is documented in the [DDP runtime-state
+pilot](ddp-runtime-state-pilot-20261102.md).
+
+### Evidence, replay and collection failure
+
+Local operator evidence root:
+`/Users/matt/gitrepos/traincheck/outputs/ring18-runtime-20261102/`.
+The table below uses paths relative to that root. Private state snapshots remain
+under `/home/yuxuan/experiments/traincheck-runtime-20261102/private-grading/` on
+Ring18. Large snapshots, solver transcripts and datasets are not committed.
+
+| Evidence | SHA-256 |
+| --- | --- |
+| `solver-completion-composed.json` | `c7c654a72841b75f66b0ed5de0b2af7668940c77295e58a467369b4d203c8c79` |
+| `grading-plan.json` | `b2dd407117d09165b93d7596ef13ef13c4dc80055b6371b9f86ab3bff002e18c` |
+| `grading/result-20261101T211500631757Z.json` | `6a9810b43694cb8b13c06da6edc8feb7ab489c59fc6357ca4342d6d6864307a6` |
+| `milestone-annotations-final.json` | `fe1048a72fd9a77bef24f84f2ab110e2bb4bf6265792ac2fa021b65365dce509` |
+| `milestone-summary-final.json` | `a858a1003cd14c6e179efdf410723e25caa99c0ddb5eaa4af2b12d6c0dfbaeea` |
+| `private-grading-milestone-join.json` | `792219847ed15062d5b8b0b29090e52068c60fcc860d3a69df8077a9b6201c77` |
+
+The join records every turn's submission path, source ID, Python-manifest hash,
+optimizer-file hash and four scenario outcomes. Earliest valid submissions are:
+
+| Trial | Submission path relative to the evidence root | Python source ID / SHA-256 |
+| --- | --- | --- |
+| Control 1 | `trials/control_1/submissions/turn-2` | `4a6f8230a5967b40a93d1ee792427048d72405ece18abd5944d5b1caf3510b11` |
+| TrainCheck 1 | `trials/traincheck_1/submissions/turn-2` | `13db280c9f102dab5b50b8d663e4f6c4637bea6a5535bc811f16e2d350fbcc51` |
+| TrainCheck 2 | `recovery-2/trials/traincheck_2/submissions/turn-2` | `e51f85808dc26b77adc7f13eca38e2aa82f1b26db69114b9a12c4805f745487a` |
+| Control 2 | `trials/control_2/submissions/turn-2` | `d972171d51412890b226fab07f616ad1d2819a403e23fdc83a16b67a914faab6` |
+
+`milestone-annotations-visible.json` and `milestone-summary-visible.json` remain
+unchanged as the pre-grade analysis. Final artifacts are new files. Exact event
+lines and hashes are bound in the annotations; raw transcripts are under
+`trials/`, `recovery-1/trials/` and `recovery-2/trials/`. Recompute the final
+accounting without training or solver interaction using:
+
+```sh
+python summarize_milestones.py --study-root "$PWD" --annotations milestone-annotations-final.json --output milestone-summary-recomputed.json
+```
+
+The output path must be new. `join_private_grading.py` validates the frozen plan,
+all source/occurrence mappings, original phase receipts and all four scenario
+outcomes before producing final annotations; it never launches remote work.
+
+The initial collection produced only **unknown** outcomes because its caller
+passed a tuple to an evaluator requiring a nonempty list of steps. It is retained
+as `grading/result-20261101T211129986599Z.json`, SHA-256
+`2b56e92008716bf7a7bc6d6642d7cb67fab6478f5460628ae5fc5b70feedf296`.
+The collector's generated argument changed from `steps=(0,1,2)` to
+`steps=[0,1,2]`; the old helper is archived. A focused integration regression
+exercised the actual evaluator contract. Read-only recollection of the same
+snapshots produced the final result above: no evaluator contract, plan, solver
+feedback or GPU phase changed. Unknown evaluation was never treated as success.
+
+The accounting/extraction and private-grade-join helpers pass 42 focused local
+tests, explicit strict mypy and pinned formatting/lint checks. This validates
+the checked contracts, not absence of every possible harness defect. Independent
+state comparisons and retained failures are the basis of the reported outcomes.
