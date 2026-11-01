@@ -1,6 +1,9 @@
 # Native FSDP initialization: optional TrainCheck pilot
 
-**Status: both fresh agents finished; independent repair grading is in progress.** The earlier
+**Status: completed; both final repairs pass all six independent scenarios.**
+Both agents used cross-rank runtime diagnostics, but the optional-tool agent did
+not activate TrainCheck. This single pair does not establish a tool efficiency
+benefit. The earlier
 [tensor-parallel clipping](real-rank-runtime-pilot-20261102.md) and
 [DDP token-normalization](ddp-runtime-state-pilot-20261102.md) comparisons both
 produced source-first diagnoses and no observed TrainCheck activation. They are
@@ -38,7 +41,7 @@ unchanged official artifacts:
 These are separate repository histories, not ancestor/descendant commits. The
 historical cache namespace and `refs/main` mapping are reconstructed around those
 official blobs. This is not a preserved incident cache, and there is no claim
-that the Halo incident involved Pythia. The model migration establishes an
+that the Halo failure mode involved Pythia. The model migration establishes an
 authentic source of different published weights, not a record of that particular
 deployment.
 
@@ -48,6 +51,11 @@ metadata; global ranks and the actual NCCL process group remain distinct. This
 does not measure multi-host networking or a filesystem race. Requests use
 independent copies of the official caches, not writable links to shared source
 blobs. The shared repositories, environment and driver are unchanged.
+
+The execution environment uses Python 3.10.14, PyTorch `2.2.2+cu121` and compiled
+CUDA 12.1. The loaded Transformers source is pinned to
+`a17f287ac039f92835b5cd9bd8ee28b584c9f65e`; the full environment and executed
+source-file hashes are saved with the launch evidence.
 
 ## Workload and qualification
 
@@ -204,13 +212,58 @@ cause or issue hint, not that the case requires runtime observation. Both fresh
 CLI agents use `gpt-6-astra`, high reasoning and priority service. GPU requests
 are serialized, with queue time reported separately.
 
-## Completed solver runs; independent grades pending
+## Completed comparison and independent repair validation
 
 Both trials finished without CLI or transport failures. Control submitted five
 decision turns and used four GPU requests; optional TrainCheck submitted four
-turns and used three requests. Every submitted source is retained. These totals
-are observed execution costs, not yet a statement that either repair passed the
-independent acceptance criteria.
+turns and used three requests. Every submitted source is retained. Nine ordered
+source occurrences reduce to five exact complete source maps. All 30 independent
+scenario replays finished: 26 passed, four failed as expected for initial
+unrepaired sources, and none were unknown. Both earliest valid submissions are
+turn 2, with no earlier unresolved source. Both final submissions pass all six.
+
+| Submitted source occurrences | Independent outcome |
+| --- | --- |
+| Control turn 1 | Four healthy cases pass; mixed and swapped sources fail |
+| Control turns 2–3 | Six of six pass; earliest valid repair is turn 2 |
+| Control turns 4–5, including final | Six of six pass |
+| Optional TrainCheck turn 1 | Four healthy cases pass; mixed and swapped sources fail |
+| Optional TrainCheck turns 2–4, including final | Six of six pass; earliest valid repair is turn 2 |
+
+The replay executes the immutable ordinary training entry, with complete source
+integrity and state/input coverage checks. Both repairs change the training
+pipeline only by enabling `sync_module_states` and adding comments. Standalone
+diagnostic/comparison helpers differ across snapshots and were retained in their
+complete source identities, even when not imported by that entry.
+
+| Milestone, seconds | Control raw | Control queue-adjusted | Optional TrainCheck raw | Optional TrainCheck queue-adjusted |
+| --- | ---: | ---: | ---: | ---: |
+| Pre-run mechanism hypothesis | 30.251 | 30.251 | 33.934 | 33.934 |
+| Runtime-confirmed state inconsistency | 131.170 | 131.168 | 184.793 | 134.135 |
+| First independently valid submitted repair | 148.365 | 148.362 | 204.705 | 154.047 |
+| First agent-visible repair verification | 228.722 | 224.517 | 271.333 | 218.093 |
+| Terminal trial boundary | 432.754 | 408.810 | 414.381 | 333.094 |
+
+Queue-adjusted time subtracts only measured shared-service waiting. Visible
+statements use received-event timestamps, an upper bound on creation time.
+First-valid submission time is retrospective; it excludes later private grading
+latency and is distinct from the agent's own verification. Both agents' upstream
+cache-origin diagnosis remains unresolved, as detailed below.
+
+| Cost through first valid submission | Control | Optional TrainCheck |
+| --- | ---: | ---: |
+| Native CLI elapsed seconds | 93.470 | 99.253 |
+| Input tokens, including cached input | 714,921 | 683,299 |
+| Cached input subset | 661,504 | 628,352 |
+| Output tokens | 4,994 | 5,031 |
+| Input plus output tokens | 719,915 | 688,330 |
+| Allocated solver GPU-seconds | 35.563 | 34.992 |
+
+Native counters do not identify tokens at an intermediate statement. The
+runtime-confirmation milestones therefore have cumulative input-plus-output
+brackets of 293,535–719,915 for control and 304,371–688,330 for treatment. The
+pre-run hypotheses occur within the first turn, giving only 0–293,535 and
+0–304,371. No interpolation is used.
 
 | Full trial | Control | Optional TrainCheck |
 | --- | ---: | ---: |
@@ -227,7 +280,23 @@ Cached input is already included in input tokens, and reasoning is already
 included in output tokens. Neither subset is added again. The seven solver
 requests consumed 201.291 GPU-seconds. The five operator qualification groups
 above total 905.087 GPU-seconds, counting reused actual-entry/no-counter evidence
-only once. Private post-trial grading remains a separate cost.
+only once. Private post-trial grading used another 815.932 GPU-seconds across
+30 newly executed phases; reused frozen oracles added zero GPU work. These three
+categories total 1,922.310 allocated GPU-seconds for this case. GPU reservations
+were released after completion. Oracle self-checks ran on the CPU controller;
+their preflight elapsed time was about 52.47 seconds, including imports and hash
+validation, and is not reported as pure oracle-comparison time.
+
+The optional-tool agent read the TrainCheck manual but neither prepared nor
+activated TrainCheck instrumentation. Both arms used ordinary custom diagnostic
+wrappers, and all returned artifacts contained zero native TrainCheck API or
+variable-trace files. Their validation choices differed: control compared eight
+updates across backends and then ran 16 ordinary distributed updates; treatment
+compared 16 diagnostic updates across backends. Control checked the 76 saved
+parameter tensors, while treatment also checked nonpersistent named buffers,
+covering 95 records. Full-trial cost differences therefore reflect different
+chosen validation work, not matched measurements of a TrainCheck repair-speed
+benefit.
 
 Both agents proposed an unsafe-initialization mechanism before the first run:
 unsynchronized FSDP could assemble inconsistent rank-local tensors. However,
@@ -237,8 +306,10 @@ that explanation, while confirming cross-rank initial-state differences and
 38 changed tensors after sharding. Both submissions enabled state synchronization
 in turn 2. Neither final answer identified the different cached model sources.
 The result must therefore distinguish a source-supported mechanism hypothesis,
-runtime-confirmed state inconsistency, and an unresolved upstream cause. It is
-not evidence of full root-cause localization from source or from runtime.
+runtime-confirmed state inconsistency, and the upstream cause unresolved by
+either agent. Operator qualification did establish the cache-version divergence.
+This is not evidence of full root-cause localization by either agent from source
+or from runtime.
 
 ## Saved evidence and current validation
 
@@ -272,8 +343,36 @@ contract. The independent neutrality review is
 The six-scenario grading contract has SHA-256
 `6abfeddd99d16aa109424f4cdec899708c3dfa78aa847efad785487fa517a43c`.
 
-After both agents finish, every submitted source occurrence will be frozen and
-graded. Only identical complete source maps can share a result. Evaluation
+The completed grading summary is
+`grading-results-v1/independent-grade-v1/summary.json`, SHA-256
+`9b2d524617f61d549aa59a948cf7767deb5736637e5f9c5815c91bc93f2b13c3`.
+Its replay plan has SHA-256
+`2890a5e00cabbdd934c4f327e9c695c5e577a40fdcad3fa4c51c162f133eb5bf`.
+All 165 exported reports/receipts were downloaded and hash-verified against
+`grading-result-export-manifest.json`, SHA-256
+`3e67d014a07063c258e9a7205c1e0513da2661095d137195f7ac7997c383f060`.
+Full tensor snapshots remain in the isolated Ring18 evidence directory.
+`grading-reproduction-and-results.json` records exact source-to-occurrence
+mapping, replay commands, per-scenario results and cost scope.
+Independent export verification is saved in
+`evaluation/grading/export-review-v1.json`, SHA-256
+`09d00a2e71f3b1515b3ebb169223fc9ba3610ed35f6b0bfd0b82bdc90720e493`.
+The final visible-milestone/grade join is `private-grading-join.json`, SHA-256
+`07caa05c568cf069157cc973fc8dd56d106dd80fbc83aaa4c1507e0b5bf63add`.
+`milestone-summary-final.json`, SHA-256
+`4729939543dbec89cb0feed9d0f98cbee0040bf4437494ba422f5becca1521ec`,
+records the complete timing, token and GPU accounting. Earlier visible-only
+annotations remain unchanged; private grades do not retroactively create
+agent-visible milestones.
+
+A local operator checkpoint contains 158 code, contract, review and accounting
+files in `operator-evidence-final-v1.tar.gz`, SHA-256
+`d47f9017f81bbd2da95cf78e2933ea30ba9e115623f23d52408886103f3a2f8f`.
+Its verified file inventory is `operator-evidence-final-v1.json`. Large native
+states and original solver source snapshots remain at their recorded locations.
+
+Both agents' completion and every submitted source occurrence were frozen before
+grading. Only identical complete source maps shared a result. Evaluation
 compares ordered keys, shapes, dtypes and full tensor values against independent
 same-topology oracles; it does not infer correctness from the patch syntax.
 Missing evidence, malformed snapshots and unsupported observer coverage remain
@@ -287,4 +386,33 @@ six regression tests, the optional-tool preflight helpers passed 20, and the
 reused accounting helpers passed 50, each with scoped strict typing and pinned
 format/lint checks. These counts describe separate validation scopes and should
 not be summed as unique tests. The native gates also passed under the explicit
-same-topology scope above. The TrainCheck package is unchanged.
+same-topology scope above. The post-trial grader passed 14 focused tests plus
+pinned strict mypy, Ruff, Black and isort checks, independently rerun by a second
+reviewer. Its negative-path tests cover incomplete cost receipts, duplicate
+finishes, malformed snapshots and a confirmed incorrect scenario alongside an
+unknown one. The TrainCheck package is unchanged.
+
+The recorded solver launch, from the local evidence root after qualification
+and packet export, was:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /Users/matt/miniconda3/envs/traincheck/bin/python pilot.py freeze
+PYTHONDONTWRITEBYTECODE=1 /Users/matt/miniconda3/envs/traincheck/bin/python pilot.py check-launch
+PYTHONDONTWRITEBYTECODE=1 /Users/matt/miniconda3/envs/traincheck/bin/python pilot.py run
+```
+
+The independent replay uses the frozen plan on Ring18:
+
+```sh
+/home/yuxuan/experiments/traincheck-token-normalization-20261102/venv/bin/python \
+  /home/yuxuan/experiments/traincheck-runtime-study-c-20261102/evaluation/grading/grade.py \
+  --plan /home/yuxuan/experiments/traincheck-runtime-study-c-20261102/grading-input-v1/plan.json \
+  --execute-after-both-freezes
+```
+
+`grading-payload-allowlist.json` binds the staged execution inputs;
+`grading-source-inventory.json` retains every original submission. The payload
+contains public submitted source and minimal grading inputs, excluding raw CLI
+transcripts and private model snapshots. Preserve the frozen directories; a new
+repetition needs fresh isolated output roots and regenerated qualification and
+launch manifests. Per-request receipts retain the exact native training commands.
