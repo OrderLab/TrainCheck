@@ -1,5 +1,5 @@
 We changed checkpoint storage from complete model/optimizer snapshots on each
-rank to a shared model file plus layer shards written by the training ranks.
+rank to shared non-layer state plus full layer shards written by the training ranks.
 The aim is to reduce duplicated checkpoint state while keeping the existing
 two-GPU training behavior. The supplied curves
 compare continuation after restarting the previous and current pipelines. The

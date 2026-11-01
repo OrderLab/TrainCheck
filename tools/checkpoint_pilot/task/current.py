@@ -12,19 +12,23 @@ from . import state
 from .model import LAYERS
 
 
+class ParameterBundle(TypedDict):
+    model: torch.Tensor
+    optimizer: state.TensorMap
+
+
 class LayerChunk(TypedDict):
     layer_name: str
     parameter_names: list[str]
-    optimizer_states: list[state.TensorMap]
+    parameters: list[ParameterBundle]
 
 
 class SharedPayload(TypedDict):
     schema_version: int
-    model: state.TensorMap
     parameter_names: list[str]
     optimizer_groups: list[state.Group]
     nonlayer_names: list[str]
-    nonlayer_states: list[state.TensorMap]
+    nonlayer_parameters: list[ParameterBundle]
     progress: state.ProgressFields
     world_size: int
 
@@ -53,17 +57,24 @@ def save_checkpoint(
 ) -> None:
     state.validate_rank(rank, world_size)
     names, values, groups = state.optimizer_snapshot(model, optimizer)
-    by_name = dict(zip(names, values, strict=True))
+    raw_model: object = model.state_dict()
+    model_values = state.tensors(raw_model, "model")
+    if set(model_values) != set(names):
+        raise ValueError(
+            "This checkpoint schema requires every model field to be a parameter"
+        )
+    by_name: dict[str, ParameterBundle] = {
+        name: {"model": model_values[name].detach().cpu().clone(), "optimizer": value}
+        for name, value in zip(names, values, strict=True)
+    }
     nonlayer_names = [name for name in names if not name.startswith("encoder.layers.")]
     if rank == 0:
-        raw_model: object = model.state_dict()
         shared: SharedPayload = {
-            "schema_version": 1,
-            "model": state.tensor_snapshot(state.tensors(raw_model, "model")),
+            "schema_version": 2,
             "parameter_names": names,
             "optimizer_groups": groups,
             "nonlayer_names": nonlayer_names,
-            "nonlayer_states": [by_name[name] for name in nonlayer_names],
+            "nonlayer_parameters": [by_name[name] for name in nonlayer_names],
             "progress": progress.fields(),
             "world_size": world_size,
         }
@@ -78,11 +89,11 @@ def save_checkpoint(
             {
                 "layer_name": prefix,
                 "parameter_names": selected,
-                "optimizer_states": [by_name[name] for name in selected],
+                "parameters": [by_name[name] for name in selected],
             }
         )
     shard: RankPayload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "rank": rank,
         "world_size": world_size,
         "layers": chunks,
@@ -92,18 +103,27 @@ def save_checkpoint(
     torch.save(shard, directory / f"rank{rank}.pt")
 
 
+def read_bundle(value: object, label: str) -> ParameterBundle:
+    fields = state.mapping(value, label)
+    state.exact_keys(fields, {"model", "optimizer"}, label)
+    model = state.tensors({"model": fields["model"]}, label)["model"]
+    optimizer = state.momentum(fields["optimizer"], f"{label}.optimizer")
+    momentum = optimizer["momentum_buffer"]
+    if model.shape != momentum.shape or model.dtype != momentum.dtype:
+        raise ValueError(f"{label} model and momentum shape or dtype differ")
+    return {"model": model, "optimizer": optimizer}
+
+
 def read_layer(value: object) -> LayerChunk:
     chunk = state.mapping(value, "layer")
-    state.exact_keys(
-        chunk, {"layer_name", "parameter_names", "optimizer_states"}, "layer"
-    )
+    state.exact_keys(chunk, {"layer_name", "parameter_names", "parameters"}, "layer")
     prefix = chunk["layer_name"]
     if not isinstance(prefix, str) or prefix not in {
         layer_name(i) for i in range(LAYERS)
     }:
         raise ValueError("Unknown checkpoint layer")
     names = state.strings(chunk["parameter_names"], "layer parameter_names")
-    values = chunk["optimizer_states"]
+    values = chunk["parameters"]
     if not names or not all(name.startswith(prefix + ".") for name in names):
         raise ValueError("Layer parameter names differ")
     if not isinstance(values, list) or len(values) != len(names):
@@ -111,9 +131,7 @@ def read_layer(value: object) -> LayerChunk:
     return {
         "layer_name": prefix,
         "parameter_names": names,
-        "optimizer_states": [
-            state.momentum(v, n) for n, v in zip(names, values, strict=True)
-        ],
+        "parameters": [read_bundle(v, n) for n, v in zip(names, values, strict=True)],
     }
 
 
@@ -131,17 +149,16 @@ def restore_checkpoint(
         shared,
         {
             "schema_version",
-            "model",
             "parameter_names",
             "optimizer_groups",
             "nonlayer_names",
-            "nonlayer_states",
+            "nonlayer_parameters",
             "progress",
             "world_size",
         },
         "shared checkpoint",
     )
-    if state.integer(shared["schema_version"], "schema_version") != 1:
+    if state.integer(shared["schema_version"], "schema_version") != 2:
         raise ValueError("Unsupported sharded checkpoint version")
     if state.integer(shared["world_size"], "world_size", 1) != world_size:
         raise ValueError("Checkpoint topology differs")
@@ -159,7 +176,7 @@ def restore_checkpoint(
             {"schema_version", "rank", "world_size", "layers", "progress", "rng"},
             "rank shard",
         )
-        if state.integer(shard["schema_version"], "schema_version") != 1:
+        if state.integer(shard["schema_version"], "schema_version") != 2:
             raise ValueError("Unsupported rank shard version")
         if (
             state.integer(shard["rank"], "rank") != source_rank
@@ -183,7 +200,7 @@ def restore_checkpoint(
             rank_rng = rng
     assert rank_rng is not None
     nonlayer_names = state.strings(shared["nonlayer_names"], "nonlayer_names")
-    nonlayer_values = shared["nonlayer_states"]
+    nonlayer_values = shared["nonlayer_parameters"]
     expected_nonlayer = [
         name for name in names if not name.startswith("encoder.layers.")
     ]
@@ -192,18 +209,20 @@ def restore_checkpoint(
         or not isinstance(nonlayer_values, list)
         or len(nonlayer_values) != len(nonlayer_names)
     ):
-        raise ValueError("Nonlayer optimizer coverage differs")
+        raise ValueError("Nonlayer parameter coverage differs")
     restored = {
-        name: state.momentum(value, name)
+        name: read_bundle(value, name)
         for name, value in zip(nonlayer_names, nonlayer_values, strict=True)
     }
     layer_names = [name for name in names if name.startswith("encoder.layers.")]
     chunk_names = [name for chunk in chunks for name in chunk["parameter_names"]]
     if len(chunk_names) != len(layer_names) or set(chunk_names) != set(layer_names):
-        raise ValueError("Layer optimizer parameter coverage differs")
-    layer_values = [value for chunk in chunks for value in chunk["optimizer_states"]]
+        raise ValueError("Layer parameter coverage differs")
+    layer_values = [value for chunk in chunks for value in chunk["parameters"]]
     restored.update(zip(layer_names, layer_values, strict=True))
-    state.load_model(model, shared["model"])
-    state.load_optimizer(model, optimizer, [restored[name] for name in names], groups)
+    state.load_model(model, {name: restored[name]["model"] for name in names})
+    state.load_optimizer(
+        model, optimizer, [restored[name]["optimizer"] for name in names], groups
+    )
     state.restore_rng(rank_rng, device)
     return progress

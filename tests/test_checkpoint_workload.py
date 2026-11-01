@@ -119,7 +119,7 @@ def test_single_rank_checkpoint_round_trip_preserves_complete_state(
     assert equal(before, after)
 
 
-def test_two_rank_shards_preserve_other_state_but_permute_layer_momentum(
+def test_two_rank_shards_permute_model_and_momentum_together(
     tmp_path: Path,
 ) -> None:
     before = sharded_checkpoint(tmp_path / "checkpoint", 2)
@@ -129,7 +129,6 @@ def test_two_rank_shards_preserve_other_state_but_permute_layer_momentum(
     )
     after = state.artifact(model, optimizer, progress, 0, 2, CPU)
     preserved: list[tuple[object, object]] = [
-        (before["model"], after["model"]),
         (before["optimizer_groups"], after["optimizer_groups"]),
         (before["progress"], after["progress"]),
         (before["rng"], after["rng"]),
@@ -144,7 +143,42 @@ def test_two_rank_shards_preserve_other_state_but_permute_layer_momentum(
         if name.startswith("encoder.layers.2."):
             source_name = name.replace("encoder.layers.2.", "encoder.layers.1.")
         assert equal(states_before[source_name], states_after[name])
+        assert torch.equal(before["model"][source_name], after["model"][name])
     assert not equal(states_before, states_after)
+    assert not equal(before["model"], after["model"])
+
+
+def test_sharded_files_store_complete_model_optimizer_bundles_once(
+    tmp_path: Path,
+) -> None:
+    directory = tmp_path / "checkpoint"
+    before = sharded_checkpoint(directory, 2)
+    shared = state.read(directory / "shared.pt")
+    assert shared["schema_version"] == 2
+    assert "model" not in shared
+    names = state.strings(shared["nonlayer_names"], "nonlayer_names")
+    raw_values = shared["nonlayer_parameters"]
+    assert isinstance(raw_values, list)
+    serialized = {
+        name: current.read_bundle(value, name)
+        for name, value in zip(names, raw_values, strict=True)
+    }
+    for rank in (0, 1):
+        shard = state.read(directory / f"rank{rank}.pt")
+        assert shard["schema_version"] == 2
+        layers = shard["layers"]
+        assert isinstance(layers, list)
+        for raw_layer in layers:
+            layer = current.read_layer(raw_layer)
+            for name, value in zip(
+                layer["parameter_names"], layer["parameters"], strict=True
+            ):
+                assert name not in serialized
+                serialized[name] = value
+    assert set(serialized) == set(before["model"]) == set(before["optimizer_state"])
+    for name, bundle in serialized.items():
+        assert torch.equal(bundle["model"], before["model"][name])
+        assert equal(bundle["optimizer"], before["optimizer_state"][name])
 
 
 def test_private_name_binding_revision_restores_complete_existing_checkpoint(
@@ -277,7 +311,7 @@ def test_complete_batch_is_independent_of_microbatch_partition_and_rng() -> None
     [
         ("world_size", True),
         ("world_size", 3),
-        ("schema_version", 2),
+        ("schema_version", 1),
         ("parameter_names", []),
         ("nonlayer_names", ["unknown"]),
     ],
@@ -313,6 +347,55 @@ def test_missing_shard_is_not_silently_replaced(tmp_path: Path) -> None:
     model, optimizer = fresh()
     with pytest.raises(FileNotFoundError):
         current.restore_checkpoint(directory, model, optimizer, 0, 2, CPU)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["missing_model", "missing_optimizer", "extra", "nonfinite", "shape", "dtype"],
+)
+def test_malformed_parameter_bundle_is_rejected_before_restoring_model(
+    tmp_path: Path, mutation: str
+) -> None:
+    directory = tmp_path / "checkpoint"
+    sharded_checkpoint(directory, 2)
+    payload = state.read(directory / "rank0.pt")
+    layers = payload["layers"]
+    assert isinstance(layers, list)
+    layer = state.mapping(layers[0], "layer")
+    values = layer["parameters"]
+    assert isinstance(values, list)
+    bundle = state.mapping(values[0], "bundle")
+    model_tensor = bundle["model"]
+    assert isinstance(model_tensor, torch.Tensor)
+    if mutation == "missing_model":
+        del bundle["model"]
+    elif mutation == "missing_optimizer":
+        del bundle["optimizer"]
+    elif mutation == "extra":
+        bundle["unrecognized"] = True
+    elif mutation == "nonfinite":
+        bundle["model"] = torch.full_like(model_tensor, float("nan"))
+    elif mutation == "shape":
+        bundle["model"] = torch.zeros(1)
+    else:
+        assert mutation == "dtype"
+        bundle["model"] = model_tensor.double()
+    values[0] = bundle
+    layers[0] = layer
+    torch.save(payload, directory / "rank0.pt")
+    model, optimizer = fresh()
+    before = copy.deepcopy(model.state_dict())
+    with pytest.raises((ValueError, TypeError)):
+        current.restore_checkpoint(directory, model, optimizer, 0, 2, CPU)
+    assert equal(before, model.state_dict())
+
+
+def test_sharded_writer_rejects_unhandled_model_buffers(tmp_path: Path) -> None:
+    model, optimizer, progress = initialized()
+    model.register_buffer("extra_state", torch.ones(1))
+    with pytest.raises(ValueError, match="every model field to be a parameter"):
+        current.save_checkpoint(tmp_path, model, optimizer, progress, 0, 2, CPU)
+    assert not list(tmp_path.iterdir())
 
 
 def test_duplicate_layer_and_wrong_progress_are_rejected(tmp_path: Path) -> None:
