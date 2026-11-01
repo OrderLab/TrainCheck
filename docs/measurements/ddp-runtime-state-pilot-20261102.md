@@ -1,13 +1,20 @@
 # Data-dependent DDP training: optional TrainCheck pilot
 
-**Status: one matched agent pair running, 2026-11-02.** Native qualification,
-held-out positive controls, optional-tool preflight and packet review passed
-before launch. The pair started after the 2026-11-01 21:30:49 UTC protocol freeze.
-This is private operator documentation, excluded from agent task packets. No
-agent-efficiency benefit is established. Results from the earlier
-[tensor-parallel clipping pilot](real-rank-runtime-pilot-20261102.md) are retained:
-its four agents localized the cause from source before their first GPU request,
-and neither treatment activated TrainCheck.
+**Status: one matched pair and independent grading completed, 2026-11-02.**
+Both agents localized the cause from source before their first requested run.
+Both final submissions pass all seven independent scenarios. No TrainCheck
+instrumentation activation was observed; the treatment agent read its manual
+and used ordinary PyTorch/Trainer diagnostics. This case did not meet the intended
+difficulty of requiring runtime observation for localization, and provides no
+evidence of a TrainCheck efficiency benefit.
+
+Native qualification, held-out positive controls, optional-tool preflight and
+packet review passed before launch. The pair started after the 2026-11-01
+21:30:49 UTC protocol freeze. This is private operator documentation, excluded
+from task packets. Results from the earlier
+[tensor-parallel clipping pilot](real-rank-runtime-pilot-20261102.md) remain:
+its four agents also localized the cause from source before their first GPU
+request; no TrainCheck instrumentation activation was observed there either.
 
 ## Why this case
 
@@ -172,6 +179,127 @@ one sentence offering optional access. The 32 treatment-only files are the
 generic manual and 31 frozen TrainCheck source files. The source and data remain
 visible, so this review does not establish that runtime observation is necessary.
 
+## Completed pair and independent results
+
+The control produced its first passing implementation in turn 2; the treatment
+in turn 3. Independent replay covered every one of the 13 frozen submissions,
+using eight distinct complete source maps. Exact duplicate maps reuse the same
+seven-scenario result; changes to diagnostic helpers still count as distinct
+maps even when the ordinary training code is unchanged. The original control
+source and treatment turns 1/2 fail the unequal-count and held-out comparisons,
+with complete observation coverage. No earlier unknown grade blocks either
+first-valid result. Both final complete source maps pass all seven scenarios.
+
+The grader runs the actual immutable entry point against each submitted
+pipeline. It checks full model, gradient and optimizer state, native sample/mask
+coverage and matched same-world RNG, under the frozen tolerances. It does not
+reward a particular repair pattern or a training exit code alone. A first-valid
+time is the **original submission boundary**, established retrospectively by
+these grades; it excludes independent grading latency and GPU cost.
+
+| Milestone, elapsed seconds from trial start | Control | TrainCheck available |
+| --- | ---: | ---: |
+| First source-supported diagnosis | 47.928 | 38.785 |
+| First runtime-supported diagnosis | 149.654 | 102.714 |
+| First visible implementation edit | 157.952 | 170.017 |
+| Earliest submission passing independent grading | 181.380 | 204.074 |
+| First agent-visible repaired-run comparison | 287.709 | 259.778 |
+| Final finish decision | 449.068 | 469.626 |
+| Terminal trial boundary | 453.645 | 474.343 |
+
+Event times are receipt-time upper bounds, not inferred internal reasoning times.
+The runtime-supported diagnosis is the first explicit statement connecting
+observed local denominators of 30/78 and synchronized rank gradients to the
+source hypothesis. Later gradient comparisons quantify the initial error at
+about 0.332294 relative L2. The treatment's first local repaired-run comparison
+failed because `safetensors` was absent; the table counts its subsequent
+successful comparison, not that failed command. Agent-visible verification
+remains distinct from the stronger independent grade.
+
+| Milestone resource cost | Control | TrainCheck available |
+| --- | ---: | ---: |
+| First-valid wall minus queue, seconds | 166.428 | 204.071 |
+| First-valid recorded CLI time, seconds | 138.627 | 149.629 |
+| First-valid allocated GPU-seconds | 25.043 | 37.548 |
+| First-valid cumulative input + output tokens | 595,207 | 845,768 |
+| First-valid input / cached input tokens | 586,784 / 536,192 | 835,843 / 772,480 |
+| First-valid output / reasoning output tokens | 8,423 / 2,093 | 9,925 / 1,859 |
+| Runtime-diagnosis allocated GPU-seconds | 25.043 | 25.025 |
+| Repaired-run-comparison allocated GPU-seconds | 62.597 | 62.588 |
+
+Within-turn token costs are intervals, bounded by the previous and current
+completed native turn. They are not interpolated from elapsed time:
+
+| Visible milestone, cumulative input + output interval | Control | TrainCheck available |
+| --- | ---: | ---: |
+| Source-supported diagnosis | 0–276,705 | 0–298,887 |
+| Runtime-supported diagnosis | 276,705–595,207 | 298,887–514,729 |
+| First implementation edit | 276,705–595,207 | 514,729–845,768 |
+| Repaired-run comparison | 778,431–982,728 | 845,768–1,142,119 |
+| Final finish decision | 1,207,772–1,471,632 | 1,558,352–1,744,783 |
+
+| Complete trial cost | Control | TrainCheck available |
+| --- | ---: | ---: |
+| Raw elapsed wall, seconds | 453.645 | 474.343 |
+| Recorded resource queue, seconds | 17.777 | 5.362 |
+| Wall minus recorded queue, seconds | 435.868 | 468.981 |
+| Recorded CLI lifetime, seconds | 286.349 | 309.522 |
+| Completed CLI invocations | 6 | 7 |
+| Requested executions | 5 | 6 |
+| Allocated GPU-seconds | 100.203 | 124.993 |
+| Input tokens | 1,455,546 | 1,724,856 |
+| Cached input tokens, subset of input | 1,373,184 | 1,641,472 |
+| Output tokens | 16,086 | 19,927 |
+| Reasoning output tokens, subset of output | 4,236 | 4,579 |
+| Input + output tokens | 1,471,632 | 1,744,783 |
+
+Input counts include reused context; they are processed tokens, not unique prompt
+text. Cached input is already included in input, and reasoning output in output.
+The native CLI does not expose underlying model API-request counts; six/seven CLI
+invocations must not be reported as six/seven model calls. The captured model
+flags record requested configuration, not an independent attestation of weights.
+
+The paired solver total is 225.196 allocated GPU-seconds. Independent grading
+added **1,416.962 operator GPU-seconds**, over 62 new supervised phases, with
+three earlier references reused. This cost is separate from solver costs and
+all qualification/preflight costs above. Cleanup and device assignments are
+verified for known allocation cost. These short runs include process startup
+and cleanup; GPU-seconds do not measure active utilization or pure training.
+No failed CLI attempt or transport recovery occurred in this pair. Queue-adjusted
+wall removes only recorded shared-resource waits, not all host variability.
+
+The treatment used one extra ordinary DDP request, costing 25.086 GPU-seconds,
+which completed 16 updates on both ranks without diagnostic hooks. Its preceding
+single-GPU request ran two separate eight-update configurations within a
+16-update allowance, not one uninterrupted 16-update run. The control's five
+requests completed 2/8/8/8/8 updates. Both agents checked accumulation 1 and 2;
+their terminal validation scopes were not identical. Exported checkpoints do
+not establish checkpoint-restore testing.
+
+The control's reference requests already executed its submitted correction;
+the treatment first captured an unchanged single-GPU reference before editing.
+Both follow the documented service contract. Neither reference backend is a
+hidden immutable corrected pipeline.
+
+## Interpretation and limits
+
+The treatment read the generic manual at turn 1, event 13. Review of all original
+completed item streams, changed source occurrences and returned public
+artifacts found no TrainCheck activation. Its diagnostics instead wrapped native
+Trainer calls and installed ordinary optimizer hooks. This is an observation
+about the captured evidence, not proof that an unobserved import never occurred.
+Tool availability and manual reading are not instrumentation activation.
+
+Both agents found a real data-dependent distributed-training problem, but both
+localized it before any requested execution. The observed case therefore fails
+the intended runtime-required localization criterion. Runtime state still
+confirmed the cause and quantified the gradient error. One optional-tool trial
+per arm, with no observed activation and different chosen validation scopes,
+cannot establish either a causal efficiency benefit or a slowdown from TrainCheck
+availability. The timing table is a descriptive result, not an improvement claim.
+This does not imply that agents can solve all bugs in the TrainCheck paper or
+that agent-written training pipelines cannot contain silent errors.
+
 ## Evidence and reproduction
 
 Local evidence root:
@@ -201,6 +329,58 @@ Remote evidence root:
 - `prelaunch-neutrality-review.json`, SHA-256
   `a79346c2664a1e63796b1557bbec76906d1c08784b69fcd6274515bbc692888f`:
   independent packet comparison and evidence review.
+
+
+- `solver-completion.json`, SHA-256
+  `c733a9fab181e100e1a19fbcaa3e7c119eaa4c2f561d6e60d91e5a5c6e5d10c6`:
+  both terminal records; all raw turns, source snapshots and service receipts
+  remain under `trials/`.
+- `milestone-annotations-visible.json` and `milestone-summary-visible.json`:
+  preserved adjudication before private grades, with valid-patch status pending.
+- `milestone-annotations-final.json`, SHA-256
+  `d4359e925180995d496f604155d054be1dbac97e8c864bee4979293cabc4c744`,
+  and `milestone-summary-final.json`, SHA-256
+  `e38bd48dd379db775572423503517af64183a4a6153f147f92e329ffec8d04d2`:
+  final source/runtime/verification/finish events, within-turn token intervals,
+  exact submitted-turn totals and backend-specific GPU accounting.
+- `visible-activation-audit.json`, SHA-256
+  `cba7ba4be95832c70f033612e22e84ceefd3d6f44540bb8978e6b695a9bcda6f`:
+  changed-source hashes and returned public artifact inventories/text checks.
+- `independent-grade-v1/summary.json`, SHA-256
+  `a63142a6c82cfaff98457e213a896b454a43d16eedd291c5978345526f327afa`:
+  all independent outcomes, exact-map deduplicates and separate operator cost.
+  `independent-grade-export-manifest.json` binds 89 downloaded report files.
+- `private-grading-join.json`, SHA-256
+  `6ef62ad56251cec1c09fb86cbbb05138cf2c6b29dcc12c623fc70d0371d8d8b1`:
+  verifies all 13 original complete source maps and their turn/submission hashes
+  against the grading plan and per-candidate manifests, including all seven
+  scenarios and both final identities.
+- `accounting/`: the preserved typed extractor and its provenance. Forty-three
+  focused synthetic tests and pinned strict mypy/format/lint checks passed during
+  preparation; the final extraction also revalidated actual receipt chronology,
+  native usage, backend allocation and evidence hashes. These checks do not
+  independently prove every scientific annotation or eliminate all harness bugs.
+
+Reproduce the final accounting from the local evidence root with a new output:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /Users/matt/miniconda3/envs/traincheck/bin/python \
+  accounting/summarize_hf.py --study-root . \
+  --annotations milestone-annotations-final.json \
+  --output milestone-summary-reproduced.json
+```
+
+The local operator bundle `frozen-operator-20261102.tar.gz` contains the 35 files
+listed in `frozen-operator-manifest.json`; SHA-256 is
+`6dc24b4b154a4aedecf974d539cf17fd80fa0291bb8adf0b6a9c9eaadb45937d`.
+It is not a claim that every checkpoint or later report is inside that archive.
+Ring18 separately retains the existing runtime/source bundle
+`runtime-reproduction-20261102.tar.gz`, SHA-256
+`2f7f4c5643b919951f5f2f4bbb32455ab1b4275364e04a8046c0bb5a19f113fb`,
+created in place from material already on that machine. Automatic approval review
+rejected uploading the full private operator bundle because export authorization
+was not established. That upload was not retried; the local bundle and existing
+remote runtime archive are the retained alternative.
 
 The operator request service and qualification code do not modify the TrainCheck
 package. Large native sources, data, checkpoints and traces remain outside Git.
