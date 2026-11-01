@@ -20,14 +20,21 @@ class Batch:
     labels: torch.Tensor
 
 
+def make_layer() -> nn.TransformerEncoderLayer:
+    return nn.TransformerEncoderLayer(
+        d_model=16, nhead=2, dim_feedforward=32, dropout=0.1, batch_first=True
+    )
+
+
 class Transformer(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.embedding = nn.Embedding(VOCABULARY, 16)
-        layer = nn.TransformerEncoderLayer(
-            d_model=16, nhead=2, dim_feedforward=32, dropout=0.1, batch_first=True
-        )
-        self.encoder = nn.TransformerEncoder(layer, num_layers=LAYERS)
+        self.encoder = nn.TransformerEncoder(make_layer(), num_layers=LAYERS)
+        # TransformerEncoder clones its prototype. Construct the remaining
+        # blocks independently while retaining each module's default initializer.
+        for index in range(1, LAYERS):
+            self.encoder.layers[index] = make_layer()
         self.readout = nn.Linear(16, VOCABULARY)
 
     def forward(self, tokens: torch.Tensor) -> torch.Tensor:

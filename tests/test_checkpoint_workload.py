@@ -14,6 +14,7 @@ import torch
 from tools.checkpoint_pilot.task import current, reference, state
 from tools.checkpoint_pilot.task.engine import Options, parse_options, run, run_update
 from tools.checkpoint_pilot.task.model import (
+    LAYERS,
     Transformer,
     evaluate,
     make_batch,
@@ -21,6 +22,30 @@ from tools.checkpoint_pilot.task.model import (
 )
 
 CPU = torch.device("cpu")
+
+
+def test_layers_start_with_distinct_matrix_weights_and_identical_shapes() -> None:
+    with torch.random.fork_rng(devices=[]):
+        torch.manual_seed(73)
+        model = Transformer()
+        layers = [
+            state.tensors(layer.state_dict(), "layer") for layer in model.encoder.layers
+        ]
+        assert len(layers) == LAYERS
+        matrix_names = [name for name, value in layers[0].items() if value.ndim > 1]
+        assert matrix_names
+        for index, layer in enumerate(layers):
+            assert list(layer) == list(layers[0])
+            for name, value in layer.items():
+                assert value.shape == layers[0][name].shape
+                assert value.dtype == layers[0][name].dtype
+            for other in layers[:index]:
+                assert all(
+                    not torch.equal(layer[name], other[name]) for name in matrix_names
+                )
+        torch.manual_seed(73)
+        repeated = Transformer()
+        assert equal(model.state_dict(), repeated.state_dict())
 
 
 def initialized() -> tuple[Transformer, torch.optim.SGD, state.Progress]:
