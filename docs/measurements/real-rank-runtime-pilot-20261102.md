@@ -1,8 +1,9 @@
 # Real cross-rank runtime case: agent-efficiency protocol
 
 **Status: in progress, 2026-11-02.** The native TP2 case reproduces on Ring18;
-qualification controls and the agent service are being validated. Agent trials
-have not started, so no debugging-efficiency improvement is claimed. This is
+qualification passed and the first matched pair started. A transient SSH outage
+interrupted result delivery; original records are retained and same-thread
+recovery is being prepared. No debugging-efficiency improvement is claimed. This is
 operator documentation and must not be included in solver packets.
 
 The first two-update run had finite losses of 10.39899 and 10.62776. Among 27
@@ -119,13 +120,32 @@ are inputs and must remain unchanged.
 
 ## Planned workload and qualification
 
-Use native Megatron–DeepSpeed GPT training on CodeParrot: four transformer layers,
-hidden width 64, TP2, BF16 and ZeRO stage 0. Sequence lengths 128 and 256 are
-qualification candidates; the chosen value, microbatch size, accumulation,
-optimizer settings, clipping threshold, seeds and update count remain to be
-frozen. Do not infer a model parameter count or performance result from this
-configuration alone. Refresh the live Ring18 environment and available GPU
-inventory before execution.
+The frozen native Megatron–DeepSpeed GPT workload uses CodeParrot, four layers,
+hidden width 64, eight attention heads, sequence length 128, TP2, PP1, DP1,
+BF16 and ZeRO stage 0. Micro/global batch sizes are both 1. Apex FusedAdam uses
+learning rate 0.0005, beta2 0.999, weight decay 0.1 and clipping threshold 1.0.
+Seed 1234 is public; 5678 is the additional validation seed. Ordinary public runs
+contain eight updates. Private grading uses two updates, capturing steps 0–2.
+
+Named parameters contain 1,722,880 elements per TP rank, including 9,856 replicated
+elements. Counting each partition once and replicated parameters once gives
+**3,435,904 logical parameter elements**. This is the GPT case used here, not
+the earlier TorchTitan tiny-Llama trace. Ring18 uses NVIDIA A16 GPUs, Python
+3.10.14 and Torch 2.2.2+cu121. GPU idleness is checked before each phase.
+
+Qualification confirms the cause: clipping selects 27/27 replicated gradients on
+rank 0 and 0/27 on rank 1 in the vulnerable implementation. The first-step maximum
+cross-rank gradient gap grows from exactly zero before clipping to
+0.7917701378 after clipping; the corrected control retains zero gaps. Clipping-
+disabled and TP1 candidate/control states match exactly. The fresh seed reproduces
+the discrepancy. Selective TrainCheck preflight records two real clipping calls
+per rank with complete entry/return pairs, no exceptions and exact recorded
+model/optimizer/RNG parity. It observes scalar norm arguments, not tensor/model
+tracking. Full evidence is in `qualification-summary.json`.
+
+Source-integrity checks cover all 271 framework/application Python files, all
+139 cached native sources and four binaries. All remain unchanged. Private
+snapshots stay on Ring18; compact reports, hashes and ordinary outputs are local.
 
 Qualification must establish all of the following before solver launch:
 
@@ -246,3 +266,29 @@ agents may author their own checks around observed state. If agents solve the
 case from source, choose ordinary diagnostics, fail to use TrainCheck, or obtain
 no efficiency benefit, retain and report those outcomes without changing the
 task or success criteria after seeing them.
+
+
+## Interrupted transport and recovery protocol
+
+The first matched pair used gpt-6-astra/high with identical limits: six remote
+requests, 1–16 updates per request, 240 seconds per worker phase, 900 aggregate
+CLI seconds and eight decision turns. Both agents first proposed the correct
+clipping hypothesis from source and requested runtime diagnostics before editing
+the implementation. This case therefore must not be described as requiring
+runtime observation for every successful localization.
+
+An SSH connection closed after control request 3 finished training but before
+artifact download. Treatment request 2 failed while creating its remote directory,
+before training launched. A bounded subsequent SSH check succeeded. The completed
+control phase has exit code 0, unchanged source/native binaries, empty worker/GPU
+process lists, and 17.31105645187199 seconds of two-GPU worker lifetime; it must
+be recovered rather than rerun. The treatment request directory was absent.
+
+Recovery preserves all original trial and error receipts. Pending results are
+retrieved, the unlaunched request is executed once, and the same CLI thread IDs
+resume with their original remaining request/turn/time budgets. New receipts are
+append-only under `recovery-1/`; a composed record explicitly references both
+parts. Report raw wall time including interruption and measured interruption
+intervals separately. Select one effective receipt per logical request so recovery
+does not double-count GPU cost. No private scoring or operator diagnosis is sent
+to solvers. Independent grading remains gated on all four frozen trials.
