@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "action": {"type": "string", "enum": ["run", "finish"]},
+    "summary": {"type": "string"},
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "claim": {"type": "string"},
+          "evidence": {"type": "array", "items": {"type": "string"}}
+        },
+        "required": ["claim", "evidence"]
+      }
+    },
+    "hypotheses": {"type": "array", "items": {"type": "string"}},
+    "next_action": {"type": "string"},
+    "request": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"type": "string", "enum": ["resume", "diagnostic"]},
+            "backend": {"type": "string", "enum": ["reference", "current"]},
+            "steps": {"type": "integer"},
+            "script": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+            "purpose": {"type": "string"}
+          },
+          "required": ["kind", "backend", "steps", "script", "purpose"]
+        }
+      ]
+    }
+  },
+  "required": ["action", "summary", "observations", "hypotheses", "next_action", "request"]
+}
