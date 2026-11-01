@@ -4,6 +4,10 @@ This is a synthetic development experiment for measuring whether optional
 TrainCheck observations help an agent continue a training-engineering task.
 It is not an official RSI benchmark result. It does not use invariant inference.
 
+The [measured report](../../docs/measurements/checkpoint-continuation-costs-20261101.md)
+records the completed two-pair study, including localization, repair, token, and
+GPU costs. Neither treatment agent activated TrainCheck in that study.
+
 The solver receives the previous and current pipelines, existing checkpoints,
 and measured training/validation curves. The prompt does not identify an error
 or supply a target checker. The control can use ordinary source inspection,
