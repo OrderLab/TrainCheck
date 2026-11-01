@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "study": "continuation_observation_pilot_20261101",
+  "scope": "One paired synthetic training-continuation task; not an official RSI benchmark or a general effect estimate",
+  "agent_context": "Fresh agents without parent history; same inherited model and reasoning configuration",
+  "public_setup": {
+    "change": "Process the effective per-rank batch as configurable microbatches while retaining two-GPU training",
+    "world_size": 2,
+    "per_rank_batch": 8,
+    "sequence_length": 8,
+    "optimizer": "SGD",
+    "momentum": 0.9,
+    "learning_rate": 0.15,
+    "steps": 64,
+    "accumulation": 4,
+    "training_seed": 20261101,
+    "evaluation_seed": 777000,
+    "evaluation_interval": 8
+  },
+  "qualification": {
+    "parameters": "Analyst-chosen screening thresholds frozen before qualification",
+    "reference_validation_loss_drop_at_least_nats": 0.2,
+    "current_minus_reference_last_three_validation_points_mean_at_least_nats": 0.05,
+    "current_validation_improvement_less_than_fraction_of_reference": 0.8,
+    "if_not_met": "Do not launch solvers with an asserted underperformance story; preserve and report all qualification attempts",
+    "metric": "Independent unscaled mean token cross entropy on the same fixed development data"
+  },
+  "operator_known_change": "The microbatch pipeline applies an additional accumulation divisor. SGD is used because adaptive optimizers may cancel uniform gradient scaling. This description is excluded from solver packets.",
+  "arms": {
+    "control": "Ordinary code inspection, logging, assertions, custom analyses, and reruns",
+    "traincheck": "Same facilities plus generic TrainCheck native observation capability; no inferred rules or targeted checker supplied"
+  },
+  "solver_budget": {
+    "training_requests_per_arm": 4,
+    "maximum_updates_per_request": 64,
+    "maximum_seconds_per_request": 180,
+    "requested_reasoning_minutes": 15,
+    "reasoning_limit_enforcement": "Advisory; actual wall span and overruns reported; native subagent token budget not independently enforced",
+    "failed_training_requests_count": true,
+    "cpu_microchecks": "Allowed on tiny tensors; no full training outside the request budget",
+    "initial_curves_free_to_both_arms": true
+  },
+  "packet_exclusions": [
+    "operator protocol and known change",
+    "prior conversation and diagnosis",
+    "existing authored normalization invariant",
+    "private evaluator and operator tests",
+    "other arm files and final scores"
+  ],
+  "held_out_evaluation": {
+    "training_seeds": [20261117, 20261129],
+    "evaluation_seed": 777001,
+    "quality_updates": 64,
+    "quality_world_size": 2,
+    "quality_accumulation": 4,
+    "accumulation_contract_values": [1, 2, 4],
+    "contract_scope": "Separate CPU accumulation-equivalence and microbatch-size checks; not a distributed communication proof",
+    "freeze_selection_before_scoring": true,
+    "report_quality_and_contract_separately": true
+  },
+  "access_isolation": "Explicit per-agent packet scope and no inherited context; not an OS security boundary or formal blinding guarantee",
+  "provenance": "Retain prompts, packet hashes, all requests, source snapshots, full curves/checkpoints, actual tool use, and measured costs"
+}
