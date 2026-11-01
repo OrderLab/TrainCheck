@@ -7,7 +7,7 @@ come from the workload; they are not independently recounted here.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from typing import Protocol
 
 import torch
 
@@ -21,6 +21,22 @@ OBSERVATION_FIELDS = (
     "global_tokens",
     "applied_scale",
 )
+
+
+class LossScaleOperation(Protocol):
+    def __call__(
+        self,
+        loss: torch.Tensor,
+        *,
+        rank: int,
+        world_size: int,
+        step: int,
+        microbatch: int,
+        accumulation: int,
+        local_tokens: int,
+        global_tokens: int,
+        applied_scale: float,
+    ) -> torch.Tensor: ...
 
 
 def apply_loss_scale(
@@ -42,7 +58,7 @@ def apply_loss_scale(
     return result
 
 
-def wrapped_loss_scale() -> Callable[..., object]:
+def wrapped_loss_scale() -> LossScaleOperation:
     """Use the existing wrapper and capture only the primitive keyword arguments.
 
     The positional loss tensor and return tensor are intentionally unobserved;
@@ -53,7 +69,7 @@ def wrapped_loss_scale() -> Callable[..., object]:
     from traincheck.instrumentor.tracer import wrapper
 
     argument_config: dict[str, object] = {key: {} for key in OBSERVATION_FIELDS}
-    return wrapper(
+    wrapped = wrapper(
         apply_loss_scale,
         is_bound_method=False,
         scan_proxy_in_args=False,
@@ -63,3 +79,11 @@ def wrapped_loss_scale() -> Callable[..., object]:
         handle_proxy=False,
         trigger_var_dump=False,
     )
+
+    def checked(*args: object, **kwargs: object) -> torch.Tensor:
+        result = wrapped(*args, **kwargs)
+        if not isinstance(result, torch.Tensor):
+            raise TypeError("Observed loss must be a Tensor")
+        return result
+
+    return checked

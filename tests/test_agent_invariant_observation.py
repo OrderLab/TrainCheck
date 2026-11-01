@@ -63,7 +63,10 @@ with session.step(5):
 
 try:
     with session.step(6):
-        operation(
+        # Exercise malformed runtime input across an untyped external boundary.
+        malformed_operation: object = operation
+        assert callable(malformed_operation)
+        malformed_operation(
             3.75, rank=0, world_size=2, step=6, microbatch=0,
             accumulation=2, local_tokens=10, global_tokens=32,
             applied_scale=0.0625,
@@ -76,6 +79,72 @@ else:
 report = session.close()
 assert report['completed_trace_steps'] == [1, 2, 3, 4, 5]
 Path(sys.argv[2]).write_text(json.dumps(report))
+"""
+
+LIFETIME_WORKER = """
+import importlib.util
+import sys
+import weakref
+from pathlib import Path
+
+import torch
+
+from tools.distributed_probe import tracing
+
+spec = importlib.util.spec_from_file_location(
+    'tools.distributed_probe.workload', sys.argv[1]
+)
+assert spec is not None and spec.loader is not None
+workload = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = workload
+spec.loader.exec_module(workload)
+
+pending: list[weakref.ReferenceType[torch.Tensor]] = []
+active = False
+checked = 0
+original_token_loss = workload.token_loss
+original_start_tracing = tracing.start_tracing
+
+
+def tracked_token_loss(logits: torch.Tensor, batch: workload.Batch) -> torch.Tensor:
+    value = original_token_loss(logits, batch)
+    if active:
+        pending.append(weakref.ref(value))
+    return value
+
+
+def install_lifetime_check(
+    mode: tracing.Mode, output: Path, model: torch.nn.Module
+) -> tracing.TraceSession:
+    global active
+    session = original_start_tracing(mode, output, model)
+    original_backward = torch.Tensor.backward
+
+    def checked_backward(
+        tensor: torch.Tensor, *args: object, **kwargs: object
+    ) -> None:
+        global checked
+        assert len(pending) == 1, 'Expected one unscaled training loss per backward'
+        reference = pending.pop()
+        assert reference() is None, 'Unscaled loss remains live at backward entry'
+        checked += 1
+        original_backward(tensor, *args, **kwargs)
+
+    torch.Tensor.backward = checked_backward
+    active = True
+    return session
+
+
+workload.token_loss = tracked_token_loss
+tracing.start_tracing = install_lifetime_check
+mode = sys.argv[2]
+options = workload.Options(
+    Path(sys.argv[3]), None, 2, 2, 'fp32', 'none', mode, 'cpu', 2,
+    observe_normalization=mode != 'plain',
+)
+workload.run(options)
+assert checked == 4 and not pending
+print('Four temporary loss lifetimes verified')
 """
 
 
@@ -201,3 +270,31 @@ def test_plain_observation_programmatic_run_is_rejected_before_output(
     with pytest.raises(ValueError, match="require API or subclass tracing"):
         run(options)
     assert not output.exists()
+
+
+@pytest.mark.parametrize("mode", ["plain", "api"])
+def test_workload_releases_unscaled_loss_before_backward(
+    tmp_path: Path, mode: str
+) -> None:
+    """Observe Python lifetime during actual training without keeping tensors alive."""
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(ROOT)
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            LIFETIME_WORKER,
+            str(ROOT / "tools/distributed_probe/workload.py"),
+            mode,
+            str(tmp_path / "run"),
+        ],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=90,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Four temporary loss lifetimes verified" in result.stdout

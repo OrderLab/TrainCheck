@@ -499,12 +499,11 @@ def run(options: Options) -> None:
                             logits: object = wrapped(batch.tokens)
                             if not isinstance(logits, torch.Tensor):
                                 raise TypeError("Training output must be a Tensor")
-                            summed_loss = token_loss(logits, batch)
                             if scale_operation is None:
-                                loss = summed_loss * scale
+                                loss = token_loss(logits, batch) * scale
                             else:
-                                observed_loss = scale_operation(
-                                    summed_loss,
+                                loss = scale_operation(
+                                    token_loss(logits, batch),
                                     rank=rank,
                                     world_size=world_size,
                                     step=step,
@@ -514,9 +513,6 @@ def run(options: Options) -> None:
                                     global_tokens=global_tokens,
                                     applied_scale=scale,
                                 )
-                                if not isinstance(observed_loss, torch.Tensor):
-                                    raise TypeError("Observed loss must be a Tensor")
-                                loss = observed_loss
                         loss.backward()
                         losses.append(loss.detach())
                 if step == 1:
