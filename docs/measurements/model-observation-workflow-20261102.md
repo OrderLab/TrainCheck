@@ -11,7 +11,8 @@ pair establishes working adoption and measured costs, not a causal speedup.
 In the [preceding FSDP pilot](fsdp-source-consistency-pilot-20261102.md), the
 optional-tool agent read TrainCheck's callable-wrapper manual and then wrote a
 79-line parameter/buffer fingerprint diagnostic. Its final diagnostic was 128
-lines. It never attempted TrainCheck activation. The operation record supports
+lines. No attempt to activate TrainCheck was observed in the reviewed operation
+record. The operation record supports
 an interface/task mismatch, not an observed installation failure or a measured
 advantage of handwritten code over an equivalent TrainCheck implementation.
 
