@@ -1,10 +1,10 @@
 # Model snapshots and a fresh optional-tool comparison
 
-Status: the implementation and native snapshot compatibility are validated.
-Both fresh agents completed their first turn. After two infrastructure failures
-before GPU execution, their original conversations are continuing through a
-reviewed transport recovery with unchanged remaining budgets. No efficiency
-benefit is claimed before both agents finish and their submissions are graded.
+Status: implementation and native snapshot compatibility are validated, and
+both fresh agent conversations have finished. The optional-tool agent actually
+used the new snapshot and comparison APIs. Independent grading of every
+submitted source is in progress; the cost totals below are not yet a claim of
+successful repair or a causal efficiency benefit.
 
 ## Problem and implementation
 
@@ -175,12 +175,74 @@ interruption further limits any end-to-end efficiency comparison.
 The clean-base recovery subsequently completed both arms' first and second GPU
 requests. Treatment's third upload then exceeded the same 60-second deadline
 despite its 452,435-byte delta package. Its receipt explicitly records no remote
-execution and zero GPU cost. Control continues independently. An append-only,
-same-thread recovery is being prepared for treatment's pending third request,
+execution and zero GPU cost. Control continued independently and finished. An
+append-only, same-thread recovery completed treatment's pending third request
 with longer transport deadlines and unchanged worker, turn and CLI budgets.
-Its accounting must preserve the complete earlier composition, all failed
-attempts and every original submission before adding further turns. These
-network interruptions preclude treating this as a clean wall-time benchmark.
+Its accounting preserves the complete earlier composition, failed attempts
+and original submissions. One prelaunch check also stopped before any service
+started because the earlier timed-out upload subsequently appeared as a partial
+manifest. That manifest was verified as the exact 603,648-byte prefix of the
+2,129,045-byte original, with twelve other complete matching files. The partial
+upload remains unused. A separate bound prelaunch amendment verified the
+preserved partial map and absence of owned processes, then used a fresh complete
+upload and the unchanged strict assembly checks. This abort consumed no agent
+turn or GPU execution. These network interruptions preclude treating this as a
+clean wall-time benchmark.
+
+## Observed adoption and completed-trial costs
+
+The treatment voluntarily imported `snapshot_model`, `write_snapshot` and
+`compare_model_snapshots` in its first diagnostic. These calls executed on the
+GPU workers. The two distributed requests returned four valid snapshots each;
+the reference returned one. Every snapshot covers 95 registered tensors, for
+855 tensor observations across nine snapshots. Turn three also successfully
+executed `read_snapshot`, pair comparison and
+`compare_ranks(expected_ranks=[0, 1])` locally with assertions. Turn four compared
+both repaired ranks with the reference initialization.
+
+The observations changed the agent's explanation: it rejected its initial
+RAM-efficient-loading hypothesis after observing that the flag was disabled.
+It identified 76 differing pre-wrap tensor fingerprints and 38 changes to rank
+zero's loaded state during wrapping, then selected synchronization. It also
+executed the preservation predicate against the original and revised snapshots,
+observing failure and success respectively. The actual cache-version origin
+remained unresolved in both agents' final responses.
+
+No TrainCheck import, configuration or runtime integration error was observed.
+The agent still selected observation boundaries, wrote an FSDP subclass adapter,
+entered the full-parameter context and added a rank-zero snapshot broadcast.
+Its first cross-rank inspection used manual JSON pairing before it adopted the
+strict comparator. A local missing-`safetensors` error occurred before snapshot
+reading; a subsequent checkpoint-reader retry and TrainCheck comparisons
+succeeded. This is distinct from a TrainCheck integration failure.
+
+| Completed-trial metric, before independent repair grading | Control | Optional TrainCheck |
+| --- | ---: | ---: |
+| Accepted logical execution requests | 4 | 3 |
+| CLI execution time, seconds | 362.937 | 294.554 |
+| Input plus output tokens | 1,852,226 | 1,269,560 |
+| Allocated solver GPU-seconds | 118.342 | 72.822 |
+| Actual wall time including interruptions, seconds | 2,729.242 | 4,171.665 |
+| Wall time excluding recorded queue waits, seconds | 2,534.728 | 4,008.938 |
+| Wall time additionally excluding measured operator suspension, seconds | 949.162 | 847.126 |
+
+These are original-start totals across the preserved native conversations and
+recoveries. Tokens include cached input once; reasoning tokens are already part
+of output. The last clock still includes failed transfers and service overhead;
+it is not a clean counterfactual wall time. Core qualification and independent
+grading GPU costs are separate from the solver totals.
+
+The terminal totals are 31.46% lower in tokens, 18.84% lower in CLI time and
+38.46% lower in solver GPU-seconds for treatment, with control as denominator.
+However, the agents chose different verification work. Both ran one current
+update, sixteen current updates and sixteen reference updates. Control alone
+then ran sixteen updates through the ordinary entry point to check whether its
+diagnostic changed outputs. That extra request cost 35.627 GPU-seconds,
+accounting for 78.27% of the 45.520 GPU-second terminal difference. Treatment did
+not perform that extra noninterference check. These totals therefore do not
+establish an intrinsic tool speedup. First-valid-repair costs require the pending
+independent grading of all nine submission occurrences, representing six exact
+source maps, under the unchanged six scenarios.
 
 ## Evidence
 
