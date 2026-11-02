@@ -19,10 +19,14 @@ logger = logging.getLogger(__name__)
 
 def observe_proxy_var(
     var: typing.Union["Proxy", "ProxyParameter"],
-    phase,
+    phase: str,
     observe_api_name: str,
-):
-    if config.DISABLE_WRAPPER:
+) -> None:
+    # Imported at invocation to avoid the tracker's initialization dependency
+    # cycle. Recorder-owned tensor reads must not update observation timestamps.
+    from traincheck.instrumentor.tracer import tracing_suppressed
+
+    if config.DISABLE_WRAPPER or tracing_suppressed():
         return
 
     # update the proxy object's timestamp

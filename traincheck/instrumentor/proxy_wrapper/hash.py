@@ -3,6 +3,8 @@ import torch
 from numba import cuda
 from torch import Tensor
 
+from traincheck._tensor_fingerprint import exact_tensor_hash
+
 MULTIPLIER = 6364136223846793005
 INCREMENT = 1
 MODULUS = 2**64
@@ -137,10 +139,4 @@ def tensor_hash(x: Tensor, with_parallel: bool = True, with_cuda: bool = True) -
             result = hash_tensor_cpu(x)
             return result
     else:  # conventional approach using hashlib, use as the baseline to test the accuracy of the parallel approach
-        # if on cuda, move to cpu. using hashlib to hash the tensor
-        if x.is_cuda:
-            x = x.cpu()
-        import hashlib
-
-        result = int(hashlib.sha256(x.detach().numpy().tobytes()).hexdigest(), 16)
-        return result
+        return exact_tensor_hash(x)
