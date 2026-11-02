@@ -1,10 +1,10 @@
 # Model snapshots and a fresh optional-tool comparison
 
-Status: implementation and native snapshot compatibility are validated, and
-both fresh agent conversations have finished. The optional-tool agent actually
-used the new snapshot and comparison APIs. Independent grading of every
-submitted source is in progress; the cost totals below are not yet a claim of
-successful repair or a causal efficiency benefit.
+Status: implementation, native snapshot compatibility and the fresh comparison
+are complete. The optional-tool agent voluntarily used the new snapshot and
+comparison APIs. Both agents first submitted a valid repair in turn two, and
+both final sources passed all six frozen scenarios. This single interrupted
+pair establishes working adoption and measured costs, not a causal speedup.
 
 ## Problem and implementation
 
@@ -111,6 +111,21 @@ lifetime, 900 aggregate CLI seconds and eight decision turns. GPU requests are
 serialized, with queue waiting recorded separately. New tool compatibility
 must pass before packet review and launch freeze.
 
+The requested agent configuration is native CLI 0.160.0 with `gpt-6-astra`,
+high reasoning effort and priority service. The exact binary hash and settings
+are bound in `launch-plan.json`; the provider's underlying model weights are
+not independently attested. The conversations begin without the parent chat's
+task history. Packet equality and instructions are verified, but this is not a
+claim of enforced filesystem isolation.
+
+Ring18 runs Python 3.10.14, PyTorch 2.2.2+cu121, CUDA 12.1 and the supplied
+Transformers 4.47.0.dev0 source. The current profile uses two NVIDIA A16 GPUs
+(physical devices 4/5, driver 535.309.01); the reference uses one. The model is
+14,067,712-parameter Pythia with six layers, hidden size 128, four attention
+heads and sequence length 64. Two cache domains are represented on one physical
+host; this is not a multi-host hardware trial. The fixed corpus, seed 1234,
+source manifests and original oracle states are retained with hashes.
+
 The six-scenario private criterion and original native oracle states are reused
 read-only with hashes. The earlier failed strict cross-world numerical criterion
 remains failed; acceptance continues to require coherent initial source and
@@ -189,7 +204,7 @@ upload and the unchanged strict assembly checks. This abort consumed no agent
 turn or GPU execution. These network interruptions preclude treating this as a
 clean wall-time benchmark.
 
-## Observed adoption and completed-trial costs
+## Observed adoption
 
 The treatment voluntarily imported `snapshot_model`, `write_snapshot` and
 `compare_model_snapshots` in its first diagnostic. These calls executed on the
@@ -216,11 +231,59 @@ strict comparator. A local missing-`safetensors` error occurred before snapshot
 reading; a subsequent checkpoint-reader retry and TrainCheck comparisons
 succeeded. This is distinct from a TrainCheck integration failure.
 
-| Completed-trial metric, before independent repair grading | Control | Optional TrainCheck |
+## Independent correctness and first valid repair
+
+All nine ordered submission occurrences were retained. Only exact
+arm/content/permission identities shared replay results, yielding six source
+maps and 36 actual scenario replays. Both initial sources passed the four
+healthy/uniform controls and failed mixed and swapped generation. Every repaired
+source passed all six scenarios. Thus 32 replays passed and four expected
+baseline mismatches failed, with zero unknown outcomes. Control's final turn
+five and treatment's final turn four both passed 6/6.
+
+The first independently valid submitted source is turn two in both arms.
+This is a retrospective correctness judgment at a frozen submission boundary,
+not the earlier file-edit event or the later moment when the agent saw its
+own validation results. All preceding sources were checked. Costs below include
+the completed first diagnostic request and the completed first two CLI turns;
+they exclude the second GPU request, which followed that submission.
+
+| At the first valid submitted repair | Control | Optional TrainCheck |
+| --- | ---: | ---: |
+| Global decision turn | 2 | 2 |
+| CLI execution time, seconds | 188.260 | 141.211 |
+| Input plus output tokens | 981,070 | 715,584 |
+| Cached input tokens, already included above | 901,376 | 641,024 |
+| Uncached input plus output tokens | 79,694 | 74,560 |
+| Allocated solver GPU-seconds | 35.031 | 25.289 |
+| Actual elapsed time including interruptions, seconds | 2,113.871 | 2,075.498 |
+| Elapsed time excluding queue and measured operator suspension, seconds | 434.263 | 365.628 |
+
+With control as denominator, this pair used 24.99% less CLI execution time,
+27.06% fewer total tokens and 27.81% fewer allocated GPU-seconds to its first
+valid submission in treatment. CLI time excludes remote service time and
+queue/operator pauses. The adjusted elapsed clock still includes failed
+transfers; neither clock establishes a clean, general wall-time speedup.
+There are no timing repeats, and the agents wrote different diagnostics and
+regression checks.
+
+Visible runtime confirmation of inconsistent initial state occurred in turn
+two: 376.418 versus 338.619 seconds after removing queue and recorded operator
+suspension. Visible repair verification followed in turn three: 568.975 versus
+515.522 seconds on that same adjusted clock. These are received-event upper
+bounds, distinct from submitted-source boundaries. Tokens for such within-turn
+events are retained as completed-turn brackets, without interpolation. Neither
+agent established the actual cache-version origin of the inconsistency.
+
+## Completed-trial costs
+
+| Completed-trial metric | Control | Optional TrainCheck |
 | --- | ---: | ---: |
 | Accepted logical execution requests | 4 | 3 |
 | CLI execution time, seconds | 362.937 | 294.554 |
 | Input plus output tokens | 1,852,226 | 1,269,560 |
+| Cached input tokens, already included above | 1,750,784 | 1,181,184 |
+| Uncached input plus output tokens | 101,442 | 88,376 |
 | Allocated solver GPU-seconds | 118.342 | 72.822 |
 | Actual wall time including interruptions, seconds | 2,729.242 | 4,171.665 |
 | Wall time excluding recorded queue waits, seconds | 2,534.728 | 4,008.938 |
@@ -231,6 +294,10 @@ recoveries. Tokens include cached input once; reasoning tokens are already part
 of output. The last clock still includes failed transfers and service overhead;
 it is not a clean counterfactual wall time. Core qualification and independent
 grading GPU costs are separate from the solver totals.
+Token volumes are not dollar prices: most of the total token difference is
+cached input, and input, cached input and output can have different prices.
+The uncached-input-plus-output volume is 12.88% lower; this also is not a
+billing estimate.
 
 The terminal totals are 31.46% lower in tokens, 18.84% lower in CLI time and
 38.46% lower in solver GPU-seconds for treatment, with control as denominator.
@@ -240,9 +307,21 @@ then ran sixteen updates through the ordinary entry point to check whether its
 diagnostic changed outputs. That extra request cost 35.627 GPU-seconds,
 accounting for 78.27% of the 45.520 GPU-second terminal difference. Treatment did
 not perform that extra noninterference check. These totals therefore do not
-establish an intrinsic tool speedup. First-valid-repair costs require the pending
-independent grading of all nine submission occurrences, representing six exact
-source maps, under the unchanged six scenarios.
+establish an intrinsic tool speedup. Restricting GPU accounting to the first
+three matching request profiles gives 82.716 versus 72.822 GPU-seconds; this
+still compares different agent-authored diagnostics without timing repeats.
+
+| New experiment cost category | Allocated GPU-seconds |
+| --- | ---: |
+| Operator snapshot compatibility preflight | 95.853 |
+| Both solver conversations | 191.164 |
+| Independent 36-scenario grading | 995.453 |
+| Total new GPU use | 1,282.470 |
+
+All grading starts have known completion/cleanup costs, with no missing or
+duplicate phase charges. Both GPUs were released after grading. Historical
+qualification/oracle cost is not charged again. The grading jobs include full
+private state observations and are not solver timing measurements.
 
 ## Evidence
 
@@ -255,3 +334,33 @@ Earlier oracles remain under `traincheck-runtime-study-c-20261102`.
 `qualification-reuse.json`, `protocol-reuse.json` and `README-operator.md`
 record the implementation, exact inputs, validation and reproduction steps.
 Large model states and raw transcripts are not committed.
+
+The final solver index is `recovery-3/solver-completion.json`; it references
+control's preserved recovery-two composition and treatment's flattened
+three-segment history. `independent-adoption-audit.json` binds the nine returned
+snapshots, executed comparison operations and diagnostic sources.
+`milestone-annotations-final.json`, `milestone-summary-final.json` and
+`private-grading-join.json` bind the independent source grades to the original
+turn timestamps, native usage counters and physical service attempts. Earlier
+visible-only annotations remain unchanged.
+
+The complete grading metadata is under
+`grading-results-v1/independent-grade-v1/`, including `summary.json` with SHA-256
+`6cc322509b79525b57f0078b8a5238bcbfe666021456491aed8274039b6f1989`.
+All 203 exported member hashes were checked locally. The identical metadata
+files were losslessly recompressed from a 27.6 MB gzip export to a 682 KB xz
+export for transfer; no fields, sources or results were dropped. Native tensor
+states stay on Ring18. The final milestone summary has SHA-256
+`d3beb3ae0b7575e85019a43992bd0c43644c15b46a29bedac82acfbb11550c8b`.
+The separately frozen grader and its reproduction/review instructions are under
+`evaluation/grading/`; post-freeze recovery and evidence-path adapters retain
+their prior versions, hashes, focused regressions and explicit amendments.
+
+An independent export review checked all 203 files, complete source/permission
+bindings, 36 phase receipts, outcomes and costs. Its record is
+`evaluation/grading/export-review-v1.json`, SHA-256
+`8b59ecdc66ccd545a3f67922143687204986d3bdf5a299a4bb3690e87726547b`.
+It validates the exported evidence without rerunning training or recomputing
+native tensor oracles. The compact final accounting and adoption report is
+`final-adjudication-report.json`, SHA-256
+`5239d04780f0d9475ab51d970d68f5503b827c74278da81827e83eac928d43f5`.
