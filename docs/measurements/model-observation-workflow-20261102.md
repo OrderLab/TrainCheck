@@ -1,8 +1,10 @@
 # Model snapshots and a fresh optional-tool comparison
 
 Status: the implementation and native snapshot compatibility are validated.
-The fresh agent comparison is being prepared. No efficiency benefit is claimed
-before the new agents finish and their submissions are graded.
+Both fresh agents completed their first turn, but the controller timed out
+uploading their source before starting either GPU request. Their original
+conversations and budgets are preserved for transport recovery. No efficiency
+benefit is claimed before both agents finish and their submissions are graded.
 
 ## Problem and implementation
 
@@ -133,6 +135,28 @@ validated runtime artifacts; a JSON filename alone is insufficient.
 This is a fresh workflow pilot on a previously examined case. One matched pair
 cannot establish a general or causal efficiency improvement, especially when
 agents select different validation work.
+
+### Transport interruption
+
+The first source upload in each arm exceeded the controller's 60-second SSH
+timeout. Both request receipts explicitly record that remote execution had not
+started and allocated GPU cost was zero. The completed first CLI turns remain
+part of the experiment: control used 78.330 CLI seconds and treatment used
+69.314 seconds. Their cumulative input-plus-output token counts were 371,462
+and 324,841, respectively, including cached input once. These are partial
+costs, not time-to-diagnosis or repair results.
+
+The recovery under review will retain the same native conversation IDs,
+submissions, logical request numbers and remaining budgets. Its separate
+amendment replaces the full-source upload with hash-verified reuse of existing
+public source files and transfer of changed contents, equally for both arms.
+The frozen task, optional package and acceptance criteria remain unchanged.
+
+The original failed receipts and partial transfers are preserved. Report actual
+elapsed time, queue-adjusted time and time additionally adjusted for measured
+operator interruptions separately. The failed upload itself remains visible;
+operator suspension is not a measurement of exact network downtime. This
+interruption further limits any end-to-end efficiency comparison.
 
 ## Evidence
 
