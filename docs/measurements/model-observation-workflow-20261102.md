@@ -1,9 +1,9 @@
 # Model snapshots and a fresh optional-tool comparison
 
 Status: the implementation and native snapshot compatibility are validated.
-Both fresh agents completed their first turn, but the controller timed out
-uploading their source before starting either GPU request. Their original
-conversations and budgets are preserved for transport recovery. No efficiency
+Both fresh agents completed their first turn. After two infrastructure failures
+before GPU execution, their original conversations are continuing through a
+reviewed transport recovery with unchanged remaining budgets. No efficiency
 benefit is claimed before both agents finish and their submissions are graded.
 
 ## Problem and implementation
@@ -146,17 +146,41 @@ part of the experiment: control used 78.330 CLI seconds and treatment used
 and 324,841, respectively, including cached input once. These are partial
 costs, not time-to-diagnosis or repair results.
 
-The recovery under review will retain the same native conversation IDs,
-submissions, logical request numbers and remaining budgets. Its separate
-amendment replaces the full-source upload with hash-verified reuse of existing
-public source files and transfer of changed contents, equally for both arms.
-The frozen task, optional package and acceptance criteria remain unchanged.
+The first recovery transferred the delta successfully but rejected the reusable
+preflight directory because that earlier run had generated Python bytecode
+there. The strict full-source check failed before either request launched GPU
+workers or resumed an agent. The directory and failed receipts were preserved.
+A separate clean base now contains only the 3,824 manifest-selected source
+files; it is never executed. Both actual pending submissions passed a remote
+dry reconstruction with matching complete byte and permission maps.
 
-The original failed receipts and partial transfers are preserved. Report actual
+Recovery retains the same native conversation IDs, submissions, logical request
+numbers and remaining budgets. Its separate amendment replaces the full-source
+upload with hash-verified reuse of this clean base and transfer of changed
+contents, equally for both arms. The first delta packages contain seven blobs
+each and approximately 440 KiB instead of approximately 20 MB. The frozen task,
+optional package and acceptance criteria remain unchanged. Permissions are
+preserved relative to the actual frozen submissions; the original protocol's
+file-copy snapshots had already made those files mode 0644. This recovery does
+not claim to preserve executable modes from the original agent workspace.
+
+All three physical attempts at each logical first request retain separate
+receipts and queue intervals. The failed assembly duration is not classified as
+operator suspension or charged as a second logical request. Report actual
 elapsed time, queue-adjusted time and time additionally adjusted for measured
 operator interruptions separately. The failed upload itself remains visible;
 operator suspension is not a measurement of exact network downtime. This
 interruption further limits any end-to-end efficiency comparison.
+
+The clean-base recovery subsequently completed both arms' first and second GPU
+requests. Treatment's third upload then exceeded the same 60-second deadline
+despite its 452,435-byte delta package. Its receipt explicitly records no remote
+execution and zero GPU cost. Control continues independently. An append-only,
+same-thread recovery is being prepared for treatment's pending third request,
+with longer transport deadlines and unchanged worker, turn and CLI budgets.
+Its accounting must preserve the complete earlier composition, all failed
+attempts and every original submission before adding further turns. These
+network interruptions preclude treating this as a clean wall-time benchmark.
 
 ## Evidence
 
