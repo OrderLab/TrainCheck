@@ -15,6 +15,7 @@ from typing import Callable, Literal, Mapping, Optional, Sequence, TypedDict
 import torch
 
 import traincheck.config.config as config  # needed to allow for change of values after import
+from traincheck._model_state import iter_model_tensors
 from traincheck.config.config import (
     INSTR_MODULES_TO_SKIP,
     SKIP_INSTR_APIS,
@@ -1248,6 +1249,12 @@ class Instrumentor:
         return count_wrapped
 
 
+class SampledParameter(TypedDict):
+    name: str
+    type: str
+    attributes: dict[str, object]
+
+
 class VarSampler:
     """
     Tracker for the state of a variable. This variable itself cannot be reassigned, i.e. var.attr = new_value is allowed but not var = new_var.
@@ -1278,7 +1285,7 @@ class VarSampler:
 
             **Many of the activations and intermediate tensors are not updated inplace, so this observer will not be able to detect the changes in those tensors.**
         """
-        self.param_versions = {}  # type: ignore
+        self.param_versions: dict[str, int] = {}
         timestamp = get_timestamp_ns()
 
         curr_meta_vars = get_meta_vars()
@@ -1298,9 +1305,9 @@ class VarSampler:
                 }
             )
 
-    def _get_state_copy(self):
-        state_copy = []
-        for name, param in self.var.named_parameters():
+    def _get_state_copy(self) -> list[SampledParameter]:
+        state_copy: list[SampledParameter] = []
+        for _, name, param in iter_model_tensors(self.var):
             param_global_name = self.var_name + "." + name
             self.param_versions[param_global_name] = param._version
             state_copy.append(
