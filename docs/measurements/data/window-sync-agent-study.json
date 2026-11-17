@@ -1,0 +1,925 @@
+{
+  "solvers": [
+    {
+      "trial": "control_1",
+      "first_correct": {
+        "turn": 1,
+        "production_sha256": "f8f2d019b2be32e9a3f46c5d255a6ae81ccac186cfffdb82e4f581b30e91514a",
+        "action": "run",
+        "grade": "pass",
+        "wall_seconds": 72.26386533401092,
+        "cli_seconds": 72.25965691701276,
+        "queue_seconds": 0.0,
+        "gpu_seconds": 0.0,
+        "total_tokens": 116693,
+        "input_tokens": 113370,
+        "cached_input_tokens": 102144,
+        "output_tokens": 3323,
+        "uncached_input_plus_output": 14549
+      },
+      "earlier_unknown_turns": [],
+      "final_source_grade": "pass",
+      "final_rank_0_profile": [
+        {
+          "scenario": "fixed-regression",
+          "status": "pass",
+          "calls": 3,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "exact-uniform",
+          "status": "pass",
+          "calls": 6,
+          "elements": 1450,
+          "ends": [
+            2,
+            4
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "overshoot-and-tail",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            6
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "rank-skew",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            5
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "single-window",
+          "status": "pass",
+          "calls": 3,
+          "elements": 725,
+          "ends": [
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "one-microbatch-updates",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        }
+      ],
+      "submission_count": 3,
+      "source_history": [
+        {
+          "turn": 1,
+          "sha256": "f8f2d019b2be32e9a3f46c5d255a6ae81ccac186cfffdb82e4f581b30e91514a",
+          "grade": "pass"
+        },
+        {
+          "turn": 2,
+          "sha256": "f8f2d019b2be32e9a3f46c5d255a6ae81ccac186cfffdb82e4f581b30e91514a",
+          "grade": "pass"
+        },
+        {
+          "turn": 3,
+          "sha256": "f8f2d019b2be32e9a3f46c5d255a6ae81ccac186cfffdb82e4f581b30e91514a",
+          "grade": "pass"
+        }
+      ],
+      "requests": [
+        {
+          "request": 1,
+          "status": "ok",
+          "gpu_seconds": 24.422995259985328,
+          "entry": "diagnostic.py",
+          "diagnostic_lines": 174,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "9c98b0f1fe15ad06e08910d9b1f1d9c38e83e6bbee59667735a7d07244b21729"
+        },
+        {
+          "request": 2,
+          "status": "ok",
+          "gpu_seconds": 24.83332415483892,
+          "entry": "train.py",
+          "diagnostic_lines": null,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "fbaceee6bfe8176e2fc2ea490282d9307b21ede04ffa96e48304bc0d3c0b3cd0"
+        }
+      ],
+      "terminal": {
+        "status": "finished",
+        "last_turn": 3,
+        "requests": 2,
+        "cli_seconds": 118.76127691700822,
+        "gpu_seconds": 49.25631941482425,
+        "queue_seconds": 11.949927139095962,
+        "elapsed_seconds": 157.49769233400002
+      }
+    },
+    {
+      "trial": "traincheck_1",
+      "first_correct": {
+        "turn": 1,
+        "production_sha256": "0f906c259d15fbdbb8851fd17ece864d6c411a56a9d3e431566174014c01512a",
+        "action": "run",
+        "grade": "pass",
+        "wall_seconds": 41.34760499998811,
+        "cli_seconds": 41.337401750002755,
+        "queue_seconds": 0.0,
+        "gpu_seconds": 0.0,
+        "total_tokens": 122357,
+        "input_tokens": 121182,
+        "cached_input_tokens": 105856,
+        "output_tokens": 1175,
+        "uncached_input_plus_output": 16501
+      },
+      "earlier_unknown_turns": [],
+      "final_source_grade": "pass",
+      "final_rank_0_profile": [
+        {
+          "scenario": "fixed-regression",
+          "status": "pass",
+          "calls": 3,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "exact-uniform",
+          "status": "pass",
+          "calls": 6,
+          "elements": 1450,
+          "ends": [
+            2,
+            4
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "overshoot-and-tail",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            6
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "rank-skew",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            5
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "single-window",
+          "status": "pass",
+          "calls": 3,
+          "elements": 725,
+          "ends": [
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "one-microbatch-updates",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        }
+      ],
+      "submission_count": 3,
+      "source_history": [
+        {
+          "turn": 1,
+          "sha256": "0f906c259d15fbdbb8851fd17ece864d6c411a56a9d3e431566174014c01512a",
+          "grade": "pass"
+        },
+        {
+          "turn": 2,
+          "sha256": "0f906c259d15fbdbb8851fd17ece864d6c411a56a9d3e431566174014c01512a",
+          "grade": "pass"
+        },
+        {
+          "turn": 3,
+          "sha256": "0f906c259d15fbdbb8851fd17ece864d6c411a56a9d3e431566174014c01512a",
+          "grade": "pass"
+        }
+      ],
+      "requests": [
+        {
+          "request": 1,
+          "status": "ok",
+          "gpu_seconds": 24.925857543945312,
+          "entry": "diagnostic.py",
+          "diagnostic_lines": 7,
+          "optional_report_rows": 8,
+          "optional_passes": 8,
+          "receipt_sha256": "7f2335310815f3bcbed2e1294cade69e5fda83a1c72b98b4d6af70bd66f98f2f"
+        },
+        {
+          "request": 2,
+          "status": "ok",
+          "gpu_seconds": 24.510619889944792,
+          "entry": "train.py",
+          "diagnostic_lines": null,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "8d6be3eaae18bb031c478e4131aaeeb98b40f73772a387ae5820f0fa658c8894"
+        }
+      ],
+      "terminal": {
+        "status": "finished",
+        "last_turn": 3,
+        "requests": 2,
+        "cli_seconds": 65.40892941696802,
+        "gpu_seconds": 49.436477433890104,
+        "queue_seconds": 0.00024412851780653,
+        "elapsed_seconds": 97.39262808300555
+      }
+    },
+    {
+      "trial": "control_2",
+      "first_correct": {
+        "turn": 1,
+        "production_sha256": "0a81d4d1839ded62d09995ad23218a43b05ea4b77c30049c43952be49c2a9311",
+        "action": "run",
+        "grade": "pass",
+        "wall_seconds": 69.3139513330243,
+        "cli_seconds": 69.30932637501974,
+        "queue_seconds": 0.0,
+        "gpu_seconds": 0.0,
+        "total_tokens": 100290,
+        "input_tokens": 96905,
+        "cached_input_tokens": 73472,
+        "output_tokens": 3385,
+        "uncached_input_plus_output": 26818
+      },
+      "earlier_unknown_turns": [],
+      "final_source_grade": "pass",
+      "final_rank_0_profile": [
+        {
+          "scenario": "fixed-regression",
+          "status": "pass",
+          "calls": 3,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "exact-uniform",
+          "status": "pass",
+          "calls": 6,
+          "elements": 1450,
+          "ends": [
+            2,
+            4
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "overshoot-and-tail",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            6
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "rank-skew",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            5
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "single-window",
+          "status": "pass",
+          "calls": 3,
+          "elements": 725,
+          "ends": [
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "one-microbatch-updates",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        }
+      ],
+      "submission_count": 3,
+      "source_history": [
+        {
+          "turn": 1,
+          "sha256": "0a81d4d1839ded62d09995ad23218a43b05ea4b77c30049c43952be49c2a9311",
+          "grade": "pass"
+        },
+        {
+          "turn": 2,
+          "sha256": "0a81d4d1839ded62d09995ad23218a43b05ea4b77c30049c43952be49c2a9311",
+          "grade": "pass"
+        },
+        {
+          "turn": 3,
+          "sha256": "0a81d4d1839ded62d09995ad23218a43b05ea4b77c30049c43952be49c2a9311",
+          "grade": "pass"
+        }
+      ],
+      "requests": [
+        {
+          "request": 1,
+          "status": "ok",
+          "gpu_seconds": 24.70588657259941,
+          "entry": "diagnostic.py",
+          "diagnostic_lines": 169,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "06c51d692205e3f95a0c07244d3393c19afa9d75cf6bd292d338a2c66a1188b8"
+        },
+        {
+          "request": 2,
+          "status": "ok",
+          "gpu_seconds": 24.91571350209415,
+          "entry": "train.py",
+          "diagnostic_lines": null,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "2159ab1568cdebb6905895f1ea2ece9baf5b534a529a63808e48acf1cc20f7b3"
+        }
+      ],
+      "terminal": {
+        "status": "finished",
+        "last_turn": 3,
+        "requests": 2,
+        "cli_seconds": 96.54488545801723,
+        "gpu_seconds": 49.62160007469356,
+        "queue_seconds": 2.3521357281133533,
+        "elapsed_seconds": 126.36538145801751
+      }
+    },
+    {
+      "trial": "traincheck_2",
+      "first_correct": {
+        "turn": 1,
+        "production_sha256": "f977dcfea2018817a7c725090229785b0610dbbf4c303b0f2544be8b6ce0ee10",
+        "action": "run",
+        "grade": "pass",
+        "wall_seconds": 34.40014883299591,
+        "cli_seconds": 34.38992600000347,
+        "queue_seconds": 0.0,
+        "gpu_seconds": 0.0,
+        "total_tokens": 106146,
+        "input_tokens": 105035,
+        "cached_input_tokens": 92160,
+        "output_tokens": 1111,
+        "uncached_input_plus_output": 13986
+      },
+      "earlier_unknown_turns": [],
+      "final_source_grade": "pass",
+      "final_rank_0_profile": [
+        {
+          "scenario": "fixed-regression",
+          "status": "pass",
+          "calls": 3,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "exact-uniform",
+          "status": "pass",
+          "calls": 6,
+          "elements": 1450,
+          "ends": [
+            2,
+            4
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "overshoot-and-tail",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            6
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "rank-skew",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            5
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "single-window",
+          "status": "pass",
+          "calls": 3,
+          "elements": 725,
+          "ends": [
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "one-microbatch-updates",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        }
+      ],
+      "submission_count": 3,
+      "source_history": [
+        {
+          "turn": 1,
+          "sha256": "f977dcfea2018817a7c725090229785b0610dbbf4c303b0f2544be8b6ce0ee10",
+          "grade": "pass"
+        },
+        {
+          "turn": 2,
+          "sha256": "f977dcfea2018817a7c725090229785b0610dbbf4c303b0f2544be8b6ce0ee10",
+          "grade": "pass"
+        },
+        {
+          "turn": 3,
+          "sha256": "f977dcfea2018817a7c725090229785b0610dbbf4c303b0f2544be8b6ce0ee10",
+          "grade": "pass"
+        }
+      ],
+      "requests": [
+        {
+          "request": 1,
+          "status": "ok",
+          "gpu_seconds": 24.615113066509366,
+          "entry": "diagnostic.py",
+          "diagnostic_lines": 7,
+          "optional_report_rows": 8,
+          "optional_passes": 8,
+          "receipt_sha256": "463bf5ac2aef3ba89779a4eca7542a4e58f89bb57956f2fb0e7d99d2c0f76c67"
+        },
+        {
+          "request": 2,
+          "status": "ok",
+          "gpu_seconds": 25.00811085291207,
+          "entry": "train.py",
+          "diagnostic_lines": null,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "68bdf6dd95b1f42ab7d16a7a9b08047c702604dfdb7352969e06d0da0a5fe3bf"
+        }
+      ],
+      "terminal": {
+        "status": "finished",
+        "last_turn": 3,
+        "requests": 2,
+        "cli_seconds": 56.48828012502054,
+        "gpu_seconds": 49.623223919421434,
+        "queue_seconds": 0.00023611914366483688,
+        "elapsed_seconds": 83.55747370800236
+      }
+    },
+    {
+      "trial": "control_3",
+      "first_correct": {
+        "turn": 1,
+        "production_sha256": "8a1e5b8907f5653090a58c7a7c1cbd19c1ed0ee45da26048210712a64a3189d4",
+        "action": "run",
+        "grade": "pass",
+        "wall_seconds": 35.59374929202022,
+        "cli_seconds": 35.59065579198068,
+        "queue_seconds": 0.0,
+        "gpu_seconds": 0.0,
+        "total_tokens": 74408,
+        "input_tokens": 73253,
+        "cached_input_tokens": 64768,
+        "output_tokens": 1155,
+        "uncached_input_plus_output": 9640
+      },
+      "earlier_unknown_turns": [],
+      "final_source_grade": "pass",
+      "final_rank_0_profile": [
+        {
+          "scenario": "fixed-regression",
+          "status": "pass",
+          "calls": 3,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "exact-uniform",
+          "status": "pass",
+          "calls": 6,
+          "elements": 1450,
+          "ends": [
+            2,
+            4
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "overshoot-and-tail",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            6
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "rank-skew",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            5
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "single-window",
+          "status": "pass",
+          "calls": 3,
+          "elements": 725,
+          "ends": [
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "one-microbatch-updates",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        }
+      ],
+      "submission_count": 3,
+      "source_history": [
+        {
+          "turn": 1,
+          "sha256": "8a1e5b8907f5653090a58c7a7c1cbd19c1ed0ee45da26048210712a64a3189d4",
+          "grade": "pass"
+        },
+        {
+          "turn": 2,
+          "sha256": "8a1e5b8907f5653090a58c7a7c1cbd19c1ed0ee45da26048210712a64a3189d4",
+          "grade": "pass"
+        },
+        {
+          "turn": 3,
+          "sha256": "8a1e5b8907f5653090a58c7a7c1cbd19c1ed0ee45da26048210712a64a3189d4",
+          "grade": "pass"
+        }
+      ],
+      "requests": [
+        {
+          "request": 1,
+          "status": "ok",
+          "gpu_seconds": 24.44185870885849,
+          "entry": "train.py",
+          "diagnostic_lines": null,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "2ab5d0ccf10e218e49b0177003650d26e2856e602f53fc0eaf10f7dc9c05a5e4"
+        },
+        {
+          "request": 2,
+          "status": "ok",
+          "gpu_seconds": 25.02269485220313,
+          "entry": "diagnostic.py",
+          "diagnostic_lines": 198,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "905bf0d2112503ddf4dbd8a6988c99eafbdf130d8aa89a16da4da4b332128bcf"
+        }
+      ],
+      "terminal": {
+        "status": "finished",
+        "last_turn": 3,
+        "requests": 2,
+        "cli_seconds": 109.92009245898225,
+        "gpu_seconds": 49.46455356106162,
+        "queue_seconds": 0.00024039112031459808,
+        "elapsed_seconds": 136.79565404201276
+      }
+    },
+    {
+      "trial": "traincheck_3",
+      "first_correct": {
+        "turn": 1,
+        "production_sha256": "9efcd66642400b51bb77d4e0f8f04169a6b9639baa735970271180bb17a47334",
+        "action": "run",
+        "grade": "pass",
+        "wall_seconds": 63.20685283301282,
+        "cli_seconds": 63.20023679101723,
+        "queue_seconds": 0.0,
+        "gpu_seconds": 0.0,
+        "total_tokens": 100482,
+        "input_tokens": 97437,
+        "cached_input_tokens": 76160,
+        "output_tokens": 3045,
+        "uncached_input_plus_output": 24322
+      },
+      "earlier_unknown_turns": [],
+      "final_source_grade": "pass",
+      "final_rank_0_profile": [
+        {
+          "scenario": "fixed-regression",
+          "status": "pass",
+          "calls": 3,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "exact-uniform",
+          "status": "pass",
+          "calls": 6,
+          "elements": 1450,
+          "ends": [
+            2,
+            4
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "overshoot-and-tail",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            6
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "rank-skew",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            2,
+            4,
+            5
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "single-window",
+          "status": "pass",
+          "calls": 3,
+          "elements": 725,
+          "ends": [
+            3
+          ],
+          "issues": []
+        },
+        {
+          "scenario": "one-microbatch-updates",
+          "status": "pass",
+          "calls": 9,
+          "elements": 2175,
+          "ends": [
+            1,
+            2,
+            3
+          ],
+          "issues": []
+        }
+      ],
+      "submission_count": 3,
+      "source_history": [
+        {
+          "turn": 1,
+          "sha256": "9efcd66642400b51bb77d4e0f8f04169a6b9639baa735970271180bb17a47334",
+          "grade": "pass"
+        },
+        {
+          "turn": 2,
+          "sha256": "9efcd66642400b51bb77d4e0f8f04169a6b9639baa735970271180bb17a47334",
+          "grade": "pass"
+        },
+        {
+          "turn": 3,
+          "sha256": "9efcd66642400b51bb77d4e0f8f04169a6b9639baa735970271180bb17a47334",
+          "grade": "pass"
+        }
+      ],
+      "requests": [
+        {
+          "request": 1,
+          "status": "ok",
+          "gpu_seconds": 24.31849431246519,
+          "entry": "diagnostic.py",
+          "diagnostic_lines": 164,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "50b928ba6f09d885c51fd1ae7b788bec87889c29c1b87740528881a3ba52fd4e"
+        },
+        {
+          "request": 2,
+          "status": "ok",
+          "gpu_seconds": 24.510023187845945,
+          "entry": "train.py",
+          "diagnostic_lines": null,
+          "optional_report_rows": 0,
+          "optional_passes": 0,
+          "receipt_sha256": "002cd237257415e26d14e91a351e61d37d8f40795c686835d7c172c07597e4a2"
+        }
+      ],
+      "terminal": {
+        "status": "finished",
+        "last_turn": 3,
+        "requests": 2,
+        "cli_seconds": 96.18410399902496,
+        "gpu_seconds": 48.828517500311136,
+        "queue_seconds": 0.00023323297500610352,
+        "elapsed_seconds": 122.89311654202174
+      }
+    }
+  ],
+  "replayed_arm_sources": [
+    {
+      "receipt_sha256": "b7d0ff44b9d6b35beaabcb35eb0c6cd0a79665ee0fa29249729b0d119245e24a",
+      "scope": "control",
+      "source_sha256": "0a81d4d1839ded62d09995ad23218a43b05ea4b77c30049c43952be49c2a9311",
+      "status": "pass",
+      "rows": 12,
+      "gpu_seconds": 24.816783472895622
+    },
+    {
+      "receipt_sha256": "2d3d9ada0f6c213cf1b26254802569d1a38cc4e07cb94878ef20fbcf44faf5b2",
+      "scope": "control",
+      "source_sha256": "8a1e5b8907f5653090a58c7a7c1cbd19c1ed0ee45da26048210712a64a3189d4",
+      "status": "pass",
+      "rows": 12,
+      "gpu_seconds": 25.208435144275427
+    },
+    {
+      "receipt_sha256": "cb7495dc7c4d1b77a97790b0bc5aac7713a63e9b515285836e340ea39fe4b4f1",
+      "scope": "control",
+      "source_sha256": "ddc92d2404869c94eb83420998846432f2027a78b4177b1ddd9d802a1459c97e",
+      "status": "communication_contract",
+      "rows": 12,
+      "gpu_seconds": 25.136492554098368
+    },
+    {
+      "receipt_sha256": "93052ab1336693aa38fe6ecb74d5ecbdd878224c255f9e7a5a1c4cbc7323119d",
+      "scope": "control",
+      "source_sha256": "f8f2d019b2be32e9a3f46c5d255a6ae81ccac186cfffdb82e4f581b30e91514a",
+      "status": "pass",
+      "rows": 12,
+      "gpu_seconds": 25.307066220790148
+    },
+    {
+      "receipt_sha256": "a140b26fab919706c8916058feed758bc9ea311367e6150b800fef6b96df12ca",
+      "scope": "traincheck",
+      "source_sha256": "0f906c259d15fbdbb8851fd17ece864d6c411a56a9d3e431566174014c01512a",
+      "status": "pass",
+      "rows": 12,
+      "gpu_seconds": 25.009339779615402
+    },
+    {
+      "receipt_sha256": "eb5b0547255d511b591845602968d8a69e86a5645bce849e32cd9adb1c533f1e",
+      "scope": "traincheck",
+      "source_sha256": "9efcd66642400b51bb77d4e0f8f04169a6b9639baa735970271180bb17a47334",
+      "status": "pass",
+      "rows": 12,
+      "gpu_seconds": 24.910277787595987
+    },
+    {
+      "receipt_sha256": "2be8cf147e4ea4df796522043b03c2f65078db8038346d853a53635c8dc02fd3",
+      "scope": "traincheck",
+      "source_sha256": "ddc92d2404869c94eb83420998846432f2027a78b4177b1ddd9d802a1459c97e",
+      "status": "communication_contract",
+      "rows": 12,
+      "gpu_seconds": 24.800809390842915
+    },
+    {
+      "receipt_sha256": "0223d8f0c298458742c85b38aa84cec382a48060bb00e314033d1d828bf516a4",
+      "scope": "traincheck",
+      "source_sha256": "f977dcfea2018817a7c725090229785b0610dbbf4c303b0f2544be8b6ce0ee10",
+      "status": "pass",
+      "rows": 12,
+      "gpu_seconds": 25.114072144031525
+    }
+  ],
+  "gpu_seconds": {
+    "qualification": 125.1371352262795,
+    "solvers": 296.2306919042021,
+    "private_grading": 200.3032764941454
+  },
+  "gpu_seconds_all": 621.671103624627,
+  "raw_evidence_sha256": {
+    "native-qualification.json": "fc458a901f9eacc2594bf06fa988181fe8dfe1cd58bc4750a1a063c2330671c3",
+    "native-launch.json": "48796ff8880659a79fc386f50963419f930ac10e5013e25d8549b2838dce812d",
+    "stage-manifest.json": "3cb9db16a782554e9da6ee3f19bf85b9f965175c9f5bd58d7805f742158a0398",
+    "remote-environment.txt": "cc3dfaa597d84853e7096dac816798ccb14c180af5b104c01a1f1ce4c84e0099",
+    "first-valid-costs.json": "aaab32ca196c77f88a1c859300a840d7f20b310c675a320cdd04bd6d53e25f73",
+    "private-grading-summary.json": "8000b3a5edcbff77c6d0ac2d26659287998d6a0ce4fd1c66d85071e64dc4f533",
+    "private-replay-inventory.json": "64305c4f03ce52e5759a46f84a2ff55ef756447d13e100abfa71b417109f04a6"
+  }
+}

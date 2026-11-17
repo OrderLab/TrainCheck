@@ -15,7 +15,8 @@ import time
 from pathlib import Path
 from typing import TypedDict
 
-REMOTE = Path("/home/yuxuan/experiments/traincheck-token-budget-20261118")
+DEFAULT_REMOTE = Path("/home/yuxuan/experiments/traincheck-token-budget-20261118")
+REMOTE = DEFAULT_REMOTE
 PYTHON = (
     "/home/yuxuan/experiments/traincheck-token-normalization-20261102/venv/bin/python"
 )
@@ -185,6 +186,9 @@ def run_worker(req: Request, run: Path, source: Path) -> dict[str, object]:
         ]
         if req["with_traincheck"]:
             command.extend(["--optional-package", str(REMOTE / "optional/traincheck")])
+        collective_audit = REMOTE / "private/collectives.py"
+        if collective_audit.is_file():
+            command.extend(["--collective-audit", str(collective_audit)])
     env = os.environ.copy()
     env.update(
         TRAINCHECK_STUDY_E_REQUEST=req["id"],
@@ -299,6 +303,11 @@ def client() -> None:
     parser.add_argument("--args-json", default="[]")
     parser.add_argument("--with-traincheck", action="store_true")
     args = parser.parse_args()
+    remote = Path(os.environ.get("TRAINCHECK_STUDY_ROOT", str(DEFAULT_REMOTE)))
+    if remote.parent != DEFAULT_REMOTE.parent or not re.fullmatch(
+        r"traincheck-[a-z0-9-]+", remote.name
+    ):
+        raise ValueError("Expected a named TrainCheck experiment directory")
     files: dict[str, str] = {}
     for name in ("training.py", "diagnostic.py"):
         path = args.source / name
@@ -322,7 +331,7 @@ def client() -> None:
     (args.output / "request.json").write_bytes(payload)
     since = time.monotonic()
     proc = subprocess.run(
-        [*SSH, PYTHON, str(REMOTE / "ring_service.py"), "serve"],
+        [*SSH, PYTHON, str(remote / "ring_service.py"), "serve"],
         input=payload,
         capture_output=True,
         timeout=1800,
@@ -353,6 +362,7 @@ def client() -> None:
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["serve"]:
+        REMOTE = Path(__file__).resolve().parent
         print(json.dumps(serve(parse_request(json.load(sys.stdin)))))
     else:
         client()

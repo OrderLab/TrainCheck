@@ -30,6 +30,7 @@ OUTCOMES = {
     "nonfinite",
     "runtime_error",
     "unsupported",
+    "communication_contract",
 }
 
 
@@ -39,6 +40,7 @@ def grade(
     device: str,
     timeout: float,
     optional_package: Path | None,
+    collective_audit: Path | None = None,
 ) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     # Reserve the path before allocating any worker time.
@@ -49,6 +51,8 @@ def grade(
         for name in ("training.py", "workload.py"):
             shutil.copyfile(source / name, scratch / name)
         shutil.copyfile(Path(__file__).with_name("worker.py"), scratch / "worker.py")
+        if collective_audit is not None:
+            shutil.copyfile(collective_audit, scratch / "collectives.py")
         package_files: dict[str, str] = {}
         if optional_package is not None:
             if (
@@ -80,6 +84,8 @@ def grade(
             "--device",
             device,
         ]
+        if collective_audit is not None:
+            command.append("--audit-communication")
         with (scratch / "worker.log").open("wb") as log:
             proc = subprocess.Popen(
                 command,
@@ -141,6 +147,7 @@ def grade(
                         "nonfinite",
                         "silent_wrong",
                         "memory_contract",
+                        "communication_contract",
                     )
                     if x in statuses
                 ),
@@ -173,6 +180,7 @@ def main() -> None:
     parser.add_argument("--device", choices=["cpu", "cuda"], default="cuda")
     parser.add_argument("--timeout", type=float, default=90)
     parser.add_argument("--optional-package", type=Path)
+    parser.add_argument("--collective-audit", type=Path)
     args = parser.parse_args()
     grade(
         args.source.resolve(),
@@ -180,6 +188,7 @@ def main() -> None:
         args.device,
         args.timeout,
         args.optional_package,
+        args.collective_audit,
     )
 
 

@@ -19,6 +19,7 @@ SCENARIOS = {
     "one-microbatch-updates",
 }
 OUTCOMES = {
+    "communication_contract",
     "pass",
     "silent_wrong",
     "unsupported",

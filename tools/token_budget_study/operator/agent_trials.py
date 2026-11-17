@@ -98,7 +98,9 @@ class Arm:
     packet: Path
 
 
-def prepare(evidence: Path, packets: Path, optional: Path, manifest: Path) -> None:
+def prepare(
+    evidence: Path, packets: Path, optional: Path, manifest: Path, public: Path = PUBLIC
+) -> None:
     packet_root = packets.resolve()
     packet_root.mkdir(parents=True, exist_ok=False)
     evidence.mkdir(parents=True, exist_ok=True)
@@ -116,7 +118,7 @@ def prepare(evidence: Path, packets: Path, optional: Path, manifest: Path) -> No
             packet = packet_root / secrets.token_hex(8)
             packet.mkdir()
             for filename in PUBLIC_FILES:
-                shutil.copyfile(PUBLIC / filename, packet / filename)
+                shutil.copyfile(public / filename, packet / filename)
             if treatment:
                 shutil.copytree(
                     optional,
@@ -149,7 +151,7 @@ def prepare(evidence: Path, packets: Path, optional: Path, manifest: Path) -> No
             "max_turns": MAX_TURNS,
             "cli_seconds": CLI_BUDGET,
             "worker_seconds": 120,
-            "public_hashes": {f: digest(PUBLIC / f) for f in PUBLIC_FILES},
+            "public_hashes": {f: digest(public / f) for f in PUBLIC_FILES},
             "optional_manifest_sha256": digest(manifest),
             "entry_sha256": digest(Path(__file__)),
             "service_sha256": digest(SERVICE),
@@ -394,6 +396,7 @@ def main() -> None:
     parser.add_argument("--packets", type=Path)
     parser.add_argument("--optional", type=Path)
     parser.add_argument("--optional-manifest", type=Path)
+    parser.add_argument("--public", type=Path, default=PUBLIC)
     args = parser.parse_args()
     if args.action == "prepare":
         if (
@@ -404,7 +407,13 @@ def main() -> None:
             parser.error(
                 "prepare requires --packets, --optional and --optional-manifest"
             )
-        prepare(args.evidence, args.packets, args.optional, args.optional_manifest)
+        prepare(
+            args.evidence,
+            args.packets,
+            args.optional,
+            args.optional_manifest,
+            args.public,
+        )
     else:
         run(args.evidence)
 
