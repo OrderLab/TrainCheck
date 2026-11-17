@@ -19,6 +19,7 @@ SCENARIOS = {
     "one-microbatch-updates",
 }
 OUTCOMES = {
+    "resume_contract",
     "communication_contract",
     "pass",
     "silent_wrong",
@@ -50,7 +51,9 @@ def duration(value: object) -> float:
     return float(value)
 
 
-def grade_status(receipt: Path, sha: str, treatment: bool) -> str:
+def grade_status(
+    receipt: Path, sha: str, treatment: bool, scenarios: set[str] | None = None
+) -> str:
     outer = read(receipt)
     request = read(receipt.with_name("request.json"))
     files = record(request["files"])
@@ -96,14 +99,20 @@ def grade_status(receipt: Path, sha: str, treatment: bool) -> str:
             raise ValueError("Duplicate scenario/rank")
         covered.add((name, rank))
         observed.add(outcome)
-    if covered != {(name, rank) for name in SCENARIOS for rank in (0, 1)}:
+    if covered != {
+        (name, rank)
+        for name in (SCENARIOS if scenarios is None else scenarios)
+        for rank in (0, 1)
+    }:
         raise ValueError("Incomplete scenario/rank coverage")
     if (overall == "pass") != (observed == {"pass"}) or overall not in observed:
         raise ValueError("Inconsistent aggregate grade")
     return overall
 
 
-def score(trial: Path, grades: Path) -> dict[str, object]:
+def score(
+    trial: Path, grades: Path, scenarios: set[str] | None = None
+) -> dict[str, object]:
     """Grade locations are grouped by optional-kit availability and source digest."""
     arm = trial.name.split("_")[0]
     if arm not in {"control", "traincheck"}:
@@ -141,7 +150,7 @@ def score(trial: Path, grades: Path) -> dict[str, object]:
                 f"Submission cost disagrees with earlier request receipts in {turn}"
             )
         grade = grade_status(
-            grades / arm / sha / "receipt.json", sha, arm == "traincheck"
+            grades / arm / sha / "receipt.json", sha, arm == "traincheck", scenarios
         )
         if first is None:
             if grade == "pass":
@@ -194,9 +203,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("evidence", type=Path)
     parser.add_argument("out", type=Path)
+    parser.add_argument("--scenario", action="append")
     args = parser.parse_args()
     trials = [
-        score(args.evidence / "trials" / f"{arm}_{i}", args.evidence / "grades")
+        score(
+            args.evidence / "trials" / f"{arm}_{i}",
+            args.evidence / "grades",
+            set(args.scenario) if args.scenario else None,
+        )
         for i in range(1, 4)
         for arm in ("control", "traincheck")
     ]
