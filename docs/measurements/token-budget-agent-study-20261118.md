@@ -1,5 +1,11 @@
 # Implementing token-budget accumulation under DDP
 
+All six agents delivered a correct implementation on their first submission.
+Each then ran a handwritten two-GPU PyTorch diagnostic before declaring the
+same source ready. We observed **0/6 silent errors at delivery** and **0/6
+self-detected and repaired numerical defects**. All three optional-tool agents
+read the TrainCheck guide. None used it in the executed training or diagnostics.
+
 This prospective Ring18 study asks whether six fresh agents deliver a numerically
 correct feature when they add token-budget gradient accumulation to a working
 fixed-mode training loop. Three agents receive the ordinary task and three can
@@ -117,3 +123,74 @@ and all native qualification receipts, with SHA-256
 The operator retains native turn logs and copies production source at every
 decision. An additional watcher samples edits approximately every 50 ms.
 Intermediate revisions that exist only between samples can be missed.
+
+## First correct submission and delivery
+
+| Pair | Arm | First correct turn | Elapsed seconds | Active CLI seconds | Total tokens | Uncached input + output | Prior GPU-seconds | GPU-seconds through delivery |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | Control | 1 | 61.954 | 61.949 | 109,666 | 25,186 | 0 | 25.008 |
+| 1 | Optional TrainCheck | 1 | 56.194 | 56.184 | 90,894 | 26,382 | 0 | 24.510 |
+| 2 | Control | 1 | 54.371 | 54.366 | 74,898 | 22,034 | 0 | 24.909 |
+| 2 | Optional TrainCheck | 1 | 68.776 | 68.768 | 128,224 | 14,816 | 0 | 24.704 |
+| 3 | Control | 1 | 60.547 | 60.542 | 94,550 | 10,070 | 0 | 24.916 |
+| 3 | Optional TrainCheck | 1 | 64.251 | 64.241 | 95,300 | 22,724 | 0 | 24.796 |
+
+Median elapsed time to first correct submission was 60.55 s in control and
+64.25 s with TrainCheck available. Median total token counts were 94,550 and
+95,300 respectively. Total tokens include cached input once. Every first
+submission requested a diagnostic run, so the cost to produce the correct code
+was zero GPU-seconds for every solver. All six then incurred the GPU cost in
+the last column to verify their implementation. The paired times and token
+counts moved in different directions across pairs. The observed choices
+provide no measurement of the effect of actually using TrainCheck.
+
+All six solvers chose to compare each distributed update against ordinary
+training on its combined global batch. Their two-rank diagnostics completed
+successfully. Each solver's production source was byte-identical at the first
+request and at final delivery. Across the watched edits we saw only the
+unsupported starter and one feature implementation per solver. Independent
+replay of all six feature implementations passed all six scenarios on both
+ranks, including gradients, parameters, momentum and update boundaries (72
+rank/scenario outcomes). Each had at most one outstanding grad-producing
+forward in these cases. Review of all six sources found streaming accumulation
+without buffering a window of inputs.
+
+This was a small new feature on a healthy baseline. The starter already showed
+how to count targets across ranks and normalize a single-microbatch update.
+The public contract specified equivalence to the combined global batch, which
+gave both arms an executable check. The results apply to this task, model,
+three pairs and six held-out scenarios. We cannot estimate how often agents
+introduce silent errors across ML research tasks or how much TrainCheck saves
+when a faulty implementation actually occurs.
+
+The six native conversations had distinct IDs. In the recorded commands C2,
+C3 and T2 read a generic host policy skill, and T2 also read its schema. No
+access to peer solutions or private grading material was observed. All tool
+adoption and self-correction verdicts describe observable actions.
+
+## Cost and evidence
+
+| Category | Physical two-GPU allocations | Allocated GPU-seconds |
+| --- | ---: | ---: |
+| Native qualification | 6 | 128.585 |
+| Solver-requested diagnostics | 6 | 148.844 |
+| Independent source replays | 8 | 210.974 |
+| Total | 20 | 488.403 |
+
+The 12 decision submissions and 18 within-turn source observations reduced
+to eight distinct arm/source combinations, including the unsupported starter
+in both environments. All 48 native scenario runs have known results. Each
+allocation has a worker receipt and verified GPU release.
+
+The [machine-readable results](data/token-budget-agent-study-20261118.json)
+include both submission boundaries per agent, terminal clocks, native token
+counters, and hashes of the raw evidence. In the local evidence directory,
+`behavior-audit.json` records each solver's evidence for its delivery,
+`native-operation-audit.json` verifies token and operation history, and
+`ring18-allocation-audit.json` reconciles every physical allocation. To
+recompute the costs from those retained submissions and private receipts,
+run this command from the repository root, selecting a new output path:
+
+```sh
+python -m tools.token_budget_study.operator.score_submissions "$evidence_directory" "$new_output_json"
+```
