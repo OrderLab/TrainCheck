@@ -1,0 +1,4479 @@
+{
+  "source_baseline": "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+  "solver_trials": [
+    {
+      "trial": "control_1",
+      "first_correct_turn": 2,
+      "decision": "finish",
+      "final_grade": "pass",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 4,
+        "requests": 3,
+        "cli_seconds": 140.81250400000135,
+        "gpu_seconds": 84.57148418948054,
+        "queue_seconds": 6.688605014234781,
+        "elapsed_seconds": 192.7693273749901
+      },
+      "requests": [
+        {
+          "request": 1,
+          "entry": "diagnostic.py",
+          "production_sha256": "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+          "diagnostic_lines": 75,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 24.913288954645395,
+          "receipt_sha256": "5acb5abf644f88f2986d40821dda2e2836dcfa34ef291f41c2bd18b1d5acd15c"
+        },
+        {
+          "request": 2,
+          "entry": "train.py",
+          "production_sha256": "b0cce899abf5cde50cb2acea7afa65f795662771b6316267784fa04fceca3872",
+          "diagnostic_lines": null,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 24.715489700436592,
+          "receipt_sha256": "ec316fb9926d89f39125bcb5de04cfeac48c29ef1d1ce808c7d25a545bc3a5a2"
+        },
+        {
+          "request": 3,
+          "entry": "diagnostic.py",
+          "production_sha256": "b0cce899abf5cde50cb2acea7afa65f795662771b6316267784fa04fceca3872",
+          "diagnostic_lines": 113,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 34.942705534398556,
+          "receipt_sha256": "b3ebbfe1efcc1c2f6d8b2f6f796c00eeb6f82d6b6db071f27d5ddc1a3412a017"
+        }
+      ],
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+          "action": "run",
+          "grade": "silent_wrong",
+          "wall_seconds": 44.2567435829842,
+          "cli_seconds": 44.25192191702081,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 87574,
+          "input_tokens": 85940,
+          "cached_input_tokens": 62592,
+          "output_tokens": 1634,
+          "uncached_input_plus_output": 24982
+        },
+        {
+          "turn": 2,
+          "production_sha256": "b0cce899abf5cde50cb2acea7afa65f795662771b6316267784fa04fceca3872",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 95.34056845799205,
+          "cli_seconds": 75.17449158400996,
+          "queue_seconds": 6.688321458175778,
+          "gpu_seconds": 24.913288954645395,
+          "total_tokens": 140977,
+          "input_tokens": 138528,
+          "cached_input_tokens": 113152,
+          "output_tokens": 2449,
+          "uncached_input_plus_output": 27825
+        },
+        {
+          "turn": 3,
+          "production_sha256": "b0cce899abf5cde50cb2acea7afa65f795662771b6316267784fa04fceca3872",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 149.6043990420003,
+          "cli_seconds": 116.10789604199817,
+          "queue_seconds": 6.688439551740885,
+          "gpu_seconds": 49.62877865508199,
+          "total_tokens": 198246,
+          "input_tokens": 193991,
+          "cached_input_tokens": 167936,
+          "output_tokens": 4255,
+          "uncached_input_plus_output": 30310
+        },
+        {
+          "turn": 4,
+          "production_sha256": "b0cce899abf5cde50cb2acea7afa65f795662771b6316267784fa04fceca3872",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 192.7691346249776,
+          "cli_seconds": 140.81250400000135,
+          "queue_seconds": 6.688605014234781,
+          "gpu_seconds": 84.57148418948054,
+          "total_tokens": 262872,
+          "input_tokens": 258259,
+          "cached_input_tokens": 227840,
+          "output_tokens": 4613,
+          "uncached_input_plus_output": 35032
+        }
+      ],
+      "terminal_total_tokens": 262872,
+      "observed_production_revisions": [
+        "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+        "b0cce899abf5cde50cb2acea7afa65f795662771b6316267784fa04fceca3872"
+      ],
+      "raw_evidence_sha256": {
+        "turn-1/events.jsonl": "61e8a8f41430089366980e5a2a8c4bd3ae912d5c50b52c8ceb731c4f80fa8827",
+        "turn-2/events.jsonl": "d6d2d64a22c4ae2a2ef2b707beb2d6ac923c535123700911baf4abc1aa8e3b02",
+        "turn-3/events.jsonl": "5b0e11089a6ab64098f31470cdc4145541c316315b1b3a4d6a8ef594c1c0e08f",
+        "turn-4/events.jsonl": "ec913eb3f30c2b6414ffd4b4ec2ffa4f949915fc92c0a9d2e5e4611a7a681ed6"
+      },
+      "diagnosis_from_source": {
+        "seconds": 28.281987541995477,
+        "turn": 1,
+        "line": 8,
+        "receipt_sha256": "1ee4254ead8170320e9afcb8660000e30b4267154a7e9045028343001fd02000"
+      },
+      "optional_guide_reads": []
+    },
+    {
+      "trial": "traincheck_1",
+      "first_correct_turn": 1,
+      "decision": "finish",
+      "final_grade": "pass",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 3,
+        "requests": 2,
+        "cli_seconds": 117.39955054200254,
+        "gpu_seconds": 59.84914023056626,
+        "queue_seconds": 0.00023473240435123444,
+        "elapsed_seconds": 149.86824329197407
+      },
+      "requests": [
+        {
+          "request": 1,
+          "entry": "train.py",
+          "production_sha256": "f8394ca682f60a2483f30c800b2509d22b4ea2b864ebf41fa2dd0426d89d7971",
+          "diagnostic_lines": null,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 25.012004889547825,
+          "receipt_sha256": "bf07cfea80142cbdcaf1ad3e79cdf38916d66263c57fa91584f1834d0a3cf995"
+        },
+        {
+          "request": 2,
+          "entry": "diagnostic.py",
+          "production_sha256": "f8394ca682f60a2483f30c800b2509d22b4ea2b864ebf41fa2dd0426d89d7971",
+          "diagnostic_lines": 168,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 34.83713534101844,
+          "receipt_sha256": "ff999c4d2700c5f2908895b98ab04f64afad88e8f7302646b12061a468e1c5f1"
+        }
+      ],
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "f8394ca682f60a2483f30c800b2509d22b4ea2b864ebf41fa2dd0426d89d7971",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 37.79247966699768,
+          "cli_seconds": 37.78413100002217,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 90633,
+          "input_tokens": 89546,
+          "cached_input_tokens": 76544,
+          "output_tokens": 1087,
+          "uncached_input_plus_output": 14089
+        },
+        {
+          "turn": 2,
+          "production_sha256": "f8394ca682f60a2483f30c800b2509d22b4ea2b864ebf41fa2dd0426d89d7971",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 110.04611879200093,
+          "cli_seconds": 95.99513479199959,
+          "queue_seconds": 0.00011545978486537933,
+          "gpu_seconds": 25.012004889547825,
+          "total_tokens": 179443,
+          "input_tokens": 175732,
+          "cached_input_tokens": 159744,
+          "output_tokens": 3711,
+          "uncached_input_plus_output": 19699
+        },
+        {
+          "turn": 3,
+          "production_sha256": "f8394ca682f60a2483f30c800b2509d22b4ea2b864ebf41fa2dd0426d89d7971",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 149.86800474999472,
+          "cli_seconds": 117.39955054200254,
+          "queue_seconds": 0.00023473240435123444,
+          "gpu_seconds": 59.84914023056626,
+          "total_tokens": 211866,
+          "input_tokens": 207832,
+          "cached_input_tokens": 190208,
+          "output_tokens": 4034,
+          "uncached_input_plus_output": 21658
+        }
+      ],
+      "terminal_total_tokens": 211866,
+      "observed_production_revisions": [
+        "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+        "f8394ca682f60a2483f30c800b2509d22b4ea2b864ebf41fa2dd0426d89d7971"
+      ],
+      "raw_evidence_sha256": {
+        "turn-1/events.jsonl": "9e1c30e00155d93bab024b9141b3439c4d19a258289747f1986d1715cd3dfa6e",
+        "turn-2/events.jsonl": "0091d55f8678ad4a549f04e5fadad356904d415a4c77d1f3634bd60951e0b619",
+        "turn-3/events.jsonl": "7eafaebca16cbf2912dbcdf4dbd406637ea7e498aba33d3455fbdd765c29a99b"
+      },
+      "diagnosis_from_source": {
+        "seconds": 26.278604249993805,
+        "turn": 1,
+        "line": 8,
+        "receipt_sha256": "30794d0aa3b215ae129db3faf9ae1f78863d01b3d3a38d890a986979209577d2"
+      },
+      "optional_guide_reads": [
+        {
+          "file": "turn-1/events.jsonl",
+          "line": 7
+        }
+      ]
+    },
+    {
+      "trial": "control_2",
+      "first_correct_turn": 1,
+      "decision": "finish",
+      "final_grade": "pass",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 2,
+        "requests": 1,
+        "cli_seconds": 82.36960683300276,
+        "gpu_seconds": 24.60872397199273,
+        "queue_seconds": 0.00011985190212726593,
+        "elapsed_seconds": 95.74176441700547
+      },
+      "requests": [
+        {
+          "request": 1,
+          "entry": "diagnostic.py",
+          "production_sha256": "557ae9953baeb79694a601c5daeea0542c3dd581b96e9b1c3ee81da9c6a8a206",
+          "diagnostic_lines": 104,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 24.60872397199273,
+          "receipt_sha256": "da3ed98868e8a20ce55091c8bdcb46ca31c0b5e362704397344e55036eb3b9b5"
+        }
+      ],
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "557ae9953baeb79694a601c5daeea0542c3dd581b96e9b1c3ee81da9c6a8a206",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 61.31554516701726,
+          "cli_seconds": 61.31162804199266,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 128376,
+          "input_tokens": 125981,
+          "cached_input_tokens": 110208,
+          "output_tokens": 2395,
+          "uncached_input_plus_output": 18168
+        },
+        {
+          "turn": 2,
+          "production_sha256": "557ae9953baeb79694a601c5daeea0542c3dd581b96e9b1c3ee81da9c6a8a206",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 95.74147729200195,
+          "cli_seconds": 82.36960683300276,
+          "queue_seconds": 0.00011985190212726593,
+          "gpu_seconds": 24.60872397199273,
+          "total_tokens": 159463,
+          "input_tokens": 156741,
+          "cached_input_tokens": 139648,
+          "output_tokens": 2722,
+          "uncached_input_plus_output": 19815
+        }
+      ],
+      "terminal_total_tokens": 159463,
+      "observed_production_revisions": [
+        "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+        "557ae9953baeb79694a601c5daeea0542c3dd581b96e9b1c3ee81da9c6a8a206"
+      ],
+      "raw_evidence_sha256": {
+        "turn-1/events.jsonl": "4692e7b8ac6fd8ee439086b3aa8906d28be8137e7572ff6baf6c48efb71fd0e7",
+        "turn-2/events.jsonl": "acbad83d56024f2ece3eb1764418adbbbd0b90da1d8a595b1c256c8d72b6a551"
+      },
+      "diagnosis_from_source": {
+        "seconds": 29.497401500004344,
+        "turn": 1,
+        "line": 10,
+        "receipt_sha256": "f974a9022c1c1410c40eff31278fa4b8e2cded6b5e5999ab3a9a9b1aa1b23559"
+      },
+      "optional_guide_reads": []
+    },
+    {
+      "trial": "traincheck_2",
+      "first_correct_turn": 2,
+      "decision": "finish",
+      "final_grade": "pass",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 5,
+        "requests": 4,
+        "cli_seconds": 197.53300087506068,
+        "gpu_seconds": 99.53298471868038,
+        "queue_seconds": 7.3647903967648745,
+        "elapsed_seconds": 259.08554075000575
+      },
+      "requests": [
+        {
+          "request": 1,
+          "entry": "diagnostic.py",
+          "production_sha256": "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+          "diagnostic_lines": 129,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 25.20831124484539,
+          "receipt_sha256": "0ec28fcafa117f29c432aa0bbd5e7b624199081ac00e9df3c55754e406e0e1d2"
+        },
+        {
+          "request": 2,
+          "entry": "train.py",
+          "production_sha256": "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab",
+          "diagnostic_lines": null,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 25.02079774066806,
+          "receipt_sha256": "3ab67effe3f65a3ab7b415e6435e0e9444915183164c3d97fa965d8d669f479e"
+        },
+        {
+          "request": 3,
+          "entry": "diagnostic.py",
+          "production_sha256": "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab",
+          "diagnostic_lines": 145,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 24.501505479216576,
+          "receipt_sha256": "6c2bf83c80cbdbc06994cd63dc445ce8f871ed5d56c1e855a467208d48310979"
+        },
+        {
+          "request": 4,
+          "entry": "diagnostic.py",
+          "production_sha256": "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab",
+          "diagnostic_lines": 145,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 24.802370253950357,
+          "receipt_sha256": "ab17b0dde1e9951363f95e4b8392894e6850d5dcb42bd48c499d465f6b44976d"
+        }
+      ],
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+          "action": "run",
+          "grade": "silent_wrong",
+          "wall_seconds": 66.05919279198861,
+          "cli_seconds": 66.04939458300942,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 106741,
+          "input_tokens": 104096,
+          "cached_input_tokens": 79232,
+          "output_tokens": 2645,
+          "uncached_input_plus_output": 27509
+        },
+        {
+          "turn": 2,
+          "production_sha256": "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 130.95590249999077,
+          "cli_seconds": 109.60144312502234,
+          "queue_seconds": 7.36444878578186,
+          "gpu_seconds": 25.20831124484539,
+          "total_tokens": 164623,
+          "input_tokens": 160852,
+          "cached_input_tokens": 134400,
+          "output_tokens": 3771,
+          "uncached_input_plus_output": 30223
+        },
+        {
+          "turn": 3,
+          "production_sha256": "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 185.97059266699944,
+          "cli_seconds": 151.10356050002156,
+          "queue_seconds": 7.364561250433326,
+          "gpu_seconds": 50.22910898551345,
+          "total_tokens": 225330,
+          "input_tokens": 220288,
+          "cached_input_tokens": 193280,
+          "output_tokens": 5042,
+          "uncached_input_plus_output": 32050
+        },
+        {
+          "turn": 4,
+          "production_sha256": "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 222.92600508299074,
+          "cli_seconds": 174.80980737504433,
+          "queue_seconds": 7.364676838740706,
+          "gpu_seconds": 74.73061446473002,
+          "total_tokens": 299414,
+          "input_tokens": 293995,
+          "cached_input_tokens": 259712,
+          "output_tokens": 5419,
+          "uncached_input_plus_output": 39702
+        },
+        {
+          "turn": 5,
+          "production_sha256": "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 259.0853011669824,
+          "cli_seconds": 197.53300087506068,
+          "queue_seconds": 7.3647903967648745,
+          "gpu_seconds": 99.53298471868038,
+          "total_tokens": 341851,
+          "input_tokens": 336137,
+          "cached_input_tokens": 297088,
+          "output_tokens": 5714,
+          "uncached_input_plus_output": 44763
+        }
+      ],
+      "terminal_total_tokens": 341851,
+      "observed_production_revisions": [
+        "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+        "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab"
+      ],
+      "raw_evidence_sha256": {
+        "turn-1/events.jsonl": "2d7e1e6427cc9e2306a7cf9fb7f20f26e9ee1ae03f7a8b389360550dac2b89be",
+        "turn-2/events.jsonl": "e5ba69b66d8922b1babd976789880aecf6cb96d65a57032ac0e279840f1ca8d1",
+        "turn-3/events.jsonl": "f583cfa23b713b9da104020fa9848aebdd4cff41abad3e4f6a12d627592b3e41",
+        "turn-4/events.jsonl": "f999280da487b4cdef7572b42df6d651bee0b413bd1b80a611c00fc0125e2019",
+        "turn-5/events.jsonl": "d77b30c36221e661d1762e2b9288f079a2dd98ac4b9e29e62273689b72000e08"
+      },
+      "diagnosis_from_source": {
+        "seconds": 33.93303470799583,
+        "turn": 1,
+        "line": 15,
+        "receipt_sha256": "1a177831fda75f378eadb047cc9c18ef8d677a162d680413629af6d31b4ab2b2"
+      },
+      "optional_guide_reads": [
+        {
+          "file": "turn-1/events.jsonl",
+          "line": 11
+        }
+      ]
+    },
+    {
+      "trial": "control_3",
+      "first_correct_turn": 1,
+      "decision": "finish",
+      "final_grade": "pass",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 4,
+        "requests": 3,
+        "cli_seconds": 128.07280020802864,
+        "gpu_seconds": 74.23312797769904,
+        "queue_seconds": 0.00035464391112327576,
+        "elapsed_seconds": 168.300201792008
+      },
+      "requests": [
+        {
+          "request": 1,
+          "entry": "train.py",
+          "production_sha256": "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a",
+          "diagnostic_lines": null,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 25.021934527903795,
+          "receipt_sha256": "022a2d546cadbe126d1c511da8027a95ed0052a19b96b40396efce839c4f49d5"
+        },
+        {
+          "request": 2,
+          "entry": "diagnostic.py",
+          "production_sha256": "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a",
+          "diagnostic_lines": 144,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 24.50377130880952,
+          "receipt_sha256": "a7a249d8e12bc9e835d568832f5f6acaa8af317804f512aef26b2748e242a7f0"
+        },
+        {
+          "request": 3,
+          "entry": "diagnostic.py",
+          "production_sha256": "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a",
+          "diagnostic_lines": 144,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 24.707422140985727,
+          "receipt_sha256": "5b074015a78cf5d0413d4fe8f1b69228a85f304c1d412f72a18d30d0232c17b2"
+        }
+      ],
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 42.53885954202269,
+          "cli_seconds": 42.53515324997716,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 78449,
+          "input_tokens": 77414,
+          "cached_input_tokens": 67072,
+          "output_tokens": 1035,
+          "uncached_input_plus_output": 11377
+        },
+        {
+          "turn": 2,
+          "production_sha256": "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 112.74872420899919,
+          "cli_seconds": 99.17847020798945,
+          "queue_seconds": 0.0001185387372970581,
+          "gpu_seconds": 25.021934527903795,
+          "total_tokens": 141517,
+          "input_tokens": 137972,
+          "cached_input_tokens": 120704,
+          "output_tokens": 3545,
+          "uncached_input_plus_output": 20813
+        },
+        {
+          "turn": 3,
+          "production_sha256": "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 140.2359245000116,
+          "cli_seconds": 113.43753933301196,
+          "queue_seconds": 0.0002348925918340683,
+          "gpu_seconds": 49.525705836713314,
+          "total_tokens": 175904,
+          "input_tokens": 172118,
+          "cached_input_tokens": 152704,
+          "output_tokens": 3786,
+          "uncached_input_plus_output": 23200
+        },
+        {
+          "turn": 4,
+          "production_sha256": "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 168.30001900001662,
+          "cli_seconds": 128.07280020802864,
+          "queue_seconds": 0.00035464391112327576,
+          "gpu_seconds": 74.23312797769904,
+          "total_tokens": 211447,
+          "input_tokens": 207418,
+          "cached_input_tokens": 186880,
+          "output_tokens": 4029,
+          "uncached_input_plus_output": 24567
+        }
+      ],
+      "terminal_total_tokens": 211447,
+      "observed_production_revisions": [
+        "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+        "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a"
+      ],
+      "raw_evidence_sha256": {
+        "turn-1/events.jsonl": "de3121da3047f1fc4161235d6c867dbc166d8255a72efd8a77776af9586f0b7e",
+        "turn-2/events.jsonl": "b9466739613764e50d50cc35814d63d14c9c9cd92698caad5db8f1da6d468ff1",
+        "turn-3/events.jsonl": "5d344f50a1f42cd2bc449530d655a7d19e0832d194d428dee28e2c418baebf50",
+        "turn-4/events.jsonl": "ec234d51afc2295363d5897517a7821866a13159697e4797de999d8007c5332c"
+      },
+      "diagnosis_from_source": {
+        "seconds": 32.24393858399708,
+        "turn": 1,
+        "line": 12,
+        "receipt_sha256": "08e1d82638d55b71075ca71800c63377a829d1e22c202765035767c455f88031"
+      },
+      "optional_guide_reads": []
+    },
+    {
+      "trial": "traincheck_3",
+      "first_correct_turn": 1,
+      "decision": "finish",
+      "final_grade": "pass",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 3,
+        "requests": 2,
+        "cli_seconds": 84.53080129102455,
+        "gpu_seconds": 59.757622722536325,
+        "queue_seconds": 0.00023672543466091156,
+        "elapsed_seconds": 116.39203524999903
+      },
+      "requests": [
+        {
+          "request": 1,
+          "entry": "train.py",
+          "production_sha256": "e0377b8f8add8d57a72db3e22e1ed6fae268e477adb312b85d8b22358b48a3f7",
+          "diagnostic_lines": null,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 24.91147831827402,
+          "receipt_sha256": "1ad81ef0180dc5b7ee664fd4af7c9d8509a3e583ad6abbe75c712a0708b76b79"
+        },
+        {
+          "request": 2,
+          "entry": "diagnostic.py",
+          "production_sha256": "e0377b8f8add8d57a72db3e22e1ed6fae268e477adb312b85d8b22358b48a3f7",
+          "diagnostic_lines": 129,
+          "optional_imports": [],
+          "status": "ok",
+          "gpu_seconds": 34.846144404262304,
+          "receipt_sha256": "91d06218668fddd87f7a0fcccf9ad1dcb22f403c9e9cd3e8b1789310a7e8a0c6"
+        }
+      ],
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "e0377b8f8add8d57a72db3e22e1ed6fae268e477adb312b85d8b22358b48a3f7",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 57.447234124992974,
+          "cli_seconds": 57.438321458001155,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 110790,
+          "input_tokens": 108142,
+          "cached_input_tokens": 95616,
+          "output_tokens": 2648,
+          "uncached_input_plus_output": 15174
+        },
+        {
+          "turn": 2,
+          "production_sha256": "e0377b8f8add8d57a72db3e22e1ed6fae268e477adb312b85d8b22358b48a3f7",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 83.43003250000766,
+          "cli_seconds": 69.98559966601897,
+          "queue_seconds": 0.00011840090155601501,
+          "gpu_seconds": 24.91147831827402,
+          "total_tokens": 137782,
+          "input_tokens": 134965,
+          "cached_input_tokens": 122112,
+          "output_tokens": 2817,
+          "uncached_input_plus_output": 15670
+        },
+        {
+          "turn": 3,
+          "production_sha256": "e0377b8f8add8d57a72db3e22e1ed6fae268e477adb312b85d8b22358b48a3f7",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 116.39170604199171,
+          "cli_seconds": 84.53080129102455,
+          "queue_seconds": 0.00023672543466091156,
+          "gpu_seconds": 59.757622722536325,
+          "total_tokens": 166211,
+          "input_tokens": 163226,
+          "cached_input_tokens": 148864,
+          "output_tokens": 2985,
+          "uncached_input_plus_output": 17347
+        }
+      ],
+      "terminal_total_tokens": 166211,
+      "observed_production_revisions": [
+        "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+        "e0377b8f8add8d57a72db3e22e1ed6fae268e477adb312b85d8b22358b48a3f7"
+      ],
+      "raw_evidence_sha256": {
+        "turn-1/events.jsonl": "f4defb5dfd6f85c3c80c865ba40490df6f1f340ea39348ad09417b2214318619",
+        "turn-2/events.jsonl": "d68b81f8c2c4610bf748647fc747fd493dde451a4537a4a06139b6aacc1f4404",
+        "turn-3/events.jsonl": "eba6ce5843180d274c976465a8ee6bbce748e63a0997ba7701358cdc7431f580"
+      },
+      "diagnosis_from_source": {
+        "seconds": 20.770396917010657,
+        "turn": 1,
+        "line": 12,
+        "receipt_sha256": "a256a04d123c457730040fdd149ef82d9775a182d01eabf00b679caf481b3917"
+      },
+      "optional_guide_reads": [
+        {
+          "file": "turn-1/events.jsonl",
+          "line": 9
+        }
+      ]
+    }
+  ],
+  "independent_grades": [
+    {
+      "environment": "control",
+      "sha256": "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+      "grade": "silent_wrong",
+      "rank_scenario_outcomes": [
+        {
+          "rank": 0,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ],
+          "actual_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "two-workers",
+          "status": "silent_wrong",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "loss_mismatch_steps": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ],
+          "actual_first_resumed_ids": [
+            215,
+            186,
+            30,
+            179,
+            194,
+            239,
+            195,
+            5
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "two-workers",
+          "status": "silent_wrong",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "loss_mismatch_steps": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ],
+          "actual_first_resumed_ids": [
+            183,
+            253,
+            262,
+            363,
+            272,
+            54,
+            359,
+            378
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "deep-prefetch",
+          "status": "silent_wrong",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "loss_mismatch_steps": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            55,
+            205,
+            29,
+            257,
+            237,
+            28,
+            164,
+            93
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "deep-prefetch",
+          "status": "silent_wrong",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "loss_mismatch_steps": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ],
+          "actual_first_resumed_ids": [
+            118,
+            56,
+            67,
+            129,
+            250,
+            381,
+            380,
+            276
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "near-epoch-end",
+          "status": "silent_wrong",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "loss_mismatch_steps": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            148,
+            157,
+            367,
+            272,
+            219,
+            96,
+            207,
+            368
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "near-epoch-end",
+          "status": "silent_wrong",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "loss_mismatch_steps": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ],
+          "actual_first_resumed_ids": [
+            260,
+            195,
+            256,
+            184,
+            170,
+            242,
+            173,
+            163
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ],
+          "actual_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ],
+          "actual_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "partial-batch",
+          "status": "silent_wrong",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "loss_mismatch_steps": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ],
+          "actual_first_resumed_ids": [
+            252,
+            98,
+            318,
+            322,
+            108,
+            88,
+            74,
+            101
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "partial-batch",
+          "status": "silent_wrong",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "loss_mismatch_steps": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            216,
+            331,
+            15,
+            376,
+            83,
+            217,
+            245,
+            337
+          ]
+        }
+      ],
+      "gpu_seconds": 24.80351146683097,
+      "receipt_sha256": "c949e1e94395e0f208ed4401f723687c901fe3f13297f6c430fb04840cbd450d"
+    },
+    {
+      "environment": "control",
+      "sha256": "557ae9953baeb79694a601c5daeea0542c3dd581b96e9b1c3ee81da9c6a8a206",
+      "grade": "pass",
+      "rank_scenario_outcomes": [
+        {
+          "rank": 0,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ],
+          "actual_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ],
+          "actual_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ],
+          "actual_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ],
+          "actual_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ],
+          "actual_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ],
+          "actual_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ],
+          "actual_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ],
+          "actual_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ]
+        }
+      ],
+      "gpu_seconds": 25.10835363715887,
+      "receipt_sha256": "2773d768a378fb9cfc4eeb67306cab57f172f559d33635d0d750070910790c7a"
+    },
+    {
+      "environment": "control",
+      "sha256": "a636d80e101a6755c8057ab45a78805b26a983dd2a164141e7b1a7aa7702c89a",
+      "grade": "pass",
+      "rank_scenario_outcomes": [
+        {
+          "rank": 0,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ],
+          "actual_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ],
+          "actual_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ],
+          "actual_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ],
+          "actual_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ],
+          "actual_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ],
+          "actual_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ],
+          "actual_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ],
+          "actual_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ]
+        }
+      ],
+      "gpu_seconds": 25.112674567848444,
+      "receipt_sha256": "f19bed4b508022585d4ab3c8a9a65a2f153f6511cd074933296c84e741fb41be"
+    },
+    {
+      "environment": "control",
+      "sha256": "b0cce899abf5cde50cb2acea7afa65f795662771b6316267784fa04fceca3872",
+      "grade": "pass",
+      "rank_scenario_outcomes": [
+        {
+          "rank": 0,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ],
+          "actual_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ],
+          "actual_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ],
+          "actual_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ],
+          "actual_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ],
+          "actual_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ],
+          "actual_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ],
+          "actual_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ],
+          "actual_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ]
+        }
+      ],
+      "gpu_seconds": 25.005303028970957,
+      "receipt_sha256": "37140f6f9a1ac1b7de34af47883d7ae48e624151a634fd3034d710d02ca35873"
+    },
+    {
+      "environment": "traincheck",
+      "sha256": "32d8000d72a593dc02d89a874ad6298ac4f7d008df68592f4f97e6cb07cc369e",
+      "grade": "silent_wrong",
+      "rank_scenario_outcomes": [
+        {
+          "rank": 0,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ],
+          "actual_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "two-workers",
+          "status": "silent_wrong",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "loss_mismatch_steps": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ],
+          "actual_first_resumed_ids": [
+            215,
+            186,
+            30,
+            179,
+            194,
+            239,
+            195,
+            5
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "two-workers",
+          "status": "silent_wrong",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "loss_mismatch_steps": [
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ],
+          "actual_first_resumed_ids": [
+            183,
+            253,
+            262,
+            363,
+            272,
+            54,
+            359,
+            378
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "deep-prefetch",
+          "status": "silent_wrong",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "loss_mismatch_steps": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            55,
+            205,
+            29,
+            257,
+            237,
+            28,
+            164,
+            93
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "deep-prefetch",
+          "status": "silent_wrong",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "loss_mismatch_steps": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ],
+          "actual_first_resumed_ids": [
+            118,
+            56,
+            67,
+            129,
+            250,
+            381,
+            380,
+            276
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "near-epoch-end",
+          "status": "silent_wrong",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "loss_mismatch_steps": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            148,
+            157,
+            367,
+            272,
+            219,
+            96,
+            207,
+            368
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "near-epoch-end",
+          "status": "silent_wrong",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "loss_mismatch_steps": [
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ],
+          "actual_first_resumed_ids": [
+            260,
+            195,
+            256,
+            184,
+            170,
+            242,
+            173,
+            163
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ],
+          "actual_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ],
+          "actual_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "partial-batch",
+          "status": "silent_wrong",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "loss_mismatch_steps": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ],
+          "actual_first_resumed_ids": [
+            252,
+            98,
+            318,
+            322,
+            108,
+            88,
+            74,
+            101
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "partial-batch",
+          "status": "silent_wrong",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "loss_mismatch_steps": [
+            11,
+            12,
+            13,
+            14,
+            15,
+            16
+          ],
+          "state_mismatches": [
+            "model",
+            "optimizer"
+          ],
+          "expected_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            216,
+            331,
+            15,
+            376,
+            83,
+            217,
+            245,
+            337
+          ]
+        }
+      ],
+      "gpu_seconds": 25.325599923729897,
+      "receipt_sha256": "4bb7762b79d7b0db055f491cd2e282c08aefb7d595b952b1847d4e55f5b39cd9"
+    },
+    {
+      "environment": "traincheck",
+      "sha256": "765066242fdef2b031ec8c3fcc3fd831432a07a352cbd478a9b0ed50c3e0deab",
+      "grade": "pass",
+      "rank_scenario_outcomes": [
+        {
+          "rank": 0,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ],
+          "actual_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ],
+          "actual_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ],
+          "actual_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ],
+          "actual_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ],
+          "actual_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ],
+          "actual_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ],
+          "actual_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ],
+          "actual_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ]
+        }
+      ],
+      "gpu_seconds": 24.80359386652708,
+      "receipt_sha256": "43d585f18b429d3dbb0f7a1cb520f206ca51b885dcea8a1065548879effc08a2"
+    },
+    {
+      "environment": "traincheck",
+      "sha256": "e0377b8f8add8d57a72db3e22e1ed6fae268e477adb312b85d8b22358b48a3f7",
+      "grade": "pass",
+      "rank_scenario_outcomes": [
+        {
+          "rank": 0,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ],
+          "actual_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ],
+          "actual_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ],
+          "actual_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ],
+          "actual_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ],
+          "actual_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ],
+          "actual_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ],
+          "actual_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ],
+          "actual_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ]
+        }
+      ],
+      "gpu_seconds": 25.107648611068726,
+      "receipt_sha256": "227585bf2e41b4f48c5cbaacecd6cea37dea6654ea79195379e9caed763d3999"
+    },
+    {
+      "environment": "traincheck",
+      "sha256": "f8394ca682f60a2483f30c800b2509d22b4ea2b864ebf41fa2dd0426d89d7971",
+      "grade": "pass",
+      "rank_scenario_outcomes": [
+        {
+          "rank": 0,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ],
+          "actual_first_resumed_ids": [
+            93,
+            55,
+            269,
+            337,
+            123,
+            134,
+            272,
+            226
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "zero-worker",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 4,
+          "workers": [
+            0,
+            0
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            267,
+            253,
+            142,
+            282,
+            102,
+            257,
+            334,
+            35
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ],
+          "actual_first_resumed_ids": [
+            292,
+            98,
+            377,
+            14,
+            305,
+            108,
+            57,
+            242
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "two-workers",
+          "status": "pass",
+          "split_after_updates": 3,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ],
+          "actual_first_resumed_ids": [
+            4,
+            382,
+            189,
+            154,
+            374,
+            175,
+            334,
+            167
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ],
+          "actual_first_resumed_ids": [
+            159,
+            234,
+            297,
+            314,
+            133,
+            274,
+            158,
+            35
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "deep-prefetch",
+          "status": "pass",
+          "split_after_updates": 2,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 4,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ],
+          "actual_first_resumed_ids": [
+            177,
+            108,
+            143,
+            138,
+            32,
+            318,
+            147,
+            374
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            362,
+            201,
+            366,
+            214,
+            168,
+            13,
+            326,
+            332
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "near-epoch-end",
+          "status": "pass",
+          "split_after_updates": 11,
+          "suffix_updates": 5,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ],
+          "actual_first_resumed_ids": [
+            94,
+            303,
+            120,
+            302,
+            316,
+            36,
+            219,
+            267
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ],
+          "actual_first_resumed_ids": [
+            128,
+            19,
+            127,
+            172,
+            118,
+            58,
+            292,
+            166
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "exact-epoch-end",
+          "status": "pass",
+          "split_after_updates": 12,
+          "suffix_updates": 4,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 2,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ],
+          "actual_first_resumed_ids": [
+            310,
+            181,
+            382,
+            301,
+            44,
+            355,
+            366,
+            30
+          ]
+        },
+        {
+          "rank": 0,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ],
+          "actual_first_resumed_ids": [
+            336,
+            185,
+            221,
+            89,
+            124,
+            318,
+            14,
+            272
+          ]
+        },
+        {
+          "rank": 1,
+          "name": "partial-batch",
+          "status": "pass",
+          "split_after_updates": 10,
+          "suffix_updates": 6,
+          "workers": [
+            2,
+            2
+          ],
+          "prefetch": 3,
+          "id_mismatch_steps": [],
+          "loss_mismatch_steps": [],
+          "state_mismatches": [],
+          "expected_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ],
+          "actual_first_resumed_ids": [
+            258,
+            154,
+            118,
+            319,
+            85,
+            136,
+            65,
+            332
+          ]
+        }
+      ],
+      "gpu_seconds": 24.81649747118354,
+      "receipt_sha256": "448a03c2946795fa1df9693b50cccb669c606ab6d6a2e63a24ba9ef11863ff9a"
+    }
+  ],
+  "qualification": {
+    "positive": {
+      "outcome": "pass",
+      "gpu_seconds": 25.31517383083701,
+      "sha256": "b43fa4e6f4052ba82bf1ccb237468b0eccf612a8b8cf87025c0996498a9e6490"
+    },
+    "smoke": {
+      "outcome": "ok",
+      "gpu_seconds": 25.01824102923274,
+      "sha256": "1f7410b2dbc49b5c2d2332a483acff9ceca2b04e21e3980c4c2ad014e24b8c15"
+    },
+    "starter": {
+      "outcome": "silent_wrong",
+      "gpu_seconds": 26.118118941783905,
+      "sha256": "20f692a86e1e4abde35654b424ae4b145c166ed7a105f985182231dc65339af6"
+    }
+  },
+  "gpu_seconds": {
+    "calibration": 76.45153380185366,
+    "solver": 402.5530838109553,
+    "hidden": 200.08318257331848,
+    "separate_process_control": 74.27512234821916
+  },
+  "gpu_seconds_total": 753.3629225343466,
+  "source_evidence_sha256": {
+    "stage-manifest.json": "c215d1346895669834a3f2dbb7d5b724bb39732c45cb0edd5201789d1c11fda5",
+    "optional-manifest.json": "becb23645d3ac5a662684f770e5cf86bf5696af950b43241513342c763d4500c",
+    "native-launch.json": "5dd28d7d049dd87decd71ec68d9489a09a4be232edbbbbf0a96e0c9bfd1cdef7",
+    "remote-environment.txt": "dd9a1684fc3a2b53ad10f48b57c62c51a864c0ed237ae049dc3c6c948bf6cb86",
+    "first-valid-costs.json": "6c76eede60b33c77161135dfae6cb85385b40e301c9cf68176acce5914371d43",
+    "private-replay-inventory.json": "806c76d7c1e2bc65170389d690e0bdd44d1ebf0282319271f4dcf2872ec8f9b0",
+    "private-grading-summary.json": "e778f9bee04a551beb97cc6203eae5c93b78a7265d8a552027332233e08adf7b"
+  },
+  "process_restart_control": {
+    "normal_exit": true,
+    "matching_prefix_rank_steps": 6,
+    "differing_suffix_rank_steps": 10,
+    "rows": [
+      {
+        "rank": 0,
+        "step": 4,
+        "continuous_loss": 2.0125229358673096,
+        "restored_loss": 1.8900768756866455
+      },
+      {
+        "rank": 0,
+        "step": 5,
+        "continuous_loss": 1.4804753065109253,
+        "restored_loss": 1.998630404472351
+      },
+      {
+        "rank": 0,
+        "step": 6,
+        "continuous_loss": 1.860194444656372,
+        "restored_loss": 2.2214243412017822
+      },
+      {
+        "rank": 0,
+        "step": 7,
+        "continuous_loss": 1.7329601049423218,
+        "restored_loss": 1.8729643821716309
+      },
+      {
+        "rank": 0,
+        "step": 8,
+        "continuous_loss": 1.352648138999939,
+        "restored_loss": 1.4206905364990234
+      },
+      {
+        "rank": 1,
+        "step": 4,
+        "continuous_loss": 1.8972058296203613,
+        "restored_loss": 1.607324481010437
+      },
+      {
+        "rank": 1,
+        "step": 5,
+        "continuous_loss": 1.6090011596679688,
+        "restored_loss": 1.6477437019348145
+      },
+      {
+        "rank": 1,
+        "step": 6,
+        "continuous_loss": 1.369262456893921,
+        "restored_loss": 1.987614631652832
+      },
+      {
+        "rank": 1,
+        "step": 7,
+        "continuous_loss": 1.5688581466674805,
+        "restored_loss": 1.628740668296814
+      },
+      {
+        "rank": 1,
+        "step": 8,
+        "continuous_loss": 1.2542887926101685,
+        "restored_loss": 1.401456594467163
+      }
+    ],
+    "allocated_gpu_seconds": 74.27512234821916
+  }
+}
