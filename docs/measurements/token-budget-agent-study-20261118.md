@@ -71,3 +71,49 @@ in [PR #172](https://github.com/OrderLab/TrainCheck/pull/172). Prior numerical
 qualification of global token-mean objectives is documented in the
 [DDP study](ddp-runtime-state-pilot-20261102.md). This task requires a new
 implementation and new reference runs for its token-budget boundaries.
+
+## Native qualification and reproduction
+
+The pilot uses a 725-parameter token classifier (embedding, tanh and a linear
+projection with bias) and SGD with momentum. The experiment runs on physical
+A16 devices 4 and 5 on Ring18, driver 535.309.01, Python 3.10.14 and PyTorch
+2.2.2+cu121. Each rank receives five variable-length microbatches in the ordinary
+example. The task and tests use non-padding target counts, including zero local
+targets on a rank in one hidden case. All six solvers use native Codex CLI
+0.160.0, requested model `gpt-6-astra`, high reasoning effort and priority
+service. Each receives a fresh conversation and a separate workspace with
+instructions limiting it to the packet. Pair order is C1/T1, T2/C2, T3/C3.
+Both agents in a pair can work concurrently while the GPU service serializes
+their requests. The next pair starts when both finish.
+
+The withheld tests cover fixed mode, exact budget, overshoot with a partial
+tail, rank skew, a whole epoch below budget and one-microbatch updates.
+The oracle concatenates the examples for each global update and uses mean
+cross-entropy directly. On both ranks the evaluator observes the gradient
+before the optimizer step, parameters and momentum afterward, final state and
+which microbatches formed each window. Tensor comparisons use absolute tolerance
+`1e-6` and relative tolerance `1e-5`. It also checks grad-producing forward
+sizes and overlap of outstanding forwards. Source review supplements those
+checks for buffering of the input iterator.
+
+The healthy fixed-mode starter completed ordinary DDP training on both GPUs.
+The starter passed fixed-mode replay and explicitly reported the new feature
+as unsupported. A separate correct implementation passed all six scenarios.
+A control that divides by the requested budget instead of the actual number
+of targets ran to completion and failed the numerical checks in four scenarios.
+Independent imports on both workers confirmed that control lacked TrainCheck
+and treatment could take a real CUDA snapshot using the supplied package.
+Six qualification requests used 128.585 allocated GPU-seconds.
+
+The operator sources are under [tools/token_budget_study](../../tools/token_budget_study).
+Local raw evidence lives in `outputs/ring18-token-budget-20261118/` in the
+canonical TrainCheck checkout. The matching Ring18 experiment directory is
+`/home/yuxuan/experiments/traincheck-token-budget-20261118`.
+`native-launch.json` binds the packets, CLI and controller, with SHA-256
+`4f9f387e33858c67ed1c98bd61ad269b977cf102725cef0fdfe7bc13115e5c4f`.
+`ring18-qualification-evidence.json` identifies environment and source hashes
+and all native qualification receipts, with SHA-256
+`6bf3c8fa7f736a835ae2dd9b5d47fcadbcdfdcc019c1ae261055d6856c30d60b`.
+The operator retains native turn logs and copies production source at every
+decision. An additional watcher samples edits approximately every 50 ms.
+Intermediate revisions that exist only between samples can be missed.
