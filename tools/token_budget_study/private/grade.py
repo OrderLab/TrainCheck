@@ -31,6 +31,7 @@ OUTCOMES = {
     "runtime_error",
     "unsupported",
     "communication_contract",
+    "resume_contract",
 }
 
 
@@ -43,6 +44,18 @@ def grade(
     collective_audit: Path | None = None,
 ) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
+    case_names = NAMES
+    case_manifest = Path(__file__).with_name("cases.json")
+    if case_manifest.is_file():
+        raw: object = json.loads(case_manifest.read_text())
+        if (
+            not isinstance(raw, list)
+            or not raw
+            or not all(isinstance(name, str) and name for name in raw)
+            or len(set(raw)) != len(raw)
+        ):
+            raise ValueError("Invalid private scenario names")
+        case_names = tuple(raw)
     # Reserve the path before allocating any worker time.
     with output.open("x") as stream:
         json.dump({"status": "running"}, stream)
@@ -51,6 +64,9 @@ def grade(
         for name in ("training.py", "workload.py"):
             shutil.copyfile(source / name, scratch / name)
         shutil.copyfile(Path(__file__).with_name("worker.py"), scratch / "worker.py")
+        baseline = Path(__file__).with_name("baseline_training.py")
+        if baseline.is_file():
+            shutil.copyfile(baseline, scratch / baseline.name)
         if collective_audit is not None:
             shutil.copyfile(collective_audit, scratch / "collectives.py")
         package_files: dict[str, str] = {}
@@ -109,7 +125,7 @@ def grade(
         worker_seconds = time.monotonic() - start
         statuses: set[str] = set()
         results: list[dict[str, object]] = []
-        for index, name in enumerate(NAMES):
+        for index, name in enumerate(case_names):
             for rank in (0, 1):
                 receipt = scratch / f"{index}-rank{rank}.json"
                 if receipt.is_file():
@@ -148,6 +164,7 @@ def grade(
                         "silent_wrong",
                         "memory_contract",
                         "communication_contract",
+                        "resume_contract",
                     )
                     if x in statuses
                 ),

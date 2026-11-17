@@ -200,6 +200,9 @@ def run_worker(req: Request, run: Path, source: Path) -> dict[str, object]:
         + os.pathsep
         + str(source),
     )
+    if (REMOTE / "data").is_dir():
+        env["TRAINCHECK_STUDY_DATA"] = str(REMOTE / "data")
+        env["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
     with (run / "stdout.log").open("xb") as out, (run / "stderr.log").open("xb") as err:
         start = time.monotonic()
         (run / "started.json").write_text(

@@ -67,7 +67,7 @@ def sources(root: Path) -> dict[tuple[str, str], Path]:
     return identities
 
 
-def run(root: Path) -> None:
+def run(root: Path, scenarios: set[str] | None = None) -> None:
     reports: list[dict[str, object]] = []
     total = 0.0
     for (arm, sha), original in sources(root).items():
@@ -96,7 +96,7 @@ def run(root: Path) -> None:
             if arm == "traincheck":
                 request.append("--with-traincheck")
             subprocess.run(request, check=True)
-        result = grade_status(receipt, sha, arm == "traincheck")
+        result = grade_status(receipt, sha, arm == "traincheck", scenarios)
         gpu = duration(read(receipt)["gpu_seconds"])
         total += gpu
         reports.append(
@@ -116,7 +116,9 @@ def run(root: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path)
-    run(parser.parse_args().root)
+    parser.add_argument("--scenario", action="append")
+    args = parser.parse_args()
+    run(args.root, set(args.scenario) if args.scenario else None)
 
 
 if __name__ == "__main__":
