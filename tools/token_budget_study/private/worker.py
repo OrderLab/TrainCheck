@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import copy
 import importlib.abc
 import importlib.machinery
@@ -64,6 +65,7 @@ class Step:
     gradients: TensorMap
     parameters: TensorMap
     momentum: TensorMap
+    end_microbatch: int
 
 
 def values(model: nn.Module) -> TensorMap:
@@ -116,7 +118,7 @@ def reference(
         torch.autograd.backward(loss)
         grad = gradients(model)
         opt.step()
-        result.append(Step(grad, values(model), momentum(model, opt)))
+        result.append(Step(grad, values(model), momentum(model, opt), index + 1))
         pending.clear()
         count = 0
     return result
@@ -138,7 +140,9 @@ def compare_map(label: str, expected: TensorMap, actual: TensorMap) -> list[str]
     return issues
 
 
-def evaluate(case: Scenario, rank: int, device: torch.device) -> dict[str, object]:
+def evaluate(
+    case: Scenario, rank: int, device: torch.device, audit_communication: bool = False
+) -> dict[str, object]:
     torch.manual_seed(case.seed)
     base = TokenModel().to(device)
     plain = copy.deepcopy(base)
@@ -160,6 +164,11 @@ def evaluate(case: Scenario, rank: int, device: torch.device) -> dict[str, objec
         args: tuple[object, ...],
         kwargs: dict[str, object],
     ) -> None:
+        if audit_communication:
+            from collectives import STEP
+
+            with torch.profiler.record_function(STEP):
+                pass
         pre.append(gradients(base))
         boundaries.append(list(observed_ids))
         observed_ids.clear()
@@ -169,7 +178,7 @@ def evaluate(case: Scenario, rank: int, device: torch.device) -> dict[str, objec
         args: tuple[object, ...],
         kwargs: dict[str, object],
     ) -> None:
-        actual.append(Step(pre.pop(), values(base), momentum(base, optimizer)))
+        actual.append(Step(pre.pop(), values(base), momentum(base, optimizer), 0))
 
     opt.register_step_pre_hook(before_step)
     opt.register_step_post_hook(after_step)
@@ -195,6 +204,11 @@ def evaluate(case: Scenario, rank: int, device: torch.device) -> dict[str, objec
 
         def before_backward(grad: Tensor) -> None:
             nonlocal outstanding
+            if audit_communication:
+                from collectives import BACKWARD
+
+                with torch.profiler.record_function(BACKWARD):
+                    pass
             outstanding -= 1
 
         # Tensor.register_hook in PyTorch 2.2 lacks type annotations.
@@ -204,7 +218,17 @@ def evaluate(case: Scenario, rank: int, device: torch.device) -> dict[str, objec
     try:
         from training import train_epoch
 
-        train_epoch(ddp, opt, iter(rank_batches[rank]), case.budget)
+        profiler = (
+            torch.profiler.profile(
+                activities=[torch.profiler.ProfilerActivity.CPU], record_shapes=True
+            )
+            if audit_communication
+            else None
+        )
+        with profiler if profiler is not None else contextlib.nullcontext():
+            train_epoch(ddp, opt, iter(rank_batches[rank]), case.budget)
+            if profiler is not None:
+                torch.cuda.synchronize()
     except NotImplementedError as exc:
         return {"name": case.name, "status": "unsupported", "error": repr(exc)}
     except Exception as exc:
@@ -236,6 +260,15 @@ def evaluate(case: Scenario, rank: int, device: torch.device) -> dict[str, objec
         ),
     )
     finite = all(bool(torch.isfinite(t).all().item()) for t in observed)
+    communication: dict[str, object] | None = None
+    if profiler is not None:
+        from collectives import audit
+
+        communication = audit(
+            profiler.events(),
+            [step.end_microbatch for step in expected],
+            sum(parameter.numel() for parameter in base.parameters()),
+        )
     status = "pass"
     if not finite:
         status = "nonfinite"
@@ -243,6 +276,8 @@ def evaluate(case: Scenario, rank: int, device: torch.device) -> dict[str, objec
         status = "silent_wrong"
     elif peak_outstanding > 1 or max_input_elements > rank_batches[rank][0][0].numel():
         status = "memory_contract"
+    elif communication is not None and communication["issues"]:
+        status = "communication_contract"
     return {
         "name": case.name,
         "status": status,
@@ -253,6 +288,7 @@ def evaluate(case: Scenario, rank: int, device: torch.device) -> dict[str, objec
         "expected_updates": len(expected),
         "observed_updates": len(actual),
         "issues": numerical,
+        "communication": communication,
     }
 
 
@@ -260,6 +296,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--receipts", type=Path, required=True)
     parser.add_argument("--device", choices=["cpu", "cuda"], required=True)
+    parser.add_argument("--audit-communication", action="store_true")
     args = parser.parse_args()
     rank = int(os.environ["RANK"])
     local = int(os.environ["LOCAL_RANK"])
@@ -277,7 +314,7 @@ def main() -> None:
         for index, case in enumerate(SCENARIOS):
             path = args.receipts / f"{index}-rank{rank}.json"
             path.with_suffix(".start").write_text(case.name)
-            result = evaluate(case, rank, device)
+            result = evaluate(case, rank, device, args.audit_communication)
             with path.open("x") as stream:
                 json.dump(result, stream)
             dist.barrier()
