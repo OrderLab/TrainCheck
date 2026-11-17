@@ -1,0 +1,316 @@
+{
+  "task": "token-budget-ddp-20261118",
+  "implementation_revision": "1d08bdce",
+  "cohort_outcomes": {
+    "finished": 6,
+    "delivered_silent_errors_observed": 0,
+    "self_detected_numerical_production_defect_then_repaired_observed": 0,
+    "correct_at_first_submission": 6,
+    "traincheck_guide_reads_in_optional_arm": 3,
+    "runtime_uses_of_traincheck_observed": 0
+  },
+  "cost_boundary": "At frozen production submission, before dispatch of any public execution requested by that decision. Total tokens count cached input once.",
+  "per_trial": [
+    {
+      "trial": "control_1",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 2,
+        "requests": 1,
+        "cli_seconds": 73.89876775097218,
+        "gpu_seconds": 25.008294839411974,
+        "queue_seconds": 11.230069799348712,
+        "elapsed_seconds": 98.6117637080024
+      },
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "d5565f27480700e7e5b0e4f7098ff3c95ef5d8e72ffbb8cb44c96e1fbf92be6b",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 61.95383666700218,
+          "cli_seconds": 61.94894879197818,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 109666,
+          "input_tokens": 106586,
+          "cached_input_tokens": 84480,
+          "output_tokens": 3080,
+          "uncached_input_plus_output": 25186
+        },
+        {
+          "turn": 2,
+          "production_sha256": "d5565f27480700e7e5b0e4f7098ff3c95ef5d8e72ffbb8cb44c96e1fbf92be6b",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 98.61131704199943,
+          "cli_seconds": 73.89876775097218,
+          "queue_seconds": 11.230069799348712,
+          "gpu_seconds": 25.008294839411974,
+          "total_tokens": 135855,
+          "input_tokens": 132618,
+          "cached_input_tokens": 108544,
+          "output_tokens": 3237,
+          "uncached_input_plus_output": 27311
+        }
+      ],
+      "earliest_observed_pass": 1,
+      "earlier_unknown_turns": []
+    },
+    {
+      "trial": "traincheck_1",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 2,
+        "requests": 1,
+        "cli_seconds": 67.37666341700242,
+        "gpu_seconds": 24.510121228173375,
+        "queue_seconds": 0.00012123305350542068,
+        "elapsed_seconds": 85.23818870799732
+      },
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "13d7dd30df6a0c89bb1ae7b0cdedb3163436b4ba57802c5d6fd601ced43829fa",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 56.19440937502077,
+          "cli_seconds": 56.18416104200878,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 90894,
+          "input_tokens": 88284,
+          "cached_input_tokens": 64512,
+          "output_tokens": 2610,
+          "uncached_input_plus_output": 26382
+        },
+        {
+          "turn": 2,
+          "production_sha256": "13d7dd30df6a0c89bb1ae7b0cdedb3163436b4ba57802c5d6fd601ced43829fa",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 85.23763379099546,
+          "cli_seconds": 67.37666341700242,
+          "queue_seconds": 0.00012123305350542068,
+          "gpu_seconds": 24.510121228173375,
+          "total_tokens": 118664,
+          "input_tokens": 115922,
+          "cached_input_tokens": 90112,
+          "output_tokens": 2742,
+          "uncached_input_plus_output": 28552
+        }
+      ],
+      "earliest_observed_pass": 1,
+      "earlier_unknown_turns": []
+    },
+    {
+      "trial": "control_2",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 2,
+        "requests": 1,
+        "cli_seconds": 65.58246241800953,
+        "gpu_seconds": 24.908979253843427,
+        "queue_seconds": 0.0001171603798866272,
+        "elapsed_seconds": 79.10894395899959
+      },
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "02045ce58bf51e325c9fc967418caae697aad5f58681b444e3dbc49b926bd621",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 54.37110237497836,
+          "cli_seconds": 54.36576070901356,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 74898,
+          "input_tokens": 72160,
+          "cached_input_tokens": 52864,
+          "output_tokens": 2738,
+          "uncached_input_plus_output": 22034
+        },
+        {
+          "turn": 2,
+          "production_sha256": "02045ce58bf51e325c9fc967418caae697aad5f58681b444e3dbc49b926bd621",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 79.10868350000237,
+          "cli_seconds": 65.58246241800953,
+          "queue_seconds": 0.0001171603798866272,
+          "gpu_seconds": 24.908979253843427,
+          "total_tokens": 96985,
+          "input_tokens": 94092,
+          "cached_input_tokens": 73984,
+          "output_tokens": 2893,
+          "uncached_input_plus_output": 23001
+        }
+      ],
+      "earliest_observed_pass": 1,
+      "earlier_unknown_turns": []
+    },
+    {
+      "trial": "traincheck_2",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 2,
+        "requests": 1,
+        "cli_seconds": 81.21886341599748,
+        "gpu_seconds": 24.70401251129806,
+        "queue_seconds": 0.00011837296187877655,
+        "elapsed_seconds": 94.68141233400092
+      },
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "e0945cad17bffbc98323c818b9ae75070021da81c08380ede4b58f2170dc819d",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 68.77601474997937,
+          "cli_seconds": 68.76812808300019,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 128224,
+          "input_tokens": 124666,
+          "cached_input_tokens": 113408,
+          "output_tokens": 3558,
+          "uncached_input_plus_output": 14816
+        },
+        {
+          "turn": 2,
+          "production_sha256": "e0945cad17bffbc98323c818b9ae75070021da81c08380ede4b58f2170dc819d",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 94.68105837499024,
+          "cli_seconds": 81.21886341599748,
+          "queue_seconds": 0.00011837296187877655,
+          "gpu_seconds": 24.70401251129806,
+          "total_tokens": 156153,
+          "input_tokens": 152402,
+          "cached_input_tokens": 139392,
+          "output_tokens": 3751,
+          "uncached_input_plus_output": 16761
+        }
+      ],
+      "earliest_observed_pass": 1,
+      "earlier_unknown_turns": []
+    },
+    {
+      "trial": "control_3",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 2,
+        "requests": 1,
+        "cli_seconds": 73.49893141697976,
+        "gpu_seconds": 24.91642988473177,
+        "queue_seconds": 0.0001183096319437027,
+        "elapsed_seconds": 86.9699251250131
+      },
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "44530b3435d8d5896cdd183593b2d6c7165f89ab219da4ff8aceb69001733c8b",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 60.54670108400751,
+          "cli_seconds": 60.541876041999785,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 94550,
+          "input_tokens": 91815,
+          "cached_input_tokens": 84480,
+          "output_tokens": 2735,
+          "uncached_input_plus_output": 10070
+        },
+        {
+          "turn": 2,
+          "production_sha256": "44530b3435d8d5896cdd183593b2d6c7165f89ab219da4ff8aceb69001733c8b",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 86.96970687501016,
+          "cli_seconds": 73.49893141697976,
+          "queue_seconds": 0.0001183096319437027,
+          "gpu_seconds": 24.91642988473177,
+          "total_tokens": 121899,
+          "input_tokens": 119014,
+          "cached_input_tokens": 105728,
+          "output_tokens": 2885,
+          "uncached_input_plus_output": 16171
+        }
+      ],
+      "earliest_observed_pass": 1,
+      "earlier_unknown_turns": []
+    },
+    {
+      "trial": "traincheck_3",
+      "terminal": {
+        "status": "finished",
+        "last_turn": 2,
+        "requests": 1,
+        "cli_seconds": 75.45538349996787,
+        "gpu_seconds": 24.796238465234637,
+        "queue_seconds": 8.750714817084372,
+        "elapsed_seconds": 97.73528554098448
+      },
+      "submissions": [
+        {
+          "turn": 1,
+          "production_sha256": "d146608940b75b1c906a0de174b0a431bbef972cbc80f4d4080eed20160a7a2e",
+          "action": "run",
+          "grade": "pass",
+          "wall_seconds": 64.25127145799343,
+          "cli_seconds": 64.2413744579826,
+          "queue_seconds": 0.0,
+          "gpu_seconds": 0.0,
+          "total_tokens": 95300,
+          "input_tokens": 92152,
+          "cached_input_tokens": 72576,
+          "output_tokens": 3148,
+          "uncached_input_plus_output": 22724
+        },
+        {
+          "turn": 2,
+          "production_sha256": "d146608940b75b1c906a0de174b0a431bbef972cbc80f4d4080eed20160a7a2e",
+          "action": "finish",
+          "grade": "pass",
+          "wall_seconds": 97.73503808298847,
+          "cli_seconds": 75.45538349996787,
+          "queue_seconds": 8.750714817084372,
+          "gpu_seconds": 24.796238465234637,
+          "total_tokens": 118888,
+          "input_tokens": 115576,
+          "cached_input_tokens": 94464,
+          "output_tokens": 3312,
+          "uncached_input_plus_output": 24424
+        }
+      ],
+      "earliest_observed_pass": 1,
+      "earlier_unknown_turns": []
+    }
+  ],
+  "new_allocations": {
+    "qualification": {
+      "allocated_gpu_seconds": 128.58470613323152,
+      "physical_allocations": 6
+    },
+    "solvers": {
+      "allocated_gpu_seconds": 148.84407618269324,
+      "physical_allocations": 6
+    },
+    "grading": {
+      "allocated_gpu_seconds": 210.97372341156006,
+      "physical_allocations": 8
+    }
+  },
+  "total_gpu_seconds": 488.4025057274848,
+  "evidence_sha256": {
+    "first-valid-costs.json": "048723d1c2cdcf0c65a5765935316a8f906013c50646e194090b436ebd3ed2e1",
+    "behavior-audit.json": "0f398ef6e8ec65b3fcf6fcb601b0bc4c0580af0aac79c17c43a81a7f54ac67be",
+    "native-operation-audit.json": "964fc69cf77ec3d9f02ff99061d230240b79371d1d5d3a19995cde87e25153a5",
+    "ring18-allocation-audit.json": "687128f23bf2b7daa23469de012c79b76422a973baff4d2510bfcfe1653d671a",
+    "private-grading-summary.json": "f536ab6c4bcbbb1d6937624fff34e685b34f0e4496461b7bcc1e491bf1983317",
+    "private-replay-inventory.json": "994c351c9f60bedf5c5c9a307af6a612dce1da20456d412c4ed1635e2526084d",
+    "native-launch.json": "4f9f387e33858c67ed1c98bd61ad269b977cf102725cef0fdfe7bc13115e5c4f",
+    "ring18-qualification-evidence.json": "6bf3c8fa7f736a835ae2dd9b5d47fcadbcdfdcc019c1ae261055d6856c30d60b"
+  }
+}
