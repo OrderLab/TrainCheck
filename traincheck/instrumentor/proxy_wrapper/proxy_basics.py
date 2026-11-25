@@ -73,7 +73,13 @@ def unproxy_arg(arg, inspect_torch_module=False):
     if is_proxied(arg):
         return unproxy_arg(arg._obj, inspect_torch_module)
     elif type(arg) in [list]:
-        return [unproxy_arg(element, inspect_torch_module) for element in arg]
+        # Unproxy in place. Callees such as torch.optim's functional sgd write
+        # results back into list arguments (e.g. momentum_buffer_list), and the
+        # caller reads them from the same list afterwards, so a copy would
+        # silently drop those writes (issue #176).
+        for index, element in enumerate(arg):
+                arg[index] = unproxy_arg(element, inspect_torch_module)
+        return arg
     elif type(arg) in [tuple]:
         return tuple(unproxy_arg(element, inspect_torch_module) for element in arg)
     # if it is a torch module, unproxy all its named children
