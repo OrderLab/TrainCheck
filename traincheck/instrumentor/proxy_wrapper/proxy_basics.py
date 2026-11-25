@@ -78,7 +78,7 @@ def unproxy_arg(arg, inspect_torch_module=False):
         # caller reads them from the same list afterwards, so a copy would
         # silently drop those writes (issue #176).
         for index, element in enumerate(arg):
-                arg[index] = unproxy_arg(element, inspect_torch_module)
+            arg[index] = unproxy_arg(element, inspect_torch_module)
         return arg
     elif type(arg) in [tuple]:
         return tuple(unproxy_arg(element, inspect_torch_module) for element in arg)
