@@ -30,6 +30,13 @@ from traincheck.instrumentor.dumper import (
     get_instrumentation_logger_for_process,
     var_to_serializable,
 )
+from traincheck.instrumentor.proxy_wrapper.list_writeback import (
+    ListWritebackPositions,
+    call_with_list_writebacks,
+    has_list_writeback,
+    list_writeback_positions,
+    prepare_list_writebacks,
+)
 from traincheck.instrumentor.proxy_wrapper.proxy_basics import (
     is_proxied,
     is_proxyparameter,
@@ -360,7 +367,12 @@ def function_wrapper(
                 dump_loc=original_function_name, dump_config=var_dump_config
             )
 
+        # The caller's arguments, kept only for calls with registered list
+        # write-backs; every other call keeps the direct call below.
+        writeback_caller: tuple[tuple[object, ...], dict[str, object]] | None = None
         if need_unproxy_args_kwargs:
+            if has_list_writeback(original_function_name):
+                writeback_caller = (args, kwargs)
             # Construct the actual receiver, never an object obtained by reading
             # proxy metadata from its partially initialized state.
             if is_constructor:
@@ -387,7 +399,19 @@ def function_wrapper(
     try:
         if COLLECT_OVERHEAD_METRICS:
             ORIG_ENTER_PERF_TIME = time.perf_counter()
-        result = original_function(*args, **kwargs)
+        if writeback_caller is None:
+            result = original_function(*args, **kwargs)
+        else:
+            # Inside the traced call, so a registry mismatch is recorded as the
+            # call's exception like any other failure.
+            result = call_with_registered_list_writebacks(
+                original_function,
+                original_function_name,
+                writeback_caller[0],
+                writeback_caller[1],
+                args,
+                kwargs,
+            )
         if COLLECT_OVERHEAD_METRICS:
             ORIG_EXIT_PERF_TIME = time.perf_counter()
     except Exception as e:
@@ -526,6 +550,56 @@ def core_wrapper_proxy(original_function, *args, **kwargs):
     return original_function(*args, **kwargs)
 
 
+def call_with_registered_list_writebacks(
+    original_function: Callable[..., object],
+    original_function_name: str,
+    caller_args: Sequence[object],
+    caller_kwargs: Mapping[str, object],
+    args: Sequence[object],
+    kwargs: Mapping[str, object],
+) -> object:
+    """Call ``original_function`` with unproxied ``args``/``kwargs`` and write
+    back the list slots registered for ``original_function_name``.
+
+    ``function_wrapper`` has no wrap-time state of its own, so the registered
+    parameters are resolved here on each call; this runs only for registered
+    APIs that the tracer unproxies.
+    """
+    with suppress_tracing():
+        positions = list_writeback_positions(original_function, original_function_name)
+        assert positions is not None, f"{original_function_name} is not registered"
+        pending = prepare_list_writebacks(
+            original_function_name, positions, caller_args, caller_kwargs, args, kwargs
+        )
+    return call_with_list_writebacks(original_function, pending, args, kwargs)
+
+
+def core_wrapper_proxy_list_writeback(
+    original_function: Callable[..., object],
+    original_function_name: str,
+    positions: ListWritebackPositions,
+    *args: object,
+    **kwargs: object,
+) -> object:
+    """``core_wrapper_proxy`` for APIs with registered list write-backs."""
+    if tracing_suppressed():
+        return original_function(*args, **kwargs)
+
+    with suppress_tracing():
+        callee_args, callee_kwargs = unproxy_args_kwargs(args, kwargs)
+        pending = prepare_list_writebacks(
+            original_function_name,
+            positions,
+            args,
+            kwargs,
+            callee_args,
+            callee_kwargs,
+        )
+    return call_with_list_writebacks(
+        original_function, pending, callee_args, callee_kwargs
+    )
+
+
 def wrapper(
     original_function: Callable[..., object],
     is_bound_method: bool,
@@ -565,6 +639,13 @@ def wrapper(
         is_builtin or is_funcs_to_be_unproxied(original_function)
     )
     original_function_name = typename(original_function)
+    # Resolved once here, so a registry entry that does not match the installed
+    # library fails at instrumentation time.
+    writeback_positions = (
+        list_writeback_positions(original_function, original_function_name)
+        if need_unproxy_args_kwargs
+        else None
+    )
     # determine statically whether to dump the trace
     if not disable_dump:
         METRIC_INSTRUMENTED_FUNC_LIST["dump"].append(original_function_name)
@@ -592,7 +673,20 @@ def wrapper(
 
     else:
         METRIC_INSTRUMENTED_FUNC_LIST["no_dump"].append(original_function_name)
-        if need_unproxy_args_kwargs:
+        if writeback_positions is not None:
+            positions = writeback_positions
+
+            @functools.wraps(original_function)
+            def wrapped(*args: object, **kwargs: object) -> object:
+                return core_wrapper_proxy_list_writeback(
+                    original_function,
+                    original_function_name,
+                    positions,
+                    *args,
+                    **kwargs,
+                )
+
+        elif need_unproxy_args_kwargs:
 
             @functools.wraps(original_function)
             def wrapped(*args: object, **kwargs: object) -> object:
