@@ -16,7 +16,10 @@ setattr(ProcessGroup, "broadcast", unproxy_func(ProcessGroup.__dict__.get("broad
 setattr(ProcessGroup, "allreduce", unproxy_func(ProcessGroup.__dict__.get("allreduce")))
 setattr(ProcessGroup, "allgather", unproxy_func(ProcessGroup.__dict__.get("allgather")))
 
-setattr(tokenize, "_tokenize", unproxy_func(tokenize.__dict__.get("_tokenize")))
+# A private helper: present in every supported Python, but nothing to wrap if absent.
+_original_tokenize = tokenize.__dict__.get("_tokenize")
+if _original_tokenize is not None:
+    setattr(tokenize, "_tokenize", unproxy_func(_original_tokenize))
 if "BF16_Optimizer" in globals():
     BF16_Optimizer._flatten_dense_tensors_aligned = unproxy_func(
         BF16_Optimizer.__dict__.get("_flatten_dense_tensors_aligned")

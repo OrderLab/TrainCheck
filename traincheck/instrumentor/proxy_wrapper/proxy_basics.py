@@ -1,10 +1,17 @@
 import ast
 import functools
 import inspect
+from collections.abc import Callable
 
 import astor
 
 import traincheck.config.config as config
+from traincheck.instrumentor.proxy_wrapper.list_writeback import (
+    call_with_list_writebacks,
+    list_writeback_positions,
+    prepare_list_writebacks,
+)
+from traincheck.utils import typename
 
 
 def is_compile_internal_module(obj):
@@ -73,6 +80,10 @@ def unproxy_arg(arg, inspect_torch_module=False):
     if is_proxied(arg):
         return unproxy_arg(arg._obj, inspect_torch_module)
     elif type(arg) in [list]:
+        # Always a new list: the caller's list keeps its proxies (an optimizer's
+        # param list must, since its state is keyed by them). APIs that return
+        # results by replacing slots of a list argument are registered in
+        # list_writeback, and unproxy_func writes those slots back (issue #176).
         return [unproxy_arg(element, inspect_torch_module) for element in arg]
     elif type(arg) in [tuple]:
         return tuple(unproxy_arg(element, inspect_torch_module) for element in arg)
@@ -99,13 +110,37 @@ def unproxy_args_kwargs(args, kwargs, inspect_torch_module=False):
     return args, kwargs
 
 
-def unproxy_func(func, inspect_torch_module=False):
+def unproxy_func(
+    func: Callable[..., object],
+    inspect_torch_module: bool = False,
+    api_name: str | None = None,
+) -> Callable[..., object]:
+    """Wrap ``func`` so that it is called with unproxied arguments.
+
+    ``api_name`` is the name ``func`` is registered under in
+    ``LIST_WRITEBACK_ARGUMENTS``; ``None`` derives it with ``typename``. Slots
+    that ``func`` replaces in a registered list argument are written back to
+    the caller's list, also when ``func`` raises. Registered parameters are
+    resolved here, so a registry entry that does not match ``func`` raises
+    ``ListWritebackError`` when wrapping rather than at a call.
+    """
     original_func = func
+    lookup_name = typename(func) if api_name is None else api_name
+    positions = list_writeback_positions(func, lookup_name)
 
     @functools.wraps(original_func)
-    def wrapper(*args, **kwargs):
-        args, kwargs = unproxy_args_kwargs(args, kwargs, inspect_torch_module)
-        return original_func(*args, **kwargs)
+    def wrapper(*args: object, **kwargs: object) -> object:
+        callee_args, callee_kwargs = unproxy_args_kwargs(
+            args, kwargs, inspect_torch_module
+        )
+        if positions is None:
+            return original_func(*callee_args, **callee_kwargs)
+        pending = prepare_list_writebacks(
+            lookup_name, positions, args, kwargs, callee_args, callee_kwargs
+        )
+        return call_with_list_writebacks(
+            original_func, pending, callee_args, callee_kwargs
+        )
 
     return wrapper
 

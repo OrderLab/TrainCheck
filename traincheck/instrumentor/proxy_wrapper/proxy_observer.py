@@ -66,7 +66,9 @@ def add_observer_to_func(original_function, unproxy=False):
 
         processed_function = original_function
         if unproxy:
-            processed_function = unproxy_func(original_function)
+            processed_function = unproxy_func(
+                original_function, api_name=original_function_name
+            )
 
         result = processed_function(*args, **kwargs)
 
